@@ -1,0 +1,273 @@
+{
+  "$schema": "dovastash-categories-1",
+  "categories": [
+    {
+      "id": "weapons.swords",
+      "name": "Swords",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["OneHandSword"]}
+    },
+    {
+      "id": "weapons.greatswords",
+      "name": "Greatswords",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["TwoHandSword"]}
+    },
+    {
+      "id": "weapons.daggers",
+      "name": "Daggers",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["OneHandDagger"]}
+    },
+    {
+      "id": "weapons.axes",
+      "name": "Battleaxes",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["TwoHandAxe"], "keywordsNone": ["WeapTypeWarhammer"]}
+    },
+    {
+      "id": "weapons.waraxes",
+      "name": "War axes",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["OneHandAxe"]}
+    },
+    {
+      "id": "weapons.maces",
+      "name": "Maces",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["OneHandMace"]}
+    },
+    {
+      "id": "weapons.warhammers",
+      "name": "Warhammers",
+      "priority": 110,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["TwoHandAxe"], "keywordsAny": ["WeapTypeWarhammer"]}
+    },
+    {
+      "id": "weapons.bows",
+      "name": "Bows",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["Bow"]}
+    },
+    {
+      "id": "weapons.crossbows",
+      "name": "Crossbows",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["Crossbow"]}
+    },
+    {
+      "id": "weapons.staves",
+      "name": "Staves",
+      "priority": 100,
+      "match": {"formTypes": ["WEAP"], "weaponTypes": ["Staff"]}
+    },
+    {
+      "id": "armor.shields",
+      "name": "Shields",
+      "priority": 120,
+      "match": {"formTypes": ["ARMO"], "keywordsAny": ["ArmorShield"]}
+    },
+    {
+      "id": "armor.jewelry",
+      "name": "Jewelry",
+      "priority": 120,
+      "match": {"formTypes": ["ARMO"], "keywordsAny": ["ArmorJewelry", "VendorItemJewelry"]}
+    },
+    {
+      "id": "armor.heavy",
+      "name": "Heavy armor",
+      "priority": 100,
+      "match": {"formTypes": ["ARMO"], "armorTypes": ["Heavy"]}
+    },
+    {
+      "id": "armor.light",
+      "name": "Light armor",
+      "priority": 100,
+      "match": {"formTypes": ["ARMO"], "armorTypes": ["Light"]}
+    },
+    {
+      "id": "armor.clothing",
+      "name": "Clothing",
+      "priority": 100,
+      "match": {"formTypes": ["ARMO"], "armorTypes": ["Clothing"]}
+    },
+    {
+      "id": "ammo.arrows",
+      "name": "Arrows",
+      "priority": 100,
+      "match": {"formTypes": ["AMMO"], "ammo": ["Arrow"]}
+    },
+    {
+      "id": "ammo.bolts",
+      "name": "Bolts",
+      "priority": 100,
+      "match": {"formTypes": ["AMMO"], "ammo": ["Bolt"]}
+    },
+    {
+      "id": "alchemy.potions",
+      "name": "Potions",
+      "priority": 100,
+      "match": {"formTypes": ["ALCH"], "alchemy": ["Potion"]}
+    },
+    {
+      "id": "alchemy.poisons",
+      "name": "Poisons",
+      "priority": 100,
+      "match": {"formTypes": ["ALCH"], "alchemy": ["Poison"]}
+    },
+    {
+      "id": "alchemy.food",
+      "name": "Food & drink",
+      "priority": 100,
+      "match": {"formTypes": ["ALCH"], "alchemy": ["Food"]}
+    },
+    {
+      "id": "alchemy.ingredients",
+      "name": "Ingredients",
+      "priority": 100,
+      "match": {"formTypes": ["INGR"]}
+    },
+    {
+      "id": "books.spelltomes",
+      "name": "Spell tomes",
+      "priority": 120,
+      "match": {"formTypes": ["BOOK"], "bookTeaches": ["Spell"]}
+    },
+    {
+      "id": "books.skill",
+      "name": "Skill books",
+      "priority": 120,
+      "match": {"formTypes": ["BOOK"], "bookTeaches": ["Skill"]}
+    },
+    {
+      "id": "books.notes",
+      "name": "Notes & recipes",
+      "priority": 110,
+      "match": {"formTypes": ["BOOK"], "bookTeaches": ["None"], "keywordsNone": ["VendorItemBook"]}
+    },
+    {
+      "id": "books.other",
+      "name": "Books",
+      "priority": 100,
+      "match": {"formTypes": ["BOOK"]}
+    },
+    {
+      "id": "scrolls",
+      "name": "Scrolls",
+      "priority": 100,
+      "match": {"formTypes": ["SCRL"]}
+    },
+    {
+      "id": "soulgems.empty",
+      "name": "Empty soul gems",
+      "priority": 100,
+      "match": {"formTypes": ["SLGM"], "soulGem": ["Empty"]}
+    },
+    {
+      "id": "soulgems.filled",
+      "name": "Filled soul gems",
+      "priority": 100,
+      "match": {"formTypes": ["SLGM"], "soulGem": ["Filled"]}
+    },
+    {
+      "id": "misc.building_materials",
+      "name": "Building materials",
+      "priority": 210,
+      "match": {
+        "formTypes": ["MISC"],
+        "forms": [
+          "HearthFires.esm|0x0000300E",
+          "HearthFires.esm|0x0000306C",
+          "HearthFires.esm|0x00003043",
+          "HearthFires.esm|0x00005A69",
+          "HearthFires.esm|0x00005A68",
+          "HearthFires.esm|0x0000303F",
+          "HearthFires.esm|0x00003035",
+          "HearthFires.esm|0x00003012",
+          "HearthFires.esm|0x00003011",
+          "HearthFires.esm|0x0000300F",
+          "Skyrim.esm|0x0006F993",
+          "Dragonborn.esm|0x0003CF16"
+        ]
+      }
+    },
+    {
+      "id": "misc.dwemer",
+      "name": "Dwemer parts & curios",
+      "priority": 200,
+      "match": {
+        "formTypes": ["MISC"],
+        "forms": [
+          "Skyrim.esm|0x000C886A",
+          "Skyrim.esm|0x000C886C",
+          "Skyrim.esm|0x000C886E",
+          "Skyrim.esm|0x000C8870",
+          "Skyrim.esm|0x000C8861",
+          "Skyrim.esm|0x000C8868",
+          "Skyrim.esm|0x000AEBF1",
+          "Skyrim.esm|0x000C8866",
+          "Skyrim.esm|0x000C8864",
+          "Skyrim.esm|0x000C8872",
+          "Skyrim.esm|0x000C8874",
+          "Skyrim.esm|0x000C8878",
+          "Skyrim.esm|0x000F4983",
+          "Skyrim.esm|0x000E1FC3",
+          "Skyrim.esm|0x00025C13",
+          "Skyrim.esm|0x00025C68",
+          "Skyrim.esm|0x00027F03",
+          "Skyrim.esm|0x00027F06",
+          "Skyrim.esm|0x00027F07",
+          "Skyrim.esm|0x00027F08",
+          "Skyrim.esm|0x00027F09",
+          "Skyrim.esm|0x00027F15",
+          "Skyrim.esm|0x00027F12",
+          "Skyrim.esm|0x000AEBF3",
+          "Skyrim.esm|0x000AEBF7",
+          "Skyrim.esm|0x000AEBF4"
+        ]
+      }
+    },
+    {
+      "id": "misc.tools",
+      "name": "Tools",
+      "priority": 150,
+      "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemTool"]}
+    },
+    {
+      "id": "misc.gems",
+      "name": "Gems",
+      "priority": 140,
+      "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemGem"]}
+    },
+    {
+      "id": "misc.ores_ingots",
+      "name": "Ores & ingots",
+      "priority": 130,
+      "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemOreIngot"]}
+    },
+    {
+      "id": "misc.hides_pelts",
+      "name": "Hides & pelts",
+      "priority": 130,
+      "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemAnimalHide"]}
+    },
+    {
+      "id": "misc.animal_parts",
+      "name": "Animal parts",
+      "priority": 130,
+      "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemAnimalPart"]}
+    },
+    {
+      "id": "misc.clutter",
+      "name": "Clutter & other misc items",
+      "priority": 10,
+      "match": {"formTypes": ["MISC"]}
+    },
+    {
+      "id": "keys",
+      "name": "Keys",
+      "priority": 100,
+      "match": {"formTypes": ["KEYM"]}
+    }
+  ]
+}

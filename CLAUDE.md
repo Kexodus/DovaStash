@@ -1,0 +1,50 @@
+# Dova Stash — contributor notes
+
+SKSE plugin (CommonLibSSE-NG, SE + AE + VR, one DLL) that auto-sorts loot into containers in any player
+home, driven by JSON layouts/templates. **Read `docs/DESIGN.md` first** — it is the spec.
+
+## Layout
+
+| Path | What | Rules |
+|---|---|---|
+| `src/core/` | Engine-independent logic: form refs, category engine, layout/template schema, keep rules, sort planner | **No CommonLib / game headers.** Pure C++23 + nlohmann-json. Namespace `dova::core`. |
+| `tests/` | Catch2 v3 unit tests for `src/core` | Build/run with the `core-tests` preset — no game, no CommonLib needed |
+| `src/plugin/` | SKSE plugin: CommonLib adapters, events, input, item moving, UI | Namespace `dova`. Only layer allowed to touch `RE::`/`SKSE::` |
+| `extern/CommonLibSSE-NG` | git submodule → `alandtse/CommonLibVR` branch `ng` | Don't edit |
+| `extern/SKSEMenuFramework/` | Vendored header from `QTR-Modding/SKSE-Menu-Framework-3-API` | Soft dependency |
+| `dist/Data/SKSE/Plugins/DovaStash/` | Shipped data: `Categories/*.json`, `Templates/**.json` | Must validate against the schemas in DESIGN §6–7 |
+| `tools/` | Python helpers (ESM dumper for template authoring) | stdlib only |
+
+## Core ↔ plugin contract
+
+The plugin translates game objects into plain structs from `src/core/include/dova/core/Item.h`
+(`ItemInfo`), asks core for decisions (`SortPlanner` → list of `Move`s), then executes the moves with
+`RE::TESObjectREFR::RemoveItem` on the main thread. Core never performs side effects on the game.
+
+- Form identity everywhere in data files: `"Plugin.esm|0x00ABCDEF"` (local form ID, see DESIGN §6.1) — `dova::core::FormRef`.
+- Keywords are referenced by EditorID strings.
+- Enum values in JSON use the **enumerator names from `Item.h`** (`"OneHandSword"`, `"Heavy"`, `"Skill"`,
+  `"Poison"`, `"Filled"`, `"Bolt"`), parsed case-insensitively. `formTypes` use record signatures
+  (`"WEAP"`, `"ARMO"`, `"AMMO"`, `"ALCH"`, `"INGR"`, `"BOOK"`, `"SCRL"`, `"SLGM"`, `"MISC"`, `"KEYM"`, `"LIGH"`).
+- Category matcher field names are exactly those in DESIGN §7.1 (`formTypes`, `keywordsAny`, `keywordsAll`,
+  `keywordsNone`, `forms`, `formLists`, `plugins`, `weaponTypes`, `armorTypes`, `bookTeaches`, `alchemy`,
+  `soulGem`, `enchanted`, `ammo`). Scalar-or-array is accepted for the enum fields.
+
+## Build
+
+```
+cmake --preset core-tests && cmake --build --preset core-tests && ctest --preset core-tests
+cmake --preset plugin && cmake --build --preset plugin-release
+```
+
+`VCPKG_ROOT=E:\vcpkg`. Toolchain: VS 2022 Build Tools (MSVC v143), generator "Visual Studio 17 2022".
+The plugin build copies `DovaStash.dll`/`.pdb` + `dist/Data` into the MO2 mod folder
+`E:\modding\Kexodus Skyrim\mods\Dova Stash\` (override with `-DDOVASTASH_DEPLOY_DIR=`).
+Test game: Skyrim AE 1.6.1170 via MO2 (SKSE, Address Library, SKSE Menu Framework, QuickLoot IE, KID installed).
+
+## Conventions
+
+- C++23, MSVC. Tabs for indentation (matches CommonLib `.clang-format`).
+- Logging via spdlog to `My Games/Skyrim Special Edition/SKSE/DovaStash.log` (plugin only; core returns diagnostics instead of logging).
+- Never lose an item: when in doubt, don't move it. Unresolvable form refs are skipped and kept in data, never deleted.
+- Don't commit unless asked.

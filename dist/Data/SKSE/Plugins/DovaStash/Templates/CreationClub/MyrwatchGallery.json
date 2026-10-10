@@ -1,0 +1,38 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Myrwatch Gallery",
+  "author": "Dova Stash",
+  "version": "1.0.0",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "ccEEJSSE002-Tower.esl"],
+  "cell": "ccEEJSSE002-Tower.esl|0x0000092C",
+  "master": "ccEEJSSE002-Tower.esl|0x00000E5D",
+  "containers": [
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000EF8", "label": "Alchemy cupboard", "categories": ["alchemy.ingredients"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000F8C", "label": "Alchemy cupboard (second)", "categories": ["alchemy.potions", "alchemy.poisons"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000EF7", "label": "Soul gem barrel", "categories": ["soulgems.*"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000F0A", "label": "Enchanting cupboard", "categories": ["scrolls"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000F7E", "label": "Enchanting cupboard (second)", "categories": ["books.spelltomes"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000F43", "label": "Staff enchanter cupboard", "categories": ["weapons.staves"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000E56", "label": "Shield display cupboard", "categories": ["armor.shields"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000E99", "label": "Armory cupboard", "categories": ["armor.heavy", "armor.light"]},
+    {
+      "ref": "ccEEJSSE002-Tower.esl|0x00000F73",
+      "label": "Armory cupboard (by the mannequin)",
+      "categories": [
+        "weapons.swords",
+        "weapons.greatswords",
+        "weapons.daggers",
+        "weapons.axes",
+        "weapons.waraxes",
+        "weapons.maces",
+        "weapons.warhammers",
+        "weapons.bows",
+        "weapons.crossbows"
+      ]
+    },
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000F01", "label": "Large sack by the tanning rack", "categories": ["misc.hides_pelts", "misc.animal_parts"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000D31", "label": "Curio cabinet", "categories": ["misc.gems", "armor.jewelry"]},
+    {"ref": "ccEEJSSE002-Tower.esl|0x00000D32", "label": "Curio cabinet (second)", "categories": ["misc.dwemer"]}
+  ]
+}

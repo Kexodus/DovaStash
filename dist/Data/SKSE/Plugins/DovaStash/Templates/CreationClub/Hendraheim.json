@@ -1,0 +1,33 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Hendraheim",
+  "author": "Dova Stash",
+  "version": "1.0.0",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "ccEEJSSE004-Hall.esl"],
+  "cell": "Update.esm|0x00002FD9",
+  "master": "ccEEJSSE004-Hall.esl|0x00000A81",
+  "containers": [
+    {"ref": "ccEEJSSE004-Hall.esl|0x000008DE", "label": "Safe", "categories": ["armor.jewelry", "misc.gems"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000F82", "label": "Bedroom wardrobe", "categories": ["armor.clothing"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000FF2", "label": "Wardrobe (second)", "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000881", "label": "Narrow dresser (by the bench)", "categories": ["weapons.*"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000955", "label": "Drawers (by the beds)", "categories": ["ammo.*"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x000008A5", "label": "Narrow dresser (by the oven)", "categories": ["alchemy.food"]},
+    {
+      "ref": "ccEEJSSE004-Hall.esl|0x00000A66",
+      "label": "Satchel by the alchemy lab",
+      "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]
+    },
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000FB6", "label": "Narrow dresser (by the arcane enchanter)", "categories": ["soulgems.*", "scrolls"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x0000086C", "label": "Bookcase", "categories": ["books.*"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x000009D0", "label": "Strong box", "categories": ["misc.ores_ingots", "misc.hides_pelts", "misc.animal_parts"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000A42", "label": "Narrow dresser (by the bed)", "categories": ["keys"]},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000E49", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000E66", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000E71", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000EF4", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000F05", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccEEJSSE004-Hall.esl|0x00000F16", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true}
+  ]
+}

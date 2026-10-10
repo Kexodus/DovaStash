@@ -1,0 +1,38 @@
+; Dova Stash settings.
+; Location: Data/SKSE/Plugins/DovaStash.ini. Missing keys fall back to the defaults shown here.
+
+[General]
+; Log verbosity for My Games/Skyrim Special Edition/SKSE/DovaStash.log
+; 0 = trace, 1 = debug, 2 = info, 3 = warn, 4 = error, 5 = critical, 6 = off
+iLogLevel = 2
+
+; true = when you enter a home that has a template, enable it automatically.
+; false = show a one-time notification and wait for you to press the hotkey.
+bAutoEnableTemplates = false
+
+[Input]
+; Keyboard hotkey as a DirectInput scan code (decimal). 37 = K.
+; K is not bound by vanilla Skyrim's PC control map. Full list of codes:
+; https://ck.uesp.net/wiki/Input_Script#DXScanCodes
+iHotkey = 37
+
+; Gamepad hotkey as an SKSE gamepad key code (decimal), -1 = disabled.
+; Every gamepad button already has a vanilla function, so this is off by default.
+; 266 DPad Up, 267 DPad Down, 268 DPad Left, 269 DPad Right, 270 Start, 271 Back,
+; 272 Left Thumb, 273 Right Thumb, 274 LB, 275 RB, 276 A, 277 B, 278 X, 279 Y, 280 LT, 281 RT
+iGamepadHotkey = -1
+
+[Sorting]
+; true = closing the master container sorts its contents into the other containers.
+bDistributeOnMasterClose = true
+
+; true = putting an item into a managed container by hand (container menu open) remembers that
+; container as the item's destination ("learned destinations").
+bLearn = true
+
+[UI]
+; Which menus Dova Stash uses.
+; 0 = auto: the SKSE Menu Framework panel when that mod is installed (not on VR), else native message boxes
+; 1 = always native message boxes
+; 2 = always the SKSE Menu Framework panel (falls back to message boxes if the framework is not loaded)
+iMode = 0

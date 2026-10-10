@@ -1,0 +1,61 @@
+{
+	"version": 6,
+	"cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+	"configurePresets": [
+		{
+			"name": "base",
+			"hidden": true,
+			"generator": "Visual Studio 17 2022",
+			"architecture": "x64",
+			"binaryDir": "${sourceDir}/build/${presetName}",
+			"toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+			"cacheVariables": {
+				"VCPKG_TARGET_TRIPLET": "x64-windows-static-md",
+				"VCPKG_HOST_TRIPLET": "x64-windows-static-md"
+			}
+		},
+		{
+			"name": "core-tests",
+			"displayName": "Core logic + unit tests only (no CommonLib)",
+			"inherits": "base",
+			"cacheVariables": {
+				"DOVASTASH_BUILD_PLUGIN": "OFF",
+				"DOVASTASH_BUILD_TESTS": "ON",
+				"VCPKG_MANIFEST_FEATURES": "tests"
+			}
+		},
+		{
+			"name": "plugin",
+			"displayName": "SKSE plugin (SE + AE + VR) + unit tests",
+			"inherits": "base",
+			"cacheVariables": {
+				"DOVASTASH_BUILD_PLUGIN": "ON",
+				"DOVASTASH_BUILD_TESTS": "ON",
+				"VCPKG_MANIFEST_FEATURES": "plugin;tests",
+				"ENABLE_SKYRIM_SE": "ON",
+				"ENABLE_SKYRIM_AE": "ON",
+				"ENABLE_SKYRIM_VR": "ON",
+				"BUILD_TESTS": "OFF",
+				"COMMONLIB_PREBUILT": "ON",
+				"COMMONLIB_PREBUILT_MULTICONFIG": "ON"
+			}
+		},
+		{
+			"name": "plugin-source",
+			"displayName": "SKSE plugin with CommonLibSSE-NG compiled from source (required for Debug)",
+			"inherits": "plugin",
+			"cacheVariables": {
+				"COMMONLIB_PREBUILT": "OFF",
+				"COMMONLIB_PREBUILT_MULTICONFIG": "OFF"
+			}
+		}
+	],
+	"buildPresets": [
+		{ "name": "core-tests", "configurePreset": "core-tests", "configuration": "Debug" },
+		{ "name": "plugin-release", "configurePreset": "plugin", "configuration": "Release" },
+		{ "name": "plugin-debug", "configurePreset": "plugin-source", "configuration": "Debug" }
+	],
+	"testPresets": [
+		{ "name": "core-tests", "configurePreset": "core-tests", "configuration": "Debug", "output": { "outputOnFailure": true } }
+	]
+}

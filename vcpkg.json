@@ -1,0 +1,29 @@
+{
+	"$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+	"name": "dovastash",
+	"version-semver": "0.1.0",
+	"description": "Auto-sorting loot storage for any Skyrim player home",
+	"builtin-baseline": "e456309491fd875487bf02b8a0dca76c1b1b00cc",
+	"dependencies": [
+		"nlohmann-json"
+	],
+	"features": {
+		"tests": {
+			"description": "Engine-independent unit tests",
+			"dependencies": [ "catch2" ]
+		},
+		"plugin": {
+			"description": "SKSE plugin (CommonLibSSE-NG and its dependencies)",
+			"dependencies": [
+				"directxmath",
+				"directxtk",
+				"fmt",
+				"rapidcsv",
+				"simpleini",
+				"spdlog",
+				"toml11",
+				"xbyak"
+			]
+		}
+	}
+}

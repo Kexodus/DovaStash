@@ -1,0 +1,29 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Gallows Hall",
+  "author": "Dova Stash",
+  "version": "1.0.0",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "ccRMSSSE001-NecroHouse.esl"],
+  "cell": "Update.esm|0x00002FD0",
+  "master": "ccRMSSSE001-NecroHouse.esl|0x00000968",
+  "containers": [
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000C0D", "label": "Chest by the arcane enchanter", "categories": ["soulgems.*", "scrolls"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000A04", "label": "Safe (by the arcane enchanter)", "categories": ["armor.jewelry", "misc.gems"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000A91", "label": "Alchemy satchel", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x0000094C", "label": "Cupboard (by the bench)", "categories": ["alchemy.food"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x000009F6", "label": "Noble cupboard", "categories": ["books.*"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x000008EF", "label": "Wardrobe (by the weapon plaque)", "categories": ["weapons.*"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x000008F5", "label": "Bedroom wardrobe", "categories": ["armor.clothing"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000A12", "label": "Chest of drawers (lower hall)", "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000BC0", "label": "Chest of drawers (by the sconces)", "categories": ["ammo.*"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000C00", "label": "Bedroom night table", "categories": ["keys"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000831", "label": "Strong box (by the coffins)", "categories": ["misc.animal_parts"]},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x000008CB", "label": "Chest (respawns - contents can reset, never store items here)", "ignored": true},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000983", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000A1C", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000A45", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000AA1", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
+    {"ref": "ccRMSSSE001-NecroHouse.esl|0x00000AB8", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true}
+  ]
+}
