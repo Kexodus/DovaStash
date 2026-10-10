@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- chest / stash -->
+<path d="M56 112 L68 72 H188 L200 112 Z"/>
+<rect x="56" y="112" width="144" height="88"/>
+<path d="M92 72 V200 M164 72 V200"/>
+<rect class="k" x="116" y="100" width="24" height="32"/>
+<path d="M128 112 V120"/>
+</svg>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>safety</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<style>
+  .shield { position: absolute; top: 262px; left: 0; right: 0; display: flex; justify-content: center; }
+  .cols {
+    position: absolute; top: 506px; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 110px;
+  }
+  .col { width: 420px; }
+  .col h2 { font-size: 23px; letter-spacing: 0.3em; margin-right: -0.3em; }
+  .col .d { font-size: 19px; color: var(--gray-2); margin-top: 18px; line-height: 1.5; font-weight: 350; }
+  .col .rule { height: 1px; background: var(--gray-4); margin: 26px 0 12px; }
+  .col ul { list-style: none; }
+  .col li { font-size: 25px; font-weight: 350; height: 52px; display: flex; align-items: center; gap: 22px; }
+  .col li::before { content: ""; width: 14px; height: 1px; background: var(--gray-3); flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<div class="g-page">
+  <div class="g-head">
+    <h1 class="title">Never lose an item</h1>
+    <div class="g-sub">Every move is a real transfer. When anything is unclear, the item stays put.</div>
+  </div>
+  <div class="shield"><script>document.write(icon("safe", 176, 2));</script></div>
+  <div class="cols">
+    <div class="col">
+      <h2 class="title">Kept intact</h2>
+      <div class="d">Moved items keep all their data.</div>
+      <div class="rule"></div>
+      <ul><li>Tempered</li><li>Enchanted</li><li>Renamed</li><li>Stolen</li></ul>
+    </div>
+    <div class="col">
+      <h2 class="title">Never touched</h2>
+      <div class="d">These always stay with you.</div>
+      <div class="rule"></div>
+      <ul><li>Equipped</li><li>Favorited</li><li>Quest items</li><li>Script tokens</li></ul>
+    </div>
+    <div class="col">
+      <h2 class="title">Refused</h2>
+      <div class="d">Containers that could lose your items.</div>
+      <div class="rule"></div>
+      <ul><li>Respawning chests</li><li>Containers others own</li><li>Unbuilt furniture</li></ul>
+    </div>
+  </div>
+  <div class="g-foot"><script>document.write(mark(30, 9, 5));</script><span class="wordmark">DOVA STASH</span></div>
+</div>
+</body></html>

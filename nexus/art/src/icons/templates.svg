@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- tablet / template file -->
+<path d="M72 40 H160 L184 64 V216 H72 Z"/>
+<path d="M160 40 V64 H184"/>
+<path d="M96 96 H160 M96 120 H144 M96 144 H160 M96 168 H128"/>
+</svg>

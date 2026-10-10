@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>logo</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<style>body { display: flex; align-items: center; justify-content: center; }</style>
+</head>
+<body>
+<script>
+  // Optical sizing: thinner relative strokes when large, heavier when small,
+  // so the mark stays crisp at 1024 and still reads at 64.
+  var size = +q("size", "1024");
+  var mw = size >= 1024 ? 6 : size >= 512 ? 7 : 8;
+  var fw = size >= 1024 ? 3 : size >= 512 ? 3.5 : 4;
+  document.write(mark(Math.round(size * 0.86), mw, fw));
+</script>
+</body></html>

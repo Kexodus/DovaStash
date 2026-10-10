@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- longhouse with crossed gable horns: any home -->
+<path d="M48 136 L136 48 M208 136 L120 48"/>
+<path d="M64 120 V200 M192 120 V200 M40 200 H216"/>
+<path d="M112 200 V152 H144 V200"/>
+</svg>

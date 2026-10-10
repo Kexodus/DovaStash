@@ -1,0 +1,75 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>templates</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<style>
+  .abs { position: absolute; }
+  svg.lines { position: absolute; left: 0; top: 0; overflow: visible; }
+  svg.lines path { fill: none; stroke-linecap: square; stroke-linejoin: miter; }
+  .card { left: 250px; top: 356px; width: 420px; height: 520px; padding: 44px 48px; }
+  .card .k { font-size: 14px; color: var(--gray-3); }
+  .card h2 { font-family: var(--f-title); font-weight: 500; font-size: 34px; margin-top: 18px; letter-spacing: 0.06em; }
+  .card .meta { font-size: 16px; color: var(--gray-2); margin-top: 10px; letter-spacing: 0.04em; }
+  .card ul { list-style: none; margin-top: 30px; }
+  .card li {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 21px; color: var(--gray-1); font-weight: 350;
+    height: 49px; border-top: 1px solid var(--gray-5);
+  }
+  .card li i { font-style: normal; font-size: 15px; color: var(--gray-3); letter-spacing: 0.08em; }
+  .via { left: 686px; top: 622px; width: 240px; text-align: center; }
+  .via .caps { font-size: 14px; color: var(--gray-3); display: block; margin-top: 18px; }
+  .chest { width: 210px; display: flex; flex-direction: column; align-items: center; }
+  .chest .caps { font-size: 17px; margin-top: 2px; color: var(--paper); letter-spacing: 0.22em; margin-right: -0.22em; }
+</style>
+</head>
+<body>
+<div class="g-page">
+  <div class="g-head">
+    <h1 class="title">Templates</h1>
+    <div class="g-sub">One small file per home. Every chest knows its job.</div>
+  </div>
+
+  <svg class="lines" width="1920" height="1080">
+    <!-- template tablet with folded corner -->
+    <path d="M250 356 H630 L670 396 V876 H250 Z" style="stroke: var(--gray-3); stroke-width: 1px"/>
+    <path d="M630 356 V396 H670" style="stroke: var(--gray-3); stroke-width: 1px"/>
+    <!-- arrow from template to home -->
+    <path d="M716 616 H896 M884 604 L896 616 L884 628" style="stroke: var(--gray-2); stroke-width: 1px"/>
+    <!-- longhouse: gable with crossed horns over the hall -->
+    <path d="M1335 318 L940 474 H1680 L1265 318" style="stroke: var(--gray-2); stroke-width: 2px"/>
+    <path d="M972 474 V884 H1648 V474" style="stroke: var(--gray-2); stroke-width: 2px"/>
+    <path d="M972 676 H1648" style="stroke: var(--gray-5); stroke-width: 1px"/>
+  </svg>
+
+  <div class="abs card">
+    <div class="k caps">breezehome.json</div>
+    <h2>Breezehome</h2>
+    <div class="meta">Whiterun &middot; 13 sorted containers</div>
+    <ul>
+      <li>Weapons <i>loft cupboard</i></li>
+      <li>Armor <i>housecarl&rsquo;s dresser</i></li>
+      <li>Alchemy <i>alchemy corner chest</i></li>
+      <li>Books <i>bedroom end table</i></li>
+      <li>Food <i>dining room cupboard</i></li>
+      <li>Misc <i>living room cupboard</i></li>
+    </ul>
+  </div>
+  <div class="abs via"><span class="caps">applies to</span></div>
+
+  <div class="abs" id="home" style="left: 972px; top: 474px; width: 676px; height: 410px;"></div>
+  <div class="g-foot"><script>document.write(mark(30, 9, 5));</script><span class="wordmark">DOVA STASH</span></div>
+</div>
+<script>
+  var C = ["Weapons", "Armor", "Alchemy", "Books", "Food", "Misc"];
+  var h = document.getElementById("home");
+  h.style.display = "grid";
+  h.style.gridTemplateColumns = "repeat(3, 1fr)";
+  h.style.gridTemplateRows = "repeat(2, 1fr)";
+  h.style.justifyItems = "center";
+  h.style.alignItems = "center";
+  h.innerHTML = C.map(function (c) {
+    return '<div class="chest">' + icon("chest", 132, 2) + '<span class="caps">' + c + '</span></div>';
+  }).join("");
+</script>
+</body></html>

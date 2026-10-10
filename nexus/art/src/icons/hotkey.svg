@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- keycap K -->
+<rect x="48" y="48" width="160" height="160"/>
+<rect x="72" y="60" width="112" height="112"/>
+<path d="M48 48 L72 60 M208 48 L184 60 M48 208 L72 172 M208 208 L184 172"/>
+<path d="M108 88 V144 M148 88 L108 116 L148 144"/>
+</svg>

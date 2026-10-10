@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- VR headset -->
+<path d="M40 96 H216 V168 H160 L144 144 H112 L96 168 H40 Z"/>
+<path d="M64 96 L80 64 H176 L192 96"/>
+<path d="M24 120 H40 M216 120 H232"/>
+</svg>

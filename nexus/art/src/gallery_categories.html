@@ -1,0 +1,58 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>categories</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<script src="data.js"></script>
+<style>
+  .cols {
+    position: absolute; top: 372px; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 76px;
+  }
+  .col { width: 260px; display: flex; flex-direction: column; gap: 48px; }
+  .grp h2 {
+    font-size: 19px; letter-spacing: 0.3em; margin-right: -0.3em;
+    padding-bottom: 16px; border-bottom: 1px solid var(--gray-4);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .grp h2 .n { font-family: var(--f-text); color: var(--gray-3); font-size: 17px; font-weight: 400; letter-spacing: 0; margin-right: 0.3em; }
+  .grp ul { list-style: none; margin-top: 8px; }
+  .grp li { font-size: 21px; font-weight: 350; height: 39px; display: flex; align-items: center; color: var(--gray-1); }
+</style>
+</head>
+<body>
+<div class="g-page">
+  <div class="g-head">
+    <h1 class="title" id="t"></h1>
+    <div class="g-sub">Plain JSON, matched by keyword, so items added by other mods sort too.</div>
+  </div>
+  <div class="cols" id="c"></div>
+  <div class="g-foot"><script>document.write(mark(30, 9, 5));</script><span class="wordmark">DOVA STASH</span></div>
+</div>
+<script>
+  var C = DS_DATA.categories;
+  var NAMES = { weapons: "Weapons", armor: "Armor", ammo: "Ammo", alchemy: "Alchemy", books: "Books",
+                scrolls: "Scrolls", soulgems: "Soul gems", misc: "Misc", keys: "Keys" };
+  var groups = {}, order = [];
+  C.forEach(function (c) {
+    var g = c.id.split(".")[0];
+    if (!groups[g]) { groups[g] = []; order.push(g); }
+    groups[g].push(c.name);
+  });
+  // five balanced columns
+  var LAYOUT = [["weapons"], ["armor", "ammo"], ["alchemy", "books"], ["misc"], ["soulgems", "scrolls", "keys"]];
+  var placed = [].concat.apply([], LAYOUT);
+  order.forEach(function (g) { if (placed.indexOf(g) < 0) LAYOUT[4].push(g); }); // never drop a group
+  function grp(g) {
+    var items = groups[g] || [];
+    var title = NAMES[g] || g;
+    var list = (items.length === 1 && items[0] === title) ? "" :
+      "<ul>" + items.map(function (n) { return "<li>" + n + "</li>"; }).join("") + "</ul>";
+    return '<div class="grp"><h2 class="title"><span>' + title + '</span><span class="n">' + items.length +
+      "</span></h2>" + list + "</div>";
+  }
+  document.getElementById("t").textContent = C.length + " categories";
+  document.getElementById("c").innerHTML = LAYOUT.map(function (col) {
+    return '<div class="col">' + col.map(grp).join("") + "</div>";
+  }).join("");
+</script>
+</body></html>

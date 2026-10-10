@@ -1,0 +1,1 @@
+Auto-sorting loot storage for any Skyrim player home. Press K at a chest and your haul goes where it belongs: 37 keyword-driven categories, learned destinations, and 22 ready-made templates for vanilla, Hearthfire and Creation Club homes. One SKSE DLL, no ESP, safe to uninstall. SE, AE and VR (experimental).

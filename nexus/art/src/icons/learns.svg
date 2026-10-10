@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- hand placing an item into a chest: it learns -->
+<path d="M200 56 H152 L104 80 L96 92 L104 96 L140 88 L124 112 L132 116 L160 96 H200 Z"/>
+<path d="M200 48 V104 H216 V48 Z"/>
+<rect x="104" y="124" width="24" height="24"/>
+<path d="M116 160 V176 M108 168 L116 176 L124 168"/>
+<path d="M48 168 V216 H184 V168"/>
+</svg>

@@ -1,0 +1,15 @@
+Dova Stash changelog
+
+0.1.0 - first public release (release candidate)
+- Master container per home: Deposit, Distribute on master close, Sort all, and Retrieve (everything or by category).
+- 37 keyword-driven default categories in JSON (Categories/00_Default.json). Add-on category packs load in name order.
+- Learned destinations: placing an item in a container by hand makes that container its destination.
+- 22 home templates: Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall, Severin Manor, Lakeview Manor, Heljarchen Hall and Windstad Manor (each Hearthfire house with its cellar), plus 10 Creation Club homes.
+- Template notice on entering a home, with optional auto-enable (bAutoEnableTemplates). Re-apply template keeps learned destinations, keep rules, ignored containers and containers you added yourself. A timestamped backup is written first.
+- Keep rules: built-in defaults (equipped, favorited, quest, gold, lockpicks, torches), optional global Settings.json, per-home always/never rules and quotas.
+- SKSE Menu Framework panel (SE/AE): Actions, Containers, Learned, Keep rules and Template export tabs, plus Current home, Settings, Templates, Diagnostics and About pages.
+- Native message-box interface, used as the fallback and on VR.
+- Safety: ownership and respawn checks, disabled (unbuilt) containers skipped, warnings for scripted containers, extra data preserved on every move, layouts backed up on reset, broken layout files never overwritten.
+- One DLL for SE 1.5.97, AE 1.6.x and VR (VR experimental). No ESP.
+
+Planned (not in 0.1.0): crafting from storage, central storage across homes.

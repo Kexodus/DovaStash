@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<!-- Dova Stash mark: a longhouse gable with crossed horns over a three-bay
+     chest, inside a chamfered square frame. Strokes scale with the mark.
+     .f = frame, .m = mark. Pages override stroke widths via --fw / --mw. -->
+<style>.f,.m{fill:none;stroke:#fff;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:8}.f{stroke-width:4}.m{stroke-width:8}</style>
+<path class="f" d="M44 16 H212 L240 44 V212 L212 240 H44 L16 212 V44 Z"/>
+<g transform="translate(0 -10)">
+<path class="m" d="M152 76 L56 140 H200 L104 76"/>
+<path class="m" d="M56 140 V204 H200 V140"/>
+<path class="m" d="M104 140 V204 M152 140 V204"/>
+</g>
+</svg>

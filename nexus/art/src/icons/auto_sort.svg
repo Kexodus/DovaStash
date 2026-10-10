@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- one stream sorted into three compartments -->
+<path d="M128 40 V72 M128 72 L72 128 M128 72 V128 M128 72 L184 128"/>
+<path d="M72 112 V128 H88 M116 116 L128 128 L140 116 M184 112 V128 H168"/>
+<rect x="44" y="148" width="168" height="60"/>
+<path d="M100 148 V208 M156 148 V208"/>
+</svg>

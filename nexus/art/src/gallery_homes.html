@@ -1,0 +1,61 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>homes</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<script src="data.js"></script>
+<style>
+  .cols {
+    position: absolute; top: 372px; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 88px;
+  }
+  .group { display: flex; flex-direction: column; }
+  .group h2 { font-size: 24px; letter-spacing: 0.3em; margin-right: -0.3em; }
+  .group .d { font-size: 15px; color: var(--gray-3); margin-top: 14px; }
+  .group .rule { height: 1px; background: var(--gray-4); margin: 26px 0 10px; }
+  .group .sub { display: flex; gap: 64px; }
+  .group ol { list-style: none; width: 330px; }
+  .group li {
+    font-size: 25px; font-weight: 350; height: 56px; display: flex; align-items: center;
+    justify-content: space-between; color: var(--paper); letter-spacing: 0.01em;
+  }
+  .group li span.s { color: var(--gray-2); }
+  .group li em { font-style: normal; font-size: 13px; color: var(--gray-3); }
+  .count { font-family: var(--f-text); color: var(--gray-3); font-size: 19px; font-weight: 400; margin-left: 14px; letter-spacing: 0; }
+</style>
+</head>
+<body>
+<div class="g-page">
+  <div class="g-head">
+    <h1 class="title">22 homes, ready</h1>
+    <div class="g-sub">Templates included. Walk in, press K, and your haul is put away.</div>
+  </div>
+  <div class="cols" id="c"></div>
+  <div class="g-foot"><script>document.write(mark(30, 9, 5));</script><span class="wordmark">DOVA STASH</span></div>
+</div>
+<script>
+  var T = DS_DATA.templates;
+  var names = T.map(function (t) { return t.name; });
+  function item(t) {
+    // grey the suffix of sub-areas ("Cellar", "Gallery") of a listed home
+    var base = names.filter(function (n) { return n !== t.name && t.name.indexOf(n + " ") === 0; })[0];
+    var label = base ? base + ' <span class="s">' + t.name.slice(base.length + 1) + "</span>" : t.name;
+    var tag = t.cellFile === "Dragonborn.esm" ? '<em class="caps">Dragonborn</em>' : "";
+    return "<li><span>" + label + "</span>" + tag + "</li>";
+  }
+  function group(title, desc, list, split) {
+    var cols = split ? [list.slice(0, Math.ceil(list.length / 2)), list.slice(Math.ceil(list.length / 2))] : [list];
+    return '<div class="group"><h2 class="title">' + title + '<span class="count">' + list.length +
+      '</span></h2><div class="d caps">' + desc + '</div><div class="rule"></div><div class="sub">' +
+      cols.map(function (c) { return "<ol>" + c.map(item).join("") + "</ol>"; }).join("") + "</div></div>";
+  }
+  function by(g) { return T.filter(function (t) { return t.group === g; }); }
+  // vanilla: Severin Manor (Dragonborn) last
+  var v = by("Vanilla").sort(function (a, b) {
+    return (a.cellFile === "Dragonborn.esm") - (b.cellFile === "Dragonborn.esm") || a.name.localeCompare(b.name);
+  });
+  document.getElementById("c").innerHTML =
+    group("Vanilla", "Skyrim and Dragonborn", v) +
+    group("Hearthfire", "Built homes and cellars", by("Hearthfire")) +
+    group("Creation Club", "Official add-on homes", by("Creation Club"), true);
+</script>
+</body></html>
