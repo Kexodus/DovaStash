@@ -3,11 +3,14 @@
 <link rel="stylesheet" href="style.css">
 <script src="common.js"></script>
 <style>
-  body { display: flex; align-items: center; justify-content: center; }
-  h1 { font-size: 38px; padding-top: 3px; }
+  /* Left-aligned like the cmc and iharvest-ng section headers: the emblem as a bullet, then the title. */
+  body { display: flex; align-items: center; justify-content: flex-start; padding-left: 22px; box-sizing: border-box; }
+  .bullet { display: flex; width: 50px; height: 50px; margin-right: 30px; }
+  h1 { font-size: 34px; padding-top: 3px; text-align: left; }
 </style>
 </head>
 <body>
+<div class="bullet"><script>document.write(mark(50, 11, 6));</script></div>
 <h1 class="title" id="t"></h1>
 <script>document.getElementById("t").textContent = q("title", "Features");</script>
 </body></html>

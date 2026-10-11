@@ -1,6 +1,6 @@
 [b]Bug reports: please read before posting[/b]
 
-Thanks for trying Dova Stash. It's a first release, and a good report usually gets a fix quickly. Please include the following:
+Thanks for trying Dova Stash. It's a pre-release, and a good report usually gets a fix quickly. Please include the following:
 
 [list=1]
 [*][b]Your log file[/b], [i]DovaStash.log[/i]:
@@ -11,7 +11,7 @@ Thanks for trying Dova Stash. It's a first release, and a good report usually ge
 For the most useful log, set [b]iLogLevel = 1[/b] in [i]Data/SKSE/Plugins/DovaStash.ini[/i], restart, and reproduce the problem. Upload the log to a paste site (Pastebin, GitHub Gist) and post the link. Please don't paste the whole log into a comment.
 [*][b]Game version[/b] (SE 1.5.97, AE 1.6.x with the exact number, or VR) and your [b]SKSE version[/b].
 [*][b]The home[/b]: its name, and the mod it comes from if it isn't vanilla. Say whether you used a template or set it up by hand.
-[*][b]UI[/b]: SKSE Menu Framework panel or message boxes.
+[*][b]UI[/b]: UIExtensions lists, the SKSE Menu Framework panel, or message boxes. Mention QuickLoot IE and Skyrim Souls if you use them.
 [*][b]Steps[/b]: what you did, what you expected, and what happened instead.
 [*][b]For missing or misplaced items[/b]: the item's name, where it was before, and where you expected it to go. If you can, attach your layout file from [i]Data/SKSE/Plugins/DovaStash/Layouts/[/i] (MO2: the [b]overwrite[/b] folder).
 [/list]
@@ -19,10 +19,10 @@ For the most useful log, set [b]iLogLevel = 1[/b] in [i]Data/SKSE/Plugins/DovaSt
 [spoiler=Copy-paste template]
 [code]Game version:
 SKSE version:
-Dova Stash version: 0.1.0
+Dova Stash version:
 Home (and mod):
 Template or manual setup:
-UI (panel / message boxes):
+UI (UIExtensions lists / panel / message boxes):
 Other relevant mods (QuickLoot, KID, home mods...):
 Steps to reproduce:
 Expected:

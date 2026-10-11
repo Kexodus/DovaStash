@@ -81,7 +81,7 @@ def jobs():
     ]
     # Section headers, numbered in the order the description uses them.
     for i, key in enumerate(SECTIONS, 1):
-        j.append(("header.html", {"title": HEADERS[key]}, 1200, 140,
+        j.append(("header.html", {"title": HEADERS[key]}, 1200, 112,
                   f"nexus/section-{i:02d}-{key.replace('_', '-')}.png", False))
     for name in ICONS:
         j.append(("icon.html", {"name": name}, 256, 256, f"nexus/icon-{name.replace('_', '-')}-256.png", False))

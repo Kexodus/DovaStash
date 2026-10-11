@@ -1,341 +1,120 @@
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-header-1920x480.png[/img]
 
-[size=5][b]Every home. Every haul. In its place.[/b][/size]
+[size=4]Auto-sorting storage for any player home.[/size][/center]
 
-[size=3]Auto-sorting loot storage for [b]any[/b] Skyrim player home: vanilla, Hearthfire, Creation Club or mod-added.
-Look at a chest, press [b]K[/b], and your haul goes where it belongs. Weapons go to the armory, ingredients to the alchemy corner, and everything else waits in the master chest.
-Popular homes come with ready-made layouts. Anywhere else, pick a master chest and put each item away once. Dova Stash remembers where it goes.[/size]
+Look at a chest, press [b]K[/b], and your haul goes where it belongs: weapons to the armory, ingredients to the alchemy corner, everything else to the master chest. Popular homes come with ready-made layouts. Anywhere else, pick a master chest and put each item away once. Dova Stash remembers where it goes.
 
-[size=2][color=#8c8c8c]SKSE plugin · no ESP · one DLL for SE 1.5.97, AE 1.6.x and VR (experimental)
-Version 0.2.4 (pre-release). Back up your save, and please report anything odd.[/color][/size]
-
-[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-divider-1200x40.png[/img]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-gallery-how-it-works-1920x1080.png[/img][/center]
 
 [img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-01-features.png[/img]
 
-[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-features-1200x700.png[/img][/center]
-
 [list]
-[*][b]Any home.[/b] There is no whitelist. Whether a home qualifies is decided by safety checks in the game: who owns the cell, and whether its containers respawn.
-[*][b]37 categories, driven by keywords.[/b] Weapons are sorted by type and armor by weight class. Potions, poisons, food, skill books, spell tomes, soul gems, ores, gems, pelts, Dwemer parts, building materials, keys and more each have their own category. All of it is defined in JSON.
-[*][b]Learns as you go.[/b] Put an item into a container by hand and that container becomes its home.
-[*][b]22 ready-made templates.[/b] Vanilla, Hearthfire, Dragonborn and Creation Club homes work without any setup.
-[*][b]Never loses an item.[/b] Enchantments, tempering, custom names, stolen flags and captured souls survive every move. Equipped, favorited and quest items are never touched.
-[*][b]Two interfaces.[/b] With SKSE Menu Framework you get a full panel. Without it, Dova Stash uses native message boxes and needs nothing extra.
-[*][b]Share your setup.[/b] Export any home's layout as a template from inside the game.
-[*][b]No ESP.[/b] It uses no plugin slot. Layouts are saved as JSON files, not in your save, so they carry over between playthroughs.
+[*][b]Any home[/b]: vanilla, Hearthfire, Creation Club or mod-added. No whitelist. A home qualifies when you own it, it's a player house, or nobody owns it.
+[*][b]Master container[/b]: your loot's inbox. [b]Deposit[/b] sends everything you aren't keeping to where it belongs. Items you drop into the master are sorted out of it right away.
+[*][b]37 keyword-driven categories[/b]: weapons by type, armor by weight class, potions, ingredients, books, soul gems, ores, gems and more, defined in JSON. Items that KID gives vendor keywords sort without a patch.
+[*][b]Learns as you go[/b]: put an item into a container by hand once and that container becomes its home.
+[*][b]22 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and Creation Club homes. Export your own from the game.
+[*][b]Never loses an item[/b]: enchantments, tempering, custom names, stolen flags and souls survive every move. Equipped, favorited and quest items stay with you. Containers that empty themselves when the area resets are refused.
+[*][b]Your UI, not ours[/b]: in-world menus are UIExtensions lists (any skin), with the game's message boxes as the fallback. Settings and the full editor live in SKSE Menu Framework.
+[*][b]QuickLoot IE[/b]: a container's categories show as your own SkyUI icons, and items that belong elsewhere read "Iron Sword > Weapon Rack".
+[*][b]Live settings[/b]: every option changes in game without a restart.
 [/list]
 
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-02-how-it-works.png[/img]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-features-1200x700.png[/img][/center]
 
-[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-gallery-how-it-works-1920x1080.png[/img][/center]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-03-templates.png[/img]
 
-[size=4][b]Three steps[/b][/size]
+Homes with a template need no setup. Walk in, press [b]K[/b] at any container to turn it on, then Deposit. Set [font=Courier New]bAutoEnableTemplates=true[/font] to skip even that.
+
+[list]
+[*][b]Vanilla and DLC[/b]: Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall, Severin Manor, and Lakeview Manor, Heljarchen Hall and Windstad Manor with their cellars.
+[*][b]Creation Club[/b]: Bloodchill Manor, Gallows Hall, Goldenhills Plantation, Hendraheim, Myrwatch and its gallery, Nchuanthumz, Shadowfoot Sanctum, Tundra Homestead and its cellar. Each is offered only if you own that content.
+[/list]
+
+Applying a template copies it into your own layout, so your edits are never overwritten. Re-applying replaces only the category bindings and writes a backup first.
+
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-04-requirements.png[/img]
+
+[list]
+[*][url=https://skse.silverlock.org/]SKSE64[/url] for your game version
+[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library for SKSE Plugins[/url]
+[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url] [i](optional: settings page and editor)[/i]
+[*]UIExtensions [i](optional: in-world list menus)[/i]
+[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/120075]QuickLoot IE[/url] [i](optional)[/i]
+[/list]
+
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-05-installation.png[/img]
+
 [list=1]
-[*][b]Walk into your home.[/b] Look at a container and press [b]K[/b].
-[*][b]Choose a template, or make that container the master.[/b]
-[*][b]Press K anywhere in the home and choose Deposit.[/b] Your loot spreads out to the containers where it belongs.
+[*]Install the main file with Mod Organizer 2, Vortex, or any mod manager.
+[*]Launch through SKSE.
 [/list]
 
-[size=4][b]The master container[/b][/size]
-Every home has one master. It is the home's inbox. Any item without a destination goes there and waits until you find it a place.
+There is no ESP, ESL or ESM, so it takes no load order slot. You can add or remove it mid-playthrough: items stay where they are.
 
-[size=4][b]Learns as you go[/b][/size]
-Once a home has a master, you don't have to bind anything. Open a container, put an item in it, and close it. From then on that item goes to that container. Containers you only teach this way are never emptied by a re-sort, so they make good keepsake chests.
+[b]MO2:[/b] your home layouts are written to [font=Courier New]SKSE/Plugins/DovaStash/Layouts/[/font], which MO2 puts in [b]overwrite[/b]. Move them into their own mod once your homes are set up.
 
-[size=4][b]How an item finds its container[/b][/size]
-[list=1]
-[*]A per-item binding, if the layout has one
-[*]Where you have put that item before (a learned destination)
-[*]The best-matching category among the containers you bound
-[*]The master, if nothing else matches
-[/list]
+[b]Updating:[/b] install over the old version. Your layouts are separate files and are kept.
 
-[size=4][b]Actions[/b][/size]
-[list]
-[*][b]Deposit:[/b] moves everything you aren't keeping from your inventory to its destination.
-[*][b]Distribute on close:[/b] throw loot into the master by hand and close it. Anything with a known destination moves on.
-[*][b]Sort all:[/b] re-sorts the master and every bound container, for example after you change bindings.
-[*][b]Retrieve:[/b] takes back everything, or one category such as arrows or soul gems.
-[*][b]Per container:[/b] assign categories, clear them, ignore the container, or make it the master.
-[*][b]Reset home:[/b] backs up the layout and starts over. No items are moved.
-[/list]
-Each action shows one line on the HUD, with no message for every single item.
-
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-03-templates.png[/img][/center]
-
-[size=4][b]Homes with a template need no setup[/b][/size]
-When you enter a home that has a template, a short notice says a layout is available. Press [b]K[/b] at any container to turn it on, then Deposit. If you'd rather skip the notice, set [b]bAutoEnableTemplates = true[/b] and templates turn on as soon as you walk in.
-
-[spoiler=Included homes (22)]
-[b]Vanilla and DLC[/b]
-[list]
-[*]Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall
-[*]Severin Manor (Dragonborn)
-[*]Lakeview Manor + cellar, Heljarchen Hall + cellar, Windstad Manor + cellar (Hearthfire)
-[/list]
-[b]Creation Club[/b]
-[list]
-[*]Bloodchill Manor, Gallows Hall, Goldenhills Plantation, Hendraheim, Myrwatch, Myrwatch Gallery
-[*]Nchuanthumz, Shadowfoot Sanctum, Tundra Homestead, Tundra Homestead Cellar
-[/list]
-A template is only offered when every plugin it needs is loaded, so Creation Club templates appear only if you own that content. Each template already marks respawning containers and scripted bookshelves as [i]ignored[/i].
-[/spoiler]
-
-[size=4][b]Your edits stay yours[/b][/size]
-[list]
-[*]Applying a template [i]copies[/i] it into your own layout. Your changes never touch the template, and updating the mod never overwrites your tweaks.
-[*][b]Re-apply template[/b] replaces only the category bindings. Your learned destinations, keep rules, ignored containers and the containers you added yourself are all kept. A timestamped backup is written first.
-[*]If several templates match one home, the one with the highest priority wins, then the newest version. The panel lists the others.
-[*]A home that spans several cells, such as a Hearthfire house and its cellar, gets one layout per cell.
-[*]Unbuilt Hearthfire wings are skipped until you build them. Their containers start working on their own once they exist.
-[/list]
-
-[size=4][b]Export your own[/b][/size]
-In the panel, open the [b]Template[/b] tab and click [b]Export[/b]. Your home is written to [i]Templates/User/<name>.json[/i] without your learned items, so it's ready to share. It shows up as a template from the next game start. (Export needs SKSE Menu Framework.)
-
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-04-requirements.png[/img][/center]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-06-configuration.png[/img]
 
 [list]
-[*][b][url=https://skse.silverlock.org/]SKSE64[/url][/b] for SE and AE, or [b]SKSEVR[/b] for VR. Required.
-[*][b][url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library for SKSE Plugins[/url][/b]. Required on SE and AE.
-[*][b][url=https://www.nexusmods.com/skyrimspecialedition/mods/58101]VR Address Library for SKSEVR[/url][/b]. Required on VR only.
-[*][b][url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url][/b]. Optional, SE and AE only. It adds the full panel. It needs [url=https://www.nexusmods.com/skyrimspecialedition/mods/114790]ImGui Icons[/url].
+[*][b]In game:[/b] SKSE Menu Framework → [i]Dova Stash / Settings (all homes)[/i]. Changes apply right away. Hover any option to see its INI key.
+[*][b]INI:[/b] [font=Courier New]Data/SKSE/Plugins/DovaStash.ini[/font]. Keys you leave out use their defaults.
+[*][b]Keep rules[/b] decide what Deposit leaves in your inventory: equipped, favorited and quest items, gold, lockpicks and torches by default. Set them per home or for every home.
 [/list]
-Without SKSE Menu Framework, Dova Stash uses native message boxes. Every essential action is available there.
-[size=2][color=#8c8c8c]Supported game versions: SE 1.5.97, AE 1.6.x and VR. Developed and tested on AE 1.6.1170.[/color][/size]
 
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-05-installation.png[/img][/center]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-07-compatibility.png[/img]
 
 [list]
-[*]Install with [b]Mod Organizer 2[/b] or [b]Vortex[/b] like any other SKSE plugin. There is no load order to manage.
-[*]Installing by hand: extract the archive into [i]Skyrim Special Edition/Data/[/i].
-[*][b]MO2 users:[/b] Dova Stash saves your layouts to [i]Data/SKSE/Plugins/DovaStash/Layouts/[/i], and MO2 puts those files in [b]overwrite[/b]. Once your homes are set up, move them into a mod of their own (for example "Dova Stash - My Layouts") so they stay safe. Templates you export end up in overwrite too.
-[*][b]Updating:[/b] install over the old version. Your layouts are separate files and are kept. If you edited [i]DovaStash.ini[/i] inside the mod folder, keep a copy, because a reinstall replaces it.
+[*][b]Game versions:[/b] one DLL for SE 1.5.97, AE 1.6.x and VR. In-game testing so far has been on AE 1.6.1170. VR is experimental (message boxes only, keyboard hotkey).
+[*][b]Skyrim Souls:[/b] supported. Items dropped into the master are sorted while its menu is still open.
+[*][b]Scripted containers[/b] (bookshelves, display cases) are never learned automatically.
+[*][b]Large home mods[/b] (Legacy of the Dragonborn and others): no templates yet. Setting one up by hand takes a minute. Leave display containers alone.
 [/list]
 
-[size=4][b]Uninstalling is safe[/b][/size]
-There is no ESP, no Papyrus script and no co-save. Dova Stash only moves ordinary items between ordinary containers. Remove it at any point in a playthrough and everything stays exactly where it is. Containers you renamed keep their new names (the game stores those in your save). Your layout files remain in [i]Layouts/[/i] in case you come back.
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-08-template-authoring.png[/img]
 
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-06-configuration.png[/img][/center]
+A template is a small JSON file that says which container in a home holds which categories. Use [font=Courier New]tools/esm_dump.py[/font] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] to find the containers and validate your file. The [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]template guide[/url] walks through it. Good templates for popular homes may be bundled, with credit.
 
-Change everything in game: [b]SKSE Menu Framework > Dova Stash > Settings (all homes)[/b]. Changes apply immediately and are saved to [b]Data/SKSE/Plugins/DovaStash.ini[/b]; hover any option to see its INI key. Any key you leave out of the INI uses its default.
-
-[spoiler=DovaStash.ini: every key and its default]
-[b][General][/b]
-[list]
-[*][b]iLogLevel = 2[/b]: how much goes into the log. 0 trace, 1 debug, 2 info, 3 warn, 4 error, 5 critical, 6 off.
-[*][b]bAutoEnableTemplates = false[/b]: [i]true[/i] turns a home's template on as soon as you enter. [i]false[/i] shows a one-time notice and waits for the hotkey.
-[/list]
-[b][Input][/b]
-[list]
-[*][b]iHotkey = 37[/b]: the keyboard hotkey, as a decimal DirectInput scan code. 37 is K, which vanilla Skyrim doesn't use. [url=https://ck.uesp.net/wiki/Input_Script#DXScanCodes]List of scan codes[/url]. Mouse buttons (256 to 265) work too.
-[*][b]iGamepadHotkey = -1[/b]: off by default, because every gamepad button already does something in vanilla. Codes: 266 DPad Up, 267 DPad Down, 268 DPad Left, 269 DPad Right, 270 Start, 271 Back, 272 Left Thumb, 273 Right Thumb, 274 LB, 275 RB, 276 A, 277 B, 278 X, 279 Y, 280 LT, 281 RT.
-[/list]
-[b][Sorting][/b]
-[list]
-[*][b]bSortOnArrival = true[/b]: items you put into the master leave it for their containers right away. With menus that pause the game, this happens when you close the master; with Skyrim Souls, while it is still open.
-[*][b]bDistributeOnMasterClose = true[/b]: closing the master sorts what's inside it into the other containers.
-[*][b]bLearn = true[/b]: placing an item in a container by hand teaches Dova Stash that container is the item's destination.
-[/list]
-[b][UI][/b]
-[list]
-[*][b]iMode = 0[/b]: what the hotkey opens. 0 is auto (UIExtensions lists when UIExtensions is installed and you're not on VR, otherwise message boxes; the SKSE Menu Framework panel stays available as the editor). 1 always uses message boxes. 2 uses the SKSE Menu Framework panel. 3 uses UIExtensions lists (message boxes if it isn't installed).
-[*][b]bCenterMenus = true[/b]: UIExtensions lists and the rename box open in the middle of the screen, whatever your skin does.
-[/list]
-[b][Integrations][/b]
-[list]
-[*][b]bQuickLoot = true[/b]: everything Dova Stash adds to QuickLoot IE. Off = QuickLoot looks exactly as without Dova Stash.
-[*][b]bQuickLootItemTags = true[/b]: items that belong somewhere else read "Iron Sword  >  Weapon Rack" in QuickLoot's list.
-[*][b]bQuickLootIcons = true[/b]: a container's categories show as icons (your own SkyUI icons) in QuickLoot's bottom-right corner.
-[*][b]bActivatePrompt = true[/b]: the activate prompt reads "Chest (Weapons)". Nothing is written to your save.
-[/list]
-[b][Overlay][/b]
-[list]
-[*][b]bEnabled = false[/b]: floating category icons above your containers (not on VR).
-[*][b]bRequireLineOfSight = true[/b], [b]fRadius = 1200[/b], [b]iMaxIcons = 12[/b], [b]fIconSize = 40[/b]: only containers you can see, how far, how many, how big.
-[/list]
-[/spoiler]
-
-[spoiler=Keep rules: what Deposit leaves in your inventory]
-By default Deposit keeps [b]equipped[/b], [b]favorited[/b] and [b]quest[/b] items, plus [b]gold[/b], [b]lockpicks[/b] and [b]torches[/b]. Quest items and non-playable items are always kept, whatever the settings.
-[list]
-[*][b]Per home:[/b] in the panel's [b]Keep rules[/b] tab, or in the layout JSON. There are three kinds of rule: [i]always[/i] keep, [i]never[/i] keep, and [i]quotas[/i] such as "keep 5 healing potions". A quota keeps your most valuable copies first.
-[*][b]For every home:[/b] on the Settings page ([b]Keep rules for every home[/b]), saved to [i]Data/SKSE/Plugins/DovaStash/Settings.json[/i].
-[/list]
-[/spoiler]
-
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-07-compatibility.png[/img][/center]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-09-faq.png[/img]
 
 [list]
-[*][b]Any home:[/b] a home qualifies if you own the cell, if it's tagged as a player house, or if it's an interior nobody owns. Anywhere else, Dova Stash tells you why it can't be used.
-[*][b]QuickLoot IE:[/b] compatible. Pressing the hotkey doesn't open the container, so it works while QuickLoot's overlay is showing. Learning happens when you place items through the normal container menu.
-[*][b]KID and keyword item packs:[/b] categories match on vanilla keywords, so items that KID gives the right vendor keywords sort correctly without a patch.
-[*][b]Object Categorization Framework (OCF):[/b] an optional file, [i]Dova Stash - OCF Categories[/i], adds 63 finer categories that use OCF's keywords: ingots vs ores, raw food vs meals vs drinks, ingredients by type, spell tomes by school, rings vs amulets, armor by slot, valuables vs clutter, and more. Install it only if you use OCF. Without OCF nothing in it matches, and the main file doesn't need it. Templates keep working, because refined items still go to the container bound to the broader category.
-[*][b]Scripted containers[/b] (bookshelves, display cases and the like) are never learned. If you bind one, Dova Stash warns that it may reject or return items.
-[*][b]Respawning containers[/b] are refused, because they are the classic way to lose items in Skyrim. The only exception is a cell that is a player house or never resets, where they are accepted with a warning. The included templates leave all of them out.
-[*][b]Hearthfire:[/b] containers in wings you haven't built yet are skipped and start working once they're built.
-[*][b]Legacy of the Dragonborn and other large home mods:[/b] no templates are included yet. Set them up by hand (it takes a minute) and leave display and scripted containers alone. Community templates are welcome.
-[*]Dova Stash only touches containers you bind, teach or make the master, and it never sorts while a container you're using is open.
+[*][b]Why didn't an item move?[/b] A keep rule kept it. Or it has no destination yet and waits in the master. Or a tempered or enchanted copy of it stays behind, and the plain copies stay with it rather than risk moving the wrong one.
+[*][b]Where are my homes saved?[/b] [font=Courier New]Data/SKSE/Plugins/DovaStash/Layouts/[/font], one file per home, outside your save. A home you set up once works for every character.
+[*][b]Can I share my setup?[/b] Yes: [b]Export[/b] in the editor's Template tab writes a shareable template without your personal learned items.
 [/list]
 
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-08-template-authoring.png[/img][/center]
-
-A template is a small JSON file that says which container in a home holds which categories. It contains no code. Put templates in [i]Data/SKSE/Plugins/DovaStash/Templates/<YourName>/[/i]. The file name can be anything, because the home is identified inside the file.
-
-Forms are written as [b]"Plugin.esm|0x00ABCDEF"[/b]: the plugin's file name plus the [i]local[/i] form ID, without the load-order byte. For ESL-flagged plugins, use only the low 12 bits (for example "MyHome.esl|0x00000801"). This notation survives load-order changes.
-
-To find the references, use [b]tools/esm_dump.py[/b] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] (Python, standard library only) or xEdit. [i]esm_dump.py[/i] lists every container in a cell and flags the ones that respawn, the bookshelves and the ones that disappear after upgrades. Its [i]check[/i] command validates your finished template.
-
-[spoiler=A minimal template, annotated]
-[code]{
-  "$schema": "dovastash-layout-1",
-  "name": "Breezehome",                  // shown in game
-  "author": "Your Name",
-  "version": "1.0.0",                    // a newer version wins when priorities are equal
-  "priority": 0,                         // the highest priority wins when several templates match a cell
-  "requires": ["Skyrim.esm"],            // every plugin referenced, including the cell's own plugin
-  "cell": "Skyrim.esm|0x000165A8",       // the home's cell
-  "master": "Skyrim.esm|0x000F3922",     // a placed container REFERENCE, never the base CONT
-  "containers": [
-    {
-      "ref": "Skyrim.esm|0x000CB437",
-      "label": "Loft cupboard",
-      "categories": ["weapons.*"]        // "a.*" means a and everything under it
-    },
-    {
-      "ref": "Skyrim.esm|0x0010EB84",
-      "label": "Alchemy corner chest",
-      "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]
-    },
-    {
-      "ref": "Skyrim.esm|0x0003EE76",
-      "label": "Barrel (respawns - never store items here)",
-      "ignored": true                    // never sorted into, never learned
-    }
-  ]
-}[/code]
-[list]
-[*]Category IDs are listed in [i]Categories/00_Default.json[/i]. If the same category is bound to several containers, they act as an ordered fallback.
-[*]A container entry can also have [i]"forms": [ ... ][/i] for items that should always go there. A template can have a [i]"keep"[/i] block.
-[*]Dova Stash accepts // comments, but [i]esm_dump.py check[/i] needs plain JSON, so remove the comments before you run it.
-[*]Bind containers that start disabled (unbuilt furniture) without worry, because they're skipped until they appear. Never bind a container that respawns.
-[/list]
-[/spoiler]
-
-[size=4][b]Sharing a template[/b][/size]
-Validate it with [i]python -I esm_dump.py check MyHome.json --categories <path>/00_Default.json[/i], then upload it as its own small Nexus file that installs to [i]Templates/<YourName>/[/i], or post it in the Posts tab. Solid templates for popular homes may be added to the bundled set, with credit.
-
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-09-faq.png[/img][/center]
-
-[spoiler=Will it eat my items?]
-It's built so that it can't. Every move is a real engine transfer that keeps enchantments, tempering, custom names, stolen flags and captured souls. Equipped, favorited and quest items are never moved. Containers that respawn are refused. When anything is unclear, the item stays where it is. Reset, Make master and applying a template never move any items.
-This is a first release, so back up your save before your first big Deposit, and report anything strange.
-[/spoiler]
-
-[spoiler=Does it work in my home?]
-Probably. Any cell you own, any cell tagged as a player house, and any interior nobody owns can be used. Homes bought through a faction, such as Severin Manor, count once you own them. A home on the included list needs no setup at all. In any other home, make a container the master and start putting things away. If a place isn't allowed, Dova Stash says why (for example "owned by ...").
-[/spoiler]
-
-[spoiler=Why didn't item X move?]
-[list]
-[*][b]A keep rule kept it.[/b] By default that covers equipped, favorited and quest items, gold, lockpicks and torches, plus any rule you added.
-[*][b]A copy of it is equipped or favorited.[/b] For now, the spare plain copies stay with you too. This is deliberately cautious and will be relaxed once it's confirmed in game.
-[*][b]It has no destination.[/b] Items that match no bound category and haven't been learned go to the master and stay there.
-[*][b]Its container isn't available.[/b] It isn't built yet, or the plugin it comes from is disabled. The item waits in the master.
-[*][b]It's an invisible script token.[/b] Items with no name are used by other mods to track state, so they are never moved.
-[*][b]A container menu was open.[/b] Dova Stash doesn't sort a container while its menu is open and the game is paused. It sorts when you close it.
-[*][b]A tempered, enchanted or renamed copy of the same item is there.[/b] The game can't be told which plain copy to move, so the plain copies stay with it rather than risk handing over the special one.
-[/list]
-[/spoiler]
-
-[spoiler=Can I uninstall it mid-playthrough?]
-Yes. There is no ESP and no script. Your items stay in whichever containers they were in, and containers you renamed keep their names. You can delete the [i]Layouts/[/i] files or keep them for later.
-[/spoiler]
-
-[spoiler=Does it work in VR?]
-Experimental. The same DLL loads in Skyrim VR and uses native message boxes; the panel isn't used on VR. For now the hotkey comes from a keyboard. A VR controller trigger, and targeting containers with VR controls, haven't been validated yet. VR testers are very welcome: please post your log and what you saw.
-[/spoiler]
-
-[spoiler=Does it need an ESP slot?]
-No. Dova Stash is a single SKSE DLL plus JSON data.
-[/spoiler]
-
-[spoiler=Where are my settings and layouts saved?]
-[list]
-[*]Settings: [i]Data/SKSE/Plugins/DovaStash.ini[/i]
-[*]Your homes: [i]Data/SKSE/Plugins/DovaStash/Layouts/[/i], one file per home cell, with timestamped .bak backups. Under MO2 they're in [b]overwrite[/b].
-[*]Optional global keep rules: [i]Data/SKSE/Plugins/DovaStash/Settings.json[/i]
-[*]Exported templates: [i]Data/SKSE/Plugins/DovaStash/Templates/User/[/i]
-[*]Log: [i]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log[/i] (VR: [i]Skyrim VR/SKSE[/i])
-[/list]
-Layouts are saved outside your save game, so a home you set up once is ready for every character and every new playthrough.
-[/spoiler]
-
-[spoiler=Can I share my layout?]
-Yes. The cleanest way is [b]Export[/b] in the panel's Template tab: it writes a shareable template without your learned items. You can also copy your layout file from [i]Layouts/[/i], but it includes your personal learned destinations.
-[/spoiler]
-
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-10-permissions.png[/img][/center]
-
-Dova Stash is free software under the [b]GNU General Public License v3.0 or later[/b], as CommonLibSSE-NG requires. Source code: [url=https://github.com/Kexodus/DovaStash]https://github.com/Kexodus/DovaStash[/url]
-You may share, modify, translate, port and re-upload it, as long as your version stays GPL-3.0-or-later, includes or links its source, and keeps the credits. The bundled SKSE Menu Framework API header is LGPL-2.1.
-
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-11-credits.png[/img][/center]
-
-[list]
-[*][b]The SKSE team[/b], for the Script Extender that makes all of this possible.
-[*][b]The CommonLibSSE-NG maintainers and contributors[/b]: Ryan McKenzie's original CommonLibSSE, CharmedBaryon's NG, and alandtse's CommonLibVR ng branch that Dova Stash builds on.
-[*][b]meh321[/b], for Address Library for SKSE Plugins, and the maintainers of VR Address Library.
-[*][b]Thiago099 and QTR-Modding[/b], for SKSE Menu Framework and its API. [b]powerofthree[/b], for ImGui Icons.
-[*][b]Eddoursul[/b], whose [i]Stash Organizer[/i] for Fallout: New Vegas inspired the idea. Dova Stash is an independent Skyrim take on it and shares no code. If you play New Vegas, go and endorse the original.
-[*]Libraries: spdlog, nlohmann/json, SimpleIni, Catch2. Page fonts: Cinzel and Jost (SIL OFL).
-[/list]
-
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-12-changelog.png[/img][/center]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-12-changelog.png[/img]
 
 [b]0.2.4[/b]
 [list]
-[*]Open containers from the SKSE Menu Framework panel and the message-box menus
-[*]Cancelling a rename keeps the name; "Restore original name" added
-[*]Floating icons no longer reload as you move
+[*]Open containers from the SKSE Menu Framework panel and the message-box menus.
+[*]Cancelling a rename keeps the name. A separate "Restore original name" entry was added.
+[*]Floating icons no longer reload as you move.
 [/list]
+
 [b]0.2.3[/b]
 [list]
-[*]Containers a template marks as off-limits no longer count as "unavailable"
+[*]Containers a template marks as off-limits no longer count as "unavailable".
 [/list]
-[b]0.2.2[/b]
+
+Full history: [url=https://github.com/Kexodus/DovaStash/blob/main/CHANGELOG.md]CHANGELOG on GitHub[/url]
+
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-10-permissions.png[/img]
+
+Free software under the GNU General Public License v3.0 or later, as CommonLibSSE-NG requires. You may share, modify and re-upload it, as long as your version stays GPL-3.0-or-later, links its source and keeps the credits.
+
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-11-credits.png[/img]
+
 [list]
-[*]Safer sorting on arrival: with menus that pause the game, the master is sorted when you close it
-[*]Respawning containers are only used where the area never resets
-[*]A tempered, enchanted or renamed copy can no longer be moved in place of a plain one
-[*]Thread-safety fixes for the HUD, QuickLoot and settings
-[*]Logging back to normal by default
+[*]SKSE team: [url=https://skse.silverlock.org/]SKSE64[/url]
+[*]meh321: [url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library for SKSE Plugins[/url]
+[*]Ryan McKenzie, CharmedBaryon, alandtse and contributors: [url=https://github.com/alandtse/CommonLibVR]CommonLibSSE-NG[/url]
+[*]Thiago099 and QTR-Modding: [url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url]
+[*]The QuickLoot IE team: [url=https://www.nexusmods.com/skyrimspecialedition/mods/120075]QuickLoot IE[/url] and its open API
+[*]Eddoursul, whose [i]Stash Organizer[/i] for Fallout: New Vegas inspired the idea. Dova Stash shares no code with it.
 [/list]
-[b]0.2.1[/b]
-[list]
-[*]QuickLoot IE: category icons bottom-right, item destinations in the list
-[*]Settings page: hover help with each INI key, unavailable options greyed out, reset to defaults
-[*]Activate prompt label sits on the name line; floating icons off by default
-[/list]
-[b]0.2.0[/b]
-[list]
-[*]QuickLoot IE integration, UIExtensions list menus with in-game rename, every setting editable in game without a restart, keep rules for every home, sort on arrival, activate-prompt roles, floating icons
-[/list]
-[b]0.1.0: first public release (release candidate)[/b]
-[list]
-[*]Master container, Deposit, Distribute on master close, Sort all, and Retrieve (everything or by category)
-[*]37 keyword-driven default categories, with add-on category packs supported
-[*]Learned destinations from items you place by hand
-[*]22 templates (vanilla, Hearthfire, Dragonborn, Creation Club), with auto-enable as an option and Re-apply that keeps your changes
-[*]Keep rules: global defaults, per-home always/never rules and quotas
-[*]SKSE Menu Framework panel: actions, containers, learned items, keep rules, template export, settings, template browser and diagnostics
-[*]Native message-box interface, used as the fallback and on VR
-[*]Safety checks for ownership, respawning, disabled and scripted containers. Layout backups. Broken layout files are never overwritten.
-[*]One DLL for SE 1.5.97, AE 1.6.x and VR (experimental)
-[/list]
-[size=2][color=#8c8c8c]Planned, not in this version: pulling crafting materials from storage, and central storage shared across homes.[/color][/size]
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-divider-1200x40.png[/img]
-
-[size=2][color=#8c8c8c]Found a bug? See the pinned post in the Posts tab for what to include.[/color][/size][/center]
+[url=https://github.com/Kexodus/DovaStash]github.com/Kexodus/DovaStash[/url][/center]

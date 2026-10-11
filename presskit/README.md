@@ -45,7 +45,7 @@ Upload these on the Nexus **Images** tab. Make the primary image the mod's **Pri
 
 ## Description section headers
 
-The BBCode file already uses these. They are 1200×140, plus a 1200×40 divider (and a transparent
+The BBCode file already uses these. They are 1200×112 with the emblem as a left-aligned bullet, plus a 1200×40 divider (and a transparent
 divider for non-black backgrounds).
 
 ![Features](nexus/section-01-features.png)

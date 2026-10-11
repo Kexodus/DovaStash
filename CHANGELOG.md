@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Floating icons show a container's full category row, like QuickLoot's bottom-right row: up to five icons, then "+N". QuickLoot and the overlay now share one icon-row function.
+
+### Docs
+
+- Nexus description rewritten in the cmc structure: shorter, plain lists, and current for 0.2.x. The file description and pinned post are updated too.
+- Section headers are now 1200×112, left-aligned, with the emblem as a bullet (like cmc and iharvest-ng).
+
 ## [0.2.4] - 2026-10-10
 
 ### Added
