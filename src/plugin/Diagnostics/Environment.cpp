@@ -63,8 +63,8 @@ namespace dova::diagnostics
 		logger::info("Environment:");
 		LogDll("QuickLootIE.dll", "info bar + button bar");
 		LogDll("SKSEMenuFramework.dll", "editor panel");
-		LogDll("InventoryInjector.dll", "I4: container icon rules");
-		LogDll("InventoryInjectorImproved.dll", "I5: I4 cache layer, nothing to integrate");
+		LogDll("InventoryInjector.dll", "I4: item icons in menus; not read by Dova Stash");
+		LogDll("InventoryInjectorImproved.dll", "I5: I4 cache layer; not read by Dova Stash");
 		LogDll("DynamicInventoryIconInjector.dll", "DIII: not read by Dova Stash");
 		LogDll("po3_KeywordItemDistributor.dll", "KID: keywords used by categories");
 		LogDll("po3_Tweaks.dll", "editor IDs in logs");

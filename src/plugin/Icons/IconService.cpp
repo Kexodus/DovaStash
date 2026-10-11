@@ -11,31 +11,18 @@ namespace dova::icons
 {
 	namespace
 	{
-		// I4 reads "SKSE/Plugins/InventoryInjector/<plugin>.json" through the game's resource system
-		// (loose files, then archives). Paths below are relative to Data/.
-		constexpr auto kI4RulesDir = "SKSE/Plugins/InventoryInjector"sv;
-		constexpr auto kI4Dll = "Data/SKSE/Plugins/InventoryInjector.dll"sv;
 		constexpr auto kSkyUIConfig = "Interface/skyui/config.txt"sv;
 
 		struct State
 		{
-			core::IconRules rules;
 			std::string     itemSource{ core::kSkyUIItemIcons };
 			std::string     categorySource{ core::kSkyUICategoryIcons };
-			std::size_t     files{ 0 };
 		};
 
 		State& Get()
 		{
 			static State state;
 			return state;
-		}
-
-		// Through the game's resource system: loose files (MO2's VFS included) and BSAs.
-		bool ResourceExists(const std::string& a_relative)
-		{
-			RE::BSResourceNiBinaryStream stream{ a_relative };
-			return stream.good();
 		}
 
 		// A loose file wins over archives, even when empty (that is how patches blank out a rule file).
@@ -141,13 +128,6 @@ namespace dova::icons
 			return a_source;
 		}
 
-		// "Skyrim.esm" -> "Skyrim.json" (I4: path(fileName).replace_extension("json")).
-		std::string RuleFileName(std::string_view a_plugin)
-		{
-			const auto dot = a_plugin.rfind('.');
-			return std::string(dot == std::string_view::npos ? a_plugin : a_plugin.substr(0, dot)) + ".json";
-		}
-
 		// Data-file icons name SkyUI's stock SWFs; use the ones the player's SkyUI is configured with.
 		core::IconRef WithPlayerSources(core::IconRef a_icon)
 		{
@@ -158,46 +138,6 @@ namespace dova::icons
 				a_icon.source = state.categorySource;
 			}
 			return a_icon;
-		}
-
-		bool CanRepresent(const core::ItemInfo& a_item)
-		{
-			return a_item.playable && !a_item.name.empty() && a_item.count > 0;
-		}
-
-		// Most common item (summed over stacks of the same base form) among `a_items` accepted by
-		// `a_filter`. Ties go to the lower form reference, so the choice is stable.
-		template <class Filter>
-		const core::ItemInfo* MostCommon(const std::vector<core::ItemInfo>& a_items, Filter&& a_filter)
-		{
-			struct Tally
-			{
-				const core::ItemInfo* item{ nullptr };
-				std::int64_t          count{ 0 };
-			};
-			std::map<std::string, Tally> tallies;
-			for (const auto& item : a_items) {
-				if (!CanRepresent(item) || !a_filter(item)) {
-					continue;
-				}
-				// Dynamic forms have no FormRef: tell them apart by type and name.
-				const auto key = item.form.IsValid() ? core::ToLower(item.form.ToString()) :
-				                                       "~dynamic|" + std::to_string(static_cast<int>(item.type)) + "|" + item.name;
-				auto& tally = tallies[key];
-				if (!tally.item) {
-					tally.item = &item;
-				}
-				tally.count += item.count;
-			}
-			const core::ItemInfo* best = nullptr;
-			std::int64_t          bestCount = 0;
-			for (const auto& [key, tally] : tallies) {  // key order: ties keep the first
-				if (tally.count > bestCount) {
-					best = tally.item;
-					bestCount = tally.count;
-				}
-			}
-			return best;
 		}
 
 		// Binding pattern -> category id whose icon stands for it ("a.b.*" -> "a.b", "*" -> "").
@@ -225,65 +165,8 @@ namespace dova::icons
 		if (appearance.categorySource && !appearance.categorySource->empty()) {
 			state.categorySource = Normalize(*appearance.categorySource);
 		}
-		state.rules.SetDefaultItemSource(state.itemSource);
-		state.rules.SetNoIconColors(appearance.noColor.value_or(false));
 		logger::info("Icons: SkyUI item icons '{}', category icons '{}', item icon colours {}", state.itemSource,
 			state.categorySource, appearance.noColor.value_or(false) ? "off" : "on");
-
-		std::error_code ec;
-		if (!std::filesystem::exists(std::filesystem::path(kI4Dll), ec)) {
-			logger::info("Icons: Inventory Interface Information Injector not installed; using SkyUI's default icons");
-			return;
-		}
-		auto* dataHandler = RE::TESDataHandler::GetSingleton();
-		if (!dataHandler) {
-			logger::error("Icons: TESDataHandler unavailable; I4 rules not loaded");
-			return;
-		}
-
-		// I4's iconSource check: the SWF must exist under Interface/ (loose or archived).
-		state.rules.SetIconSourceValidator([](std::string_view a_source) {
-			return ResourceExists("Interface/" + std::string(a_source));
-		});
-
-		core::Diagnostics diags;
-		try {
-			for (auto* file : dataHandler->files) {
-				// I4 CustomDataManager::LoadConfigs: every checked (active) plugin, in load order.
-				if (!file || !file->recordFlags.all(RE::TESFile::RecordFlag::kChecked)) {
-					continue;
-				}
-				const auto name = RuleFileName(file->GetFilename());
-				const auto text = ReadResource(std::string(kI4RulesDir) + "/" + name);
-				if (!text) {
-					continue;
-				}
-				const auto before = state.rules.Size();
-				state.rules.AddFileText(*text, name, diags);
-				++state.files;
-				logger::debug("Icons: {} I4 rules from {}", state.rules.Size() - before, name);
-			}
-		} catch (const std::exception& e) {
-			logger::error("Icons: failed to load I4 rules: {}", e.what());
-		}
-		home::Store::LogDiagnostics(diags, "Icons");
-		logger::info("Icons: {} I4 rules loaded from {} files ({} errors, {} warnings)", state.rules.Size(), state.files,
-			diags.ErrorCount(), diags.WarningCount());
-	}
-
-	bool HasI4Rules() noexcept
-	{
-		return Get().rules.Size() > 0;
-	}
-
-	std::size_t RuleCount() noexcept
-	{
-		return Get().rules.Size();
-	}
-
-	core::IconRef ForItem(const core::ItemInfo& a_item)
-	{
-		return Get().rules.Resolve(a_item);
 	}
 
 	core::IconRef ForCategory(std::string_view a_categoryId)

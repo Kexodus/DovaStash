@@ -16,7 +16,7 @@ namespace dova::integrations::quickloot
 	void Init();
 	[[nodiscard]] bool IsReady() noexcept;
 
-	// Main thread: ask QuickLoot to rebuild its view (after our moves or layout edits). No-op when
+	// Any thread: ask QuickLoot to rebuild its view (after our moves or layout edits). No-op when
 	// QuickLoot is not installed.
 	void Refresh();
 }

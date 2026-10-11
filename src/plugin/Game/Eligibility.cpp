@@ -74,16 +74,10 @@ namespace dova::game
 
 	bool IsPlayerHouse(RE::TESObjectCELL* a_cell)
 	{
-		if (!a_cell) {
-			return false;
-		}
-		int depth = 0;
-		for (auto* loc = a_cell->GetLocation(); loc && depth < 8; loc = loc->parentLoc, ++depth) {
-			if (loc->HasKeywordString(kPlayerHouseKeyword)) {
-				return true;
-			}
-		}
-		return false;
+		// The cell's own location only. Walking up to parent locations let a mod that tags a whole town
+		// or hold with LocTypePlayerHouse open every cell below it (ownership and respawn checks).
+		const auto* loc = a_cell ? a_cell->GetLocation() : nullptr;
+		return loc && loc->HasKeywordString(kPlayerHouseKeyword);
 	}
 
 	bool CellNeverResets(RE::TESObjectCELL* a_cell)
@@ -196,13 +190,12 @@ namespace dova::game
 			verdict.AddWarning(std::format("{} is in a player house still owned by {}", Describe(a_ref), OwnerName(cellOwner)));
 		}
 		if (cont->data.flags.any(RE::CONT_DATA::Flag::kRespawn)) {
-			const bool neverResets = CellNeverResets(a_homeCell);
-			const bool playerHouse = IsPlayerHouse(a_homeCell);
-			if (!neverResets && !playerHouse) {
-				return Verdict::Reject("this container respawns its contents (items would be lost)");
+			// A respawning container is emptied when its cell resets. Only a cell whose encounter zone
+			// never resets is safe; being a player house is not a guarantee (DESIGN §9).
+			if (!CellNeverResets(a_homeCell)) {
+				return Verdict::Reject("this container restocks itself when the area resets (items would be lost)");
 			}
-			verdict.AddWarning(std::format("{} has the respawn flag; accepted because the cell {}",
-				Describe(a_ref), neverResets ? "never resets" : "is a player house"));
+			verdict.AddWarning(std::format("{} has the respawn flag; accepted because the cell never resets", Describe(a_ref)));
 		}
 		if (const auto scripts = AttachedScripts(a_ref); !scripts.empty()) {
 			std::string names;

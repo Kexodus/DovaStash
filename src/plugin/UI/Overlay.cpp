@@ -89,7 +89,7 @@ namespace dova::ui::overlay
 		void Rescan()
 		{
 			g_state.targets.clear();
-			auto* current = home::HomeRegistry::Get().Peek();
+			const auto current = home::HomeRegistry::Get().Display();
 			auto* player = game::Player();
 			if (!current || !current->layout || !player) {
 				return;

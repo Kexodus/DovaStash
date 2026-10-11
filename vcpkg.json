@@ -1,7 +1,7 @@
 {
 	"$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
 	"name": "dovastash",
-	"version-semver": "0.2.1",
+	"version-semver": "0.2.2",
 	"description": "Auto-sorting loot storage for any Skyrim player home",
 	"builtin-baseline": "e456309491fd875487bf02b8a0dca76c1b1b00cc",
 	"dependencies": [

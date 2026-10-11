@@ -2,6 +2,7 @@
 
 #include "Settings.h"
 
+#include <mutex>
 #include <thread>
 
 namespace dova::ui::uiext
@@ -33,8 +34,9 @@ namespace dova::ui::uiext
 
 		const Contract& ContractOf(Kind a_kind) { return a_kind == Kind::List ? kList : kText; }
 
-		// Main-thread state of the one list we may have open. The sink only copies event values and
-		// enqueues; everything below runs from SKSE tasks / UI tasks on the game thread.
+		// State of the one menu we may have open. Touched from three places: SKSE tasks (worker threads on
+		// AE), UI tasks and the mod-event sink (the UI thread). Every access goes through g_lock; callbacks
+		// always run with the lock released (they may open the next menu).
 		//
 		// Two ids keep events with the right list. `serial` is our request (OpenList call); `instance`
 		// counts menus that actually loaded (UIListMenu_LoadMenu). Select/close events carry the instance
@@ -52,15 +54,25 @@ namespace dova::ui::uiext
 			std::string            text;           // Text: initial text
 			TextCallback           textCallback;   // Text
 		};
+		std::mutex    g_lock;
 		Pending       g_pending;
 		std::uint64_t g_serial{ 0 };
 		std::uint64_t g_instance{ 0 };  // sink side: last loaded menu
 
-		// Ends the pending request: list index (-1 = cancelled) or entered text (nullopt = cancelled).
-		void Finish(std::int32_t a_index, std::optional<std::string> a_text = std::nullopt)
+		// Ends the pending request if `a_should(g_pending)` holds: list index (-1 = cancelled) or entered
+		// text (nullopt = cancelled). The callback runs after the lock is released.
+		template <class Pred>
+		void FinishIf(Pred&& a_should, std::int32_t a_index, std::optional<std::string> a_text = std::nullopt)
 		{
-			auto pending = std::move(g_pending);
-			g_pending = {};
+			Pending pending;
+			{
+				std::scoped_lock guard(g_lock);
+				if (!a_should(g_pending)) {
+					return;
+				}
+				pending = std::move(g_pending);
+				g_pending = {};
+			}
 			if (pending.kind == Kind::List) {
 				logger::debug("UIExtensions: list closed, choice {}", a_index);
 				if (pending.callback) {
@@ -77,10 +89,7 @@ namespace dova::ui::uiext
 		// A result/close event from the menu instance `a_instance`.
 		void Complete(std::uint64_t a_instance, std::int32_t a_index, std::optional<std::string> a_text = std::nullopt)
 		{
-			if (!g_pending.open || g_pending.instance == 0 || g_pending.instance != a_instance) {
-				return;
-			}
-			Finish(a_index, std::move(a_text));
+			FinishIf([a_instance](const Pending& p) { return p.open && p.instance != 0 && p.instance == a_instance; }, a_index, std::move(a_text));
 		}
 
 		// Invokes `a_fn` with every element of `a_args` as a separate argument, like SKSE's UI.Invoke*A
@@ -117,8 +126,14 @@ namespace dova::ui::uiext
 		// once the list has laid out its entries; a later change of entry count re-centres on reopen.
 		void Center(Kind a_kind, std::uint64_t a_instance, int a_tries)
 		{
-			if (!Settings::GetSingleton().GetUI().centerMenus || !g_pending.open || g_pending.instance != a_instance) {
+			if (!Settings::GetSingleton().GetUI().centerMenus) {
 				return;
+			}
+			{
+				std::scoped_lock guard(g_lock);
+				if (!g_pending.open || g_pending.instance != a_instance) {
+					return;
+				}
 			}
 			auto* ui = RE::UI::GetSingleton();
 			auto  movie = ui ? ui->GetMovieView(kCustomMenu) : nullptr;
@@ -158,10 +173,17 @@ namespace dova::ui::uiext
 
 		void Fill(Kind a_kind, std::uint64_t a_instance)
 		{
-			if (!g_pending.open || g_pending.kind != a_kind || g_pending.instance != 0) {
-				return;  // not ours (another mod's menu), or already filled
+			std::vector<ListEntry> entries;
+			std::string            initialText;
+			{
+				std::scoped_lock guard(g_lock);
+				if (!g_pending.open || g_pending.kind != a_kind || g_pending.instance != 0) {
+					return;  // not ours (another mod's menu), or already filled
+				}
+				g_pending.instance = a_instance;
+				entries = g_pending.entries;
+				initialText = g_pending.text;
 			}
-			g_pending.instance = a_instance;
 			auto* ui = RE::UI::GetSingleton();
 			auto  movie = ui ? ui->GetMovieView(kCustomMenu) : nullptr;
 			if (!movie) {
@@ -171,17 +193,17 @@ namespace dova::ui::uiext
 			if (a_kind == Kind::Text) {
 				// UITextEntryMenu.psc OnLoadMenu: setTextEntryMenuText(initial text).
 				logger::debug("UIExtensions: filling text entry instance {}", a_instance);
-				const RE::GFxValue text(g_pending.text.c_str());
+				const RE::GFxValue text(initialText.c_str());
 				Invoke(movie.get(), kText, "setTextEntryMenuText", { &text, 1 });
 				Center(a_kind, a_instance, 10);
 				return;
 			}
-			logger::debug("UIExtensions: filling list instance {} with {} entries", a_instance, g_pending.entries.size());
+			logger::debug("UIExtensions: filling list instance {} with {} entries", a_instance, entries.size());
 			// Same calls, same order and format as UIListMenu.psc OnLoadMenu. Strings outlive the Invoke.
 			std::vector<std::string> encoded;
-			encoded.reserve(g_pending.entries.size());
-			for (std::size_t i = 0; i < g_pending.entries.size(); ++i) {
-				const auto& e = g_pending.entries[i];
+			encoded.reserve(entries.size());
+			for (std::size_t i = 0; i < entries.size(); ++i) {
+				const auto& e = entries[i];
 				// id and callback are both the entry index; the select event reports the id.
 				encoded.push_back(std::format("{};;{};;{};;{};;{}", Sanitize(e.text), e.parent, i, i, e.hasChildren ? 1 : 0));
 			}
@@ -216,10 +238,15 @@ namespace dova::ui::uiext
 		void ArmTimeout(std::uint64_t a_serial)
 		{
 			Later(std::chrono::seconds(4), [a_serial]() {
-				if (g_pending.open && g_pending.serial == a_serial && g_pending.instance == 0) {
-					logger::warn("UIExtensions: {} did not open (is UIExtensions installed correctly?)", ContractOf(g_pending.kind).swf);
-					Finish(-1);
-				}
+				FinishIf(
+					[a_serial](const Pending& p) {
+						const bool stuck = p.open && p.serial == a_serial && p.instance == 0;
+						if (stuck) {
+							logger::warn("UIExtensions: {} did not open (is UIExtensions installed correctly?)", ContractOf(p.kind).swf);
+						}
+						return stuck;
+					},
+					-1);
 			});
 		}
 
@@ -227,22 +254,28 @@ namespace dova::ui::uiext
 		// gone: polls every 50 ms for up to 2 s.
 		void TryOpen(std::uint64_t a_serial, int a_retries)
 		{
-			if (!g_pending.open || g_pending.serial != a_serial) {
-				return;
+			Kind kind;
+			{
+				std::scoped_lock guard(g_lock);
+				if (!g_pending.open || g_pending.serial != a_serial) {
+					return;
+				}
+				kind = g_pending.kind;
 			}
-			auto* ui = RE::UI::GetSingleton();
+			const auto ours = [a_serial](const Pending& p) { return p.open && p.serial == a_serial; };
+			auto*      ui = RE::UI::GetSingleton();
 			if (ui && ui->IsMenuOpen(kCustomMenu)) {
 				if (a_retries <= 0) {
 					logger::warn("UIExtensions: another custom menu stayed open; list not shown");
-					Finish(-1);
+					FinishIf(ours, -1);
 					return;
 				}
 				Later(std::chrono::milliseconds(50), [a_serial, a_retries]() { TryOpen(a_serial, a_retries - 1); });
 				return;
 			}
-			if (!OpenCustomMenu(ContractOf(g_pending.kind).swf)) {
-				logger::warn("UIExtensions: could not open {}", ContractOf(g_pending.kind).swf);
-				Finish(-1);
+			if (!OpenCustomMenu(ContractOf(kind).swf)) {
+				logger::warn("UIExtensions: could not open {}", ContractOf(kind).swf);
+				FinishIf(ours, -1);
 				return;
 			}
 			ArmTimeout(a_serial);
@@ -271,10 +304,14 @@ namespace dova::ui::uiext
 				if (!tasks) {
 					return Control::kContinue;
 				}
-				const auto& c = ContractOf(*kind);
-				logger::debug("UIExtensions event {} (str \"{}\", num {}, last instance {})", name, a_event->strArg.c_str(), a_event->numArg, g_instance);
+				const auto&   c = ContractOf(*kind);
+				std::uint64_t instance = 0;
+				{
+					std::scoped_lock guard(g_lock);
+					instance = name == c.load ? ++g_instance : g_instance;
+				}
+				logger::debug("UIExtensions event {} (str \"{}\", num {}, instance {})", name, a_event->strArg.c_str(), a_event->numArg, instance);
 				if (name == c.load) {
-					const auto instance = ++g_instance;
 					tasks->AddUITask([k = *kind, instance]() { Fill(k, instance); });
 				} else if (name == c.result && *kind == Kind::List) {
 					// UIListMenu.psc: strArg is the entry id, numArg -1 means "back".
@@ -283,16 +320,13 @@ namespace dova::ui::uiext
 					if (a_event->numArg != -1.0f) {
 						std::from_chars(str.data(), str.data() + str.size(), index);
 					}
-					const auto instance = g_instance;
 					tasks->AddTask([instance, index]() { Complete(instance, index); });
 				} else if (name == c.result) {
 					// UITextEntryMenu.psc: strArg is the entered text.
-					const auto instance = g_instance;
 					tasks->AddTask([instance, text = std::string(a_event->strArg.c_str())]() { Complete(instance, 0, text); });
 				} else {
 					// A result is reported before the menu closes; only a close without one is a cancel. Run
 					// a frame later so a result event queued in the same frame wins.
-					const auto instance = g_instance;
 					tasks->AddTask([instance, tasks]() {
 						tasks->AddTask([instance]() { Complete(instance, -1); });
 					});
@@ -333,36 +367,50 @@ namespace dova::ui::uiext
 
 	bool OpenList(std::vector<ListEntry> a_entries, ChoiceCallback a_callback)
 	{
-		if (!IsInstalled() || g_pending.open || a_entries.empty()) {
+		if (!IsInstalled() || a_entries.empty()) {
 			return false;
 		}
 		if (a_entries.size() > kMaxEntries) {
 			logger::warn("UIExtensions: list has {} entries, only {} are shown", a_entries.size(), kMaxEntries);
 			a_entries.resize(kMaxEntries);
 		}
-		g_pending = {};
-		g_pending.open = true;
-		g_pending.serial = ++g_serial;
-		g_pending.entries = std::move(a_entries);
-		g_pending.callback = std::move(a_callback);
-		logger::debug("UIExtensions: list request {} ({} entries)", g_pending.serial, g_pending.entries.size());
-		TryOpen(g_pending.serial, 40);
+		std::uint64_t serial = 0;
+		{
+			std::scoped_lock guard(g_lock);
+			if (g_pending.open) {
+				return false;
+			}
+			g_pending = {};
+			g_pending.open = true;
+			g_pending.serial = serial = ++g_serial;
+			logger::debug("UIExtensions: list request {} ({} entries)", serial, a_entries.size());
+			g_pending.entries = std::move(a_entries);
+			g_pending.callback = std::move(a_callback);
+		}
+		TryOpen(serial, 40);
 		return true;
 	}
 
 	bool OpenTextEntry(std::string a_initial, TextCallback a_callback)
 	{
-		if (!IsInstalled() || g_pending.open) {
+		if (!IsInstalled()) {
 			return false;
 		}
-		g_pending = {};
-		g_pending.open = true;
-		g_pending.kind = Kind::Text;
-		g_pending.serial = ++g_serial;
-		g_pending.text = std::move(a_initial);
-		g_pending.textCallback = std::move(a_callback);
-		logger::debug("UIExtensions: text entry request {}", g_pending.serial);
-		TryOpen(g_pending.serial, 40);
+		std::uint64_t serial = 0;
+		{
+			std::scoped_lock guard(g_lock);
+			if (g_pending.open) {
+				return false;
+			}
+			g_pending = {};
+			g_pending.open = true;
+			g_pending.kind = Kind::Text;
+			g_pending.serial = serial = ++g_serial;
+			g_pending.text = std::move(a_initial);
+			g_pending.textCallback = std::move(a_callback);
+		}
+		logger::debug("UIExtensions: text entry request {}", serial);
+		TryOpen(serial, 40);
 		return true;
 	}
 }

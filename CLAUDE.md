@@ -51,8 +51,8 @@ Test game: Skyrim AE 1.6.1170 via MO2 (SKSE, Address Library, SKSE Menu Framewor
   skin; plain text only; no in-game art of ours.
 
 - C++23, MSVC. Tabs for indentation (matches CommonLib `.clang-format`).
-- Logging via spdlog to `My Games/Skyrim Special Edition/SKSE/DovaStash.log`. Pre-release default is
-  `iLogLevel = 0` (everything) so test sessions never need a re-run; set it back to 2 before the Nexus release.
+- Logging via spdlog to `My Games/Skyrim Special Edition/SKSE/DovaStash.log`. Shipped default is
+  `iLogLevel = 2`; the developer's own MO2 INI keeps 0 (everything) for test sessions.
   New features log state *changes* at debug, never per frame. Plugin only; core returns diagnostics
   instead of logging.
 - Never lose an item: when in doubt, don't move it. Unresolvable form refs are skipped and kept in data, never deleted.

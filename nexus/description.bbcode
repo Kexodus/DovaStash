@@ -7,7 +7,7 @@ Look at a chest, press [b]K[/b], and your haul goes where it belongs. Weapons go
 Popular homes come with ready-made layouts. Anywhere else, pick a master chest and put each item away once. Dova Stash remembers where it goes.[/size]
 
 [size=2][color=#8c8c8c]SKSE plugin · no ESP · one DLL for SE 1.5.97, AE 1.6.x and VR (experimental)
-Version 0.1.0: the first public release (release candidate). Back up your save, and please report anything odd.[/color][/size]
+Version 0.2.2 (pre-release). Back up your save, and please report anything odd.[/color][/size]
 
 [img]{IMG}/divider_1200x40.png[/img]
 
@@ -115,11 +115,11 @@ Without SKSE Menu Framework, Dova Stash uses native message boxes. Every essenti
 [/list]
 
 [size=4][b]Uninstalling is safe[/b][/size]
-There is no ESP, no Papyrus script and no co-save. Dova Stash only moves ordinary items between ordinary containers. Remove it at any point in a playthrough and everything stays exactly where it is. Your layout files remain in [i]Layouts/[/i] in case you come back.
+There is no ESP, no Papyrus script and no co-save. Dova Stash only moves ordinary items between ordinary containers. Remove it at any point in a playthrough and everything stays exactly where it is. Containers you renamed keep their new names (the game stores those in your save). Your layout files remain in [i]Layouts/[/i] in case you come back.
 
 [center][img]{IMG}/header_configuration_1200x140.png[/img][/center]
 
-Settings are in [b]Data/SKSE/Plugins/DovaStash.ini[/b]. Any key you leave out uses its default. Restart the game after you change something.
+Change everything in game: [b]SKSE Menu Framework > Dova Stash > Settings (all homes)[/b]. Changes apply immediately and are saved to [b]Data/SKSE/Plugins/DovaStash.ini[/b]; hover any option to see its INI key. Any key you leave out of the INI uses its default.
 
 [spoiler=DovaStash.ini: every key and its default]
 [b][General][/b]
@@ -134,12 +134,26 @@ Settings are in [b]Data/SKSE/Plugins/DovaStash.ini[/b]. Any key you leave out us
 [/list]
 [b][Sorting][/b]
 [list]
+[*][b]bSortOnArrival = true[/b]: items you put into the master leave it for their containers right away. With menus that pause the game, this happens when you close the master; with Skyrim Souls, while it is still open.
 [*][b]bDistributeOnMasterClose = true[/b]: closing the master sorts what's inside it into the other containers.
 [*][b]bLearn = true[/b]: placing an item in a container by hand teaches Dova Stash that container is the item's destination.
 [/list]
 [b][UI][/b]
 [list]
-[*][b]iMode = 0[/b]: 0 is auto (the panel when SKSE Menu Framework is installed and you're not on VR, otherwise message boxes). 1 always uses message boxes. 2 always uses the panel, and falls back to message boxes if the framework isn't loaded.
+[*][b]iMode = 0[/b]: what the hotkey opens. 0 is auto (UIExtensions lists when UIExtensions is installed and you're not on VR, otherwise message boxes; the SKSE Menu Framework panel stays available as the editor). 1 always uses message boxes. 2 uses the SKSE Menu Framework panel. 3 uses UIExtensions lists (message boxes if it isn't installed).
+[*][b]bCenterMenus = true[/b]: UIExtensions lists and the rename box open in the middle of the screen, whatever your skin does.
+[/list]
+[b][Integrations][/b]
+[list]
+[*][b]bQuickLoot = true[/b]: everything Dova Stash adds to QuickLoot IE. Off = QuickLoot looks exactly as without Dova Stash.
+[*][b]bQuickLootItemTags = true[/b]: items that belong somewhere else read "Iron Sword  >  Weapon Rack" in QuickLoot's list.
+[*][b]bQuickLootIcons = true[/b]: a container's categories show as icons (your own SkyUI icons) in QuickLoot's bottom-right corner.
+[*][b]bActivatePrompt = true[/b]: the activate prompt reads "Chest (Weapons)". Nothing is written to your save.
+[/list]
+[b][Overlay][/b]
+[list]
+[*][b]bEnabled = false[/b]: floating category icons above your containers (not on VR).
+[*][b]bRequireLineOfSight = true[/b], [b]fRadius = 1200[/b], [b]iMaxIcons = 12[/b], [b]fIconSize = 40[/b]: only containers you can see, how far, how many, how big.
 [/list]
 [/spoiler]
 
@@ -147,7 +161,7 @@ Settings are in [b]Data/SKSE/Plugins/DovaStash.ini[/b]. Any key you leave out us
 By default Deposit keeps [b]equipped[/b], [b]favorited[/b] and [b]quest[/b] items, plus [b]gold[/b], [b]lockpicks[/b] and [b]torches[/b]. Quest items and non-playable items are always kept, whatever the settings.
 [list]
 [*][b]Per home:[/b] in the panel's [b]Keep rules[/b] tab, or in the layout JSON. There are three kinds of rule: [i]always[/i] keep, [i]never[/i] keep, and [i]quotas[/i] such as "keep 5 healing potions". A quota keeps your most valuable copies first.
-[*][b]For every home:[/b] put a [i]keep[/i] block in the optional file [i]Data/SKSE/Plugins/DovaStash/Settings.json[/i].
+[*][b]For every home:[/b] on the Settings page ([b]Keep rules for every home[/b]), saved to [i]Data/SKSE/Plugins/DovaStash/Settings.json[/i].
 [/list]
 [/spoiler]
 
@@ -230,12 +244,13 @@ Probably. Any cell you own, any cell tagged as a player house, and any interior 
 [*][b]It has no destination.[/b] Items that match no bound category and haven't been learned go to the master and stay there.
 [*][b]Its container isn't available.[/b] It isn't built yet, or the plugin it comes from is disabled. The item waits in the master.
 [*][b]It's an invisible script token.[/b] Items with no name are used by other mods to track state, so they are never moved.
-[*][b]A container menu was open.[/b] Dova Stash never sorts while a container it would change is open.
+[*][b]A container menu was open.[/b] Dova Stash doesn't sort a container while its menu is open and the game is paused. It sorts when you close it.
+[*][b]A tempered, enchanted or renamed copy of the same item is there.[/b] The game can't be told which plain copy to move, so the plain copies stay with it rather than risk handing over the special one.
 [/list]
 [/spoiler]
 
 [spoiler=Can I uninstall it mid-playthrough?]
-Yes. There is no ESP, no script and no save data. Your items stay in whichever containers they were in. You can delete the [i]Layouts/[/i] files or keep them for later.
+Yes. There is no ESP and no script. Your items stay in whichever containers they were in, and containers you renamed keep their names. You can delete the [i]Layouts/[/i] files or keep them for later.
 [/spoiler]
 
 [spoiler=Does it work in VR?]
@@ -279,6 +294,24 @@ You may share, modify, translate, port and re-upload it, as long as your version
 
 [center][img]{IMG}/header_changelog_1200x140.png[/img][/center]
 
+[b]0.2.2[/b]
+[list]
+[*]Safer sorting on arrival: with menus that pause the game, the master is sorted when you close it
+[*]Respawning containers are only used where the area never resets
+[*]A tempered, enchanted or renamed copy can no longer be moved in place of a plain one
+[*]Thread-safety fixes for the HUD, QuickLoot and settings
+[*]Logging back to normal by default
+[/list]
+[b]0.2.1[/b]
+[list]
+[*]QuickLoot IE: category icons bottom-right, item destinations in the list
+[*]Settings page: hover help with each INI key, unavailable options greyed out, reset to defaults
+[*]Activate prompt label sits on the name line; floating icons off by default
+[/list]
+[b]0.2.0[/b]
+[list]
+[*]QuickLoot IE integration, UIExtensions list menus with in-game rename, every setting editable in game without a restart, keep rules for every home, sort on arrival, activate-prompt roles, floating icons
+[/list]
 [b]0.1.0: first public release (release candidate)[/b]
 [list]
 [*]Master container, Deposit, Distribute on master close, Sort all, and Retrieve (everything or by category)

@@ -1,5 +1,21 @@
 Dova Stash changelog
 
+0.2.2
+- Sort on arrival: with menus that pause the game, items put into the master are sorted when it closes; only Skyrim Souls (unpaused menus) sorts while it is open.
+- Respawning containers are accepted only where the area never resets; "player house" is checked on the cell's own location only.
+- Plain-copy moves no longer run while a tempered, enchanted, renamed or worn copy of the same item stays behind (the engine could hand over the special one).
+- Thread safety: the HUD, activate prompt and QuickLoot read a published copy of the home and settings; the UIExtensions bridge is locked.
+- Default keep rules are never written over an unreadable Settings.json, and are saved atomically.
+- Logging defaults to info again. The unused I4 rule loading is gone (faster start).
+
+0.2.1
+- QuickLoot IE: one category icon per bound category in the bottom-right corner; master shows "Master".
+- Settings page: hover help naming each INI key, options greyed out when unavailable, reset to defaults.
+- Activate prompt label on the name line; floating icons off by default and no longer blink.
+
+0.2.0
+- QuickLoot IE integration, UIExtensions list menus (any skin) with in-game rename, every setting editable in game without a restart, keep rules for every home, sort on arrival, activate-prompt roles, floating icons.
+
 0.1.0 - first public release (release candidate)
 - Master container per home: Deposit, Distribute on master close, Sort all, and Retrieve (everything or by category).
 - 37 keyword-driven default categories in JSON (Categories/00_Default.json). Add-on category packs load in name order.

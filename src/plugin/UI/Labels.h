@@ -1,7 +1,7 @@
 #pragma once
 
 // Player-facing names for categories, patterns and container roles, shared by every UI surface
-// (message boxes, UIExtensions list menu, QuickLoot info bar, activate prompt). Main thread only.
+// (message boxes, UIExtensions list menu, QuickLoot info bar, activate prompt). Any thread.
 
 #include "Home/HomeRegistry.h"
 
@@ -28,8 +28,8 @@ namespace dova::ui
 	// `a_id` is routed to this container by any of its patterns.
 	[[nodiscard]] bool Covers(const core::ContainerBinding* a_binding, std::string_view a_id);
 
-	// What a container is to Dova Stash, for display. Built from the already-loaded current home
-	// (HomeRegistry::Peek), so it is cheap enough for per-frame callers.
+	// What a container is to Dova Stash, for display. Built from the published home copy
+	// (HomeRegistry::Display), so it is safe and cheap from any thread, every frame.
 	struct ContainerRole
 	{
 		enum class Kind : std::uint8_t
@@ -40,8 +40,9 @@ namespace dova::ui
 			Bound,      // managed (categories and/or learned items)
 			Ignored
 		};
-		Kind                          kind{ Kind::None };
-		const core::ContainerBinding* binding{ nullptr };  // valid until the layout changes
+		Kind                                     kind{ Kind::None };
+		std::shared_ptr<const home::DisplayHome> home;               // keeps `binding` alive
+		const core::ContainerBinding*            binding{ nullptr };  // into home->layout
 		std::size_t                   learned{ 0 };        // learned destinations pointing here
 	};
 	[[nodiscard]] ContainerRole DescribeContainer(RE::TESObjectREFR* a_ref);

@@ -35,6 +35,7 @@ namespace dova::home
 		if (!_home || _home->cellId != cell->GetFormID()) {
 			Flush();
 			_home.reset();
+			Publish();
 			auto cellRef = game::ToFormRef(cell);
 			if (!cellRef) {
 				if (a_reason) {
@@ -62,14 +63,34 @@ namespace dova::home
 		return home && home->cellId == a_cellId ? home : nullptr;
 	}
 
-	Home* HomeRegistry::Peek()
+	std::shared_ptr<const DisplayHome> HomeRegistry::Display() const
 	{
-		auto* player = game::Player();
-		auto* cell = player ? player->GetParentCell() : nullptr;
-		if (!cell || !_home || _home->cellId != cell->GetFormID()) {
+		auto        display = _display.load();
+		const auto* player = game::Player();
+		const auto* cell = player ? player->GetParentCell() : nullptr;
+		if (!display || !cell || display->cellId != cell->GetFormID()) {
 			return nullptr;
 		}
-		return &*_home;
+		return display;
+	}
+
+	void HomeRegistry::Publish()
+	{
+		if (!_home) {
+			_display.store(nullptr);
+			return;
+		}
+		auto display = std::make_shared<DisplayHome>();
+		display->cellId = _home->cellId;
+		display->name = _home->name;
+		display->layout = _home->layout;
+		_display.store(std::move(display));
+	}
+
+	void HomeRegistry::MarkDirty(Home& a_home)
+	{
+		a_home.dirty = true;
+		Publish();
 	}
 
 	void HomeRegistry::Load(RE::TESObjectCELL* a_cell, core::FormRef a_cellRef)
@@ -81,6 +102,7 @@ namespace dova::home
 		home.layout = Store::Get().LoadPlayerLayout(home.cell, home.layoutBroken);
 		Resolve(home);
 		_home = std::move(home);
+		Publish();
 
 		const auto& h = *_home;
 		logger::info("Cell {} ({}): {}", h.name, h.cell.ToString(),
@@ -124,6 +146,7 @@ namespace dova::home
 		if (ok) {
 			a_home.dirty = false;
 		}
+		Publish();  // in-memory edits are what the display shows, saved or not
 		return ok;
 	}
 
@@ -186,6 +209,7 @@ namespace dova::home
 		a_home.layoutBroken = false;
 		a_home.dirty = false;
 		Resolve(a_home);
+		Publish();
 		logger::info("Reset home {}", a_home.name);
 		return true;
 	}

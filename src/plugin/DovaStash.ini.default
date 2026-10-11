@@ -4,8 +4,8 @@
 [General]
 ; Log verbosity for My Games/Skyrim Special Edition/SKSE/DovaStash.log
 ; 0 = trace, 1 = debug, 2 = info, 3 = warn, 4 = error, 5 = critical, 6 = off
-; Pre-release builds log everything (0) so a test session always has the full picture.
-iLogLevel = 0
+; Set 0 when you report a problem: it logs everything.
+iLogLevel = 2
 
 ; true = when you enter a home that has a template, enable it automatically.
 ; false = show a one-time notification and wait for you to press the hotkey.

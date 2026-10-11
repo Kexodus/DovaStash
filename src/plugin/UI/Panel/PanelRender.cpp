@@ -1417,8 +1417,7 @@ namespace dova::ui::panel
 			Text(std::format("SKSE Menu Framework: v{:.2f}", global->frameworkVersion));
 			Text(std::format("Categories: {}   Templates: {}", global->categoryCount, global->templates.size()));
 			Text(std::format("Hotkey: {}", global->hotkeyName));
-			Text(std::format("QuickLoot IE: {}   UIExtensions: {}   I4 icon rules: {}", global->quickLootReady ? "yes" : "no",
-				global->uiExtensions ? "yes" : "no", global->i4Rules));
+			Text(std::format("QuickLoot IE: {}   UIExtensions: {}", global->quickLootReady ? "yes" : "no", global->uiExtensions ? "yes" : "no"));
 			ImGui::Spacing();
 			ColoredWrapped(kGrey, "Data: Data/SKSE/Plugins/DovaStash/ (Categories, Templates, Layouts). Log: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log");
 			ColoredWrapped(kGrey, "License: GPL-3.0-or-later. Uses the SKSE Menu Framework 3 API header (LGPL-2.1).");

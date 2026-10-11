@@ -421,13 +421,13 @@ namespace dova::game
 		return result;
 	}
 
-	std::vector<RE::ExtraDataList*> ProtectedExtraLists(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object)
+	std::vector<RE::ExtraDataList*> ExtraStacks(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object)
 	{
 		std::vector<RE::ExtraDataList*> out;
 		auto*                           entry = FindChangesEntry(a_ref, a_object);
 		if (entry && entry->extraLists) {
 			for (auto* xList : *entry->extraLists) {
-				if (IsProtectedExtraList(xList)) {
+				if (xList && xList->GetCount() > 0) {
 					out.push_back(xList);
 				}
 			}

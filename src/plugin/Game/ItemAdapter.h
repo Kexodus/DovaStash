@@ -54,8 +54,9 @@ namespace dova::game
 	// Total count of `a_object` in `a_ref` (inventory changes + base container), as GetInventory sees it.
 	[[nodiscard]] std::int32_t LiveCount(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object);
 
-	// Extra lists of `a_object` in `a_ref` that are worn / favorited / quest items.
-	[[nodiscard]] std::vector<RE::ExtraDataList*> ProtectedExtraLists(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object);
-
 	[[nodiscard]] bool IsProtectedExtraList(RE::ExtraDataList* a_extra);
+
+	// Every extra-data stack (tempered, enchanted, renamed, worn...) of `a_object` in `a_ref` that still
+	// holds at least one item.
+	[[nodiscard]] std::vector<RE::ExtraDataList*> ExtraStacks(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object);
 }

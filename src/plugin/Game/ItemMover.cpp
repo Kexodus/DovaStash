@@ -51,7 +51,21 @@ namespace dova::game
 			~Guard() { ItemMover::EndSuppress(); }
 		} guard;
 
+		// Extra-data stacks first: a plain-remainder move (RemoveItem with no extra list) lets the engine
+		// pick which copies leave, so it must only run once no special copy of that object is left behind
+		// by an earlier move in this batch (see the guard below).
+		std::vector<const core::Move*> ordered;
+		ordered.reserve(a_moves.size());
 		for (const auto& move : a_moves) {
+			ordered.push_back(&move);
+		}
+		std::ranges::stable_partition(ordered, [&](const core::Move* a_move) {
+			const auto* s = a_stacks.Find(a_move->stackId);
+			return s && s->extra != nullptr;
+		});
+
+		for (const auto* movePtr : ordered) {
+			const auto& move = *movePtr;
 			const auto* stack = a_stacks.Find(move.stackId);
 			if (!stack || !stack->object || move.count <= 0) {
 				logger::warn("Move skipped: unknown stack {} ({})", move.stackId, move.form.ToString());
@@ -85,17 +99,14 @@ namespace dova::game
 				continue;
 			}
 
-			// For a plain-remainder move, remember the protected stacks so we can detect if the engine
-			// ever took from one of them instead.
-			std::vector<RE::ExtraDataList*> protectedBefore;
+			// Plain-remainder move (RemoveItem with no extra list): the engine picks which copies leave and
+			// may take a tempered / enchanted / renamed / worn / favorited copy instead of a plain one. Only
+			// run it when no extra-data copy of the object is in the source (earlier moves in this batch
+			// already took the ones that were leaving). Otherwise the plain copies stay: never lose an item.
 			if (!stack->extra) {
-				protectedBefore = ProtectedExtraLists(source, stack->object);
-				// RemoveItem with a null extra list lets the engine pick which copies leave; it could take
-				// the worn / favorited / quest copy. Until that is verified in game, never move the plain
-				// remainder out of the player's inventory while a protected copy of the same object exists.
-				if (!protectedBefore.empty() && source->GetFormID() == kPlayerRefID) {
-					logger::info("Move skipped: {} x{} left in the player inventory because another copy is worn, favorited or a quest item",
-						Describe(stack->object), move.count);
+				if (const auto special = ExtraStacks(source, stack->object); !special.empty()) {
+					logger::info("Move skipped: {} x{} left in {} because a tempered, enchanted, renamed or worn copy of it stays there",
+						Describe(stack->object), move.count, EndpointName(source));
 					++report.skipped;
 					continue;
 				}
@@ -117,17 +128,6 @@ namespace dova::game
 				logger::error("Move mismatch: {} x{} {} -> {}: source {} -> {}, target {} -> {}",
 					Describe(stack->object), move.count, EndpointName(source), EndpointName(target), sourceBefore, sourceAfter, targetBefore, targetAfter);
 			}
-			if (!protectedBefore.empty()) {
-				const auto protectedAfter = ProtectedExtraLists(source, stack->object);
-				for (auto* xList : protectedBefore) {
-					if (std::ranges::find(protectedAfter, xList) == protectedAfter.end()) {
-						++report.errors;
-						logger::error("Move of plain {} x{} disturbed a worn/favorited/quest stack in {}", Describe(stack->object), move.count, EndpointName(source));
-						break;
-					}
-				}
-			}
-
 			if (added > 0) {
 				report.items += added;
 				++report.stacks;

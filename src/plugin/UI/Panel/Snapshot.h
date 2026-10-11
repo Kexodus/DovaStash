@@ -151,7 +151,6 @@ namespace dova::ui::panel
 		bool        isVR{ false };
 		bool        quickLootReady{ false };
 		bool        uiExtensions{ false };
-		std::size_t i4Rules{ 0 };
 	};
 
 	struct ExportState

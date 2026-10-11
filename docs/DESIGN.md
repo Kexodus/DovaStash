@@ -143,9 +143,19 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 
 ### Threading
 
-All inventory mutation happens on the **main thread** through `SKSE::GetTaskInterface()->AddTask`.
-Event sinks and ImGui callbacks only enqueue work. Sorting is batched: there is one task per operation,
-and very large inventories are chunked across frames to avoid hitches.
+All inventory mutation and every layout edit run as SKSE tasks (`SKSE::GetTaskInterface()->AddTask`).
+Event sinks and ImGui callbacks only enqueue work. Sorting is batched: one task per operation.
+Chunking very large inventories across frames is still planned (M5).
+
+**Two threads, not one.** On AE the task queue drains on engine worker threads, while the HUD and
+other menus (our overlay, the activate prompt hook, QuickLoot's handlers, UI tasks) run on the UI
+thread (confirmed from thread IDs in the log). Code on the UI thread therefore never touches the
+live `Home`/`Layout` or settings:
+- `HomeRegistry` publishes an immutable copy of the current home (`DisplayHome`, an
+  `std::atomic<std::shared_ptr>`) after every change. Display code reads only that copy.
+- `Settings` is an atomically swapped `shared_ptr<const Values>`; getters return copies.
+- The UIExtensions bridge keeps its one pending menu behind a mutex, and runs callbacks unlocked.
+- Category and template data never change after `kDataLoaded` and are shared freely.
 
 ---
 
@@ -368,8 +378,14 @@ download that drops into the same `Categories/` folder, not in the main archive.
 - **Always skip:** quest items (`IsQuestObject`), non-playable forms, equipped (`ExtraWorn`/`ExtraWornLeft`),
   favorited (`ExtraHotkey`), and anything matched by keep rules. Gold, lockpicks and torches are kept by
   default (configurable).
-- Never sort *while* a `ContainerMenu` is open on an affected container. Defer to the menu close to
-  avoid UI desync.
+- Never sort *while* a `ContainerMenu` is open on an affected container if that menu pauses the game.
+  Defer to the menu close to avoid UI desync. Sort on arrival (items put into the master) waits for
+  the close when the game is paused, and only runs with the menu open when the menu does not pause
+  (Skyrim Souls). The open menus are then told to rebuild their lists.
+- **Plain remainder:** moving the copies without extra data (`RemoveItem` with no extra list) lets the
+  engine pick which copies leave, and it may take a tempered, enchanted, renamed or worn one. Extra-data
+  stacks therefore move first, and a plain move is skipped (the items stay) while any extra-data copy of
+  that object remains in the source.
 - Every operation logs a summary (`moved 143 items in 9 stacks to 6 containers`). A debug option writes a
   per-item journal.
 
@@ -393,13 +409,15 @@ A cell can host a Dova Stash layout when **all** of the following hold:
 
 - It is an interior cell, or an exterior cell that is player-owned.
 - It is player-owned (`TESObjectCELL::GetOwner()` is the player or the player faction), **or** unowned, **or**
-  its location has the `LocTypePlayerHouse` keyword. That keyword covers most vanilla, CC, and modded homes.
+  the cell's **own** location has the `LocTypePlayerHouse` keyword. That keyword covers most vanilla, CC,
+  and modded homes. Parent locations are not consulted: a mod tagging a whole town or hold must not open
+  every cell below it.
 
 Per-container checks when binding:
 
 - Reject containers whose base `TESObjectCONT` has the **`kRespawn`** flag, unless the cell's encounter zone
-  is flagged *never resets* or the location is a player house. Rejected containers show a clear warning.
-  Respawning containers are the #1 way to lose items in Skyrim.
+  is flagged *never resets*. Being a player house is not enough. Rejected containers show a clear
+  warning. Respawning containers are the #1 way to lose items in Skyrim.
 - Reject owned containers whose owner is not the player.
 - Skip disabled references (for example, unbuilt Hearthfire furniture). They become valid automatically
   once built.
@@ -442,7 +460,7 @@ toggles, sliders, UI mode and log level. `Controller::ApplySettings` validates, 
 when it needs it, so nothing needs a restart. A UI-mode change rebuilds the UIs: the old ones are kept
 alive for in-flight callbacks, and the Menu Framework panel is created only once.
 
-### 10.2 Container highlight
+### 10.2 Container highlight (planned, not implemented)
 
 A hotkey press with no crosshair target applies a timed `ApplyEffectShader` to managed containers in the
 cell, using distinct shaders for the master, bound, and ignored containers. The shaders reuse vanilla
@@ -463,7 +481,7 @@ Scaleform UI they already own.
 | In-world menus (master/container actions, assignment, retrieve, browse) | **UIExtensions** `UIListMenu`: plain top-down, scrollable, flat lists (group list → category list). Opened from the DLL (see "Skin-agnostic contracts" below), so no ESP | Whatever replaces UIExtensions' `listmenu.swf` (any skin, or none) | Native `MessageBoxMenu` chain (themed by the menu skin) |
 | Confirmations, quick actions | Native `MessageBoxMenu` | Menu skin | — |
 | Feedback | `RE::DebugNotification` + vanilla UI sound descriptors (`UIMenuOK`, `ITMGenericUp`...) | HUD skin, sound replacers | — |
-| Floating container icons | Our non-pausing HUD-layer Scaleform menu. Its SWF carries **no art**: it `loadMovie`s the player's icon SWF and `gotoAndStop`s the label. Text uses font aliases (`$EverywhereMediumFont`...) so the skin's `fontconfig.txt` applies | I4 rule files and icon packs, including colours; otherwise SkyUI's icon SWFs | Off on VR (activate prompt covers it) |
+| Floating container icons (off by default) | Empty clips on the vanilla HUD movie: `loadMovie` the player's icon SWF, `gotoAndStop` the label. No art of ours | The player's SkyUI category/item icon SWFs (and packs replacing them) | Off on VR (activate prompt covers it) |
 | Text | `Interface/Translations/DovaStash_<LANG>.txt` (`$DOVA_*` keys) | Game language, translations | English |
 
 **Skin-agnostic contracts.** Dova Stash targets the *mod's* interface, never a particular skin:
@@ -483,29 +501,19 @@ feedback).
 - Learned-only: the icon of the category most of its learned items belong to.
 - Ignored or unmanaged: no icon.
 
-The item-icon resolution below still drives category icons and item-level surfaces.
+**Where the icons come from.** Every category has an optional `icon` field (§7.1): a SkyUI icon label,
+or `{label, source, color}`, falling back to the nearest ancestor category that has one. Labels that
+name SkyUI's stock icon SWFs are pointed at the SWFs the player's SkyUI is configured with
+(`Interface/skyui/config.txt`). Icon packs that replace those SWFs therefore apply automatically.
 
-**Choosing a container's icon** (`core/Icons.h`, plugin `Icons/IconService`).
-1. Every category has an optional `icon` field (§7.1): a SkyUI icon label, or `{label, source, color}`.
-2. Representative item: the most common item in the container that belongs to the container's primary
-   (first) bound category pattern. Its icon is computed exactly like the inventory does it: SkyUI's
-   default icon logic (a port of SkyUI's `InventoryDataSetter` / `InventoryIconSetter`), then, if I4 is
-   installed, I4's own rule files evaluated read-only with I4's precedence. The result is the
-   `iconSource` / `iconLabel` / `iconColor` the player sees for that item in their inventory.
-3. Otherwise (the container holds nothing of its category yet) the category's `icon`, falling back to
-   the nearest ancestor category that has one.
-4. Otherwise (no category binding, e.g. the master) the icon of the most common item in the container.
-5. Otherwise no icon is shown (the activate prompt still names the role).
+The engine-independent I4 rule matcher (`core/Icons.h`, with tests) is kept in core, but the plugin no
+longer loads I4's rule files (0.2.2). Container icons are category icons, so per-item icons were never
+needed. I4/I5 keep doing what they do in the inventory menus.
 
-I4 details, verified against Exit-9B/InventoryInjector (main): rule files are read in plugin load order
-(`SKSE/Plugins/InventoryInjector/<plugin name>.json` for each active plugin; files without an active
-plugin are ignored, as I4 ignores them). Rules apply in file order, then array order; non-icon data
-(`subType`...) is applied first by all matching rules and re-runs SkyUI's default icon logic, then icon
-data, where the last matching rule wins per field. SkyUI's `icons.item.source` / `icons.item.noColor`
-(`Interface/skyui/config.txt`) are honoured. Rules that match on entry fields Dova Stash cannot compute
-from an item (`armor`, `damage`, `isStolen`, `spellType`...) are skipped with one warning per file.
-I5 (Inventory Interface Information Injector Improved) is a cache/fix layer over I4 with no API:
-nothing to integrate, and it just makes I4-icon surfaces faster.
+**QuickLoot IE.** One icon per bound category, in binding order (at most 5, then "+N"), in the bottom-right
+corner where the info bar text would be. It is placed from `_root.lootMenu.infoBar` and
+`_root.lootMenu.weight`, which QuickLoot's own DLL drives, so every QuickLoot skin has them. The master
+shows the word "Master".
 
 **Overlay rules.**
 - Only shown inside an enabled home.

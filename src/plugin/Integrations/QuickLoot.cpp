@@ -46,7 +46,7 @@ namespace dova::integrations::quickloot
 
 		// Name of the container Dova Stash would put this stack in, "" when it already is there, would not
 		// be moved, or the home has no layout. `a_here` is set when it belongs in `a_container`.
-		std::string DestinationOf(const home::Home& a_home, RE::TESObjectREFR* a_container, const QL::ItemStack* a_stack, bool* a_here = nullptr)
+		std::string DestinationOf(const home::DisplayHome& a_home, RE::TESObjectREFR* a_container, const QL::ItemStack* a_stack, bool* a_here = nullptr)
 		{
 			if (!a_stack || !a_stack->entry || !a_stack->entry->object || !a_home.layout) {
 				return {};
@@ -88,7 +88,7 @@ namespace dova::integrations::quickloot
 			RE::NiPointer<RE::TESObjectREFR> hold;
 			auto*                            container = Resolve(a_event->container, hold);
 			const auto                       role = ui::DescribeContainer(container);
-			auto*                            home = home::HomeRegistry::Get().Peek();
+			const auto                       home = home::HomeRegistry::Get().Display();
 			if (!home || role.kind == ui::ContainerRole::Kind::None || role.kind == ui::ContainerRole::Kind::Ignored) {
 				return;
 			}
@@ -121,6 +121,8 @@ namespace dova::integrations::quickloot
 		constexpr auto        kRowHolder = "dovaStashCategoryIcons";
 		constexpr std::size_t kMaxIcons = 5;
 
+		// UI thread only: RequestRow runs in QuickLoot's handlers and ShowRow/LayoutRow in UI tasks, which
+		// SKSE runs on the same thread (confirmed in logs).
 		struct RowState
 		{
 			RE::FormID                 container{ 0 };
@@ -315,7 +317,7 @@ namespace dova::integrations::quickloot
 		{
 			std::vector<core::IconRef> icons;
 			std::size_t                extra = 0;
-			const auto*                home = home::HomeRegistry::Get().Peek();
+			const auto                 home = home::HomeRegistry::Get().Display();
 			if (Settings::GetSingleton().GetIntegrations().quickLootIcons && a_container && home && home->layout &&
 				a_role.kind == ui::ContainerRole::Kind::Bound) {
 				for (const auto& pattern : a_role.binding->categories) {
@@ -345,7 +347,7 @@ namespace dova::integrations::quickloot
 		}
 
 		// True when the row will show icons for this container (then the info bar shows no category text).
-		bool RowShowsIcons(const home::Home& a_home, RE::TESObjectREFR* a_container, const ui::ContainerRole& a_role)
+		bool RowShowsIcons(const home::DisplayHome& a_home, RE::TESObjectREFR* a_container, const ui::ContainerRole& a_role)
 		{
 			if (!Settings::GetSingleton().GetIntegrations().quickLootIcons || a_role.kind != ui::ContainerRole::Kind::Bound) {
 				return false;
@@ -371,7 +373,7 @@ namespace dova::integrations::quickloot
 			RE::NiPointer<RE::TESObjectREFR> hold;
 			auto*                            container = Resolve(a_event->container, hold);
 			const auto                       role = ui::DescribeContainer(container);
-			auto*                            home = home::HomeRegistry::Get().Peek();
+			const auto                       home = home::HomeRegistry::Get().Display();
 			if (!home || role.kind == ui::ContainerRole::Kind::None || role.kind == ui::ContainerRole::Kind::Ignored) {
 				return;
 			}
@@ -475,8 +477,11 @@ namespace dova::integrations::quickloot
 	void Refresh()
 	{
 		if (g_ready) {
-			logger::trace("QuickLoot: refresh requested");
-			QL::QuickLootAPI::RefreshLootMenu();
+			// Callers run on task threads; QuickLoot's menu lives on the UI thread.
+			SKSE::GetTaskInterface()->AddUITask([]() {
+				logger::trace("QuickLoot: refresh requested");
+				QL::QuickLootAPI::RefreshLootMenu();
+			});
 		}
 	}
 }

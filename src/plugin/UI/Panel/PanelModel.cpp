@@ -6,7 +6,6 @@
 #include "Home/HomeRegistry.h"
 #include "Home/Store.h"
 #include "Settings.h"
-#include "Icons/IconService.h"
 #include "UI/UIExtensions.h"
 #include "Integrations/QuickLoot.h"
 #include "Sort/SortEngine.h"
@@ -413,7 +412,6 @@ namespace dova::ui::panel
 		global->isVR = REL::Module::IsVR();
 		global->quickLootReady = integrations::quickloot::IsReady();
 		global->uiExtensions = ui::uiext::IsInstalled();
-		global->i4Rules = icons::RuleCount();
 		global->hotkeyName = Controller::HotkeyName();
 		global->globalKeep = home::Store::Get().GlobalKeep();
 		global->globalKeepJson = core::KeepConfigToJson(global->globalKeep).dump();

@@ -388,6 +388,11 @@ namespace dova
 			Editor().OnHomeChanged();
 		}
 
+		if (const auto deferred = std::exchange(_arrivalDeferredCell, 0)) {
+			// The items that arrived while the paused menu was open. The menu can still be in its close
+			// animation here, so wait until it is really gone.
+			RunWhenContainerMenuClosed([this, deferred]() { SortArrivals(deferred); });
+		}
 		if (!closed || !Settings::GetSingleton().GetSorting().distributeOnMasterClose) {
 			return;
 		}
@@ -431,9 +436,20 @@ namespace dova
 		if (!home || !home->layout || !home->layout->master) {
 			return;
 		}
-		// Deliberately runs while the master's ContainerMenu may still be open (Skyrim Souls keeps the
-		// world running): every move is still validated against the live inventory by the ItemMover,
-		// and the open menus are told to rebuild their lists afterwards.
+		// DESIGN §8.2: never move items out of a container while its menu shows them, unless the menu does
+		// not pause the game (Skyrim Souls), where waiting for the close would defeat the point. Paused:
+		// defer to the close.
+		auto* ui = RE::UI::GetSingleton();
+		if (ui && ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) && ui->GameIsPaused()) {
+			if (_arrivalDeferredCell != a_cellId) {
+				logger::debug("Sort on arrival: container menu open and the game is paused, sorting when it closes");
+			}
+			_arrivalDeferredCell = a_cellId;
+			return;
+		}
+		_arrivalDeferredCell = 0;
+		// Unpaused menu (Skyrim Souls): every move is still validated against the live inventory by the
+		// ItemMover, and the open menus are told to rebuild their lists afterwards.
 		logger::info("Sort on arrival in {}", home->name);
 		const auto result = sort::Run(*home, sort::Op::Distribute);
 		Registry().Flush();

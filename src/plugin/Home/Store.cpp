@@ -107,28 +107,37 @@ namespace dova::home
 		nlohmann::json  doc = nlohmann::json::object();
 		std::error_code ec;
 		if (std::filesystem::exists(path, ec)) {
+			// Never overwrite a file we cannot read: the player may have other settings in it.
 			try {
 				std::ifstream     in(path, std::ios::binary);
 				std::stringstream buffer;
 				buffer << in.rdbuf();
 				doc = nlohmann::json::parse(buffer.str(), nullptr, true, true);
-				if (!doc.is_object()) {
-					doc = nlohmann::json::object();
-				}
 			} catch (const std::exception& e) {
-				logger::warn("Keep defaults: {} unreadable ({}); rewriting it", path.generic_string(), e.what());
-				doc = nlohmann::json::object();
+				logger::error("Keep defaults: not saved, {} cannot be read ({}). Fix or delete it first.", path.generic_string(), e.what());
+				return false;
+			}
+			if (!doc.is_object()) {
+				logger::error("Keep defaults: not saved, {} is not a JSON object. Fix or delete it first.", path.generic_string());
+				return false;
 			}
 		}
 		doc["keep"] = core::KeepConfigToJson(a_keep);
+		// Write a temporary file, then replace: a crash mid-write never leaves a half-written file.
+		// (JSON comments in an existing file are not kept: nlohmann::json does not preserve them.)
 		try {
 			std::filesystem::create_directories(path.parent_path(), ec);
-			std::ofstream out(path, std::ios::binary | std::ios::trunc);
-			out << doc.dump(2) << '\n';
-			if (!out) {
-				logger::error("Keep defaults: could not write {}", path.generic_string());
-				return false;
+			auto temp = path;
+			temp += ".tmp";
+			{
+				std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+				out << doc.dump(2) << '\n';
+				if (!out) {
+					logger::error("Keep defaults: could not write {}", temp.generic_string());
+					return false;
+				}
 			}
+			std::filesystem::rename(temp, path);
 		} catch (const std::exception& e) {
 			logger::error("Keep defaults: could not write {}: {}", path.generic_string(), e.what());
 			return false;

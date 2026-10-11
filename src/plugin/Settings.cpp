@@ -116,7 +116,7 @@ namespace dova
 	{
 		std::string line;
 		for (const auto& key : Keys()) {
-			line += std::format("{}{}={}", line.empty() ? "" : " ", key.name, key.write(_v));
+			line += std::format("{}{}={}", line.empty() ? "" : " ", key.name, key.write(*_v.load()));
 		}
 		logger::info("{}: {}", a_prefix, line);
 	}
@@ -138,23 +138,24 @@ namespace dova
 			key.read(ini, values, def);
 		}
 		Validate(values);
-		_v = values;
+		_v.store(std::make_shared<const Values>(values));
 		Log("Settings");
 	}
 
 	Settings::Values Settings::Get() const
 	{
-		return _v;
+		return *_v.load();
 	}
 
 	bool Settings::Save() const
 	{
 		const std::filesystem::path path{ kPath };
+		const auto                  current = *_v.load();
 		CSimpleIniA                 ini;
 		ini.SetUnicode();
 		ini.LoadFile(path.string().c_str());  // keeps the file's comments and any keys we don't know
 		for (const auto& key : Keys()) {
-			ini.SetValue(key.section, key.name, key.write(_v).c_str());
+			ini.SetValue(key.section, key.name, key.write(current).c_str());
 		}
 		const auto rc = ini.SaveFile(path.string().c_str());
 		if (rc < 0) {
@@ -168,8 +169,9 @@ namespace dova
 	{
 		Validate(a_values);
 		std::vector<std::string> changed;
+		const auto               current = *_v.load();
 		for (const auto& key : Keys()) {
-			const auto before = key.write(_v);
+			const auto before = key.write(current);
 			const auto after = key.write(a_values);
 			if (before != after) {
 				changed.push_back(std::format("{} {} -> {}", key.name, before, after));
@@ -178,7 +180,7 @@ namespace dova
 		if (changed.empty()) {
 			return changed;
 		}
-		_v = a_values;
+		_v.store(std::make_shared<const Values>(a_values));
 		for (const auto& c : changed) {
 			logger::info("Settings: {}", c);
 		}

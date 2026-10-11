@@ -17,9 +17,8 @@ namespace dova
 		struct General
 		{
 			// spdlog level: 0 trace, 1 debug, 2 info, 3 warn, 4 error, 5 critical, 6 off.
-			// Pre-release: everything is logged by default so test sessions always have the full picture.
-			// TODO(release): back to 2 (info) before the Nexus release.
-			std::int32_t logLevel{ 0 };
+			// Info for players. Testers set 0 (everything) on the settings page or in the INI.
+			std::int32_t logLevel{ 2 };
 
 			bool operator==(const General&) const = default;
 		};
@@ -129,13 +128,13 @@ namespace dova
 		// changed (empty = nothing changed, nothing written).
 		std::vector<std::string> Update(Values a_values);
 
-		[[nodiscard]] const General&      GetGeneral() const noexcept { return _v.general; }
-		[[nodiscard]] const Input&        GetInput() const noexcept { return _v.input; }
-		[[nodiscard]] const Templates&    GetTemplates() const noexcept { return _v.templates; }
-		[[nodiscard]] const Sorting&      GetSorting() const noexcept { return _v.sorting; }
-		[[nodiscard]] const UIOptions&    GetUI() const noexcept { return _v.ui; }
-		[[nodiscard]] const Integrations& GetIntegrations() const noexcept { return _v.integrations; }
-		[[nodiscard]] const Overlay&      GetOverlay() const noexcept { return _v.overlay; }
+		[[nodiscard]] General GetGeneral() const { return _v.load()->general; }
+		[[nodiscard]] Input GetInput() const { return _v.load()->input; }
+		[[nodiscard]] Templates GetTemplates() const { return _v.load()->templates; }
+		[[nodiscard]] Sorting GetSorting() const { return _v.load()->sorting; }
+		[[nodiscard]] UIOptions GetUI() const { return _v.load()->ui; }
+		[[nodiscard]] Integrations GetIntegrations() const { return _v.load()->integrations; }
+		[[nodiscard]] Overlay GetOverlay() const { return _v.load()->overlay; }
 
 		// Valid keyboard scan code (1-255), mouse (256-265) or gamepad (266-281) code.
 		[[nodiscard]] static bool IsValidKeyCode(std::int32_t a_code) noexcept { return a_code > 0 && a_code <= 281; }
@@ -147,6 +146,8 @@ namespace dova
 		void        Log(std::string_view a_prefix) const;
 		bool        Save() const;
 
-		Values _v;
+		// Swapped as a whole: written on task threads (ApplySettings), read every frame on the UI thread
+		// (overlay, activate prompt, QuickLoot). Getters return copies so no reference outlives a swap.
+		std::atomic<std::shared_ptr<const Values>> _v{ std::make_shared<const Values>() };
 	};
 }

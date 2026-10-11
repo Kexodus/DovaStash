@@ -116,6 +116,7 @@ namespace dova
 
 		ui::StashUIs _ui;
 		std::uint64_t _arrivalSerial{ 0 };
+		RE::FormID    _arrivalDeferredCell{ 0 };  // arrivals waiting for a paused master menu to close
 		std::uint64_t _learnSerial{ 0 };
 		std::map<std::string, std::vector<std::string>> _learnBatch;  // container label -> item names
 		RE::FormID                    _openContainer{ 0 };  // target of the open ContainerMenu (0 = none)

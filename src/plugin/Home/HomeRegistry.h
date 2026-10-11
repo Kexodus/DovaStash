@@ -25,6 +25,17 @@ namespace dova::home
 		[[nodiscard]] const core::TemplateCandidate* BestTemplate() const;
 	};
 
+	// Read-only copy of the current home for code that runs outside the task queue (the HUD/UI thread:
+	// overlay, activate prompt, QuickLoot handlers). On AE the SKSE task queue drains on worker threads,
+	// not on the UI thread, so those readers must never touch Home/Layout directly. Published by the
+	// registry after every change; readers take a shared_ptr and keep it for the duration of their call.
+	struct DisplayHome
+	{
+		RE::FormID                  cellId{ 0 };
+		std::string                 name;
+		std::optional<core::Layout> layout;
+	};
+
 	class HomeRegistry
 	{
 	public:
@@ -34,16 +45,15 @@ namespace dova::home
 		[[nodiscard]] Home* Current(std::string* a_reason = nullptr);
 		// Same, but only if it is still the cell `a_cellId` (menu callbacks arrive frames later).
 		[[nodiscard]] Home* CurrentIf(RE::FormID a_cellId);
-		// The already-loaded home of the player's current cell, without loading it or re-running the
-		// eligibility checks. For per-frame display code (activate prompt, overlay, QuickLoot info bar),
-		// which must stay cheap and must not cause a load as a side effect.
-		[[nodiscard]] Home* Peek();
+		// Any thread: the published copy of the home loaded for the player's current cell, or nullptr
+		// (another cell, or nothing loaded yet). Never causes a load. For per-frame display code.
+		[[nodiscard]] std::shared_ptr<const DisplayHome> Display() const;
 
 		// True the first time it is called for a cell this session (template notification gating).
 		bool MarkNotified(RE::FormID a_cellId) { return _notified.insert(a_cellId).second; }
 
 		// Persistence. MarkDirty() defers the write (learned destinations), Save() writes now.
-		void MarkDirty(Home& a_home) noexcept { a_home.dirty = true; }
+		void MarkDirty(Home& a_home);
 		bool Save(Home& a_home);
 		void Flush();  // writes the current home if dirty
 
@@ -60,9 +70,12 @@ namespace dova::home
 		HomeRegistry() = default;
 
 		void Load(RE::TESObjectCELL* a_cell, core::FormRef a_cellRef);
+		// Republishes the display copy of _home (or clears it). Called after every change.
+		void Publish();
 		void Resolve(Home& a_home);
 
-		std::optional<Home>          _home;
+		std::optional<Home>                             _home;
+		std::atomic<std::shared_ptr<const DisplayHome>> _display;
 		std::unordered_set<RE::FormID> _notified;  // cells that showed the template notification this session
 	};
 }

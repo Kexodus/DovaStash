@@ -97,10 +97,11 @@ namespace dova::ui
 	ContainerRole DescribeContainer(RE::TESObjectREFR* a_ref)
 	{
 		ContainerRole role;
-		auto*         home = home::HomeRegistry::Get().Peek();
+		auto          home = home::HomeRegistry::Get().Display();
 		if (!a_ref || !home || !home->layout || a_ref->GetParentCell() == nullptr || a_ref->GetParentCell()->GetFormID() != home->cellId) {
 			return role;
 		}
+		role.home = home;
 		const auto ref = game::ToFormRef(a_ref);
 		if (!ref) {
 			return role;
