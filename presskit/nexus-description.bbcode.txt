@@ -1,4 +1,4 @@
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-header-description-1920x480.png[/img]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-header-card.png[/img]
 
 [size=4][i]Look at a chest, press [b]K[/b], and your haul goes where it belongs.[/i][/size]
 
@@ -22,11 +22,11 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]Live settings.[/b] Every option changes in game without a restart.
 [/list]
 
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-features-1200x700.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-features-card.png[/img][/center]
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-02-how-it-works.png[/img][/center]
 
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-how-it-works-description-1920x1080.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-how-it-works-card.png[/img][/center]
 
 [b]Setting up a home[/b]
 [list]

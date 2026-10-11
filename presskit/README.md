@@ -31,10 +31,11 @@ for the mod tile in search and browse.
 | [`dovastash-gallery-homes-1920x1080.png`](nexus/dovastash-gallery-homes-1920x1080.png) | 1920×1080 | Gallery: the 22 included templates |
 | [`dovastash-gallery-categories-1920x1080.png`](nexus/dovastash-gallery-categories-1920x1080.png) | 1920×1080 | Gallery: the default categories |
 | [`dovastash-gallery-safety-1920x1080.png`](nexus/dovastash-gallery-safety-1920x1080.png) | 1920×1080 | Gallery: never lose an item |
-| [`dovastash-features-1200x700.png`](nexus/dovastash-features-1200x700.png) | 1200×700 | Description: the six key features (optional gallery image) |
+| [`dovastash-features-1200x700.png`](nexus/dovastash-features-1200x700.png) | 1200×700 | Gallery (optional): the six key features |
 | [`dovastash-header-1920x480.png`](nexus/dovastash-header-1920x480.png) | 1920×480 | Nexus page header slot |
-| [`dovastash-header-description-1920x480.png`](nexus/dovastash-header-description-1920x480.png) | 1920×480 | Description: the banner, framed |
-| [`dovastash-how-it-works-description-1920x1080.png`](nexus/dovastash-how-it-works-description-1920x1080.png) | 1920×1080 | Description: the three steps, framed |
+| [`dovastash-header-card.png`](nexus/dovastash-header-card.png) | 1976×536 | Description: the banner as a card |
+| [`dovastash-how-it-works-card.png`](nexus/dovastash-how-it-works-card.png) | 1976×1136 | Description: the three steps as a card |
+| [`dovastash-features-card.png`](nexus/dovastash-features-card.png) | 1244×744 | Description: the six key features as a card |
 | [`dovastash-social-1280x640.png`](nexus/dovastash-social-1280x640.png) | 1280×640 | GitHub: Settings → Social preview |
 
 <p>
@@ -51,16 +52,18 @@ for the mod tile in search and browse.
 
 ## Description section headers
 
-The BBCode file already uses these. They are 1200×112 with the emblem as a left-aligned bullet, plus a 1200×40 divider (and a transparent
+The BBCode file already uses these. They are 1244×156 cards with the emblem as a left-aligned bullet, plus a 1200×40 divider: the frameless
+mark as a small bullet with a hairline rule on each side, like iharvest-ng's (and a transparent
 divider for non-black backgrounds).
 
 The description follows the iharvest-ng layout: a centred intro and a `[line]` under the banner,
 each header wrapped in `[center]`, bold sub-headings with lists under How it works and Installation,
 and a Support section with what to put in a bug report.
 
-Everything the description embeds is **framed**: a black card with rounded corners, a hairline gray edge and a soft
-shadow on a transparent canvas, so it sits on the Nexus page's gray instead of as a hard black box. Any page
-renders framed with `?frame=1` (see `common.js`).
+Everything the description embeds is a **card**, with the same geometry as iharvest-ng's: the art keeps its full size
+(1200×112, 1920×480…) as a black card with rounded corners, a hairline gray edge and a soft shadow, on a transparent
+canvas that is 22 px larger on every side (28 px for 1920-wide art). It sits on the Nexus page's gray instead of as a
+hard black box. `frame()` in `render.py` sets this up; any page renders as a card with `?frame=<margin>`.
 
 ![Features](nexus/section-01-features.png)
 ![How it works](nexus/section-02-how-it-works.png)
@@ -122,8 +125,8 @@ They aren't uploaded to Nexus as they are.
 
 | Token | Value | Use |
 |---|---|---|
-| Background | `#000000` | Every canvas (framed description images: a black card on a transparent canvas) |
-| Frame edge | `#303030`, 1 px per 1200 px of width | The hairline around framed images |
+| Background | `#000000` | Every canvas (description cards: a black card on a transparent canvas) |
+| Card edge | `#343434` outside, `#212121` inside, 1 px each; radius = margin − 2 px | The edge around description cards |
 | Foreground | `#ffffff` | Wordmark, titles, icons, emblem |
 | Grays | `#d4d4d4` `#9c9c9c` `#6a6a6a` `#3c3c3c` `#1e1e1e` | Taglines, captions, quiet labels, rules, faint separators |
 | Type | Cinzel (titles), Jost (text) | Wide-tracked capitals; both SIL OFL, in `src/fonts/` |

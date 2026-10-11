@@ -62,22 +62,34 @@ SECTIONS = [
 ICONS = ["any_home", "auto_sort", "templates", "learns", "safe", "menu", "vr", "export", "hotkey"]
 
 
+def frame(w):
+    """Query for a description card: shadow margin on every side, as in iharvest-ng
+    (22 px around 1200-wide art, 28 px around 1920-wide art)."""
+    return {"frame": 22 if w <= 1200 else 28}
+
+
+def canvas(query, w, h):
+    """Output size: framed cards grow by the margin on every side."""
+    m = int(query.get("frame", 0))
+    return w + 2 * m, h + 2 * m
+
+
 def jobs():
-    """(page, query, width, height, output path under presskit/, transparent)"""
+    """(page, query, art width, art height, output path under presskit/, transparent)"""
     j = [
         ("thumbnail.html", {}, 1280, 720, "nexus/dovastash-thumbnail-1280x720.png", False),
         ("keyart.html", {}, 1920, 1080, "nexus/dovastash-primary-1920x1080.png", False),
         ("banner.html", {}, 1920, 480, "nexus/dovastash-header-1920x480.png", False),
-        ("features.html", {"frame": 1}, 1200, 700, "nexus/dovastash-features-1200x700.png", True),
+        ("features.html", {}, 1200, 700, "nexus/dovastash-features-1200x700.png", False),
         ("gallery_how_it_works.html", {}, 1920, 1080, "nexus/dovastash-gallery-how-it-works-1920x1080.png", False),
         ("gallery_templates.html", {}, 1920, 1080, "nexus/dovastash-gallery-templates-1920x1080.png", False),
         ("gallery_homes.html", {}, 1920, 1080, "nexus/dovastash-gallery-homes-1920x1080.png", False),
         ("gallery_categories.html", {}, 1920, 1080, "nexus/dovastash-gallery-categories-1920x1080.png", False),
         ("gallery_safety.html", {}, 1920, 1080, "nexus/dovastash-gallery-safety-1920x1080.png", False),
-        # Description variants of the banner and the steps: framed so they blend into the page.
-        ("banner.html", {"frame": 1}, 1920, 480, "nexus/dovastash-header-description-1920x480.png", True),
-        ("gallery_how_it_works.html", {"frame": 1}, 1920, 1080,
-         "nexus/dovastash-how-it-works-description-1920x1080.png", True),
+        # Description cards: the same art framed so it blends into the page (see frame()).
+        ("banner.html", frame(1920), 1920, 480, "nexus/dovastash-header-card.png", True),
+        ("gallery_how_it_works.html", frame(1920), 1920, 1080, "nexus/dovastash-how-it-works-card.png", True),
+        ("features.html", frame(1200), 1200, 700, "nexus/dovastash-features-card.png", True),
         ("divider.html", {}, 1200, 40, "nexus/dovastash-divider-1200x40.png", False),
         ("divider.html", {"bg": "transparent"}, 1200, 40, "nexus/dovastash-divider-transparent-1200x40.png", True),
         ("social.html", {}, 1280, 640, "nexus/dovastash-social-1280x640.png", False),
@@ -88,7 +100,7 @@ def jobs():
     ]
     # Section headers, numbered in the order the description uses them.
     for i, key in enumerate(SECTIONS, 1):
-        j.append(("header.html", {"title": HEADERS[key], "frame": 1}, 1200, 112,
+        j.append(("header.html", {"title": HEADERS[key], **frame(1200)}, 1200, 112,
                   f"nexus/section-{i:02d}-{key.replace('_', '-')}.png", True))
     for name in ICONS:
         j.append(("icon.html", {"name": name}, 256, 256, f"nexus/icon-{name.replace('_', '-')}-256.png", False))
@@ -131,8 +143,9 @@ def render(job):
     out = OUT / name
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="ds_edge_", ignore_cleanup_errors=True) as prof:
+        cw, ch = canvas(query, w, h)
         args = [EDGE, "--headless=new", "--disable-gpu", "--hide-scrollbars",
-                "--force-device-scale-factor=1", f"--window-size={w},{h}",
+                "--force-device-scale-factor=1", f"--window-size={cw},{ch}",
                 "--allow-file-access-from-files", "--virtual-time-budget=5000",
                 "--disable-lcd-text",
                 "--no-first-run", "--disable-extensions",
@@ -249,6 +262,7 @@ def main(argv):
             failures += 1
             continue
         pw, ph, depth, color = png_info(path)
+        w, h = canvas(query, w, h)
         size = path.stat().st_size
         problems = []
         if (pw, ph) != (w, h):

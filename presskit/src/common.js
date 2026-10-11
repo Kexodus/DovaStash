@@ -13,19 +13,15 @@ window.q = function (name, def) {
   if (q("w", "")) {
     var w = +q("w"), h = +q("h");
     if (q("frame", "")) {
-      // Description variant: a rounded black card with a hairline edge and a soft shadow
-      // on a transparent canvas, so it sits on the Nexus page instead of a hard rectangle.
-      // Sizes scale with the canvas so every image shows the same edge once Nexus fits it
-      // to the description width.
-      var m = Math.round(w / 200);
+      // Description card (?frame=<margin px>): the art keeps its full size as a rounded black
+      // card with a hairline edge, and the canvas grows by the margin on every side for a soft
+      // shadow, so it sits on the Nexus page instead of as a hard rectangle. Same geometry as
+      // the iharvest-ng description cards (1200x112 header -> 1244x156 canvas).
+      var m = +q("frame");
       b.classList.add("framed");
-      b.style.width = w + "px";
-      b.style.height = h + "px";
+      b.style.width = w + 2 * m + "px";
+      b.style.height = h + 2 * m + "px";
       b.style.setProperty("--fm", m + "px");
-      b.style.setProperty("--fr", Math.round(w * 0.0115) + "px");
-      b.style.setProperty("--fb", Math.max(1, Math.round(w / 1200)) + "px");
-      w -= 2 * m;
-      h -= 2 * m;
     }
     b.style.setProperty("--W", w + "px");
     b.style.setProperty("--H", h + "px");

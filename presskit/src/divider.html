@@ -3,10 +3,24 @@
 <link rel="stylesheet" href="style.css">
 <script src="common.js"></script>
 <style>
-  body { display: flex; align-items: center; justify-content: center; }
+  /* Like the iharvest-ng divider: a small emblem bullet with a hairline rule on each side.
+     The bullet is the logo mark without its frame. */
+  body { display: flex; align-items: center; justify-content: center; gap: 28px; }
   .rule { width: 240px; height: 1px; background: var(--gray-3); }
+  .bullet { display: flex; }
+  .bullet .f { display: none; }
+  .bullet .m { stroke: var(--gray-1); }
 </style>
 </head>
 <body>
 <div class="rule"></div>
+<div class="bullet" id="b"><script>document.write(mark(256, 12, 0));</script></div>
+<div class="rule"></div>
+<script>
+  // Crop the 256 box to the mark itself (gable and chest, plus stroke) and size it to the strip.
+  var s = document.querySelector("#b svg");
+  s.setAttribute("viewBox", "48 58 160 144");
+  s.setAttribute("width", 30);
+  s.setAttribute("height", 27);
+</script>
 </body></html>

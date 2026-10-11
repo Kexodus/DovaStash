@@ -167,16 +167,17 @@ Upload order, Images tab (files in `presskit/nexus/`):
 | 5 | `dovastash-gallery-homes-1920x1080.png` | Gallery |
 | 6 | `dovastash-gallery-categories-1920x1080.png` | Gallery |
 | 7 | `dovastash-gallery-safety-1920x1080.png` | Gallery |
-| 8 | `dovastash-features-1200x700.png` | Gallery (optional); embedded in the description |
+| 8 | `dovastash-features-1200x700.png` | Gallery (optional) |
 
 **Embedded in the description only.** Don't put these in the gallery, because they would clutter it.
 The description already loads them from GitHub:
 
-- `dovastash-header-description-1920x480.png` and `dovastash-how-it-works-description-1920x1080.png`:
-  framed copies of the banner and the steps image (rounded corners, a hairline edge, a soft shadow)
-  so they sit on the page instead of as hard black boxes. The section headers and the features image
-  are framed the same way.
-- `dovastash-divider-transparent-1200x40.png`
+- `dovastash-header-card.png`, `dovastash-how-it-works-card.png` and `dovastash-features-card.png`:
+  the banner, the steps and the features as cards (rounded corners, a hairline edge, a soft shadow,
+  same sizes as iharvest-ng's), so they sit on the page instead of as hard black boxes. The section
+  headers are cards too.
+- `dovastash-divider-transparent-1200x40.png`: the closing divider above the GitHub link, the
+  frameless mark between two hairline rules.
 - `section-01-features.png` to `section-13-support.png`: all 13 section headers.
 
 **Not used on the mod page:**
