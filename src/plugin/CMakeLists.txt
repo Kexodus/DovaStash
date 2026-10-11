@@ -55,6 +55,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Home/Store.cpp
 	Home/HomeRegistry.h
 	Home/HomeRegistry.cpp
+	Icons/IconService.h
+	Icons/IconService.cpp
 	Sort/SortEngine.h
 	Sort/SortEngine.cpp
 	Events/EventSinks.h
@@ -76,6 +78,21 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/Panel/PanelModel.cpp
 	UI/Panel/PanelRender.h
 	UI/Panel/PanelRender.cpp
+	UI/Labels.h
+	UI/Labels.cpp
+	UI/Factory.cpp
+	UI/UIExtensions.h
+	UI/UIExtensions.cpp
+	UI/ListUI.h
+	UI/ListUI.cpp
+	UI/Overlay.h
+	UI/Overlay.cpp
+	Hooks/ActivatePrompt.h
+	Hooks/ActivatePrompt.cpp
+	Integrations/QuickLoot.h
+	Integrations/QuickLoot.cpp
+	Diagnostics/Environment.h
+	Diagnostics/Environment.cpp
 )
 list(TRANSFORM DOVASTASH_PLUGIN_SOURCES PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
 
@@ -100,10 +117,11 @@ target_include_directories(DovaStash
 target_include_directories(DovaStash SYSTEM
 	PRIVATE
 		"${PROJECT_SOURCE_DIR}/extern/SKSEMenuFramework"
+		"${PROJECT_SOURCE_DIR}/extern/QuickLootIE"
 		"${SIMPLEINI_INCLUDE_DIRS}"
 )
 # dova::core: engine-independent logic (categories, layouts, templates, keep rules, sort planner).
-target_link_libraries(DovaStash PRIVATE spdlog::spdlog dova::core)
+target_link_libraries(DovaStash PRIVATE spdlog::spdlog dova::core Version)  # Version: file version resources (Diagnostics)
 
 target_precompile_headers(DovaStash PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/PCH.h")
 

@@ -98,5 +98,8 @@ The scripts that produce the shipped data:
 - `datagen/gen_templates.py` writes `Templates/Vanilla/*.json` and `Templates/CreationClub/*.json`. The
   container-to-category bindings in it are hand-picked. The `"ignored"` entries are derived from the plugin
   data: respawning containers, scripted bookshelves, and containers removed by upgrades.
+- `datagen/gen_ocf_categories.py --ocf "<OCF mod folder>"` writes the optional OCF set,
+  `dist/Optional/OCF/Data/SKSE/Plugins/DovaStash/Categories/50_OCF.json`, and `tests/data/ocf_keywords.txt`. It
+  reads OCF's `*_KID.ini` files and fails if a category uses a keyword that OCF doesn't put on that record type.
 
 Run both scripts again after changing a binding, then run `check` on `dist/Data/SKSE/Plugins/DovaStash`.

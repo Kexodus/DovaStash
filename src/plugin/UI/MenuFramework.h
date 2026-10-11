@@ -13,4 +13,7 @@ namespace dova::ui::menu_framework
 
 	// Framework version reported by the DLL, or 0 if it is not installed/loaded.
 	[[nodiscard]] float GetVersion();
+
+	// A framework window that takes the input (ours or another mod's) is on screen.
+	[[nodiscard]] bool IsAnyBlockingWindowOpen();
 }

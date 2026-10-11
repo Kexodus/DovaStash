@@ -34,6 +34,10 @@ namespace dova::home
 		[[nodiscard]] Home* Current(std::string* a_reason = nullptr);
 		// Same, but only if it is still the cell `a_cellId` (menu callbacks arrive frames later).
 		[[nodiscard]] Home* CurrentIf(RE::FormID a_cellId);
+		// The already-loaded home of the player's current cell, without loading it or re-running the
+		// eligibility checks. For per-frame display code (activate prompt, overlay, QuickLoot info bar),
+		// which must stay cheap and must not cause a load as a side effect.
+		[[nodiscard]] Home* Peek();
 
 		// True the first time it is called for a cell this session (template notification gating).
 		bool MarkNotified(RE::FormID a_cellId) { return _notified.insert(a_cellId).second; }

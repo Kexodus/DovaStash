@@ -62,6 +62,16 @@ namespace dova::home
 		return home && home->cellId == a_cellId ? home : nullptr;
 	}
 
+	Home* HomeRegistry::Peek()
+	{
+		auto* player = game::Player();
+		auto* cell = player ? player->GetParentCell() : nullptr;
+		if (!cell || !_home || _home->cellId != cell->GetFormID()) {
+			return nullptr;
+		}
+		return &*_home;
+	}
+
 	void HomeRegistry::Load(RE::TESObjectCELL* a_cell, core::FormRef a_cellRef)
 	{
 		Home home;

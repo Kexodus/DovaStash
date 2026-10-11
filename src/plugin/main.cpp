@@ -5,12 +5,18 @@
 // SKSEPlugin_Load lives here.
 
 #include "Controller.h"
+#include "Diagnostics/Environment.h"
 #include "Events/EventSinks.h"
 #include "Game/FormUtil.h"
+#include "Hooks/ActivatePrompt.h"
+#include "Icons/IconService.h"
 #include "Input/InputHandler.h"
+#include "Integrations/QuickLoot.h"
 #include "Log.h"
 #include "Settings.h"
 #include "UI/MenuFramework.h"
+#include "UI/Overlay.h"
+#include "UI/UIExtensions.h"
 
 #include <DovaStash/Version.h>
 
@@ -46,6 +52,7 @@ namespace
 				} else {
 					logger::info("SKSE Menu Framework: not installed, native MessageBox UI will be used");
 				}
+				dova::integrations::quickloot::Init();
 			}
 			break;
 		case SKSE::MessagingInterface::kDataLoaded:
@@ -53,9 +60,14 @@ namespace
 			// Order matters: form tables first (formList resolution needs them), then data + UI, then
 			// the sinks that may start enqueueing work.
 			dova::game::InitFormUtil();
+			dova::icons::Load();
 			dova::Controller::Get().Init();
 			dova::events::RegisterSinks();
+			dova::ui::uiext::RegisterSinks();
 			dova::input::RegisterInputSink();
+			dova::hooks::InstallActivatePrompt();
+			dova::ui::overlay::Install();
+			dova::diagnostics::LogEnvironment();
 			break;
 		case SKSE::MessagingInterface::kNewGame:
 			logger::info("kNewGame");

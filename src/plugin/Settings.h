@@ -3,7 +3,9 @@
 namespace dova
 {
 	// User settings from Data/SKSE/Plugins/DovaStash.ini. Every key has an in-code default, so a
-	// missing file or key is never an error. Read once at plugin load; main thread only.
+	// missing file or key is never an error. Read at plugin load; changed live from the SKSE Menu
+	// Framework settings page (Update), which also writes them back to the INI. Main thread only:
+	// everything that uses a setting reads it when it needs it, so a change applies immediately.
 	class Settings
 	{
 	public:
@@ -15,7 +17,11 @@ namespace dova
 		struct General
 		{
 			// spdlog level: 0 trace, 1 debug, 2 info, 3 warn, 4 error, 5 critical, 6 off.
-			std::int32_t logLevel{ 2 };
+			// Pre-release: everything is logged by default so test sessions always have the full picture.
+			// TODO(release): back to 2 (info) before the Nexus release.
+			std::int32_t logLevel{ 0 };
+
+			bool operator==(const General&) const = default;
 		};
 
 		struct Input
@@ -32,27 +38,83 @@ namespace dova
 			// gamepad button already has a vanilla action; a combo/hold scheme arrives with the
 			// input sink in M1.
 			std::int32_t gamepadHotkey{ kNoKey };
+
+			bool operator==(const Input&) const = default;
 		};
 
 		struct Templates
 		{
 			// DESIGN §4.1: auto-enable a matching template on first entry (off by default).
 			bool autoEnable{ false };
+
+			bool operator==(const Templates&) const = default;
 		};
 
 		struct Sorting
 		{
 			// DESIGN §8.1: closing the master container distributes its contents.
 			bool distributeOnMasterClose{ true };
+			// Items put into the master are sorted out of it right away (~0.4 s later), even while its
+			// container menu is still open (Skyrim Souls); the open menu is refreshed.
+			bool sortOnArrival{ true };
 			// DESIGN §8.1 Learn: items you put into a managed container by hand teach their destination.
 			bool learn{ true };
+
+			bool operator==(const Sorting&) const = default;
 		};
 
 		struct UIOptions
 		{
-			// DESIGN §10.1: 0 = auto (SKSE Menu Framework panel when installed and not VR, else native
-			// message boxes), 1 = always message boxes, 2 = Menu Framework whenever it is loaded.
+			// DESIGN §10.1/§10.3: what the hotkey opens in the world.
+			// 0 = auto: UIExtensions list menus when UIExtensions is installed (not VR), else native
+			//     message boxes. The SKSE Menu Framework panel stays available as the editor.
+			// 1 = always message boxes, 2 = the SKSE Menu Framework panel (when loaded),
+			// 3 = UIExtensions (falls back to message boxes when it is not installed).
 			std::int32_t mode{ 0 };
+			// UIExtensions lists and text entry open centred on screen (whatever the skin's own position).
+			bool centerMenus{ true };
+
+			bool operator==(const UIOptions&) const = default;
+		};
+
+		struct Integrations
+		{
+			// QuickLoot IE info bar + button bar (DESIGN §10.3).
+			bool quickLoot{ true };
+			// QuickLoot IE item list: "Iron Sword  >  Weapon Rack" for items that belong elsewhere.
+			bool quickLootItemTags{ true };
+			// QuickLoot IE title: the container's category icon next to its name (instead of text).
+			bool quickLootTitleIcon{ true };
+			// Container role in the activate prompt ("Chest (Weapons)"); every runtime including VR.
+			bool activatePrompt{ true };
+
+			bool operator==(const Integrations&) const = default;
+		};
+
+		struct Overlay
+		{
+			// Floating icons above managed containers, drawn with the player's own SkyUI/I4 icons.
+			bool  enabled{ false };  // off by default (player feedback); the settings page turns it on live
+			float radius{ 1200.0f };   // game units (~17 m)
+			std::int32_t maxIcons{ 12 };
+			float iconSize{ 40.0f };   // HUD movie units at the closest distance
+			bool  requireLineOfSight{ true };
+
+			bool operator==(const Overlay&) const = default;
+		};
+
+		// Every setting, by value (what the settings page edits).
+		struct Values
+		{
+			General      general;
+			Input        input;
+			Templates    templates;
+			Sorting      sorting;
+			UIOptions    ui;
+			Integrations integrations;
+			Overlay      overlay;
+
+			bool operator==(const Values&) const = default;
 		};
 
 		[[nodiscard]] static Settings& GetSingleton() noexcept;
@@ -60,19 +122,30 @@ namespace dova
 		// Loads kPath (relative to the game's working directory). Logs what it read.
 		void Load();
 
-		[[nodiscard]] const General&   GetGeneral() const noexcept { return _general; }
-		[[nodiscard]] const Input&     GetInput() const noexcept { return _input; }
-		[[nodiscard]] const Templates& GetTemplates() const noexcept { return _templates; }
-		[[nodiscard]] const Sorting&   GetSorting() const noexcept { return _sorting; }
-		[[nodiscard]] const UIOptions& GetUI() const noexcept { return _ui; }
+		[[nodiscard]] Values Get() const;
+		// Validates `a_values` (out-of-range values are clamped/reset like on load), makes them current
+		// and writes every key to kPath, keeping the file's comments. Returns the names of the keys that
+		// changed (empty = nothing changed, nothing written).
+		std::vector<std::string> Update(Values a_values);
+
+		[[nodiscard]] const General&      GetGeneral() const noexcept { return _v.general; }
+		[[nodiscard]] const Input&        GetInput() const noexcept { return _v.input; }
+		[[nodiscard]] const Templates&    GetTemplates() const noexcept { return _v.templates; }
+		[[nodiscard]] const Sorting&      GetSorting() const noexcept { return _v.sorting; }
+		[[nodiscard]] const UIOptions&    GetUI() const noexcept { return _v.ui; }
+		[[nodiscard]] const Integrations& GetIntegrations() const noexcept { return _v.integrations; }
+		[[nodiscard]] const Overlay&      GetOverlay() const noexcept { return _v.overlay; }
+
+		// Valid keyboard scan code (1-255), mouse (256-265) or gamepad (266-281) code.
+		[[nodiscard]] static bool IsValidKeyCode(std::int32_t a_code) noexcept { return a_code > 0 && a_code <= 281; }
 
 	private:
 		Settings() = default;
 
-		General   _general;
-		Input     _input;
-		Templates _templates;
-		Sorting   _sorting;
-		UIOptions _ui;
+		static void Validate(Values& a_values);
+		void        Log(std::string_view a_prefix) const;
+		bool        Save() const;
+
+		Values _v;
 	};
 }

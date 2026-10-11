@@ -23,6 +23,8 @@ namespace dova::home
 		[[nodiscard]] const core::CategorySet&                 Categories() const noexcept { return _categories; }
 		[[nodiscard]] std::span<const core::TemplateCandidate> Templates() const noexcept { return _templates; }
 		[[nodiscard]] const core::KeepConfig&                  GlobalKeep() const noexcept { return _globalKeep; }
+		// Writes the "keep" block of Settings.json (other keys in the file are kept) and makes it current.
+		bool SaveGlobalKeep(core::KeepConfig a_keep);
 
 		// Diagnostics from the last Load() (shown by the Menu Framework UI's Diagnostics page).
 		[[nodiscard]] const core::Diagnostics& CategoryDiagnostics() const noexcept { return _categoryDiags; }

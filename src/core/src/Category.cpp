@@ -271,6 +271,13 @@ namespace dova::core
 					if (auto m = ParseMatch(a_ctx, value, where + ".match")) {
 						def.match = std::move(*m);
 					}
+				} else if (key == "icon") {
+					// Cosmetic: problems are warnings and only drop the icon, never the category.
+					Diagnostics iconDiags;
+					def.icon = ParseIconRef(value, where + ".icon", iconDiags);
+					for (const auto& d : iconDiags.Items()) {
+						a_ctx.Warn(d.source + ": " + d.message + (d.severity == Diagnostic::Severity::Error ? " (icon ignored)" : ""));
+					}
 				} else if (key == "description" || key.starts_with('_') || key.starts_with('$')) {
 					// documentation only
 				} else {
@@ -338,6 +345,87 @@ namespace dova::core
 			return {};
 		}
 		return ParseCategoryDocument(*doc, a_source, a_diags);
+	}
+
+	nlohmann::ordered_json CategoryToJson(const CategoryDef& a_def)
+	{
+		using ojson = nlohmann::ordered_json;
+		ojson out = ojson::object();
+		out["id"] = a_def.id;
+		if (!a_def.name.empty() && a_def.name != a_def.id) {
+			out["name"] = a_def.name;
+		}
+		if (a_def.priority != 0) {
+			out["priority"] = a_def.priority;
+		}
+		if (a_def.icon) {
+			out["icon"] = ojson::parse(IconRefToJson(*a_def.icon).dump());
+		}
+
+		const auto& m = a_def.match;
+		if (m.Empty()) {
+			return out;
+		}
+		ojson match = ojson::object();
+		const auto strings = [](const std::vector<std::string>& a_list) { return ojson(a_list); };
+		const auto forms = [](const std::vector<FormRef>& a_list) {
+			ojson arr = ojson::array();
+			for (const auto& f : a_list) {
+				arr.push_back(f.ToString());
+			}
+			return arr;
+		};
+		const auto enums = [](const auto& a_list) {
+			ojson arr = ojson::array();
+			for (const auto v : a_list) {
+				arr.push_back(std::string(ToString(v)));
+			}
+			return arr;
+		};
+		if (m.formTypes) {
+			match["formTypes"] = enums(*m.formTypes);
+		}
+		if (m.keywordsAny) {
+			match["keywordsAny"] = strings(*m.keywordsAny);
+		}
+		if (m.keywordsAll) {
+			match["keywordsAll"] = strings(*m.keywordsAll);
+		}
+		if (m.keywordsNone) {
+			match["keywordsNone"] = strings(*m.keywordsNone);
+		}
+		if (m.forms) {
+			match["forms"] = forms(*m.forms);
+		}
+		if (m.formLists) {
+			match["formLists"] = forms(*m.formLists);
+		}
+		if (m.plugins) {
+			match["plugins"] = strings(*m.plugins);
+		}
+		if (m.weaponTypes) {
+			match["weaponTypes"] = enums(*m.weaponTypes);
+		}
+		if (m.armorTypes) {
+			match["armorTypes"] = enums(*m.armorTypes);
+		}
+		if (m.bookTeaches) {
+			match["bookTeaches"] = enums(*m.bookTeaches);
+		}
+		if (m.alchemy) {
+			match["alchemy"] = enums(*m.alchemy);
+		}
+		if (m.soulGem) {
+			match["soulGem"] = enums(*m.soulGem);
+		}
+		if (m.enchanted) {
+			match["enchanted"] = *m.enchanted;
+		}
+		if (m.ammo) {
+			match["ammo"] = enums(*m.ammo);
+		}
+		out["match"] = std::move(match);
+		return out;
 	}
 
 	std::vector<CategoryDef> MergeCategoryFiles(std::span<const std::vector<CategoryDef>> a_files, Diagnostics& a_diags)
@@ -442,9 +530,10 @@ namespace dova::core
 				set._info[idx].name = def.name.empty() ? def.id : def.name;
 				set._info[idx].priority = def.priority;
 				set._info[idx].source = def.source;
+				set._info[idx].icon = def.icon;
 			} else {
 				set._byId.emplace(def.id, idx);
-				set._info.push_back(Category{ def.id, def.name.empty() ? def.id : def.name, def.priority, CategoryDepth(def.id), idx, def.source });
+				set._info.push_back(Category{ def.id, def.name.empty() ? def.id : def.name, def.priority, CategoryDepth(def.id), idx, def.source, def.icon });
 				compiled.emplace_back();
 			}
 

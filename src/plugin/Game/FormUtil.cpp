@@ -168,6 +168,18 @@ namespace dova::game
 		if (name.empty()) {
 			name = a_form->GetFormEditorID();
 		}
+		if (const auto* ref = a_form->AsReference(); ref && name.empty()) {
+			// References rarely have a name of their own: "Chest (ref)" from the base object.
+			if (const auto* base = ref->GetBaseObject()) {
+				name = base->GetName();
+				if (name.empty()) {
+					name = base->GetFormEditorID();
+				}
+				if (!name.empty()) {
+					name += " (ref)";
+				}
+			}
+		}
 		const auto ref = ToFormRef(a_form);
 		return std::format("{} [{}]", name.empty() ? "?" : name,
 			ref ? ref->ToString() : std::format("dynamic {:08X}", a_form->GetFormID()));

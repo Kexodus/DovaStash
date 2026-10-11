@@ -22,4 +22,9 @@ namespace dova::ui::menu_framework
 	{
 		return SKSEMenuFramework::GetMenuFrameworkVersion();
 	}
+
+	bool IsAnyBlockingWindowOpen()
+	{
+		return IsLoaded() && SKSEMenuFramework::IsAnyBlockingWindowOpened();
+	}
 }

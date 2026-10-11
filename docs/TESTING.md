@@ -25,7 +25,7 @@ The default hotkey is **K** (`iHotkey = 37`).
 ### Expected startup log
 
 ```
-Dova Stash v0.1.0 loaded
+Dova Stash v0.2.0 loaded
 Settings: iLogLevel=1 iHotkey=37 iGamepadHotkey=-1 bAutoEnableTemplates=false bDistributeOnMasterClose=true bLearn=true iMode=0
 kDataLoaded: forms are available
 FormUtil: <n> full + <m> light plugins loaded
@@ -381,7 +381,86 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 | 5.8.4 | Open the master by hand (ContainerMenu), close it, then press K | The window shows the distributed result. |
 | 5.8.5 | Save and reload with the window closed | Nothing in the panel survives the reload except the data in the layout JSON. |
 
-## 6. What to send back
+## 6. Borrowed-UI integration (M4b)
+
+These features draw nothing of their own: what you see should look like the rest of your UI. Test with
+your normal skin, then repeat 6.2 with UIExtensions' stock `listmenu.swf` (disable any UIExtensions
+skin in MO2). Dova Stash must work the same with both.
+
+### 6.1 Startup log
+
+| # | Steps | Expected |
+|---|---|---|
+| 6.1.1 | Start the game, read `DovaStash.log` | Lines for: QuickLoot IE (`API V21, info bar + button bar` with QuickLoot IE 4.1+), `UIExtensions: installed, list menus available`, `Activate prompt: ... hooked`, `Overlay: HUDMenu::AdvanceMovie hooked`, the I4 rule count, and `UI: in-world menus are UIExtensions list menus`. |
+| 6.1.2 | Disable QuickLoot IE, UIExtensions and I4 in MO2, start the game | The game starts and the log says each one is not installed. The hotkey opens native message boxes; the overlay uses SkyUI's default icons. |
+
+### 6.2 UIExtensions lists (hotkey menus)
+
+| # | Steps | Expected |
+|---|---|---|
+| 6.2.1 | In an enabled home, press K at nothing | A top-down list: Deposit, Sort all, Retrieve..., Browse containers..., template entry, Advanced..., Reset home... It is drawn by your UIExtensions list menu skin. |
+| 6.2.2 | Press K at a managed container | A list: Categories... (with a summary), Open \<name\>, Clear categories, Ignore, Make master, Advanced... |
+| 6.2.3 | Categories... -> pick a group -> toggle two categories | Each toggle reopens the same group list with `[x]` updated. **< Back** returns to the groups, which show `[x]` / `[~]` / `[ ]`. Esc also goes back. |
+| 6.2.4 | Retrieve... -> a group -> a category | The items move to you. Counts match what was stored. |
+| 6.2.5 | Browse containers... -> pick a container across the room | That container's own menu opens (SkyUI, with your I4 icons). Items you put in are learned like a normal visit. |
+| 6.2.6 | Advanced... | The SKSE Menu Framework panel opens on the same container (or message boxes without the framework). |
+| 6.2.7 | Open the list, press Esc; open it again right away | It reopens. No "close the open menu first" message. |
+| 6.2.8 | Set `iMode = 1`, restart, press K | Native message boxes, as before. |
+
+### 6.3 Activate prompt
+
+| # | Steps | Expected |
+|---|---|---|
+| 6.3.1 | Look at a container bound to Weapons and Armor (QuickLoot disabled) | The prompt reads e.g. *Chest (Weapons, Armor)*. The master reads *(Master)*. Unmanaged and ignored containers are unchanged. |
+| 6.3.2 | Save, disable Dova Stash, load | Container names are vanilla again: nothing was written to the save. |
+
+### 6.4 QuickLoot IE
+
+| # | Steps | Expected |
+|---|---|---|
+| 6.4.1 | Look at a bound container | QuickLoot's info bar shows *Dova Stash: Weapons, Armor*. The button bar shows **Dova Stash** with your hotkey's glyph. |
+| 6.4.2 | Scroll the list in the master | The info bar shows *Goes to: \<container\>* for each item, or *Belongs here*. |
+| 6.4.3 | Press K while QuickLoot is showing | Dova Stash's container list opens. |
+| 6.4.4 | Bind a new category to the container you're looking at, close the list | QuickLoot's info bar updates. |
+
+### 6.5 Floating icons
+
+| # | Steps | Expected |
+|---|---|---|
+| 6.5.1 | Stand in a set-up home | An icon floats above each managed container in view, using the same icon art as your inventory (I4 icon packs and their colours included). Further icons are smaller and fainter. |
+| 6.5.2 | Walk around a wall | Icons behind walls disappear (`bRequireLineOfSight = true`). |
+| 6.5.3 | Open any menu, start a conversation, draw a weapon in combat | Icons hide; they come back afterwards. |
+| 6.5.4 | Put a stack of swords in an unbound container | Within ~3 s its icon becomes a sword. |
+| 6.5.5 | Load a save in a home, then another save elsewhere | No leftover icons, no crash. |
+
+### 6.6 Live settings (SKSE Menu Framework → Dova Stash → Settings)
+
+| # | Steps | Expected |
+|---|---|---|
+| 6.6.1 | Change the keyboard hotkey to L, close the menu, press L in a home | The Dova Stash menu opens; K does nothing. No restart. `DovaStash.ini` now has `iHotkey = 38`, comments intact. |
+| 6.6.2 | Untick "Show icons above containers" | Floating icons disappear at once; tick it again and they return. |
+| 6.6.3 | Drag "Icon size", release | Icons resize when you release the slider (one save per release, see the log). |
+| 6.6.4 | Switch "What the hotkey opens" between all four modes, pressing the hotkey after each | Each mode opens its menu immediately (log: `UI rebuilt for iMode=...`). |
+| 6.6.5 | Untick QuickLoot / activate prompt | QuickLoot's info bar line and the "(Weapons)" prompt suffix disappear immediately. |
+| 6.6.6 | Set log detail to Warnings, then back to Trace | The log goes quiet, then detailed again, without a restart. |
+| 6.6.7 | Restart the game | Every change from above is still set. |
+
+### 6.7 Feedback round 1 (icons, sort on arrival, rename, learning, QuickLoot, Skyrim Souls)
+
+| # | Steps | Expected |
+|---|---|---|
+| 6.7.1 | Bind a container to Weapons, put spears, bows, then daggers in it | Its floating icon stays the Weapons category icon the whole time. The master shows SkyUI's "All" icon. |
+| 6.7.2 | Open the master (Skyrim Souls: game keeps running), drop three items in, keep the menu open | ~0.4 s after the last item, they leave the master for their containers; the open menu updates; one notification. |
+| 6.7.3 | Hotkey at a container -> Rename... -> type "Potions" | The activate prompt, the container menu title, QuickLoot's title and the lists all say "Potions". Rename to an empty name: the original name comes back. |
+| 6.7.4 | Put an Iron Sword by hand into a managed container that is not for weapons | Notification "Iron Sword now goes to <container>". Hotkey at it -> Learned items (1)... -> Forget Iron Sword removes it. |
+| 6.7.5 | QuickLoot on a container holding items that belong elsewhere | Those items read "Iron Sword  >  Weapon Rack" in QuickLoot's list; items that belong there are unchanged. |
+| 6.7.6 | Open Advanced... (Menu Framework window), press Esc | The window closes. It always opens centred and fully on screen, with Close at the top. Floating icons hide while it is open. |
+| 6.7.7 | QuickLoot on the master, then on a container bound to Alchemy | The info bar reads just "Master" / "Alchemy", clear of the weight readout. The button reads "Stash". |
+| 6.7.8 | SKSE Menu Framework -> Dova Stash -> Settings (all homes) -> Keep rules for every home: add "category:alchemy.potions" to Always keep, Save | Settings.json is written; Deposit now keeps potions in every home. Hotkey -> Advanced... -> Keep rules shows them under "Defaults for every home". |
+| 6.7.9 | Compare SKSE menu "This home" with hotkey -> Advanced... | Same page, same tabs (Actions, Containers, Learned, Keep rules, Template). |
+
+
+## 7. What to send back
 
 - `DovaStash.log` from the session, at `iLogLevel = 1`.
 - The layout file(s) from MO2 `overwrite/SKSE/Plugins/DovaStash/Layouts/`.

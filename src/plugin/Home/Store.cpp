@@ -101,6 +101,45 @@ namespace dova::home
 		_templateDiags = std::move(diags);
 	}
 
+	bool Store::SaveGlobalKeep(core::KeepConfig a_keep)
+	{
+		const auto      path = Root() / "Settings.json";
+		nlohmann::json  doc = nlohmann::json::object();
+		std::error_code ec;
+		if (std::filesystem::exists(path, ec)) {
+			try {
+				std::ifstream     in(path, std::ios::binary);
+				std::stringstream buffer;
+				buffer << in.rdbuf();
+				doc = nlohmann::json::parse(buffer.str(), nullptr, true, true);
+				if (!doc.is_object()) {
+					doc = nlohmann::json::object();
+				}
+			} catch (const std::exception& e) {
+				logger::warn("Keep defaults: {} unreadable ({}); rewriting it", path.generic_string(), e.what());
+				doc = nlohmann::json::object();
+			}
+		}
+		doc["keep"] = core::KeepConfigToJson(a_keep);
+		try {
+			std::filesystem::create_directories(path.parent_path(), ec);
+			std::ofstream out(path, std::ios::binary | std::ios::trunc);
+			out << doc.dump(2) << '\n';
+			if (!out) {
+				logger::error("Keep defaults: could not write {}", path.generic_string());
+				return false;
+			}
+		} catch (const std::exception& e) {
+			logger::error("Keep defaults: could not write {}: {}", path.generic_string(), e.what());
+			return false;
+		}
+		_globalKeep = std::move(a_keep);
+		_settingsDiags.Clear();
+		logger::info("Keep defaults: saved to {} (always {}, never {}, quotas {})", path.generic_string(), _globalKeep.always.size(),
+			_globalKeep.never.size(), _globalKeep.quotas.size());
+		return true;
+	}
+
 	void Store::LoadGlobalKeep()
 	{
 		_globalKeep = core::DefaultKeepConfig();

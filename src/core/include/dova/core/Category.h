@@ -25,6 +25,9 @@
 // - Keyword EditorIDs and plugin names compare case-insensitively.
 // - Ordering: priority (desc), then specificity = number of id segments (desc), then definition order.
 //   Classify() returns the first match; MatchAll() returns every match in that order.
+// - Optional "icon" (DESIGN §7.1, §10.3): a SkyUI icon label or {"label","source","color"} (see
+//   ParseIconRef in Icons.h). It is cosmetic, so a malformed icon is a warning and is dropped; the
+//   category itself still loads.
 //
 // Patterns (used by container bindings, keep rules and retrieve):
 //   "*"        any category
@@ -47,6 +50,7 @@
 
 #include "dova/core/Diagnostics.h"
 #include "dova/core/FormRef.h"
+#include "dova/core/Icons.h"
 #include "dova/core/Item.h"
 
 namespace dova::core
@@ -81,6 +85,8 @@ namespace dova::core
 		std::int32_t  priority{ 0 };
 		CategoryMatch match;
 		std::string   source;  // file it came from (for diagnostics/UI)
+
+		std::optional<IconRef> icon;  // container icon for this category (SkyUI icon SWFs by default)
 	};
 
 	// Called once per formList reference at compile time; returns the list's member forms.
@@ -103,6 +109,10 @@ namespace dova::core
 	[[nodiscard]] std::vector<CategoryDef> ParseCategoryDocument(const nlohmann::json& a_doc, std::string_view a_source, Diagnostics& a_diags);
 	[[nodiscard]] std::vector<CategoryDef> ParseCategoryText(std::string_view a_text, std::string_view a_source, Diagnostics& a_diags);
 
+	// One category entry as written in a categories file (inverse of ParseCategoryDocument; keys in
+	// the order id, name, priority, icon, match). Comment keys and "description" are not kept.
+	[[nodiscard]] nlohmann::ordered_json CategoryToJson(const CategoryDef& a_def);
+
 	// Merges files in the given order; later ids replace earlier ones in place.
 	[[nodiscard]] std::vector<CategoryDef> MergeCategoryFiles(std::span<const std::vector<CategoryDef>> a_files, Diagnostics& a_diags);
 
@@ -123,6 +133,8 @@ namespace dova::core
 			int          depth{ 1 };
 			std::size_t  order{ 0 };  // definition order after merging
 			std::string  source;
+
+			std::optional<IconRef> icon;
 		};
 
 		CategorySet() = default;

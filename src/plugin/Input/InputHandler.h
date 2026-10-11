@@ -18,4 +18,16 @@ namespace dova::input
 
 	// SKSE key code space: keyboard = scan code, mouse = 256 + button, gamepad = 266 + index.
 	[[nodiscard]] std::optional<std::int32_t> ToSKSEKeyCode(RE::INPUT_DEVICE a_device, std::uint32_t a_idCode);
+
+	struct KeyChoice
+	{
+		std::int32_t     code;
+		std::string_view name;
+	};
+	// Keyboard keys (and mouse buttons) offered by the settings page, in display order.
+	[[nodiscard]] std::span<const KeyChoice> KeyboardChoices();
+	// Gamepad buttons (SKSE codes 266-281).
+	[[nodiscard]] std::span<const KeyChoice> GamepadChoices();
+	// "K", "Mouse 4", "Gamepad LB", or "key 123" for codes without a name.
+	[[nodiscard]] std::string KeyName(std::int32_t a_code);
 }

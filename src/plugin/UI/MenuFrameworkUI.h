@@ -23,6 +23,7 @@ namespace dova::ui
 		void OpenSetupPrompt(home::Home& a_home, RE::TESObjectREFR* a_container) override;
 		void Notify(std::string_view a_message) override;
 		void OnHomeChanged() override;
+		[[nodiscard]] bool IsActive() const override;
 
 	private:
 		MenuFrameworkUI() = default;

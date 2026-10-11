@@ -7,7 +7,7 @@ homes work with zero setup.
 An SKSE plugin built on CommonLibSSE-NG with Address Library. One DLL covers SE 1.5.97, AE 1.6.x and VR.
 No ESP is needed.
 
-> Status: **0.1.0, pre-release.** It builds and has unit tests, but in-game verification is in progress.
+> Status: **0.2.0, pre-release.** It builds and has unit tests, but in-game verification is in progress.
 
 ## Features
 - **Any home:** eligibility comes from runtime safety checks (ownership, respawning containers), not a whitelist.
@@ -17,7 +17,10 @@ No ESP is needed.
   You can export your own from inside the game.
 - **Never lose an item:** it preserves tempering, enchantments, names and stolen flags, and never touches
   quest, equipped or favorited items, or script tokens.
-- **Two UIs:** an SKSE Menu Framework panel, or native message boxes (used as the fallback and on VR).
+- **Looks like your game, not like a mod:** in-world menus are UIExtensions lists, chests show their role
+  in the activate prompt, QuickLoot IE shows what a chest holds and where the selected item goes, and
+  icons above containers use your own SkyUI/I4 icons. Any skin works; nothing is drawn with Dova Stash art.
+- **Editor:** the SKSE Menu Framework panel for full editing; native message boxes as the fallback and on VR.
 
 ## Documentation
 | Doc | Covers |

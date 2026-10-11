@@ -6,10 +6,10 @@
 namespace dova::ui::panel::text
 {
 	// Window / section
-	inline constexpr auto kWindowTitle = "Dova Stash##DovaStash";
+	inline constexpr auto kWindowTitle = "Dova Stash - This home##DovaStash";
 	inline constexpr auto kSection = "Dova Stash";
-	inline constexpr auto kItemHome = "Current home";
-	inline constexpr auto kItemSettings = "Settings";
+	inline constexpr auto kItemHome = "This home";  // same page as hotkey > Advanced...
+	inline constexpr auto kItemSettings = "Settings (all homes)";
 	inline constexpr auto kItemTemplates = "Templates";
 	inline constexpr auto kItemDiagnostics = "Diagnostics";
 	inline constexpr auto kItemAbout = "About";
@@ -124,7 +124,9 @@ namespace dova::ui::panel::text
 	inline constexpr auto kUnsaved = "Unsaved changes";
 	inline constexpr auto kKeepUseGlobal = "Use global defaults only...";
 	inline constexpr auto kConfirmKeepGlobal = "Remove this home's keep rules and use only the global defaults?";
-	inline constexpr auto kKeepGlobalHeader = "Global defaults (Settings.json, read-only)";
+	inline constexpr auto kKeepGlobalHeader = "Defaults for every home";
+	inline constexpr auto kKeepGlobalWhere = "Edit these under Dova Stash > Settings (all homes).";
+	inline constexpr auto kKeepGlobalIntro = "What Deposit leaves in your inventory in every home. A home's own keep rules add to these.";
 	inline constexpr auto kNoCategory = "(none)";
 	inline constexpr std::string_view kKeywordsAny = "keywords: {}";
 	inline constexpr std::string_view kFormsCount = "{} form(s)";
@@ -142,7 +144,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kExportWarnings = "Template warnings:";
 
 	// Global pages
-	inline constexpr auto             kSettingsNote = "These mirror Data/SKSE/Plugins/DovaStash.ini. Edit that file and restart the game to change them.";
+	inline constexpr auto             kSettingsNote = "Changes apply immediately and are saved to Data/SKSE/Plugins/DovaStash.ini. No restart needed.";
 	inline constexpr auto             kColSetting = "Setting";
 	inline constexpr auto             kColValue = "Value";
 	inline constexpr auto             kTemplatesIntro = "Every template loaded from Data/SKSE/Plugins/DovaStash/Templates/. A template is offered in its home when all of its required plugins are loaded.";

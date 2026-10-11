@@ -6,6 +6,7 @@
 #include "dova/core/Diagnostics.h"
 #include "dova/core/Enums.h"
 #include "dova/core/FormRef.h"
+#include "dova/core/Icons.h"
 #include "dova/core/Item.h"
 #include "dova/core/KeepRules.h"
 #include "dova/core/Layout.h"

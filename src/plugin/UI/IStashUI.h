@@ -1,9 +1,10 @@
 #pragma once
 
-// UI facade (DESIGN §10.1). Implementations: MessageBoxUI (native, every runtime) and MenuFrameworkUI
-// (SKSE Menu Framework panel, M4). Called on the main thread by the Controller. Implementations must not keep
-// Home& or REFR pointers across frames: menu callbacks capture the cell id / FormRefs and go back
-// through the Controller, which re-validates them.
+// UI facade (DESIGN §10.1). Implementations: MessageBoxUI (native, every runtime), ListUI
+// (UIExtensions list menus) and MenuFrameworkUI (SKSE Menu Framework panel, M4). Called on the
+// main thread by the Controller. Implementations must not keep Home& or REFR pointers across frames:
+// menu callbacks capture the cell id / FormRefs and go back through the Controller, which re-validates
+// them.
 
 #include "Home/HomeRegistry.h"
 
@@ -22,9 +23,19 @@ namespace dova::ui
 		virtual void Notify(std::string_view a_message) = 0;
 		// The current home or its layout may have changed outside the UI (cell change, learned items).
 		virtual void OnHomeChanged() {}
+		// True while this UI is on screen (status messages then go to it rather than the world UI).
+		[[nodiscard]] virtual bool IsActive() const { return false; }
 	};
 
-	// [UI] iMode (Settings): 0 = MenuFrameworkUI when the framework is loaded and not VR, else
-	// MessageBoxUI; 1 = MessageBoxUI; 2 = MenuFrameworkUI whenever the framework is loaded.
-	[[nodiscard]] std::unique_ptr<IStashUI> CreateStashUI();
+	// The two UI roles (DESIGN §10.3, [UI] iMode):
+	//   world  - what the hotkey opens in the world: UIExtensions lists (ListUI), native message
+	//            boxes (MessageBoxUI), or the Menu Framework panel when iMode = 2.
+	//   editor - full editing ("Advanced..." in the lists): the SKSE Menu Framework panel when loaded
+	//            (not VR), else message boxes. May be the same object as `world`.
+	struct StashUIs
+	{
+		std::shared_ptr<IStashUI> world;
+		std::shared_ptr<IStashUI> editor;
+	};
+	[[nodiscard]] StashUIs CreateStashUIs();
 }

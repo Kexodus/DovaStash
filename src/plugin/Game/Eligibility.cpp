@@ -1,6 +1,7 @@
 #include "Game/Eligibility.h"
 
 #include "Game/FormUtil.h"
+#include "Log.h"
 
 namespace dova::game
 {
@@ -127,6 +128,15 @@ namespace dova::game
 			const auto* object = script.get();
 			const auto* type = object ? object->GetTypeInfo() : nullptr;
 			const char* name = type ? type->GetName() : nullptr;
+			// The bare "ObjectReference" type is the engine's base class: the VM binds one whenever a
+			// script holds this reference (a property, an alias fill). It has no events or behaviour,
+			// so it must not mark the container as scripted.
+			if (name && core::IEquals(name, "ObjectReference")) {
+				if (log::FirstTime(std::format("bare-objref:{:08X}", a_ref->GetFormID()))) {
+					logger::trace("{}: bare ObjectReference script binding ignored", Describe(a_ref));
+				}
+				continue;
+			}
 			out.emplace_back(name && *name ? name : "<unknown script>");
 		}
 		return out;

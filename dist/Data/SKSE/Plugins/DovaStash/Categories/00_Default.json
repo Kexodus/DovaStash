@@ -2,177 +2,241 @@
   "$schema": "dovastash-categories-1",
   "categories": [
     {
+      "id": "weapons",
+      "name": "Weapons",
+      "icon": {"source": "skyui/icons_category_psychosteve.swf", "label": "inv_weapons"}
+    },
+    {
       "id": "weapons.swords",
       "name": "Swords",
       "priority": 100,
+      "icon": "weapon_sword",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["OneHandSword"]}
     },
     {
       "id": "weapons.greatswords",
       "name": "Greatswords",
       "priority": 100,
+      "icon": "weapon_greatsword",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["TwoHandSword"]}
     },
     {
       "id": "weapons.daggers",
       "name": "Daggers",
       "priority": 100,
+      "icon": "weapon_dagger",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["OneHandDagger"]}
     },
     {
       "id": "weapons.axes",
       "name": "Battleaxes",
       "priority": 100,
+      "icon": "weapon_battleaxe",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["TwoHandAxe"], "keywordsNone": ["WeapTypeWarhammer"]}
     },
     {
       "id": "weapons.waraxes",
       "name": "War axes",
       "priority": 100,
+      "icon": "weapon_waraxe",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["OneHandAxe"]}
     },
     {
       "id": "weapons.maces",
       "name": "Maces",
       "priority": 100,
+      "icon": "weapon_mace",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["OneHandMace"]}
     },
     {
       "id": "weapons.warhammers",
       "name": "Warhammers",
       "priority": 110,
+      "icon": "weapon_hammer",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["TwoHandAxe"], "keywordsAny": ["WeapTypeWarhammer"]}
     },
     {
       "id": "weapons.bows",
       "name": "Bows",
       "priority": 100,
+      "icon": "weapon_bow",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["Bow"]}
     },
     {
       "id": "weapons.crossbows",
       "name": "Crossbows",
       "priority": 100,
+      "icon": "weapon_crossbow",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["Crossbow"]}
     },
     {
       "id": "weapons.staves",
       "name": "Staves",
       "priority": 100,
+      "icon": "weapon_staff",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["Staff"]}
+    },
+    {
+      "id": "armor",
+      "name": "Armor",
+      "icon": {"source": "skyui/icons_category_psychosteve.swf", "label": "inv_armor"}
     },
     {
       "id": "armor.shields",
       "name": "Shields",
       "priority": 120,
+      "icon": "armor_shield",
       "match": {"formTypes": ["ARMO"], "keywordsAny": ["ArmorShield"]}
     },
     {
       "id": "armor.jewelry",
       "name": "Jewelry",
       "priority": 120,
+      "icon": "armor_amulet",
       "match": {"formTypes": ["ARMO"], "keywordsAny": ["ArmorJewelry", "VendorItemJewelry"]}
     },
     {
       "id": "armor.heavy",
       "name": "Heavy armor",
       "priority": 100,
+      "icon": "armor_body",
       "match": {"formTypes": ["ARMO"], "armorTypes": ["Heavy"]}
     },
     {
       "id": "armor.light",
       "name": "Light armor",
       "priority": 100,
+      "icon": "lightarmor_body",
       "match": {"formTypes": ["ARMO"], "armorTypes": ["Light"]}
     },
     {
       "id": "armor.clothing",
       "name": "Clothing",
       "priority": 100,
+      "icon": "clothing_body",
       "match": {"formTypes": ["ARMO"], "armorTypes": ["Clothing"]}
+    },
+    {
+      "id": "ammo",
+      "name": "Ammo",
+      "icon": "weapon_arrow"
     },
     {
       "id": "ammo.arrows",
       "name": "Arrows",
       "priority": 100,
+      "icon": "weapon_arrow",
       "match": {"formTypes": ["AMMO"], "ammo": ["Arrow"]}
     },
     {
       "id": "ammo.bolts",
       "name": "Bolts",
       "priority": 100,
+      "icon": "weapon_bolt",
       "match": {"formTypes": ["AMMO"], "ammo": ["Bolt"]}
+    },
+    {
+      "id": "alchemy",
+      "name": "Alchemy",
+      "icon": {"source": "skyui/icons_category_psychosteve.swf", "label": "inv_potions"}
     },
     {
       "id": "alchemy.potions",
       "name": "Potions",
       "priority": 100,
+      "icon": "potion_health",
       "match": {"formTypes": ["ALCH"], "alchemy": ["Potion"]}
     },
     {
       "id": "alchemy.poisons",
       "name": "Poisons",
       "priority": 100,
+      "icon": "potion_poison",
       "match": {"formTypes": ["ALCH"], "alchemy": ["Poison"]}
     },
     {
       "id": "alchemy.food",
       "name": "Food & drink",
       "priority": 100,
+      "icon": "default_food",
       "match": {"formTypes": ["ALCH"], "alchemy": ["Food"]}
     },
     {
       "id": "alchemy.ingredients",
       "name": "Ingredients",
       "priority": 100,
+      "icon": "default_ingredient",
       "match": {"formTypes": ["INGR"]}
+    },
+    {
+      "id": "books",
+      "name": "Books",
+      "icon": {"source": "skyui/icons_category_psychosteve.swf", "label": "inv_books"}
     },
     {
       "id": "books.spelltomes",
       "name": "Spell tomes",
       "priority": 120,
+      "icon": "book_tome",
       "match": {"formTypes": ["BOOK"], "bookTeaches": ["Spell"]}
     },
     {
       "id": "books.skill",
       "name": "Skill books",
       "priority": 120,
+      "icon": "default_book",
       "match": {"formTypes": ["BOOK"], "bookTeaches": ["Skill"]}
     },
     {
       "id": "books.notes",
       "name": "Notes & recipes",
       "priority": 110,
+      "icon": "book_note",
       "match": {"formTypes": ["BOOK"], "bookTeaches": ["None"], "keywordsNone": ["VendorItemBook"]}
     },
     {
       "id": "books.other",
       "name": "Books",
       "priority": 100,
+      "icon": "default_book",
       "match": {"formTypes": ["BOOK"]}
     },
     {
       "id": "scrolls",
       "name": "Scrolls",
       "priority": 100,
+      "icon": "default_scroll",
       "match": {"formTypes": ["SCRL"]}
+    },
+    {
+      "id": "soulgems",
+      "name": "Soul gems",
+      "icon": "misc_soulgem"
     },
     {
       "id": "soulgems.empty",
       "name": "Empty soul gems",
       "priority": 100,
+      "icon": "soulgem_empty",
       "match": {"formTypes": ["SLGM"], "soulGem": ["Empty"]}
     },
     {
       "id": "soulgems.filled",
       "name": "Filled soul gems",
       "priority": 100,
+      "icon": "soulgem_full",
       "match": {"formTypes": ["SLGM"], "soulGem": ["Filled"]}
+    },
+    {
+      "id": "misc",
+      "name": "Miscellaneous",
+      "icon": {"source": "skyui/icons_category_psychosteve.swf", "label": "inv_misc"}
     },
     {
       "id": "misc.building_materials",
       "name": "Building materials",
       "priority": 210,
+      "icon": "misc_wood",
       "match": {
         "formTypes": ["MISC"],
         "forms": [
@@ -195,6 +259,7 @@
       "id": "misc.dwemer",
       "name": "Dwemer parts & curios",
       "priority": 200,
+      "icon": "misc_clutter",
       "match": {
         "formTypes": ["MISC"],
         "forms": [
@@ -231,42 +296,49 @@
       "id": "misc.tools",
       "name": "Tools",
       "priority": 150,
+      "icon": "misc_clutter",
       "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemTool"]}
     },
     {
       "id": "misc.gems",
       "name": "Gems",
       "priority": 140,
+      "icon": "misc_gem",
       "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemGem"]}
     },
     {
       "id": "misc.ores_ingots",
       "name": "Ores & ingots",
       "priority": 130,
+      "icon": "misc_ingot",
       "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemOreIngot"]}
     },
     {
       "id": "misc.hides_pelts",
       "name": "Hides & pelts",
       "priority": 130,
+      "icon": "misc_hide",
       "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemAnimalHide"]}
     },
     {
       "id": "misc.animal_parts",
       "name": "Animal parts",
       "priority": 130,
+      "icon": "misc_remains",
       "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemAnimalPart"]}
     },
     {
       "id": "misc.clutter",
       "name": "Clutter & other misc items",
       "priority": 10,
+      "icon": "misc_clutter",
       "match": {"formTypes": ["MISC"]}
     },
     {
       "id": "keys",
       "name": "Keys",
       "priority": 100,
+      "icon": "default_key",
       "match": {"formTypes": ["KEYM"]}
     }
   ]

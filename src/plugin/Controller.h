@@ -7,6 +7,7 @@
 // the same queue. Actions take the cell id captured when the menu was opened and do nothing if the
 // player has since left that cell.
 
+#include "Settings.h"
 #include "Sort/SortEngine.h"
 #include "UI/IStashUI.h"
 
@@ -19,7 +20,10 @@ namespace dova
 
 		// kDataLoaded: data, UI choice.
 		void Init();
+		// What the hotkey opens in the world (UIExtensions list / message boxes / panel, DESIGN §10.3).
 		[[nodiscard]] ui::IStashUI& UI();
+		// Full editor ("Advanced..."): the Menu Framework panel when loaded, else message boxes.
+		[[nodiscard]] ui::IStashUI& Editor();
 
 		// --- triggers (main thread) ------------------------------------------------------------------
 		void OnHotkey(RE::RefHandle a_crosshairTarget);
@@ -38,6 +42,9 @@ namespace dova
 		void ToggleCategory(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_pattern);
 		void ClearCategories(RE::FormID a_cellId, const core::FormRef& a_container);
 		void SetIgnored(RE::FormID a_cellId, const core::FormRef& a_container, bool a_ignored);
+		// Opens the container's real ContainerMenu (SkyUI and the player's icon mods draw it), from
+		// anywhere in the home.
+		void Browse(RE::FormID a_cellId, const core::FormRef& a_container);
 
 		// --- editor actions (M4 panel; main thread, validate a_cellId like the actions above) ---------
 		// Applies a specific eligible template for this cell (by TemplateCandidate::source).
@@ -49,6 +56,8 @@ namespace dova
 		void RemoveLearned(RE::FormID a_cellId, const core::FormRef& a_item);
 		// Replaces the layout's keep block (nullopt = remove it, i.e. use the global defaults only).
 		void SetKeep(RE::FormID a_cellId, std::optional<core::KeepConfig> a_keep);
+		// Keep defaults for every home (Data/SKSE/Plugins/DovaStash/Settings.json).
+		void SetGlobalKeep(core::KeepConfig a_keep);
 
 		struct ExportRequest
 		{
@@ -76,6 +85,10 @@ namespace dova
 
 		[[nodiscard]] static std::string HotkeyName();
 
+		// Settings page (main thread): validates, applies and saves to the INI. Everything takes effect
+		// immediately; a UI mode change rebuilds the UIs. No restart needed.
+		void ApplySettings(Settings::Values a_values);
+
 	private:
 		Controller() = default;
 
@@ -88,7 +101,23 @@ namespace dova
 		// Container ref by FormRef if it is currently usable in this home; notifies the reason otherwise.
 		RE::TESObjectREFR* UsableContainer(home::Home& a_home, const core::FormRef& a_container);
 
-		std::unique_ptr<ui::IStashUI> _ui;
+		// Sort on arrival (DESIGN §8.1): true when `a_container` is the master of the current home (the
+		// item was put into the master); schedules a Distribute once arrivals stop for a moment.
+		bool OnMasterArrival(RE::FormID a_container);
+		void SortArrivals(RE::FormID a_cellId);
+		// Learn feedback: batches "this container now holds X" into one notification per burst.
+		void ReportLearned(const std::string& a_container, const std::string& a_item);
+
+		// Saves the layout and lets UI surfaces that show it (QuickLoot info bar) refresh.
+		bool SaveLayout(home::Home& a_home);
+		void EnsureUI();
+		// Status line for the player: the editor while it is open, else the world UI.
+		void Notify(std::string_view a_message);
+
+		ui::StashUIs _ui;
+		std::uint64_t _arrivalSerial{ 0 };
+		std::uint64_t _learnSerial{ 0 };
+		std::map<std::string, std::vector<std::string>> _learnBatch;  // container label -> item names
 		RE::FormID                    _openContainer{ 0 };  // target of the open ContainerMenu (0 = none)
 	};
 }

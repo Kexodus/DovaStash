@@ -10,4 +10,8 @@ namespace dova::log
 
 	// Clamps to spdlog's range; out-of-range values fall back to info.
 	void SetLevel(int a_level);
+
+	// True the first time `a_key` is seen this session: log a recurring condition once at its real
+	// level, then at debug. Thread-safe.
+	[[nodiscard]] bool FirstTime(std::string_view a_key);
 }

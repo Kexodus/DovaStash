@@ -121,6 +121,17 @@ namespace dova::sort
 
 		logger::info("{} in {} ({}){}", OpName(a_op), a_home.name, a_home.cell.ToString(),
 			a_op == Op::Retrieve ? std::format(" pattern '{}'", a_pattern) : "");
+		const auto started = std::chrono::steady_clock::now();
+		struct Timer
+		{
+			std::chrono::steady_clock::time_point start;
+			Op                                    op;
+			~Timer()
+			{
+				const auto ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+				logger::debug("{} took {:.1f} ms", OpName(op), ms);
+			}
+		} timer{ started, a_op };
 
 		switch (a_op) {
 		case Op::Deposit:

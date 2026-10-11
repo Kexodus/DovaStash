@@ -4,7 +4,8 @@
 [General]
 ; Log verbosity for My Games/Skyrim Special Edition/SKSE/DovaStash.log
 ; 0 = trace, 1 = debug, 2 = info, 3 = warn, 4 = error, 5 = critical, 6 = off
-iLogLevel = 2
+; Pre-release builds log everything (0) so a test session always has the full picture.
+iLogLevel = 0
 
 ; true = when you enter a home that has a template, enable it automatically.
 ; false = show a one-time notification and wait for you to press the hotkey.
@@ -26,13 +27,59 @@ iGamepadHotkey = -1
 ; true = closing the master container sorts its contents into the other containers.
 bDistributeOnMasterClose = true
 
+; true = anything you put into the master container is sorted out of it right away, while its menu
+; is still open (handy with Skyrim Souls).
+bSortOnArrival = true
+
 ; true = putting an item into a managed container by hand (container menu open) remembers that
 ; container as the item's destination ("learned destinations").
 bLearn = true
 
 [UI]
-; Which menus Dova Stash uses.
-; 0 = auto: the SKSE Menu Framework panel when that mod is installed (not on VR), else native message boxes
+; What the hotkey opens in the world. Dova Stash draws no menus of its own art: every option below
+; uses a menu you already have, so whatever UI skin you use applies (any UIExtensions skin, or none).
+; 0 = auto: UIExtensions list menus when UIExtensions is installed (not on VR), else native
+;     message boxes. The SKSE Menu Framework panel stays available from that framework's menu as the editor.
 ; 1 = always native message boxes
-; 2 = always the SKSE Menu Framework panel (falls back to message boxes if the framework is not loaded)
+; 2 = the SKSE Menu Framework panel (falls back to message boxes if the framework is not loaded)
+; 3 = always UIExtensions (falls back to message boxes if it is not installed)
 iMode = 0
+
+; true = UIExtensions lists and the rename box open in the middle of the screen, whatever position
+; your UIExtensions skin gives them.
+bCenterMenus = true
+
+[Integrations]
+; QuickLoot IE: show what a container holds and where the selected item would go in QuickLoot's
+; info bar, plus a "Dova Stash" hotkey button in its button bar.
+bQuickLoot = true
+
+; QuickLoot IE: show where each item would be sorted to, right in QuickLoot's item list
+; ("Iron Sword  >  Weapon Rack"). Only in your homes, only for items that belong somewhere else.
+bQuickLootItemTags = true
+
+; QuickLoot IE: show a container's category icon (your SkyUI/I4 icon) next to its name in QuickLoot's
+; title, instead of a word in the info bar. The master still says "Master".
+bQuickLootTitleIcon = true
+
+; Add a container's role to the activate prompt, e.g. "Chest (Weapons, Armor)". Works on VR too.
+; Nothing is written to your save.
+bActivatePrompt = true
+
+[Overlay]
+; Floating icons above managed containers while you are in an enabled home. The icons are your own:
+; the same icon your inventory shows (SkyUI, plus I4 rules and icon packs when installed).
+; Not available on VR. Off by default.
+bEnabled = false
+
+; How far away icons are shown, in game units (about 70 units per metre).
+fRadius = 1200
+
+; At most this many icons at once (the nearest ones).
+iMaxIcons = 12
+
+; Icon size on the HUD when you stand close (it shrinks with distance).
+fIconSize = 40
+
+; true = only show icons for containers you can see (not through walls).
+bRequireLineOfSight = true

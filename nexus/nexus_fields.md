@@ -156,6 +156,14 @@ LICENSE                                         (optional, but good practice for
 Leave out `DovaStash.pdb`, unless you want readable crash logs from users. In that case ship it as a
 separate *Optional* file named `Dova Stash 0.1.0 - Debug symbols`.
 
+**Optional file: OCF categories.** Name it `Dova Stash - OCF Categories`, category *Optional Files*,
+with the description "Finer categories for Object Categorization Framework users. Requires OCF." The
+archive is the contents of `dist/Optional/OCF/Data/`, which also maps onto `Data/`:
+
+```
+SKSE/Plugins/DovaStash/Categories/50_OCF.json
+```
+
 **Optional extra file** (if the repository is still private): `Dova Stash 0.1.0 - Source`, category
 *Miscellaneous*. Use a `git archive` of the release commit plus the CommonLibSSE-NG submodule
 revision note.

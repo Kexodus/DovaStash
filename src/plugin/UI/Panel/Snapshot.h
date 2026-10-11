@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Settings.h"
+
 // Plain-data snapshots rendered by the Menu Framework panel (DESIGN §10.1).
 //
 // Threading contract: snapshots are built on the MAIN thread (PanelModel, from HomeRegistry/Store and
@@ -128,15 +130,11 @@ namespace dova::ui::panel
 
 	struct GlobalSnapshot
 	{
-		// Settings (read-only mirror of DovaStash.ini)
-		std::string  hotkeyName;
-		std::int32_t hotkey{ 0 };
-		std::int32_t gamepadHotkey{ -1 };
-		bool         autoEnableTemplates{ false };
-		bool         distributeOnMasterClose{ true };
-		bool         learn{ true };
-		std::int32_t logLevel{ 2 };
-		std::int32_t uiMode{ 0 };
+		// Settings (live; edited on the settings page, applied and saved by Controller::ApplySettings)
+		Settings::Values settings;
+		std::string      hotkeyName;
+		core::KeepConfig globalKeep;      // Settings.json keep defaults (editable on the Settings page)
+		std::string      globalKeepJson;  // its JSON, to notice changes
 
 		std::vector<TemplateInfo> templates;
 		std::size_t               categoryCount{ 0 };

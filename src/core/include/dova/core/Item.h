@@ -102,5 +102,23 @@ namespace dova::core
 		bool equipped{ false };
 		bool favorited{ false };
 		bool playable{ true };
+
+		// --- UI detail (icon resolution, Icons.h) ------------------------------------------------
+		// What SKSE's scaleform extension puts on a SkyUI inventory entry, so SkyUI's default icon
+		// logic and I4 icon rules can be evaluated in core. Sorting never reads these. Defaults mean
+		// "unknown"; Icons.cpp then falls back to the coarse fields above where it can.
+		std::uint32_t               armorSlots{ 0 };     // ARMO: biped slot mask (bit 0 = slot 30); 0 = unknown
+		std::uint32_t               typeFlags{ 0 };      // AMMO: AMMO_DATA flags; ALCH: AlchemyFlag; BOOK: OBJ_BOOK flags
+		bool                        bookIsNote{ false };  // BOOK: note/letter (type 0xFF, or "note" in the model path)
+		std::optional<FormRef>      equipSlot;           // WEAP: BGSEquipSlot
+		std::optional<FormRef>      useSound;            // ALCH: consumption sound (SkyUI tells drinks from food by it)
+		std::optional<std::int32_t> actorValue;          // ALCH/INGR/SCRL: primary actor value of the costliest effect
+		std::optional<std::int32_t> resistance;          // ALCH/INGR/SCRL: resist actor value of the costliest effect
+		std::optional<std::int32_t> magicSchool;         // ALCH/INGR/SCRL: magic skill of the costliest effect
+		std::vector<std::string>    effectKeywords;      // ALCH/INGR/SCRL: keyword EditorIDs of every effect's base effect
+		std::optional<std::int32_t> teachesSkill;        // BOOK: actor value of the skill it raises
+		std::optional<FormRef>      teachesSpell;        // BOOK: spell it teaches
+		std::optional<std::uint8_t> gemSize;             // SLGM: capacity (0 none, 1 petty .. 5 grand)
+		std::optional<std::uint8_t> soulSize;            // SLGM: soul held by this stack (0 none .. 5 grand)
 	};
 }

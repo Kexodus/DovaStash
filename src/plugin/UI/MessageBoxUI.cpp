@@ -5,8 +5,7 @@
 #include "Home/Store.h"
 #include "Sort/SortEngine.h"
 #include "Settings.h"
-#include "UI/MenuFramework.h"
-#include "UI/MenuFrameworkUI.h"
+#include "UI/Labels.h"
 #include "UI/MessageBox.h"
 
 namespace dova::ui
@@ -67,111 +66,11 @@ namespace dova::ui
 			ShowPaged(std::move(a_body), std::make_shared<const std::vector<Option>>(std::move(a_options)), std::move(a_onBack), a_page);
 		}
 
-		std::string RootOf(std::string_view a_id)
-		{
-			const auto dot = a_id.find('.');
-			return std::string(a_id.substr(0, dot));
-		}
-
-		std::string Capitalize(std::string a_text)
-		{
-			if (!a_text.empty() && a_text[0] >= 'a' && a_text[0] <= 'z') {
-				a_text[0] = static_cast<char>(a_text[0] - 'a' + 'A');
-			}
-			return a_text;
-		}
-
-		std::string CategoryName(std::string_view a_id)
-		{
-			const auto* cat = home::Store::Get().Categories().Find(a_id);
-			return cat && !cat->name.empty() ? cat->name : Capitalize(std::string(a_id));
-		}
-
-		// Top-level ids in definition order.
-		std::vector<std::string> Roots()
-		{
-			std::vector<std::string> roots;
-			for (const auto& c : home::Store::Get().Categories().Categories()) {
-				auto root = RootOf(c.id);
-				if (std::ranges::find(roots, root) == roots.end()) {
-					roots.push_back(std::move(root));
-				}
-			}
-			return roots;
-		}
-
-		// Category ids below `a_root` (excluding the root itself), definition order.
-		std::vector<std::string> Children(const std::string& a_root)
-		{
-			std::vector<std::string> out;
-			for (const auto& c : home::Store::Get().Categories().Categories()) {
-				if (c.id != a_root && RootOf(c.id) == a_root) {
-					out.push_back(c.id);
-				}
-			}
-			return out;
-		}
-
-		std::string PatternLabel(std::string_view a_pattern)
-		{
-			if (a_pattern == "*") {
-				return "Everything";
-			}
-			if (a_pattern.ends_with(".*")) {
-				return "All " + CategoryName(a_pattern.substr(0, a_pattern.size() - 2));
-			}
-			return CategoryName(a_pattern);
-		}
-
-		std::int32_t CountMatching(const std::map<std::string, std::int32_t>& a_counts, std::string_view a_pattern)
-		{
-			std::int32_t n = 0;
-			for (const auto& [id, count] : a_counts) {
-				if (!id.empty() && core::CategoryPatternMatches(a_pattern, id)) {
-					n += count;
-				}
-			}
-			return n;
-		}
-
-		bool HasPattern(const core::ContainerBinding* a_binding, std::string_view a_pattern)
-		{
-			return a_binding && std::ranges::any_of(a_binding->categories, [&](const std::string& p) { return core::IEquals(p, a_pattern); });
-		}
-
-		// Is `a_id` routed to this container by any of its patterns?
-		bool Covers(const core::ContainerBinding* a_binding, std::string_view a_id)
-		{
-			return a_binding && std::ranges::any_of(a_binding->categories, [&](const std::string& p) { return core::CategoryPatternMatches(p, a_id); });
-		}
-
 		const core::ContainerBinding* FindBinding(RE::FormID a_cellId, const core::FormRef& a_container)
 		{
 			auto* home = home::HomeRegistry::Get().CurrentIf(a_cellId);
 			return home && home->layout ? home->layout->FindContainer(a_container) : nullptr;
 		}
-	}
-
-	std::unique_ptr<IStashUI> CreateStashUI()
-	{
-		const auto mode = Settings::GetSingleton().GetUI().mode;
-		if (mode == 1) {
-			logger::info("UI: native message boxes (iMode = 1)");
-			return std::make_unique<MessageBoxUI>();
-		}
-		const bool loaded = menu_framework::IsInstalled() && menu_framework::IsLoaded();
-		if (loaded && (mode == 2 || !REL::Module::IsVR())) {
-			if (auto ui = MenuFrameworkUI::Create()) {
-				logger::info("UI: SKSE Menu Framework panel");
-				return ui;
-			}
-			logger::warn("UI: SKSE Menu Framework did not accept the panel; using native message boxes");
-		} else if (mode == 2) {
-			logger::warn("UI: iMode = 2 but SKSE Menu Framework is not loaded; using native message boxes");
-		} else {
-			logger::info("UI: native message boxes");
-		}
-		return std::make_unique<MessageBoxUI>();
 	}
 
 	void MessageBoxUI::Notify(std::string_view a_message)
@@ -265,13 +164,13 @@ namespace dova::ui
 
 		std::vector<Option> options;
 		options.push_back({ std::format("Everything ({})", total), [a_cellId]() { Controller::Get().RunOperation(a_cellId, sort::Op::Retrieve, "*"); } });
-		for (const auto& root : Roots()) {
+		for (const auto& root : RootCategories()) {
 			const auto pattern = root + ".*";
 			const auto n = CountMatching(counts, pattern);
 			if (n == 0) {
 				continue;
 			}
-			const auto children = Children(root);
+			const auto children = ChildCategories(root);
 			const auto populated = std::ranges::count_if(children, [&](const std::string& id) { return CountMatching(counts, id + ".*") > 0; });
 			if (populated <= 1) {
 				options.push_back({ std::format("{} ({})", CategoryName(root), n),
@@ -295,7 +194,7 @@ namespace dova::ui
 		const auto          all = a_root + ".*";
 		options.push_back({ std::format("All {} ({})", CategoryName(a_root), CountMatching(counts, all)),
 			[a_cellId, all]() { Controller::Get().RunOperation(a_cellId, sort::Op::Retrieve, all); } });
-		for (const auto& id : Children(a_root)) {
+		for (const auto& id : ChildCategories(a_root)) {
 			const auto pattern = id + ".*";
 			const auto n = CountMatching(counts, pattern);
 			if (n > 0) {
@@ -355,10 +254,10 @@ namespace dova::ui
 		const auto* binding = FindBinding(a_cellId, a_container);
 
 		std::vector<Option> options;
-		const auto          roots = Roots();
+		const auto          roots = RootCategories();
 		for (std::size_t i = 0; i < roots.size(); ++i) {
 			const auto& root = roots[i];
-			const auto  children = Children(root);
+			const auto  children = ChildCategories(root);
 			const auto  all = root + ".*";
 			const auto  page = i / kPerPage;
 
@@ -399,7 +298,7 @@ namespace dova::ui
 				OpenAssignChildren(a_cellId, a_container, a_root, 0);
 			} });
 
-		const auto children = Children(a_root);
+		const auto children = ChildCategories(a_root);
 		for (std::size_t i = 0; i < children.size(); ++i) {
 			const auto& id = children[i];
 			const auto  page = (i + 1) / kPerPage;

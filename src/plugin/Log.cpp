@@ -1,5 +1,7 @@
 #include "Log.h"
 
+#include <mutex>
+
 namespace dova::log
 {
 	bool Init()
@@ -26,6 +28,14 @@ namespace dova::log
 
 		spdlog::set_default_logger(std::move(logger));
 		return true;
+	}
+
+	bool FirstTime(std::string_view a_key)
+	{
+		static std::mutex                      lock;
+		static std::unordered_set<std::string> seen;
+		std::scoped_lock                       guard(lock);
+		return seen.emplace(a_key).second;
 	}
 
 	void SetLevel(int a_level)

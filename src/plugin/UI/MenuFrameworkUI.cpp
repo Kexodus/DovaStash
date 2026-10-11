@@ -58,4 +58,9 @@ namespace dova::ui
 			panel::PanelModel::Get().RequestRefresh(panel::Refresh::Light);
 		}
 	}
+
+	bool MenuFrameworkUI::IsActive() const
+	{
+		return panel::PanelModel::Get().RecentlyRendered();
+	}
 }

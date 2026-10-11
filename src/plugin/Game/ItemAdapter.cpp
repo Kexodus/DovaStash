@@ -75,6 +75,44 @@ namespace dova::game
 			return xEnch && xEnch->enchantment;
 		}
 
+		// Inventory Injector's FixNote: a book whose model file name contains "note" is shown as a note.
+		bool ModelLooksLikeNote(const char* a_model)
+		{
+			if (!a_model || !*a_model) {
+				return false;
+			}
+			const auto stem = core::ToLower(std::filesystem::path(a_model).stem().string());
+			return stem.find("note") != std::string::npos;
+		}
+
+		// What SKSE's scaleform extension reports for a magic item (potion, ingredient, scroll): the
+		// costliest effect's actor values, plus I4's "effectKeywords" (keywords of every base effect).
+		void FillMagicInfo(core::ItemInfo& a_info, const RE::MagicItem* a_magic)
+		{
+			if (!a_magic) {
+				return;
+			}
+			if (const auto* effect = a_magic->GetCostliestEffectItem(); effect && effect->baseEffect) {
+				const auto& data = effect->baseEffect->data;
+				a_info.actorValue = static_cast<std::int32_t>(data.primaryAV);
+				a_info.resistance = static_cast<std::int32_t>(data.resistVariable);
+				a_info.magicSchool = static_cast<std::int32_t>(data.associatedSkill);
+			}
+			for (const auto* effect : a_magic->effects) {
+				if (!effect || !effect->baseEffect) {
+					continue;
+				}
+				for (const auto* kw : effect->baseEffect->GetKeywords()) {
+					if (!kw) {
+						continue;
+					}
+					if (const char* edid = kw->GetFormEditorID(); edid && *edid) {
+						a_info.effectKeywords.emplace_back(edid);
+					}
+				}
+			}
+		}
+
 		RE::InventoryEntryData* FindChangesEntry(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object)
 		{
 			auto* changes = a_ref ? a_ref->GetInventoryChanges() : nullptr;
@@ -157,11 +195,30 @@ namespace dova::game
 			a_info.enchanted = true;
 		}
 
+		// UI detail for icon resolution (core/Icons.h): what SKSE's scaleform extension puts on a SkyUI
+		// inventory entry. Reset first: callers may reuse an ItemInfo.
+		a_info.armorSlots = 0;
+		a_info.typeFlags = 0;
+		a_info.bookIsNote = false;
+		a_info.equipSlot.reset();
+		a_info.useSound.reset();
+		a_info.actorValue.reset();
+		a_info.resistance.reset();
+		a_info.magicSchool.reset();
+		a_info.effectKeywords.clear();
+		a_info.teachesSkill.reset();
+		a_info.teachesSpell.reset();
+		a_info.gemSize.reset();
+		a_info.soulSize.reset();
+
 		bool playable = a_object->GetPlayable();
 		switch (*type) {
 		case core::ItemType::Weapon:
 			if (const auto* weap = a_object->As<RE::TESObjectWEAP>()) {
 				a_info.weaponType = MapWeaponType(weap->GetWeaponType());
+				if (const auto* slot = weap->GetEquipSlot()) {
+					a_info.equipSlot = ToFormRef(slot);
+				}
 			}
 			break;
 		case core::ItemType::Armor:
@@ -173,6 +230,7 @@ namespace dova::game
 				} else {
 					a_info.armorType = core::ArmorType::Clothing;
 				}
+				a_info.armorSlots = armo->GetSlotMask().underlying();
 				// ARMO record flag 0x4 = Non-Playable (skin/armor addons on NPC races etc.).
 				if ((armo->GetFormFlags() & RE::TESObjectARMO::RecordFlags::kNonPlayable) != 0) {
 					playable = false;
@@ -180,10 +238,19 @@ namespace dova::game
 			}
 			break;
 		case core::ItemType::Book:
-			if (const auto* book = a_object->As<RE::TESObjectBOOK>()) {
+			if (auto* book = a_object->As<RE::TESObjectBOOK>()) {
 				a_info.bookTeaches = book->TeachesSpell() ? core::BookTeaches::Spell :
 				                     book->TeachesSkill() ? core::BookTeaches::Skill :
 				                                            core::BookTeaches::None;
+				a_info.typeFlags = book->data.flags.underlying();
+				a_info.bookIsNote = book->data.type == RE::OBJ_BOOK::Type::kNoteScroll || ModelLooksLikeNote(book->GetModel());
+				if (book->TeachesSpell()) {
+					if (const auto* spell = book->GetSpell()) {
+						a_info.teachesSpell = ToFormRef(spell);
+					}
+				} else if (book->TeachesSkill()) {
+					a_info.teachesSkill = static_cast<std::int32_t>(book->GetSkill());
+				}
 			}
 			break;
 		case core::ItemType::Alchemy:
@@ -191,16 +258,30 @@ namespace dova::game
 				a_info.alchemyKind = alch->IsPoison() ? core::AlchemyKind::Poison :
 				                     alch->IsFood()   ? core::AlchemyKind::Food :
 				                                        core::AlchemyKind::Potion;
+				a_info.typeFlags = alch->data.flags.underlying();
+				if (alch->data.consumptionSound) {
+					a_info.useSound = ToFormRef(alch->data.consumptionSound);
+				}
 			}
+			FillMagicInfo(a_info, a_object->As<RE::MagicItem>());
+			break;
+		case core::ItemType::Ingredient:
+		case core::ItemType::Scroll:
+			FillMagicInfo(a_info, a_object->As<RE::MagicItem>());
 			break;
 		case core::ItemType::SoulGem:
 			if (const auto* gem = a_object->As<RE::TESSoulGem>()) {
 				a_info.soulGemState = gem->GetContainedSoul() != RE::SOUL_LEVEL::kNone ? core::SoulGemState::Filled : core::SoulGemState::Empty;
+				a_info.gemSize = static_cast<std::uint8_t>(gem->GetMaximumCapacity());
+				a_info.soulSize = static_cast<std::uint8_t>(gem->GetContainedSoul());
 			}
 			break;
 		case core::ItemType::Ammo:
 			if (auto* ammo = a_object->As<RE::TESAmmo>()) {
 				a_info.ammoKind = ammo->IsBolt() ? core::AmmoKind::Bolt : core::AmmoKind::Arrow;
+				// AMMO_DATA flags, rebuilt from the accessors (the raw struct moves on VR).
+				a_info.typeFlags = (ammo->IgnoresNormalWeaponResistance() ? 0x1u : 0u) | (ammo->GetPlayable() ? 0u : 0x2u) |
+				                   (ammo->IsBolt() ? 0u : 0x4u);
 			}
 			break;
 		default:
@@ -269,6 +350,7 @@ namespace dova::game
 					info.questItem = inconsistent || entryQuest || xList->HasQuestObjectAlias();
 					if (info.type == core::ItemType::SoulGem && xList->GetSoulLevel() != RE::SOUL_LEVEL::kNone) {
 						info.soulGemState = core::SoulGemState::Filled;
+						info.soulSize = static_cast<std::uint8_t>(xList->GetSoulLevel());
 					}
 					// Read-only: ExtraDataList::GetDisplayName would add ExtraTextDisplayData to tempered stacks.
 					if (const auto* xText = xList->GetByType<RE::ExtraTextDisplayData>(); xText && !xText->displayName.empty()) {

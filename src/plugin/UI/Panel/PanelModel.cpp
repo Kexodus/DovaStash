@@ -406,14 +406,10 @@ namespace dova::ui::panel
 	{
 		auto        global = std::make_shared<GlobalSnapshot>();
 		const auto& settings = Settings::GetSingleton();
-		global->hotkey = settings.GetInput().hotkey;
+		global->settings = settings.Get();
 		global->hotkeyName = Controller::HotkeyName();
-		global->gamepadHotkey = settings.GetInput().gamepadHotkey;
-		global->autoEnableTemplates = settings.GetTemplates().autoEnable;
-		global->distributeOnMasterClose = settings.GetSorting().distributeOnMasterClose;
-		global->learn = settings.GetSorting().learn;
-		global->logLevel = settings.GetGeneral().logLevel;
-		global->uiMode = settings.GetUI().mode;
+		global->globalKeep = home::Store::Get().GlobalKeep();
+		global->globalKeepJson = core::KeepConfigToJson(global->globalKeep).dump();
 
 		const auto& store = home::Store::Get();
 		global->categoryCount = store.Categories().Size();
