@@ -539,6 +539,16 @@ namespace dova::ui::panel
 			if (!a_row.warning.empty()) {
 				ColoredWrapped(kYellow, a_row.warning);
 			}
+			if (a_row.available && ImGui::Button(text::kOpenContainer)) {
+				// The window holds all input while it is open: close it, then open the real container menu.
+				if (auto* window = g_window.load()) {
+					window->IsOpen = false;
+				}
+				Do([cell, ref]() { Controller::Get().Browse(cell, ref); });
+			}
+			if (a_row.available && ImGui::IsItemHovered()) {
+				ImGui::SetTooltip("%s", text::kOpenContainerHelp);
+			}
 			if (a_row.master) {
 				Wrapped(text::kMasterInfo);
 				return;

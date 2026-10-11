@@ -7,7 +7,7 @@ Look at a chest, press [b]K[/b], and your haul goes where it belongs. Weapons go
 Popular homes come with ready-made layouts. Anywhere else, pick a master chest and put each item away once. Dova Stash remembers where it goes.[/size]
 
 [size=2][color=#8c8c8c]SKSE plugin · no ESP · one DLL for SE 1.5.97, AE 1.6.x and VR (experimental)
-Version 0.2.3 (pre-release). Back up your save, and please report anything odd.[/color][/size]
+Version 0.2.4 (pre-release). Back up your save, and please report anything odd.[/color][/size]
 
 [img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-divider-1200x40.png[/img]
 
@@ -294,6 +294,12 @@ You may share, modify, translate, port and re-upload it, as long as your version
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-12-changelog.png[/img][/center]
 
+[b]0.2.4[/b]
+[list]
+[*]Open containers from the SKSE Menu Framework panel and the message-box menus
+[*]Cancelling a rename keeps the name; "Restore original name" added
+[*]Floating icons no longer reload as you move
+[/list]
 [b]0.2.3[/b]
 [list]
 [*]Containers a template marks as off-limits no longer count as "unavailable"

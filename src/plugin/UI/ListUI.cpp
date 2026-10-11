@@ -77,6 +77,12 @@ namespace dova::ui
 			return total;
 		}
 
+		// The player renamed it (Controller::SetLabel stores the name on the reference).
+		bool HasCustomName(RE::TESObjectREFR* a_ref)
+		{
+			return a_ref && a_ref->extraList.HasType(RE::ExtraDataType::kTextDisplayData);
+		}
+
 		void ListUnavailable(IStashUI& a_ui)
 		{
 			a_ui.Notify("Dova Stash: close the open menu first");
@@ -174,6 +180,9 @@ namespace dova::ui
 		items.push_back({ "Browse containers...", [this, cellId]() { OpenBrowse(cellId); } });
 		if (masterRef) {
 			items.push_back({ std::format("Rename {}...", game::RefName(a_master)), [this, cellId, ref = *masterRef]() { OpenRename(cellId, ref); } });
+			if (HasCustomName(a_master)) {
+				items.push_back({ "Restore original name", [cellId, ref = *masterRef]() { Controller::Get().SetLabel(cellId, ref, {}); } });
+			}
 		}
 		if (const auto* best = a_home.BestTemplate()) {
 			const bool basedOnTemplate = a_home.layout && a_home.layout->basedOn.has_value();
@@ -210,6 +219,9 @@ namespace dova::ui
 		items.push_back({ std::format("Categories... ({})", summary), [this, cellId, ref = *ref]() { OpenAssignGroups(cellId, ref); } });
 		items.push_back({ std::format("Open {}", game::RefName(a_container)), [cellId, ref = *ref]() { Controller::Get().Browse(cellId, ref); } });
 		items.push_back({ "Rename...", [this, cellId, ref = *ref]() { OpenRename(cellId, ref); } });
+		if (HasCustomName(a_container)) {
+			items.push_back({ "Restore original name", [cellId, ref = *ref]() { Controller::Get().SetLabel(cellId, ref, {}); } });
+		}
 		std::size_t learned = 0;
 		for (const auto& [item, container] : a_home.layout->learned) {
 			if (container == *ref) {
@@ -361,7 +373,9 @@ namespace dova::ui
 			if (!ref || ref->IsDisabled()) {
 				return;
 			}
-			items.push_back({ std::format("{} - {} ({} items)", game::RefName(ref), a_what, ItemCount(ref)),
+			const auto name = game::RefName(ref);
+			items.push_back({ a_what.empty() || core::IEquals(a_what, name) ? std::format("{} ({} items)", name, ItemCount(ref)) :
+			                                                                  std::format("{} - {} ({} items)", name, a_what, ItemCount(ref)),
 				[a_cellId, a_ref]() { Controller::Get().Browse(a_cellId, a_ref); } });
 		};
 		if (home->layout->master) {
@@ -390,8 +404,9 @@ namespace dova::ui
 			return;
 		}
 		const bool opened = uiext::OpenTextEntry(game::RefName(ref), [a_cellId, a_container](std::optional<std::string> a_text) {
-			if (a_text) {
-				// An empty name restores the original one (Controller::SetLabel).
+			// The text box reports an empty text when it is cancelled: that must never clear a name.
+			// "Restore original name" is a separate list entry.
+			if (a_text && a_text->find_first_not_of(" \t") != std::string::npos) {
 				Controller::Get().SetLabel(a_cellId, a_container, *a_text);
 			}
 		});

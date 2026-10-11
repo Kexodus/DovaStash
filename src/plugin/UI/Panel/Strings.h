@@ -86,6 +86,8 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kMasterInfo = "This is the master container. Items without a destination stay here, and closing it sorts its contents into the other containers.";
 	inline constexpr auto             kLabel = "Label";
 	inline constexpr auto             kRename = "Rename";
+	inline constexpr auto             kOpenContainer = "Open";
+	inline constexpr auto             kOpenContainerHelp = "Opens this container's own menu. The Dova Stash window closes first.";
 	inline constexpr auto             kIgnore = "Ignore";
 	inline constexpr auto             kStopIgnoring = "Stop ignoring";
 	inline constexpr auto             kMakeMaster = "Make master...";

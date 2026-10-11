@@ -7,7 +7,7 @@ homes work with zero setup.
 An SKSE plugin built on CommonLibSSE-NG with Address Library. One DLL covers SE 1.5.97, AE 1.6.x and VR.
 No ESP is needed.
 
-> Status: **0.2.3, pre-release.** It builds and has unit tests, but in-game verification is in progress.
+> Status: **0.2.4, pre-release.** It builds and has unit tests, but in-game verification is in progress.
 
 ## Features
 - **Any home:** eligibility comes from runtime safety checks (ownership, respawning containers), not a whitelist.

@@ -138,10 +138,40 @@ namespace dova::ui::overlay
 				g_state.targets.resize(static_cast<std::size_t>(settings.maxIcons));
 			}
 
+			// Keep every container in the slot it already has: the order by distance changes constantly as
+			// the player moves, and a slot that changes container must reload its icon SWF.
+			{
+				std::vector<std::optional<Target>> placed(g_state.targets.size());
+				std::vector<Target>                rest;
+				for (auto& t : g_state.targets) {
+					bool kept = false;
+					for (std::size_t i = 0; i < placed.size() && i < g_state.slots.size(); ++i) {
+						if (!placed[i] && g_state.slots[i].formID == t.formID) {
+							placed[i] = std::move(t);
+							kept = true;
+							break;
+						}
+					}
+					if (!kept) {
+						rest.push_back(std::move(t));
+					}
+				}
+				auto next = rest.begin();
+				g_state.targets.clear();
+				for (auto& p : placed) {
+					g_state.targets.push_back(p ? std::move(*p) : std::move(*next++));
+				}
+			}
+
 			static std::string lastSet;
-			std::string        set;
+			std::vector<std::string> entries;
 			for (const auto& t : g_state.targets) {
-				set += std::format("{:08X}={}|{} ", t.formID, t.icon.source, t.icon.label);
+				entries.push_back(std::format("{:08X}={}|{}", t.formID, t.icon.source, t.icon.label));
+			}
+			std::ranges::sort(entries);  // the set, not the order
+			std::string set;
+			for (const auto& e : entries) {
+				set += e + " ";
 			}
 			if (set != lastSet) {
 				logger::debug("Overlay: {} icon(s): {}", g_state.targets.size(), set.empty() ? "none"s : set);

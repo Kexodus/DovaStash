@@ -18,6 +18,7 @@ namespace dova::ui
 	private:
 		void OpenRetrieveMenu(RE::FormID a_cellId);
 		void OpenRetrieveRoot(RE::FormID a_cellId, const std::string& a_root);
+		void OpenBrowseMenu(RE::FormID a_cellId);
 		void OpenAssignRoots(RE::FormID a_cellId, const core::FormRef& a_container, std::size_t a_page = 0);
 		void OpenAssignChildren(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_root, std::size_t a_page = 0);
 		void ReopenContainerMenu(RE::FormID a_cellId, const core::FormRef& a_container);

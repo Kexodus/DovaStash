@@ -247,7 +247,12 @@ namespace dova::integrations::quickloot
 				right -= size + gap;
 			}
 			SetVisible(holder, true);
-			logger::debug("QuickLoot icons: {} icon(s){} for {:08X}", slots.size(), g_row.extra ? std::format(" +{}", g_row.extra) : "", g_row.container);
+			static std::string lastLogged;
+			auto               now = std::format("{} icon(s){} for {:08X}", slots.size(), g_row.extra ? std::format(" +{}", g_row.extra) : "", g_row.container);
+			if (now != lastLogged) {
+				logger::debug("QuickLoot icons: {}", now);
+				lastLogged = std::move(now);
+			}
 		}
 
 		// UI thread: (re)build the row's clips for `a_icons` and lay it out.

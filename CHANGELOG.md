@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-10
+
+### Added
+
+- **Open** for every container in the SKSE Menu Framework panel. The Dova Stash window closes first.
+- **Open** and **Browse containers...** in the message-box menus.
+- **Restore original name** in the in-world lists, for renamed containers.
+
+### Fixed
+
+- Cancelling the rename box no longer removes a container's custom name.
+- Browse no longer repeats a container's name ("Weapons - Weapons").
+- Floating icons keep their slot as you move, instead of reloading their icons.
+
+### Changed
+
+- Quieter debug log: the QuickLoot icon row and the floating icons only log changes.
+
 ### Docs
 
 - The Nexus press kit moved to `presskit/` (cmc layout). The description loads its images from this repo's `main` branch, so the URL-filling script is gone.

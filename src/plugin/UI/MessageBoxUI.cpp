@@ -130,6 +130,7 @@ namespace dova::ui
 		options.push_back({ "Deposit", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Deposit); } });
 		options.push_back({ "Sort all", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::SortAll); } });
 		options.push_back({ "Retrieve...", [this, cellId]() { OpenRetrieveMenu(cellId); } });
+		options.push_back({ "Browse containers...", [this, cellId]() { OpenBrowseMenu(cellId); } });
 		if (const auto* best = a_home.BestTemplate()) {
 			const bool basedOnTemplate = a_home.layout && a_home.layout->basedOn.has_value();
 			const auto name = best->layout.name;
@@ -182,6 +183,36 @@ namespace dova::ui
 		ShowOptions("Dova Stash: retrieve what?", std::move(options));
 	}
 
+	void MessageBoxUI::OpenBrowseMenu(RE::FormID a_cellId)
+	{
+		auto* home = home::HomeRegistry::Get().CurrentIf(a_cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		std::vector<Option> options;
+		auto                add = [&](const core::FormRef& a_ref, const std::string& a_what) {
+			auto* ref = game::LookupRef(a_ref);
+			if (!ref || ref->IsDisabled()) {
+				return;
+			}
+			options.push_back({ std::format("{} ({})", game::RefName(ref), a_what), [a_cellId, a_ref]() { Controller::Get().Browse(a_cellId, a_ref); } });
+		};
+		if (home->layout->master) {
+			add(*home->layout->master, "master");
+		}
+		for (const auto& c : home->layout->containers) {
+			if (!c.ignored) {
+				const auto summary = RoleSummary(DescribeContainer(game::LookupRef(c.ref)), 2);
+				add(c.ref, summary.empty() ? c.label : summary);
+			}
+		}
+		if (options.empty()) {
+			Notify("Dova Stash: no containers to open");
+			return;
+		}
+		ShowOptions("Dova Stash: open which container?", std::move(options));
+	}
+
 	void MessageBoxUI::OpenRetrieveRoot(RE::FormID a_cellId, const std::string& a_root)
 	{
 		auto* home = home::HomeRegistry::Get().CurrentIf(a_cellId);
@@ -231,6 +262,7 @@ namespace dova::ui
 
 		std::vector<Option> options;
 		options.push_back({ "Assign categories...", [this, cellId, ref = *ref]() { OpenAssignRoots(cellId, ref); } });
+		options.push_back({ std::format("Open {}", game::RefName(a_container)), [cellId, ref = *ref]() { Controller::Get().Browse(cellId, ref); } });
 		if (binding && !binding->categories.empty()) {
 			options.push_back({ "Clear categories", [cellId, ref = *ref]() { Controller::Get().ClearCategories(cellId, ref); } });
 		}

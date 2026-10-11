@@ -25,7 +25,7 @@ The default hotkey is **K** (`iHotkey = 37`).
 ### Expected startup log
 
 ```
-Dova Stash v0.2.3 loaded
+Dova Stash v0.2.4 loaded
 Settings: iLogLevel=1 iHotkey=37 iGamepadHotkey=-1 bAutoEnableTemplates=false bDistributeOnMasterClose=true bLearn=true iMode=0
 kDataLoaded: forms are available
 FormUtil: <n> full + <m> light plugins loaded
