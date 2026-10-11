@@ -1,4 +1,4 @@
-[center][img]{IMG}/banner_1920x480.png[/img]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-header-1920x480.png[/img]
 
 [size=5][b]Every home. Every haul. In its place.[/b][/size]
 
@@ -9,11 +9,11 @@ Popular homes come with ready-made layouts. Anywhere else, pick a master chest a
 [size=2][color=#8c8c8c]SKSE plugin · no ESP · one DLL for SE 1.5.97, AE 1.6.x and VR (experimental)
 Version 0.2.3 (pre-release). Back up your save, and please report anything odd.[/color][/size]
 
-[img]{IMG}/divider_1200x40.png[/img]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-divider-1200x40.png[/img]
 
-[img]{IMG}/header_features_1200x140.png[/img]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-01-features.png[/img]
 
-[img]{IMG}/features_grid_1200x700.png[/img][/center]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-features-1200x700.png[/img][/center]
 
 [list]
 [*][b]Any home.[/b] There is no whitelist. Whether a home qualifies is decided by safety checks in the game: who owns the cell, and whether its containers respawn.
@@ -26,9 +26,9 @@ Version 0.2.3 (pre-release). Back up your save, and please report anything odd.[
 [*][b]No ESP.[/b] It uses no plugin slot. Layouts are saved as JSON files, not in your save, so they carry over between playthroughs.
 [/list]
 
-[center][img]{IMG}/header_how_it_works_1200x140.png[/img]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-02-how-it-works.png[/img]
 
-[img]{IMG}/gallery_how_it_works.png[/img][/center]
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-gallery-how-it-works-1920x1080.png[/img][/center]
 
 [size=4][b]Three steps[/b][/size]
 [list=1]
@@ -62,7 +62,7 @@ Once a home has a master, you don't have to bind anything. Open a container, put
 [/list]
 Each action shows one line on the HUD, with no message for every single item.
 
-[center][img]{IMG}/header_templates_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-03-templates.png[/img][/center]
 
 [size=4][b]Homes with a template need no setup[/b][/size]
 When you enter a home that has a template, a short notice says a layout is available. Press [b]K[/b] at any container to turn it on, then Deposit. If you'd rather skip the notice, set [b]bAutoEnableTemplates = true[/b] and templates turn on as soon as you walk in.
@@ -94,7 +94,7 @@ A template is only offered when every plugin it needs is loaded, so Creation Clu
 [size=4][b]Export your own[/b][/size]
 In the panel, open the [b]Template[/b] tab and click [b]Export[/b]. Your home is written to [i]Templates/User/<name>.json[/i] without your learned items, so it's ready to share. It shows up as a template from the next game start. (Export needs SKSE Menu Framework.)
 
-[center][img]{IMG}/header_requirements_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-04-requirements.png[/img][/center]
 
 [list]
 [*][b][url=https://skse.silverlock.org/]SKSE64[/url][/b] for SE and AE, or [b]SKSEVR[/b] for VR. Required.
@@ -105,7 +105,7 @@ In the panel, open the [b]Template[/b] tab and click [b]Export[/b]. Your home is
 Without SKSE Menu Framework, Dova Stash uses native message boxes. Every essential action is available there.
 [size=2][color=#8c8c8c]Supported game versions: SE 1.5.97, AE 1.6.x and VR. Developed and tested on AE 1.6.1170.[/color][/size]
 
-[center][img]{IMG}/header_installation_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-05-installation.png[/img][/center]
 
 [list]
 [*]Install with [b]Mod Organizer 2[/b] or [b]Vortex[/b] like any other SKSE plugin. There is no load order to manage.
@@ -117,7 +117,7 @@ Without SKSE Menu Framework, Dova Stash uses native message boxes. Every essenti
 [size=4][b]Uninstalling is safe[/b][/size]
 There is no ESP, no Papyrus script and no co-save. Dova Stash only moves ordinary items between ordinary containers. Remove it at any point in a playthrough and everything stays exactly where it is. Containers you renamed keep their new names (the game stores those in your save). Your layout files remain in [i]Layouts/[/i] in case you come back.
 
-[center][img]{IMG}/header_configuration_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-06-configuration.png[/img][/center]
 
 Change everything in game: [b]SKSE Menu Framework > Dova Stash > Settings (all homes)[/b]. Changes apply immediately and are saved to [b]Data/SKSE/Plugins/DovaStash.ini[/b]; hover any option to see its INI key. Any key you leave out of the INI uses its default.
 
@@ -165,7 +165,7 @@ By default Deposit keeps [b]equipped[/b], [b]favorited[/b] and [b]quest[/b] item
 [/list]
 [/spoiler]
 
-[center][img]{IMG}/header_compatibility_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-07-compatibility.png[/img][/center]
 
 [list]
 [*][b]Any home:[/b] a home qualifies if you own the cell, if it's tagged as a player house, or if it's an interior nobody owns. Anywhere else, Dova Stash tells you why it can't be used.
@@ -179,13 +179,13 @@ By default Deposit keeps [b]equipped[/b], [b]favorited[/b] and [b]quest[/b] item
 [*]Dova Stash only touches containers you bind, teach or make the master, and it never sorts while a container you're using is open.
 [/list]
 
-[center][img]{IMG}/header_template_authoring_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-08-template-authoring.png[/img][/center]
 
 A template is a small JSON file that says which container in a home holds which categories. It contains no code. Put templates in [i]Data/SKSE/Plugins/DovaStash/Templates/<YourName>/[/i]. The file name can be anything, because the home is identified inside the file.
 
 Forms are written as [b]"Plugin.esm|0x00ABCDEF"[/b]: the plugin's file name plus the [i]local[/i] form ID, without the load-order byte. For ESL-flagged plugins, use only the low 12 bits (for example "MyHome.esl|0x00000801"). This notation survives load-order changes.
 
-To find the references, use [b]tools/esm_dump.py[/b] from the [url={SOURCE_URL}]source repository[/url] (Python, standard library only) or xEdit. [i]esm_dump.py[/i] lists every container in a cell and flags the ones that respawn, the bookshelves and the ones that disappear after upgrades. Its [i]check[/i] command validates your finished template.
+To find the references, use [b]tools/esm_dump.py[/b] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] (Python, standard library only) or xEdit. [i]esm_dump.py[/i] lists every container in a cell and flags the ones that respawn, the bookshelves and the ones that disappear after upgrades. Its [i]check[/i] command validates your finished template.
 
 [spoiler=A minimal template, annotated]
 [code]{
@@ -226,7 +226,7 @@ To find the references, use [b]tools/esm_dump.py[/b] from the [url={SOURCE_URL}]
 [size=4][b]Sharing a template[/b][/size]
 Validate it with [i]python -I esm_dump.py check MyHome.json --categories <path>/00_Default.json[/i], then upload it as its own small Nexus file that installs to [i]Templates/<YourName>/[/i], or post it in the Posts tab. Solid templates for popular homes may be added to the bundled set, with credit.
 
-[center][img]{IMG}/header_faq_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-09-faq.png[/img][/center]
 
 [spoiler=Will it eat my items?]
 It's built so that it can't. Every move is a real engine transfer that keeps enchantments, tempering, custom names, stolen flags and captured souls. Equipped, favorited and quest items are never moved. Containers that respawn are refused. When anything is unclear, the item stays where it is. Reset, Make master and applying a template never move any items.
@@ -276,12 +276,12 @@ Layouts are saved outside your save game, so a home you set up once is ready for
 Yes. The cleanest way is [b]Export[/b] in the panel's Template tab: it writes a shareable template without your learned items. You can also copy your layout file from [i]Layouts/[/i], but it includes your personal learned destinations.
 [/spoiler]
 
-[center][img]{IMG}/header_permissions_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-10-permissions.png[/img][/center]
 
-Dova Stash is free software under the [b]GNU General Public License v3.0 or later[/b], as CommonLibSSE-NG requires. Source code: [url={SOURCE_URL}]{SOURCE_URL}[/url]
+Dova Stash is free software under the [b]GNU General Public License v3.0 or later[/b], as CommonLibSSE-NG requires. Source code: [url=https://github.com/Kexodus/DovaStash]https://github.com/Kexodus/DovaStash[/url]
 You may share, modify, translate, port and re-upload it, as long as your version stays GPL-3.0-or-later, includes or links its source, and keeps the credits. The bundled SKSE Menu Framework API header is LGPL-2.1.
 
-[center][img]{IMG}/header_credits_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-11-credits.png[/img][/center]
 
 [list]
 [*][b]The SKSE team[/b], for the Script Extender that makes all of this possible.
@@ -292,7 +292,7 @@ You may share, modify, translate, port and re-upload it, as long as your version
 [*]Libraries: spdlog, nlohmann/json, SimpleIni, Catch2. Page fonts: Cinzel and Jost (SIL OFL).
 [/list]
 
-[center][img]{IMG}/header_changelog_1200x140.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-12-changelog.png[/img][/center]
 
 [b]0.2.3[/b]
 [list]
@@ -330,6 +330,6 @@ You may share, modify, translate, port and re-upload it, as long as your version
 [/list]
 [size=2][color=#8c8c8c]Planned, not in this version: pulling crafting materials from storage, and central storage shared across homes.[/color][/size]
 
-[center][img]{IMG}/divider_1200x40.png[/img]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-divider-1200x40.png[/img]
 
 [size=2][color=#8c8c8c]Found a bug? See the pinned post in the Posts tab for what to include.[/color][/size][/center]

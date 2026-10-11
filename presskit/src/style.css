@@ -3,13 +3,13 @@
 
 @font-face {
   font-family: "DS Cinzel";
-  src: url("../fonts/Cinzel-VF.ttf") format("truetype");
+  src: url("fonts/Cinzel-VF.ttf") format("truetype");
   font-weight: 400 900;
   font-display: block;
 }
 @font-face {
   font-family: "DS Jost";
-  src: url("../fonts/Jost-VF.ttf") format("truetype");
+  src: url("fonts/Jost-VF.ttf") format("truetype");
   font-weight: 100 900;
   font-display: block;
 }

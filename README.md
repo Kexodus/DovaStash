@@ -29,7 +29,8 @@ No ESP is needed.
 | [docs/BUILDING.md](docs/BUILDING.md) | Building and deploying |
 | [docs/TESTING.md](docs/TESTING.md) | In-game test script |
 | [tools/README.md](tools/README.md) | Template authoring with `esm_dump.py` |
-| [nexus/](nexus/) | Nexus Mods page copy and art |
+| [presskit/](presskit/) | Nexus Mods page copy and art (press kit) |
+| [CHANGELOG.md](CHANGELOG.md) | Changes per version |
 
 ## Building
 ```

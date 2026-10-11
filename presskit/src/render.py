@@ -1,6 +1,6 @@
-"""Render the Dova Stash Nexus art set to nexus/art/out/.
+"""Render the Dova Stash press kit images into presskit/nexus/ and presskit/logo/.
 
-Stdlib only. Run from anywhere with:   python -I nexus/art/render.py [--check-gray] [name-filter]
+Stdlib only. Run from anywhere with:   python -I presskit/src/render.py [--check-gray] [name-filter]
 
 Steps:
   1. Generate src/data.js from the shipped JSON (template names, categories), so the
@@ -21,10 +21,9 @@ import urllib.parse
 import zlib
 from pathlib import Path
 
-ART = Path(__file__).resolve().parent
-ROOT = ART.parent.parent
-SRC = ART / "src"
-OUT = ART / "out"
+SRC = Path(__file__).resolve().parent
+OUT = SRC.parent              # presskit/: outputs go to nexus/ and logo/ below it
+ROOT = OUT.parent
 DATA = ROOT / "dist" / "Data" / "SKSE" / "Plugins" / "DovaStash"
 EDGE = os.environ.get(
     "DS_EDGE", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
@@ -44,36 +43,48 @@ HEADERS = {
     "changelog": "Changelog",
     "permissions": "Permissions",
 }
-ICONS = ["any_home", "auto_sort", "templates", "learns", "safe", "menu", "vr",
-         "export", "hotkey"]
+SECTIONS = [
+    "features",
+    "how_it_works",
+    "templates",
+    "requirements",
+    "installation",
+    "configuration",
+    "compatibility",
+    "template_authoring",
+    "faq",
+    "permissions",
+    "credits",
+    "changelog",
+]
+ICONS = ["any_home", "auto_sort", "templates", "learns", "safe", "menu", "vr", "export", "hotkey"]
 
 
 def jobs():
-    """(page, query, width, height, output name, transparent)"""
+    """(page, query, width, height, output path under presskit/, transparent)"""
     j = [
-        ("keyart.html", {}, 1920, 1080, "keyart_1920x1080.png", False),
-        ("banner.html", {}, 1920, 480, "banner_1920x480.png", False),
-        ("logo.html", {"size": 1024}, 1024, 1024, "logo_1024.png", False),
-        ("logo.html", {"size": 1024, "bg": "transparent"}, 1024, 1024,
-         "logo_1024_transparent.png", True),
-        ("logo.html", {"size": 512}, 512, 512, "logo_512.png", False),
-        ("logo.html", {"size": 256}, 256, 256, "logo_256.png", False),
-        ("divider.html", {}, 1200, 40, "divider_1200x40.png", False),
-        ("divider.html", {"bg": "transparent"}, 1200, 40,
-         "divider_1200x40_transparent.png", True),
-        ("features.html", {}, 1200, 700, "features_grid_1200x700.png", False),
-        ("gallery_how_it_works.html", {}, 1920, 1080, "gallery_how_it_works.png", False),
-        ("gallery_templates.html", {}, 1920, 1080, "gallery_templates.png", False),
-        ("gallery_homes.html", {}, 1920, 1080, "gallery_homes.png", False),
-        ("gallery_categories.html", {}, 1920, 1080, "gallery_categories.png", False),
-        ("gallery_safety.html", {}, 1920, 1080, "gallery_safety.png", False),
-        ("social.html", {}, 1280, 640, "github_social_1280x640.png", False),
+        ("keyart.html", {}, 1920, 1080, "nexus/dovastash-primary-1920x1080.png", False),
+        ("banner.html", {}, 1920, 480, "nexus/dovastash-header-1920x480.png", False),
+        ("features.html", {}, 1200, 700, "nexus/dovastash-features-1200x700.png", False),
+        ("gallery_how_it_works.html", {}, 1920, 1080, "nexus/dovastash-gallery-how-it-works-1920x1080.png", False),
+        ("gallery_templates.html", {}, 1920, 1080, "nexus/dovastash-gallery-templates-1920x1080.png", False),
+        ("gallery_homes.html", {}, 1920, 1080, "nexus/dovastash-gallery-homes-1920x1080.png", False),
+        ("gallery_categories.html", {}, 1920, 1080, "nexus/dovastash-gallery-categories-1920x1080.png", False),
+        ("gallery_safety.html", {}, 1920, 1080, "nexus/dovastash-gallery-safety-1920x1080.png", False),
+        ("divider.html", {}, 1200, 40, "nexus/dovastash-divider-1200x40.png", False),
+        ("divider.html", {"bg": "transparent"}, 1200, 40, "nexus/dovastash-divider-transparent-1200x40.png", True),
+        ("social.html", {}, 1280, 640, "nexus/dovastash-social-1280x640.png", False),
+        ("logo.html", {"size": 1024}, 1024, 1024, "logo/dovastash-logo-1024.png", False),
+        ("logo.html", {"size": 512}, 512, 512, "logo/dovastash-logo-512.png", False),
+        ("logo.html", {"size": 256}, 256, 256, "logo/dovastash-logo-256.png", False),
+        ("logo.html", {"size": 1024, "bg": "transparent"}, 1024, 1024, "logo/dovastash-logo-transparent.png", True),
     ]
-    for key, title in HEADERS.items():
-        j.append(("header.html", {"title": title}, 1200, 140,
-                  f"header_{key}_1200x140.png", False))
+    # Section headers, numbered in the order the description uses them.
+    for i, key in enumerate(SECTIONS, 1):
+        j.append(("header.html", {"title": HEADERS[key]}, 1200, 140,
+                  f"nexus/section-{i:02d}-{key.replace('_', '-')}.png", False))
     for name in ICONS:
-        j.append(("icon.html", {"name": name}, 256, 256, f"icon_{name}_256.png", False))
+        j.append(("icon.html", {"name": name}, 256, 256, f"nexus/icon-{name.replace('_', '-')}-256.png", False))
     return j
 
 
@@ -111,6 +122,7 @@ def render(job):
     # canvases (256 px) must not depend on the viewport for centring.
     url += "?" + urllib.parse.urlencode({**query, "w": w, "h": h})
     out = OUT / name
+    out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="ds_edge_", ignore_cleanup_errors=True) as prof:
         args = [EDGE, "--headless=new", "--disable-gpu", "--hide-scrollbars",
                 "--force-device-scale-factor=1", f"--window-size={w},{h}",
@@ -217,7 +229,6 @@ def png_alpha_ok(path):
 def main(argv):
     check_gray = "--check-gray" in argv
     filters = [a for a in argv if not a.startswith("--")]
-    OUT.mkdir(exist_ok=True)
     n_t, n_c = write_data_js()
     print(f"data.js: {n_t} templates, {n_c} categories")
     todo = [j for j in jobs() if not filters or any(f in j[4] for f in filters)]
@@ -243,7 +254,7 @@ def main(argv):
             problems.append("contains non-neutral (colored) pixels")
         status = "FAIL" if problems else "ok  "
         failures += bool(problems)
-        print(f"{status} {name:40s} {pw}x{ph} {size / 1024:7.1f} KB "
+        print(f"{status} {name:52s} {pw}x{ph} {size / 1024:7.1f} KB "
               + "; ".join(problems))
     print(f"{len(todo) - failures}/{len(todo)} ok")
     return 1 if failures else 0

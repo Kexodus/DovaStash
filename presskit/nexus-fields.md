@@ -1,8 +1,9 @@
-# Nexus upload form: Dova Stash 0.1.0
+# Nexus upload form: Dova Stash
 
-Values for every field of the Nexus Mods "Add a mod" form for **Skyrim Special Edition**. Paste text
-from `nexus/out/` (after running `fill_urls.py`), not from the templates in `nexus/`, because the
-`out/` copies have the real image and source URLs filled in.
+Values for every field of the Nexus Mods "Add a mod" form for **Skyrim Special Edition**. Every text file
+in `presskit/` is ready to paste as it is: the description loads its images from this repository's
+`main` branch. Use the version in `CMakeLists.txt` (`project(... VERSION x.y.z)`) wherever a version is
+asked for.
 
 ## 1. Mod details
 
@@ -10,13 +11,13 @@ from `nexus/out/` (after running `fill_urls.py`), not from the templates in `nex
 |---|---|
 | Game | Skyrim Special Edition |
 | Mod name | `Dova Stash` |
-| Version | `0.1.0` |
+| Version | the current version, e.g. `0.2.3` |
 | Author | your Nexus user name (credited as the creator) |
 | Category | **Player Homes** (see below) |
 | Language | English |
 | Adult content | **No** |
-| Brief overview (summary) | contents of `out/summary.txt` (309 characters; the limit is 350) |
-| Detailed description | contents of `out/description.bbcode` |
+| Brief overview (summary) | contents of `nexus-summary.txt` (the limit is 350 characters) |
+| Detailed description | contents of `nexus-description.bbcode.txt` |
 | Primary image | `keyart_1920x1080.png` |
 | Is this a translation? | No |
 | Uses assets from other mods? | No. The bundled SKSE Menu Framework API header is a code header, not an asset; it is credited and LGPL-2.1. |
@@ -109,11 +110,8 @@ The vendored SKSE Menu Framework API header (QTR-Modding) is LGPL-2.1.
 Templates and category files you make yourself are your own work and you may license them however you like.
 ```
 
-> **GPL source obligation:** while the GitHub repository is private, publishing the DLL on Nexus
-> means you must still make the source available to downloaders. Either make the repository public
-> before release, or upload a source archive as an extra file (category *Miscellaneous*, name
-> `Dova Stash 0.1.0 - Source`). `fill_urls.py` refuses to leave the source-URL placeholder unfilled unless
-> you pass `--allow-placeholders`.
+> **GPL source obligation:** met by the public repository,
+> [github.com/Kexodus/DovaStash](https://github.com/Kexodus/DovaStash), which the description links to.
 
 **Credits (form field):**
 
@@ -133,12 +131,12 @@ Page fonts: Cinzel, Jost, Noto Sans Runic (SIL Open Font License)
 | Field | Value |
 |---|---|
 | File name | `Dova Stash` |
-| Version | `0.1.0` |
+| Version | the current version, e.g. `0.2.3` |
 | Category | **Main Files** |
 | Update to an existing file? | No (first upload) |
 | Remove the previous version? | n/a |
-| Archive name | `Dova Stash 0.1.0.7z` (or `.zip`) |
-| File description | contents of `out/file_description.txt` |
+| Archive name | the GitHub release zip, `DovaStash-x.y.z.zip` |
+| File description | contents of `nexus-file-description.txt` |
 | Requirements popup | On (it shows the requirements tab at download) |
 | Mod manager download | On |
 
@@ -153,61 +151,42 @@ SKSE/Plugins/DovaStash/Templates/CreationClub/*.json   (10 files)
 LICENSE                                         (optional, but good practice for GPL)
 ```
 
-Leave out `DovaStash.pdb`, unless you want readable crash logs from users. In that case ship it as a
-separate *Optional* file named `Dova Stash 0.1.0 - Debug symbols`.
-
-**Optional file: OCF categories.** Name it `Dova Stash - OCF Categories`, category *Optional Files*,
-with the description "Finer categories for Object Categorization Framework users. Requires OCF." The
-archive is the contents of `dist/Optional/OCF/Data/`, which also maps onto `Data/`:
-
-```
-SKSE/Plugins/DovaStash/Categories/50_OCF.json
-```
-
-**Optional extra file** (if the repository is still private): `Dova Stash 0.1.0 - Source`, category
-*Miscellaneous*. Use a `git archive` of the release commit plus the CommonLibSSE-NG submodule
-revision note.
+Ship this one file only: no debug-symbols or optional category downloads. The OCF category set stays
+in the repository (`dist/Optional/OCF/`) for anyone who asks.
 
 ## 6. Images
 
-Upload order, Images tab:
+Upload order, Images tab (files in `presskit/nexus/`):
 
 | # | File | Where it's used |
 |---|---|---|
-| 1 | `keyart_1920x1080.png` | **Primary image** (thumbnail and the first gallery image) |
-| 2 | `gallery_how_it_works.png` | Gallery; also embedded in the description |
-| 3 | `gallery_templates.png` | Gallery |
-| 4 | `gallery_homes.png` | Gallery |
-| 5 | `gallery_categories.png` | Gallery |
-| 6 | `gallery_safety.png` | Gallery |
-| 7 | `features_grid_1200x700.png` | Gallery (optional); embedded in the description |
+| 1 | `dovastash-primary-1920x1080.png` | **Primary image** (thumbnail and the first gallery image) |
+| 2 | `dovastash-gallery-how-it-works-1920x1080.png` | Gallery; also embedded in the description |
+| 3 | `dovastash-gallery-templates-1920x1080.png` | Gallery |
+| 4 | `dovastash-gallery-homes-1920x1080.png` | Gallery |
+| 5 | `dovastash-gallery-categories-1920x1080.png` | Gallery |
+| 6 | `dovastash-gallery-safety-1920x1080.png` | Gallery |
+| 7 | `dovastash-features-1200x700.png` | Gallery (optional); embedded in the description |
 
 **Embedded in the description only.** Don't put these in the gallery, because they would clutter it.
-Host them where `fill_urls.py` can point to them (see `nexus/README.md`):
+The description already loads them from GitHub:
 
-- `banner_1920x480.png`
-- `divider_1200x40.png`
-- `features_grid_1200x700.png`
-- `gallery_how_it_works.png`
-- `header_<name>_1200x140.png` for features, how_it_works, templates, requirements, installation,
-  configuration, compatibility, template_authoring, faq, permissions, credits and changelog. That is
-  12 headers, and the description uses all of them.
+- `dovastash-header-1920x480.png`
+- `dovastash-divider-1200x40.png`
+- `section-01-features.png` to `section-12-changelog.png`: all 12 section headers.
 
 **Not used on the mod page:**
 
-- `logo_1024.png`, `logo_1024_transparent.png`, `logo_512.png`, `logo_256.png`: your Nexus profile or
-  collection thumbnails and forum signatures.
-- `icon_<name>_256.png` (any_home, auto_sort, templates, learns, safe, menu, vr, export, hotkey):
-  available for a GitHub README, articles or a later description revision. The description
-  currently relies on `features_grid` instead.
-- `github_social_1280x640.png`: the GitHub repository's social preview (Settings → Social preview)
-  once the repository is public.
+- `presskit/logo/dovastash-logo-*.png`: your Nexus profile or collection thumbnails and forum
+  signatures.
+- `icon-*-256.png`: available for a GitHub README, articles or a later description revision.
+- `dovastash-social-1280x640.png`: the GitHub repository's social preview (Settings → Social preview).
 
-If the form offers a page header or banner image, use `banner_1920x480.png`.
+If the form offers a page header or banner image, use `dovastash-header-1920x480.png`.
 
 ## 7. Posts tab: pinned post
 
-Post the contents of `out/sticky_post.bbcode` as the first comment, then **Pin** it ("Sticky").
+Post the contents of `nexus-sticky-post.bbcode.txt` as the first comment, then **Pin** it ("Sticky").
 Title, if one is asked for: `Bug reports: please read before posting`.
 
 ## 8. Articles / Docs (optional)
