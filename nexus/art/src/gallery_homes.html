@@ -10,7 +10,6 @@
   }
   .group { display: flex; flex-direction: column; }
   .group h2 { font-size: 24px; letter-spacing: 0.3em; margin-right: -0.3em; }
-  .group .d { font-size: 15px; color: var(--gray-3); margin-top: 14px; }
   .group .rule { height: 1px; background: var(--gray-4); margin: 26px 0 10px; }
   .group .sub { display: flex; gap: 64px; }
   .group ol { list-style: none; width: 330px; }
@@ -19,8 +18,6 @@
     justify-content: space-between; color: var(--paper); letter-spacing: 0.01em;
   }
   .group li span.s { color: var(--gray-2); }
-  .group li em { font-style: normal; font-size: 13px; color: var(--gray-3); }
-  .count { font-family: var(--f-text); color: var(--gray-3); font-size: 19px; font-weight: 400; margin-left: 14px; letter-spacing: 0; }
 </style>
 </head>
 <body>
@@ -30,7 +27,6 @@
     <div class="g-sub">Templates included. Walk in, press K, and your haul is put away.</div>
   </div>
   <div class="cols" id="c"></div>
-  <div class="g-foot"><script>document.write(mark(30, 9, 5));</script><span class="wordmark">DOVA STASH</span></div>
 </div>
 <script>
   var T = DS_DATA.templates;
@@ -39,13 +35,11 @@
     // grey the suffix of sub-areas ("Cellar", "Gallery") of a listed home
     var base = names.filter(function (n) { return n !== t.name && t.name.indexOf(n + " ") === 0; })[0];
     var label = base ? base + ' <span class="s">' + t.name.slice(base.length + 1) + "</span>" : t.name;
-    var tag = t.cellFile === "Dragonborn.esm" ? '<em class="caps">Dragonborn</em>' : "";
-    return "<li><span>" + label + "</span>" + tag + "</li>";
+    return "<li><span>" + label + "</span></li>";
   }
-  function group(title, desc, list, split) {
+  function group(title, list, split) {
     var cols = split ? [list.slice(0, Math.ceil(list.length / 2)), list.slice(Math.ceil(list.length / 2))] : [list];
-    return '<div class="group"><h2 class="title">' + title + '<span class="count">' + list.length +
-      '</span></h2><div class="d caps">' + desc + '</div><div class="rule"></div><div class="sub">' +
+    return '<div class="group"><h2 class="title">' + title + '</h2><div class="rule"></div><div class="sub">' +
       cols.map(function (c) { return "<ol>" + c.map(item).join("") + "</ol>"; }).join("") + "</div></div>";
   }
   function by(g) { return T.filter(function (t) { return t.group === g; }); }
@@ -54,8 +48,8 @@
     return (a.cellFile === "Dragonborn.esm") - (b.cellFile === "Dragonborn.esm") || a.name.localeCompare(b.name);
   });
   document.getElementById("c").innerHTML =
-    group("Vanilla", "Skyrim and Dragonborn", v) +
-    group("Hearthfire", "Built homes and cellars", by("Hearthfire")) +
-    group("Creation Club", "Official add-on homes", by("Creation Club"), true);
+    group("Vanilla", v) +
+    group("Hearthfire", by("Hearthfire")) +
+    group("Creation Club", by("Creation Club"), true);
 </script>
 </body></html>

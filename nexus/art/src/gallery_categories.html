@@ -12,9 +12,7 @@
   .grp h2 {
     font-size: 19px; letter-spacing: 0.3em; margin-right: -0.3em;
     padding-bottom: 16px; border-bottom: 1px solid var(--gray-4);
-    display: flex; justify-content: space-between; align-items: baseline;
   }
-  .grp h2 .n { font-family: var(--f-text); color: var(--gray-3); font-size: 17px; font-weight: 400; letter-spacing: 0; margin-right: 0.3em; }
   .grp ul { list-style: none; margin-top: 8px; }
   .grp li { font-size: 21px; font-weight: 350; height: 39px; display: flex; align-items: center; color: var(--gray-1); }
 </style>
@@ -26,7 +24,6 @@
     <div class="g-sub">Plain JSON, matched by keyword, so items added by other mods sort too.</div>
   </div>
   <div class="cols" id="c"></div>
-  <div class="g-foot"><script>document.write(mark(30, 9, 5));</script><span class="wordmark">DOVA STASH</span></div>
 </div>
 <script>
   var C = DS_DATA.categories;
@@ -47,8 +44,7 @@
     var title = NAMES[g] || g;
     var list = (items.length === 1 && items[0] === title) ? "" :
       "<ul>" + items.map(function (n) { return "<li>" + n + "</li>"; }).join("") + "</ul>";
-    return '<div class="grp"><h2 class="title"><span>' + title + '</span><span class="n">' + items.length +
-      "</span></h2>" + list + "</div>";
+    return '<div class="grp"><h2 class="title">' + title + "</h2>" + list + "</div>";
   }
   document.getElementById("t").textContent = C.length + " categories";
   document.getElementById("c").innerHTML = LAYOUT.map(function (col) {

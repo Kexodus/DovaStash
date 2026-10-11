@@ -3,24 +3,11 @@
 <link rel="stylesheet" href="style.css">
 <script src="common.js"></script>
 <style>
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .row { display: flex; align-items: center; gap: 36px; width: 1080px; }
-  .rl { height: 1px; flex: 1 1 0; background: var(--gray-4); }
-  .stop { width: 1px; height: 13px; background: var(--gray-3); }
-  .row .rl + .stop, .row .stop + .rl { margin-left: -36px; }
+  body { display: flex; align-items: center; justify-content: center; }
   h1 { font-size: 38px; padding-top: 3px; }
-  .runes { margin-top: 20px; font-size: 12px; color: var(--gray-3); }
 </style>
 </head>
 <body>
-<div class="row">
-  <span class="rl"></span>
-  <span class="stop"></span>
-  <h1 class="title" id="t"></h1>
-  <span class="stop"></span>
-  <span class="rl"></span>
-</div>
-<div class="rune runes" id="r"></div>
-<script>document.getElementById("r").textContent = RUNES;</script>
+<h1 class="title" id="t"></h1>
 <script>document.getElementById("t").textContent = q("title", "Features");</script>
 </body></html>

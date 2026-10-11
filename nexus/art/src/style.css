@@ -1,4 +1,4 @@
-/* Dova Stash art set: shared palette, type and ornament styles.
+/* Dova Stash art set: shared palette, type and icon styles.
    Black, white and neutral grays only. Every gray has R = G = B. */
 
 @font-face {
@@ -13,12 +13,6 @@
   font-weight: 100 900;
   font-display: block;
 }
-@font-face {
-  font-family: "DS Runic";
-  src: url("../fonts/NotoSansRunic-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-display: block;
-}
 
 :root {
   /* palette */
@@ -26,14 +20,13 @@
   --paper: #ffffff;    /* primary marks and titles */
   --gray-1: #d4d4d4;   /* secondary text */
   --gray-2: #9c9c9c;   /* captions */
-  --gray-3: #6a6a6a;   /* ornaments, runic strips */
+  --gray-3: #6a6a6a;   /* quiet labels, arrows */
   --gray-4: #3c3c3c;   /* rules */
   --gray-5: #1e1e1e;   /* faint frames */
 
   /* type families; the "Missing" family makes a fallback obvious */
   --f-title: "DS Cinzel", "DS Missing Font";
   --f-text: "DS Jost", "DS Missing Font";
-  --f-rune: "DS Runic", "DS Missing Font";
 
   /* type scale (px at 1x) */
   --fs-hero: 104px;
@@ -49,7 +42,6 @@
   --track-hero: 0.30em;
   --track-title: 0.34em;
   --track-caps: 0.24em;
-  --track-rune: 0.42em;
 
   --rule: 1px;
   --line: 2px;
@@ -100,37 +92,6 @@ body.transparent { background: transparent; }
   line-height: 1;
   white-space: nowrap;
 }
-.rune {
-  font-family: var(--f-rune);
-  letter-spacing: var(--track-rune);
-  margin-right: calc(-1 * var(--track-rune));
-  color: var(--gray-3);
-  line-height: 1;
-  white-space: nowrap;
-}
-
-/* runic strip: rule, ticks, runes, ticks, rule */
-.strip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 22px;
-}
-.strip .rl + .tick { margin-left: -22px; }
-.strip .tick + .rl { margin-left: -22px; }
-.strip .rl {
-  height: var(--rule);
-  background: var(--gray-4);
-  flex: 0 0 auto;
-}
-/* carved end-stop: a short upright closing each rule */
-.strip .tick {
-  width: var(--rule);
-  height: 11px;
-  background: var(--gray-3);
-  flex: 0 0 auto;
-}
-
 /* page-wide fallback guard: if any family failed, cross the page out */
 body.fontfail::after {
   content: "FONT FALLBACK";
@@ -167,7 +128,7 @@ body.fontfail::after {
 .logo .f { stroke-width: var(--fw, 4); }
 .logo .m { stroke-width: var(--mw, 8); }
 
-/* gallery chrome (1920x1080): title block at top, signature at bottom */
+/* gallery chrome (1920x1080): title block at top */
 .g-page { position: relative; width: var(--W, 1920px); height: var(--H, 1080px); }
 .g-head {
   position: absolute; top: 112px; left: 0; right: 0;
@@ -175,10 +136,3 @@ body.fontfail::after {
 }
 .g-head h1 { font-size: 52px; }
 .g-head .g-sub { margin-top: 30px; font-size: 24px; color: var(--gray-2); font-weight: 350; letter-spacing: 0.04em; }
-.g-foot {
-  position: absolute; bottom: 64px; left: 0; right: 0;
-  display: flex; align-items: center; justify-content: center; gap: 18px;
-  color: var(--gray-3);
-}
-.g-foot .wordmark { font-size: 17px; font-weight: 500; letter-spacing: 0.36em; margin-right: -0.36em; }
-.g-foot .logo .f, .g-foot .logo .m { stroke: var(--gray-3); }

@@ -11,15 +11,6 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     position: relative;
   }
-  /* inner hairlines only: short carved separators, not a full table */
-  .cell:nth-child(-n+3)::after {
-    content: ""; position: absolute; bottom: 0; left: 50%; width: 220px; margin-left: -110px;
-    height: 1px; background: var(--gray-5);
-  }
-  .cell:not(:nth-child(3n))::before {
-    content: ""; position: absolute; right: 0; top: 50%; height: 180px; margin-top: -90px;
-    width: 1px; background: var(--gray-5);
-  }
   .cell h2 { font-size: 21px; margin-top: 30px; letter-spacing: 0.28em; margin-right: -0.28em; }
   .cell p { font-size: 17px; margin-top: 14px; color: var(--gray-2); font-weight: 350; letter-spacing: 0.02em; text-align: center; }
 </style>
@@ -33,7 +24,7 @@
     ["learns", "Learns", "Put it there once. It remembers."],
     ["templates", "Templates", "22 homes ready with zero setup."],
     ["safe", "No item lost", "Enchanted, tempered, renamed: all kept."],
-    ["menu", "Two interfaces", "Menu Framework panel or message boxes."]
+    ["menu", "Your UI", "Uses the menus you already have."]
   ];
   document.getElementById("g").innerHTML = F.map(function (f) {
     return '<div class="cell">' + icon(f[0], 104, 2) + '<h2 class="title">' + f[1] +
