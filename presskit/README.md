@@ -87,6 +87,22 @@ The transparent file is light artwork. Place it only on dark backgrounds.
 
 <img src="logo/dovastash-logo-512.png" width="160">
 
+## In-game reference screenshots
+
+Real captures (Nordic UI, QuickLoot IE, SKSE Menu Framework) to base future press kit art on.
+They aren't uploaded to Nexus as they are.
+
+| File | Shows |
+|---|---|
+| [`reference/ingame-quickloot-master.jpg`](reference/ingame-quickloot-master.jpg) | QuickLoot IE on the master: the container's custom name as the title, "Master" bottom-right, the **Stash** button. The floating "All" icon is on the chest. |
+| [`reference/ingame-quickloot-category-icons.jpg`](reference/ingame-quickloot-category-icons.jpg) | QuickLoot IE on a bound container: the category icon row bottom-right ("icon icon icon +7"). The floating sword icon is above the chest. |
+| [`reference/ingame-floating-icons-room.jpg`](reference/ingame-floating-icons-room.jpg) | A whole room with the floating category icons above managed containers. |
+
+<p>
+  <img src="reference/ingame-quickloot-category-icons.jpg" width="49%">
+  <img src="reference/ingame-floating-icons-room.jpg" width="49%">
+</p>
+
 ## Style
 
 | Token | Value | Use |
