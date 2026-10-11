@@ -455,7 +455,7 @@ skin in MO2). Dova Stash must work the same with both.
 | 6.7.4 | Put an Iron Sword by hand into a managed container that is not for weapons | Notification "Iron Sword now goes to <container>". Hotkey at it -> Learned items (1)... -> Forget Iron Sword removes it. |
 | 6.7.5 | QuickLoot on a container holding items that belong elsewhere | Those items read "Iron Sword  >  Weapon Rack" in QuickLoot's list; items that belong there are unchanged. |
 | 6.7.6 | Open Advanced... (Menu Framework window), press Esc | The window closes. It always opens centred and fully on screen, with Close at the top. Floating icons hide while it is open. |
-| 6.7.7 | QuickLoot on the master, then on a container bound to Alchemy | The info bar reads just "Master" / "Alchemy", clear of the weight readout. The button reads "Stash". |
+| 6.7.7 | QuickLoot on the master, then on a container bound to Weapons, Armor and Alchemy | The master shows "Master" bottom-right. The bound container shows three category icons (your SkyUI/I4 art) bottom-right in binding order, no text, clear of the weight readout; with more than 5 categories the rest show as "+N". The button reads "Stash". |
 | 6.7.8 | SKSE Menu Framework -> Dova Stash -> Settings (all homes) -> Keep rules for every home: add "category:alchemy.potions" to Always keep, Save | Settings.json is written; Deposit now keeps potions in every home. Hotkey -> Advanced... -> Keep rules shows them under "Defaults for every home". |
 | 6.7.9 | Compare SKSE menu "This home" with hotkey -> Advanced... | Same page, same tabs (Actions, Containers, Learned, Keep rules, Template). |
 

@@ -44,6 +44,7 @@ namespace dova::ui::overlay
 			std::vector<Target>                        targets;
 			std::vector<Slot>                          slots;
 			std::unordered_map<RE::FormID, CachedIcon> iconCache;
+			std::unordered_map<RE::FormID, std::chrono::steady_clock::time_point> lastSeen;  // line-of-sight hysteresis
 			float                                      sinceRescan{ kRescanSeconds };
 			bool                                       visible{ false };
 		};
@@ -107,8 +108,14 @@ namespace dova::ui::overlay
 					return;
 				}
 				if (settings.requireLineOfSight) {
-					bool unused = false;
-					if (!player->HasLineOfSight(ref, unused)) {
+					// The engine's line-of-sight test flickers for containers (bounds partly behind trim or
+					// furniture), which made icons blink. Keep an icon for a second after the last "seen".
+					bool       unused = false;
+					const auto now = std::chrono::steady_clock::now();
+					if (player->HasLineOfSight(ref, unused)) {
+						g_state.lastSeen[ref->GetFormID()] = now;
+					} else if (const auto it = g_state.lastSeen.find(ref->GetFormID());
+							   it == g_state.lastSeen.end() || now - it->second > std::chrono::milliseconds(1000)) {
 						return;
 					}
 				}

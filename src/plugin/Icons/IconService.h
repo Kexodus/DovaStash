@@ -22,6 +22,8 @@ namespace dova::icons
 
 	// True when at least one I4 rule was loaded.
 	[[nodiscard]] bool HasI4Rules() noexcept;
+	// Number of I4 rules loaded (0 without I4).
+	[[nodiscard]] std::size_t RuleCount() noexcept;
 
 	// The icon the player's inventory shows for this item: SkyUI's default, then I4 rules.
 	[[nodiscard]] core::IconRef ForItem(const core::ItemInfo& a_item);
@@ -30,6 +32,10 @@ namespace dova::icons
 	// SkyUI's default SWFs replaced by the player's configured ones. Empty when none. Accepts a binding
 	// pattern too ("weapons.*" -> "weapons"; "*" -> empty).
 	[[nodiscard]] core::IconRef ForCategory(std::string_view a_categoryId);
+
+	// ForCategory, plus "*" -> SkyUI's "All" category icon. For showing every pattern a container is
+	// bound to.
+	[[nodiscard]] core::IconRef ForPattern(std::string_view a_pattern);
 
 	// Icon for a container, stable for as long as its layout entry does not change (DESIGN §10.3):
 	// master -> SkyUI's "All" category icon; bound -> the first bound pattern's category icon ("*" ->

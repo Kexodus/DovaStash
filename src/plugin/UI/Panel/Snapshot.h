@@ -146,6 +146,12 @@ namespace dova::ui::panel
 		std::string version;
 		std::string runtime;
 		float       frameworkVersion{ 0.0f };
+
+		// What is installed (decides which settings can do anything).
+		bool        isVR{ false };
+		bool        quickLootReady{ false };
+		bool        uiExtensions{ false };
+		std::size_t i4Rules{ 0 };
 	};
 
 	struct ExportState

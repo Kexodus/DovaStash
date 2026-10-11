@@ -276,6 +276,11 @@ namespace dova::icons
 		return Get().rules.Size() > 0;
 	}
 
+	std::size_t RuleCount() noexcept
+	{
+		return Get().rules.Size();
+	}
+
 	core::IconRef ForItem(const core::ItemInfo& a_item)
 	{
 		return Get().rules.Resolve(a_item);
@@ -296,6 +301,14 @@ namespace dova::icons
 			id.resize(dot);
 		}
 		return {};
+	}
+
+	core::IconRef ForPattern(std::string_view a_pattern)
+	{
+		if (a_pattern == "*") {
+			return WithPlayerSources(core::IconRef{ std::string(core::kSkyUICategoryIcons), "inv_all", std::nullopt });
+		}
+		return ForCategory(a_pattern);
 	}
 
 	core::IconRef ForContainer(const core::Layout& a_layout, RE::TESObjectREFR* a_container)

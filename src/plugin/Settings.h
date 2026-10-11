@@ -83,8 +83,9 @@ namespace dova
 			bool quickLoot{ true };
 			// QuickLoot IE item list: "Iron Sword  >  Weapon Rack" for items that belong elsewhere.
 			bool quickLootItemTags{ true };
-			// QuickLoot IE title: the container's category icon next to its name (instead of text).
-			bool quickLootTitleIcon{ true };
+			// QuickLoot IE: a row of category icons (one per bound category) where the info bar text goes,
+			// instead of the category names.
+			bool quickLootIcons{ true };
 			// Container role in the activate prompt ("Chest (Weapons)"); every runtime including VR.
 			bool activatePrompt{ true };
 

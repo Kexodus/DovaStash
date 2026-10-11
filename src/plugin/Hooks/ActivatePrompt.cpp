@@ -40,7 +40,26 @@ namespace dova::hooks
 				if (text.empty()) {
 					return;
 				}
-				text += std::format(" ({})", summary);
+				// Put the label on the line that holds the container's name. Prompt mods (e.g. Oblivion
+				// Interaction Icons) add their own lines around it (an icon glyph above, "Empty" below), so the
+				// end of the string is not necessarily the name. No name line found: append at the end.
+				const std::string suffix = std::format(" ({})", summary);
+				const std::string name = game::RefName(a_ref);
+				std::size_t       insertAt = std::string::npos;
+				std::size_t       lineStart = 0;
+				while (lineStart <= text.size()) {
+					auto lineEnd = text.find('\n', lineStart);
+					if (lineEnd == std::string::npos) {
+						lineEnd = text.size();
+					}
+					const std::string_view line(text.data() + lineStart, lineEnd - lineStart);
+					if (!name.empty() && line.find(name) != std::string_view::npos) {
+						insertAt = lineEnd;
+						break;
+					}
+					lineStart = lineEnd + 1;
+				}
+				text.insert(insertAt == std::string::npos ? text.size() : insertAt, suffix);
 				a_dst = text.c_str();
 
 				static RE::FormID lastRef{ 0 };

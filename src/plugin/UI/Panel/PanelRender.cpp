@@ -997,7 +997,7 @@ namespace dova::ui::panel
 			}
 		}
 
-		// --- the stash panel (window and "Current home" page) ------------------------------------------
+		// --- the stash panel (window and "This home" page) ------------------------------------------
 
 		template <class F>
 		void TabItem(const char* a_label, Tab a_tab, F&& a_body)
@@ -1187,6 +1187,22 @@ namespace dova::ui::panel
 			ImGui::PopID();
 		}
 
+		// Hover help for the control just drawn: what it does, and the INI key it writes.
+		void Help(std::string_view a_text, std::string_view a_iniKey)
+		{
+			if (ImGui::IsItemHovered()) {
+				const auto tip = std::format("{}\n\nDovaStash.ini: {}", a_text, a_iniKey);
+				ImGui::SetTooltip("%s", tip.c_str());
+			}
+		}
+
+		void Unavailable(std::string_view a_why)
+		{
+			ImGui::Indent();
+			Disabled(std::string(a_why));
+			ImGui::Unindent();
+		}
+
 		void __stdcall RenderSettingsPage()
 		{
 			const auto global = PanelModel::Get().Global();
@@ -1205,38 +1221,87 @@ namespace dova::ui::panel
 
 			ImGui::SeparatorText("Controls");
 			apply |= KeyCombo("Hotkey (keyboard / mouse)", v.input.hotkey, input::KeyboardChoices(), false);
+			Help("Opens Dova Stash: at a container, its menu; at nothing, the home's menu.", "[Input] iHotkey");
 			apply |= KeyCombo("Hotkey (gamepad)", v.input.gamepadHotkey, input::GamepadChoices(), true);
+			Help("Same, on a controller. Every button already has a game action, so this is off by default.", "[Input] iGamepadHotkey");
 
 			ImGui::SeparatorText("Menus");
 			static constexpr std::array kModes{ "Auto (UIExtensions lists, else message boxes)", "Message boxes", "SKSE Menu Framework panel", "UIExtensions lists" };
 			apply |= IndexCombo("What the hotkey opens", v.ui.mode, kModes);
+			Help("Auto uses UIExtensions' lists when it is installed (any skin), else the game's message boxes.", "[UI] iMode");
+			ImGui::BeginDisabled(!global->uiExtensions);
 			apply |= ImGui::Checkbox("Open the lists in the middle of the screen", &v.ui.centerMenus);
+			Help("Moves UIExtensions' lists and the rename box to the middle of the screen, whatever your skin does.", "[UI] bCenterMenus");
+			ImGui::EndDisabled();
+			if (!global->uiExtensions) {
+				Unavailable(global->isVR ? "UIExtensions lists are not used on VR." : "UIExtensions is not installed.");
+			}
 
 			ImGui::SeparatorText("Sorting");
 			apply |= ImGui::Checkbox("Sort items the moment they go into the master container", &v.sorting.sortOnArrival);
+			Help("Anything you put into the master leaves it for its container about half a second later, even with the menu still open.", "[Sorting] bSortOnArrival");
 			apply |= ImGui::Checkbox("Sort the master container when it closes", &v.sorting.distributeOnMasterClose);
+			Help("Closing the master's menu sorts whatever is left in it.", "[Sorting] bDistributeOnMasterClose");
 			apply |= ImGui::Checkbox("Learn where you put things by hand", &v.sorting.learn);
+			Help("Put an item into a container yourself and that container becomes its home from then on.", "[Sorting] bLearn");
 			apply |= ImGui::Checkbox("Enable a home's template automatically on first visit", &v.templates.autoEnable);
+			Help("Homes with a ready-made layout are set up as soon as you walk in, instead of asking.", "[General] bAutoEnableTemplates");
 
-			ImGui::SeparatorText("Integrations");
-			apply |= ImGui::Checkbox("QuickLoot IE info bar and button", &v.integrations.quickLoot);
-			apply |= ImGui::Checkbox("QuickLoot IE: show where each item goes in its list", &v.integrations.quickLootItemTags);
-			apply |= ImGui::Checkbox("QuickLoot IE: category icon next to the container's name", &v.integrations.quickLootTitleIcon);
+			ImGui::SeparatorText("QuickLoot IE");
+			ImGui::BeginDisabled(!global->quickLootReady);
+			apply |= ImGui::Checkbox("Use QuickLoot IE", &v.integrations.quickLoot);
+			Help("Everything Dova Stash adds to QuickLoot IE. Off = QuickLoot looks exactly as without Dova Stash.", "[Integrations] bQuickLoot");
+			ImGui::BeginDisabled(!v.integrations.quickLoot);
+			ImGui::Indent();
+			apply |= ImGui::Checkbox("Show where each item goes in its list", &v.integrations.quickLootItemTags);
+			Help("Items that belong somewhere else read \"Iron Sword  >  Weapon Rack\".", "[Integrations] bQuickLootItemTags");
+			apply |= ImGui::Checkbox("Category icons instead of names", &v.integrations.quickLootIcons);
+			Help("Bottom-right: one icon per category the container holds (your SkyUI/I4 icons). Off = the names.", "[Integrations] bQuickLootIcons");
+			ImGui::Unindent();
+			ImGui::EndDisabled();
+			ImGui::EndDisabled();
+			if (!global->quickLootReady) {
+				Unavailable("QuickLoot IE is not installed.");
+			}
+
+			ImGui::SeparatorText("World");
 			apply |= ImGui::Checkbox("Show a container's role in the activate prompt", &v.integrations.activatePrompt);
-
-			ImGui::SeparatorText("Floating icons");
+			Help("\"Chest (Weapons)\" when you look at a container. Nothing is written to your save.", "[Integrations] bActivatePrompt");
+			ImGui::BeginDisabled(global->isVR);
 			apply |= ImGui::Checkbox("Show icons above containers", &v.overlay.enabled);
+			Help("Floating category icons above the containers around you, in your homes.", "[Overlay] bEnabled");
+			ImGui::BeginDisabled(!v.overlay.enabled);
+			ImGui::Indent();
 			apply |= ImGui::Checkbox("Only containers you can see", &v.overlay.requireLineOfSight);
+			Help("No icons through walls.", "[Overlay] bRequireLineOfSight");
 			ImGui::SliderFloat("Range (game units)", &v.overlay.radius, 100.0f, 5000.0f, "%.0f");
 			apply |= ImGui::IsItemDeactivatedAfterEdit();
+			Help("How far away icons are shown (about 70 units per metre).", "[Overlay] fRadius");
 			ImGui::SliderInt("Most icons at once", &v.overlay.maxIcons, 1, 32);
 			apply |= ImGui::IsItemDeactivatedAfterEdit();
+			Help("Only the nearest ones are shown.", "[Overlay] iMaxIcons");
 			ImGui::SliderFloat("Icon size", &v.overlay.iconSize, 8.0f, 128.0f, "%.0f");
 			apply |= ImGui::IsItemDeactivatedAfterEdit();
+			Help("Size when you stand close; icons shrink with distance.", "[Overlay] fIconSize");
+			ImGui::Unindent();
+			ImGui::EndDisabled();
+			ImGui::EndDisabled();
+			if (global->isVR) {
+				Unavailable("Floating icons are not available on VR.");
+			}
 
 			ImGui::SeparatorText("Diagnostics");
 			static constexpr std::array kLevels{ "Trace (everything)", "Debug", "Info", "Warnings", "Errors", "Critical", "Off" };
 			apply |= IndexCombo("Log detail (DovaStash.log)", v.general.logLevel, kLevels);
+			Help("How much goes into Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log.", "[General] iLogLevel");
+
+			ImGui::Spacing();
+			if (ConfirmButton("Reset all settings to defaults", "settings-reset", "Reset every setting on this page to its default? Your hotkey is kept.")) {
+				auto defaults = Settings::Values{};
+				defaults.input = v.input;  // never lose the player's hotkey to a reset
+				v = defaults;
+				apply = true;
+			}
 
 			ImGui::SeparatorText("Keep rules for every home");
 			RenderGlobalKeep(*global);
@@ -1352,6 +1417,8 @@ namespace dova::ui::panel
 			Text(std::format("SKSE Menu Framework: v{:.2f}", global->frameworkVersion));
 			Text(std::format("Categories: {}   Templates: {}", global->categoryCount, global->templates.size()));
 			Text(std::format("Hotkey: {}", global->hotkeyName));
+			Text(std::format("QuickLoot IE: {}   UIExtensions: {}   I4 icon rules: {}", global->quickLootReady ? "yes" : "no",
+				global->uiExtensions ? "yes" : "no", global->i4Rules));
 			ImGui::Spacing();
 			ColoredWrapped(kGrey, "Data: Data/SKSE/Plugins/DovaStash/ (Categories, Templates, Layouts). Log: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log");
 			ColoredWrapped(kGrey, "License: GPL-3.0-or-later. Uses the SKSE Menu Framework 3 API header (LGPL-2.1).");

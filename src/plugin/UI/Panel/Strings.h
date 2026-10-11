@@ -144,7 +144,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kExportWarnings = "Template warnings:";
 
 	// Global pages
-	inline constexpr auto             kSettingsNote = "Changes apply immediately and are saved to Data/SKSE/Plugins/DovaStash.ini. No restart needed.";
+	inline constexpr auto             kSettingsNote = "Changes apply immediately and are saved to Data/SKSE/Plugins/DovaStash.ini. No restart needed. Hover an option for details.";
 	inline constexpr auto             kColSetting = "Setting";
 	inline constexpr auto             kColValue = "Value";
 	inline constexpr auto             kTemplatesIntro = "Every template loaded from Data/SKSE/Plugins/DovaStash/Templates/. A template is offered in its home when all of its required plugins are loaded.";
@@ -161,7 +161,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kDiagCategories = "Categories";
 	inline constexpr auto             kDiagTemplates = "Templates";
 	inline constexpr auto             kDiagSettings = "Settings.json (global keep defaults)";
-	inline constexpr auto             kDiagHome = "Current home layout";
+	inline constexpr auto             kDiagHome = "This home's layout";
 	inline constexpr auto             kDiagNone = "No problems.";
 	inline constexpr std::string_view kDiagCounts = "{} error(s), {} warning(s)";
 	inline constexpr auto             kAboutText = "Auto-sorting loot storage for any player home. Look at a container in a player home and press the hotkey to open the stash window.";

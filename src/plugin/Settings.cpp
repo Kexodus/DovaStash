@@ -65,7 +65,7 @@ namespace dova
 				DOVA_BOOL("UI", "bCenterMenus", ui.centerMenus),
 				DOVA_BOOL("Integrations", "bQuickLoot", integrations.quickLoot),
 				DOVA_BOOL("Integrations", "bQuickLootItemTags", integrations.quickLootItemTags),
-				DOVA_BOOL("Integrations", "bQuickLootTitleIcon", integrations.quickLootTitleIcon),
+				DOVA_BOOL("Integrations", "bQuickLootIcons", integrations.quickLootIcons),
 				DOVA_BOOL("Integrations", "bActivatePrompt", integrations.activatePrompt),
 				DOVA_BOOL("Overlay", "bEnabled", overlay.enabled),
 				DOVA_FLOAT("Overlay", "fRadius", overlay.radius),
@@ -107,9 +107,9 @@ namespace dova
 			logger::warn("Settings: iMode={} is not 0-3, using default {}", v.ui.mode, def.ui.mode);
 			v.ui.mode = def.ui.mode;
 		}
-		v.overlay.radius = std::clamp(v.overlay.radius, 100.0f, 10000.0f);
+		v.overlay.radius = std::clamp(v.overlay.radius, 100.0f, 5000.0f);  // same ranges as the settings page
 		v.overlay.maxIcons = std::clamp(v.overlay.maxIcons, 1, 32);
-		v.overlay.iconSize = std::clamp(v.overlay.iconSize, 8.0f, 256.0f);
+		v.overlay.iconSize = std::clamp(v.overlay.iconSize, 8.0f, 128.0f);
 	}
 
 	void Settings::Log(std::string_view a_prefix) const

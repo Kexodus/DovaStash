@@ -111,22 +111,25 @@ namespace dova::integrations::quickloot
 			a_event->data.SetMember("displayName", value);
 		}
 
-		// --- Title icon ---------------------------------------------------------------------------------
-		// The container's category icon (the player's own SkyUI/I4 art) next to its name in QuickLoot's
-		// title. QuickLoot's API only takes text, so we add a clip to QuickLoot's own movie, positioned
-		// from _root.lootMenu.title: the TextField QuickLoot's DLL writes the name into, so every QuickLoot
-		// skin has it. Same loadMovie + gotoAndStop technique SkyUI uses for icons.
-		constexpr auto kLootMenu = "LootMenu";
-		constexpr auto kHolder = "dovaStashTitleIcon";
+		// --- Category icons -----------------------------------------------------------------------------
+		// One icon per bound category (the player's own SkyUI/I4 art), in binding order, in the bottom-right
+		// corner where the info bar text would go: QuickLoot's API only takes text, so we add clips to
+		// QuickLoot's own movie. Positions come from _root.lootMenu.infoBar (right edge) and
+		// _root.lootMenu.weight (line height): elements QuickLoot's DLL itself drives, so every QuickLoot
+		// skin has them. Same loadMovie + gotoAndStop technique SkyUI uses for icons.
+		constexpr auto        kLootMenu = "LootMenu";
+		constexpr auto        kRowHolder = "dovaStashCategoryIcons";
+		constexpr std::size_t kMaxIcons = 5;
 
-		struct TitleIconState
+		struct RowState
 		{
-			RE::FormID    container{ 0 };
-			core::IconRef icon;
-			bool          shown{ false };
-			std::uint64_t serial{ 0 };
+			RE::FormID                 container{ 0 };
+			std::vector<core::IconRef> icons;     // what the row should show
+			std::size_t                extra{ 0 };  // categories beyond kMaxIcons ("+N")
+			std::vector<std::string>   loaded;    // SWF loaded into each slot
+			std::uint64_t              serial{ 0 };
 		};
-		TitleIconState g_titleIcon;
+		RowState g_row;
 
 		void LaterUI(std::chrono::milliseconds a_delay, std::function<void()> a_fn)
 		{
@@ -142,158 +145,224 @@ namespace dova::integrations::quickloot
 			return a_obj.GetMember(a_name, &v) && v.IsNumber() ? v.GetNumber() : 0.0;
 		}
 
-		// UI thread. Hides the holder (when present).
-		void HideTitleIcon()
+		void SetVisible(RE::GFxValue& a_clip, bool a_visible)
 		{
-			auto* ui = RE::UI::GetSingleton();
-			auto  movie = ui ? ui->GetMovieView(kLootMenu) : nullptr;
-			RE::GFxValue holder;
-			if (movie && movie->GetVariable(&holder, "_root.lootMenu.dovaStashTitleIcon") && holder.IsDisplayObject()) {
-				RE::GFxValue::DisplayInfo info;
-				info.SetVisible(false);
-				holder.SetDisplayInfo(info);
-			}
+			RE::GFxValue::DisplayInfo info;
+			info.SetVisible(a_visible);
+			a_clip.SetDisplayInfo(info);
 		}
 
-		// UI thread: waits for the icon SWF to load, then shows the label next to the title text.
-		void PlaceTitleIcon(std::uint64_t a_serial, int a_tries)
+		bool Loaded(RE::GFxValue& a_clip)
 		{
-			if (a_serial != g_titleIcon.serial) {
+			RE::GFxValue loaded, total;
+			a_clip.Invoke("getBytesLoaded", &loaded);
+			a_clip.Invoke("getBytesTotal", &total);
+			return loaded.IsNumber() && total.IsNumber() && total.GetNumber() > 0.0 && loaded.GetNumber() >= total.GetNumber();
+		}
+
+		// UI thread: lays the row out once every icon SWF has loaded (retries while loading).
+		void LayoutRow(std::uint64_t a_serial, int a_tries)
+		{
+			if (a_serial != g_row.serial) {
 				return;  // superseded
 			}
 			auto* ui = RE::UI::GetSingleton();
 			auto  movie = ui ? ui->GetMovieView(kLootMenu) : nullptr;
-			RE::GFxValue holder, icon, title;
-			if (!movie || !movie->GetVariable(&holder, "_root.lootMenu.dovaStashTitleIcon") || !holder.GetMember("icon", &icon) ||
-				!movie->GetVariable(&title, "_root.lootMenu.title") || !title.IsDisplayObject()) {
+			RE::GFxValue holder, infoBar, weight;
+			if (!movie || !movie->GetVariable(&holder, "_root.lootMenu.dovaStashCategoryIcons") || !holder.IsDisplayObject() ||
+				!movie->GetVariable(&infoBar, "_root.lootMenu.infoBar") || !movie->GetVariable(&weight, "_root.lootMenu.weight")) {
 				return;
 			}
-			RE::GFxValue loaded, total;
-			icon.Invoke("getBytesLoaded", &loaded);
-			icon.Invoke("getBytesTotal", &total);
-			if (!loaded.IsNumber() || !total.IsNumber() || total.GetNumber() <= 0.0 || loaded.GetNumber() < total.GetNumber()) {
-				if (a_tries > 0) {
-					LaterUI(std::chrono::milliseconds(30), [a_serial, a_tries]() { PlaceTitleIcon(a_serial, a_tries - 1); });
-				} else {
-					logger::warn("QuickLoot title icon: {} did not load", g_titleIcon.icon.source);
-				}
+			if (g_row.icons.empty()) {
+				SetVisible(holder, false);
 				return;
 			}
-			const auto& ref = g_titleIcon.icon;
-			icon.GotoAndStop(ref.label.c_str());
-			if (ref.color) {
-				RE::GFxValue color;
-				movie->CreateObject(&color, "Color", &icon, 1);
-				const RE::GFxValue rgb(static_cast<double>(*ref.color));
-				color.Invoke("setRGB", nullptr, &rgb, 1);
-			}
-			// Natural size at 100 %, then fit the icon to the title's text height.
-			RE::GFxValue::DisplayInfo reset;
-			reset.SetScale(100.0, 100.0);
-			icon.SetDisplayInfo(reset);
-			const double w = NumberMember(icon, "_width");
-			const double h = NumberMember(icon, "_height");
-			const double textH = std::max(NumberMember(title, "textHeight"), NumberMember(title, "_height") * 0.6);
-			if (w <= 0.0 || h <= 0.0 || textH <= 0.0) {
-				logger::warn("QuickLoot title icon: label '{}' in {} has no size", ref.label, ref.source);
-				return;
-			}
-			const double size = textH * 1.1;
-			const double scale = 100.0 * size / std::max(w, h);
-			RE::GFxValue::DisplayInfo iconInfo;
-			iconInfo.SetScale(scale, scale);
-			icon.SetDisplayInfo(iconInfo);
+			// Line height of QuickLoot's own bottom line (the weight readout).
+			const double lineH = std::max(NumberMember(weight, "textHeight"), NumberMember(weight, "_height") * 0.6);
+			const double size = std::max(lineH, 12.0) * 1.15;
+			const double gap = size * 0.3;
 
-			// Where the title's text ends, whatever the skin's alignment.
-			RE::GFxValue format, align;
-			title.Invoke("getTextFormat", &format);
-			std::string alignment = "left";
-			if (format.IsObject() && format.GetMember("align", &align) && align.IsString()) {
-				alignment = align.GetString();
+			std::vector<RE::GFxValue> slots(g_row.icons.size());
+			for (std::size_t i = 0; i < g_row.icons.size(); ++i) {
+				RE::GFxValue slot;
+				if (!holder.GetMember(std::format("i{}", i).c_str(), &slot) || !slot.IsDisplayObject()) {
+					return;
+				}
+				if (!Loaded(slot)) {
+					if (a_tries > 0) {
+						LaterUI(std::chrono::milliseconds(30), [a_serial, a_tries]() { LayoutRow(a_serial, a_tries - 1); });
+					} else {
+						logger::warn("QuickLoot icons: {} did not load", g_row.icons[i].source);
+					}
+					return;
+				}
+				slots[i] = slot;
 			}
-			const double x = NumberMember(title, "_x"), y = NumberMember(title, "_y");
-			const double width = NumberMember(title, "_width"), height = NumberMember(title, "_height");
-			const double textW = NumberMember(title, "textWidth");
-			double       textEnd = x + textW + 4.0;
-			if (alignment == "center") {
-				textEnd = x + (width + textW) / 2.0;
-			} else if (alignment == "right") {
-				textEnd = x + width;
+
+			// Right edge of the info bar (its renderers are right-aligned to its width), then right to left.
+			double right = NumberMember(infoBar, "_x") + std::max(NumberMember(infoBar, "width"), NumberMember(infoBar, "_width"));
+			const double midY = NumberMember(weight, "_y") + NumberMember(weight, "_height") / 2.0;
+
+			RE::GFxValue more;
+			if (holder.GetMember("more", &more) && more.IsDisplayObject()) {
+				if (g_row.extra > 0) {
+					more.SetText(std::format("+{}", g_row.extra).c_str());
+					const double w = NumberMember(more, "textWidth") + 6.0;
+					RE::GFxValue::DisplayInfo info;
+					info.SetPosition(right - w, midY - NumberMember(more, "_height") / 2.0);
+					info.SetVisible(true);
+					more.SetDisplayInfo(info);
+					right -= w + gap;
+				} else {
+					SetVisible(more, false);
+				}
 			}
-			RE::GFxValue::DisplayInfo info;
-			info.SetPosition(textEnd + size * 0.4, y + (height - size * (std::min(w, h) / std::max(w, h))) / 2.0);
-			info.SetVisible(true);
-			holder.SetDisplayInfo(info);
-			g_titleIcon.shown = true;
-			logger::debug("QuickLoot title icon: {} | {} at ({}, {}), title align {}", ref.source, ref.label, textEnd, y, alignment);
+			for (std::size_t n = slots.size(); n-- > 0;) {
+				auto&       slot = slots[n];
+				const auto& ref = g_row.icons[n];
+				slot.GotoAndStop(ref.label.c_str());
+				if (ref.color) {
+					RE::GFxValue color;
+					movie->CreateObject(&color, "Color", &slot, 1);
+					const RE::GFxValue rgb(static_cast<double>(*ref.color));
+					color.Invoke("setRGB", nullptr, &rgb, 1);
+				}
+				RE::GFxValue::DisplayInfo reset;
+				reset.SetScale(100.0, 100.0);
+				slot.SetDisplayInfo(reset);
+				const double w = NumberMember(slot, "_width"), h = NumberMember(slot, "_height");
+				if (w <= 0.0 || h <= 0.0) {
+					logger::warn("QuickLoot icons: label '{}' in {} has no size", ref.label, ref.source);
+					SetVisible(slot, false);
+					continue;
+				}
+				const double scale = 100.0 * size / std::max(w, h);
+				RE::GFxValue::DisplayInfo info;
+				info.SetScale(scale, scale);
+				info.SetPosition(right - size, midY - size / 2.0);
+				info.SetVisible(true);
+				slot.SetDisplayInfo(info);
+				right -= size + gap;
+			}
+			SetVisible(holder, true);
+			logger::debug("QuickLoot icons: {} icon(s){} for {:08X}", slots.size(), g_row.extra ? std::format(" +{}", g_row.extra) : "", g_row.container);
 		}
 
-		// UI thread: show `a_icon` for container `a_container` (empty icon = hide).
-		void ShowTitleIcon(RE::FormID a_container, core::IconRef a_icon)
+		// UI thread: (re)build the row's clips for `a_icons` and lay it out.
+		void ShowRow(RE::FormID a_container, std::vector<core::IconRef> a_icons, std::size_t a_extra)
 		{
-			if (a_icon.Empty()) {
-				if (g_titleIcon.shown || g_titleIcon.container != a_container) {
-					HideTitleIcon();
-				}
-				g_titleIcon = { a_container, {}, false, g_titleIcon.serial + 1 };
-				return;
-			}
 			auto* ui = RE::UI::GetSingleton();
 			auto  movie = ui ? ui->GetMovieView(kLootMenu) : nullptr;
-			RE::GFxValue lootMenu, holder, icon;
+			RE::GFxValue lootMenu, holder, weight;
 			if (!movie || !movie->GetVariable(&lootMenu, "_root.lootMenu") || !lootMenu.IsDisplayObject()) {
 				return;
 			}
-			if (!lootMenu.GetMember(kHolder, &holder) || !holder.IsDisplayObject()) {
+			if (!lootMenu.GetMember(kRowHolder, &holder) || !holder.IsDisplayObject()) {
 				RE::GFxValue depth;
 				lootMenu.Invoke("getNextHighestDepth", &depth);
-				if (!lootMenu.CreateEmptyMovieClip(&holder, kHolder, depth.IsNumber() ? static_cast<std::int32_t>(depth.GetNumber()) : 0x3FFF)) {
+				if (!lootMenu.CreateEmptyMovieClip(&holder, kRowHolder, depth.IsNumber() ? static_cast<std::int32_t>(depth.GetNumber()) : 0x3FFF)) {
 					return;
 				}
-				g_titleIcon.icon = {};
+				g_row.loaded.clear();
+				// "+N" label, styled like QuickLoot's own weight readout (whatever the skin made it).
+				RE::GFxValue args[6]{ RE::GFxValue("more"), RE::GFxValue(100.0), RE::GFxValue(0.0), RE::GFxValue(0.0), RE::GFxValue(60.0), RE::GFxValue(30.0) };
+				holder.Invoke("createTextField", nullptr, args, 6);
+				RE::GFxValue more;
+				if (holder.GetMember("more", &more) && movie->GetVariable(&weight, "_root.lootMenu.weight")) {
+					RE::GFxValue format, embed;
+					weight.Invoke("getTextFormat", &format);
+					if (format.IsObject()) {
+						more.Invoke("setNewTextFormat", nullptr, &format, 1);
+					}
+					if (weight.GetMember("embedFonts", &embed)) {
+						more.SetMember("embedFonts", embed);
+					}
+					more.SetMember("autoSize", RE::GFxValue("left"));
+					more.SetMember("selectable", RE::GFxValue(false));
+					SetVisible(more, false);
+				}
 			}
-			if (!holder.GetMember("icon", &icon) || !icon.IsDisplayObject()) {
-				holder.CreateEmptyMovieClip(&icon, "icon", 0);
-				g_titleIcon.icon = {};
+			g_row.container = a_container;
+			g_row.icons = std::move(a_icons);
+			g_row.extra = a_extra;
+			g_row.loaded.resize(std::max(g_row.loaded.size(), g_row.icons.size()));
+			for (std::size_t i = 0; i < g_row.loaded.size(); ++i) {
+				const auto   name = std::format("i{}", i);
+				RE::GFxValue slot;
+				if (!holder.GetMember(name.c_str(), &slot) || !slot.IsDisplayObject()) {
+					if (i >= g_row.icons.size() || !holder.CreateEmptyMovieClip(&slot, name.c_str(), static_cast<std::int32_t>(i + 1))) {
+						continue;
+					}
+					g_row.loaded[i].clear();
+				}
+				if (i >= g_row.icons.size()) {
+					SetVisible(slot, false);
+					continue;
+				}
+				if (g_row.loaded[i] != g_row.icons[i].source) {
+					const RE::GFxValue path(g_row.icons[i].source.c_str());
+					slot.Invoke("loadMovie", nullptr, &path, 1);
+					g_row.loaded[i] = g_row.icons[i].source;
+				}
 			}
-			const bool reload = g_titleIcon.icon.source != a_icon.source;
-			g_titleIcon.container = a_container;
-			g_titleIcon.icon = std::move(a_icon);
-			const auto serial = ++g_titleIcon.serial;
-			if (reload) {
-				const RE::GFxValue path(g_titleIcon.icon.source.c_str());
-				icon.Invoke("loadMovie", nullptr, &path, 1);
-			}
-			// Even without a reload the title text (and so the position) may have changed: re-place after
-			// QuickLoot has refreshed it.
-			LaterUI(std::chrono::milliseconds(20), [serial]() { PlaceTitleIcon(serial, 50); });
+			const auto serial = ++g_row.serial;
+			// QuickLoot re-renders its bottom line on refresh: lay out after that.
+			LaterUI(std::chrono::milliseconds(20), [serial]() { LayoutRow(serial, 50); });
 		}
 
-		// Main thread (QuickLoot handlers): decide the icon for this container and hand it to the UI thread.
-		void RequestTitleIcon(RE::TESObjectREFR* a_container, const ui::ContainerRole& a_role)
+		// Main thread (QuickLoot handlers): the icons for this container, handed to the UI thread.
+		void RequestRow(RE::TESObjectREFR* a_container, const ui::ContainerRole& a_role)
 		{
-			core::IconRef icon;
-			const auto*   home = home::HomeRegistry::Get().Peek();
-			if (Settings::GetSingleton().GetIntegrations().quickLootTitleIcon && a_container && home && home->layout &&
+			std::vector<core::IconRef> icons;
+			std::size_t                extra = 0;
+			const auto*                home = home::HomeRegistry::Get().Peek();
+			if (Settings::GetSingleton().GetIntegrations().quickLootIcons && a_container && home && home->layout &&
 				a_role.kind == ui::ContainerRole::Kind::Bound) {
-				icon = icons::ForContainer(*home->layout, a_container);
+				for (const auto& pattern : a_role.binding->categories) {
+					auto icon = icons::ForPattern(pattern);
+					if (icon.Empty() || std::ranges::find(icons, icon) != icons.end()) {
+						continue;  // no icon, or another binding already shows it
+					}
+					if (icons.size() == kMaxIcons) {
+						++extra;
+						continue;
+					}
+					icons.push_back(std::move(icon));
+				}
+				if (icons.empty()) {  // learned items only
+					if (auto icon = icons::ForContainer(*home->layout, a_container); !icon.Empty()) {
+						icons.push_back(std::move(icon));
+					}
+				}
 			}
 			const auto id = a_container ? a_container->GetFormID() : 0;
-			if (id == g_titleIcon.container && icon == g_titleIcon.icon && (icon.Empty() || g_titleIcon.shown)) {
-				// Same container, same icon: just keep it next to the (possibly re-rendered) title.
-				if (!icon.Empty()) {
-					SKSE::GetTaskInterface()->AddUITask([serial = g_titleIcon.serial]() { PlaceTitleIcon(serial, 5); });
-				}
+			if (id == g_row.container && icons == g_row.icons && extra == g_row.extra) {
+				// Same row: re-place it next to QuickLoot's (possibly re-rendered) bottom line.
+				SKSE::GetTaskInterface()->AddUITask([serial = g_row.serial]() { LayoutRow(serial, 5); });
 				return;
 			}
-			SKSE::GetTaskInterface()->AddUITask([id, icon]() { ShowTitleIcon(id, icon); });
+			SKSE::GetTaskInterface()->AddUITask([id, icons = std::move(icons), extra]() mutable { ShowRow(id, std::move(icons), extra); });
+		}
+
+		// True when the row will show icons for this container (then the info bar shows no category text).
+		bool RowShowsIcons(const home::Home& a_home, RE::TESObjectREFR* a_container, const ui::ContainerRole& a_role)
+		{
+			if (!Settings::GetSingleton().GetIntegrations().quickLootIcons || a_role.kind != ui::ContainerRole::Kind::Bound) {
+				return false;
+			}
+			for (const auto& pattern : a_role.binding->categories) {
+				if (!icons::ForPattern(pattern).Empty()) {
+					return true;
+				}
+			}
+			return a_home.layout && !icons::ForContainer(*a_home.layout, a_container).Empty();
 		}
 
 		// At most one short entry: what the container is ("Master", "Alchemy", "Weapons, Armor +1"), or, when
 		// the item-list tags are off, where the selected item goes ("> Weapon Rack"). Nothing for ignored
 		// or unmanaged containers, no prefix. Short on purpose: the info bar is right-aligned and long text
-		// runs into the weight readout. The API only takes text (no icons); the container's category icon
-		// is the floating overlay above it.
+		// runs into the weight readout. Bound containers show the category icon row instead of their
+		// names (RowShowsIcons); the master keeps the word "Master".
 		void OnPopulateInfoBar(QL::PopulateInfoBarEvent* a_event)
 		{
 			if (!a_event || !Enabled()) {
@@ -314,9 +383,7 @@ namespace dova::integrations::quickloot
 					text = "> " + dest;
 				}
 			}
-			const bool iconInTitle = Settings::GetSingleton().GetIntegrations().quickLootTitleIcon && role.kind == ui::ContainerRole::Kind::Bound &&
-			                         !icons::ForContainer(*home->layout, container).Empty();
-			if (text.empty() && !iconInTitle) {
+			if (text.empty() && !RowShowsIcons(*home, container, role)) {
 				text = ui::RoleSummary(role, 2);  // "Master", "Alchemy", "Weapons, Armor +1"
 			}
 			if (!text.empty()) {
@@ -336,17 +403,17 @@ namespace dova::integrations::quickloot
 			return ui::DescribeContainer(Resolve(a_container, hold)).kind != ui::ContainerRole::Kind::None;
 		}
 
-		void UpdateTitleIconFor(RE::ObjectRefHandle a_container)
+		void UpdateRowFor(RE::ObjectRefHandle a_container)
 		{
 			RE::NiPointer<RE::TESObjectREFR> hold;
 			auto*                            container = Resolve(a_container, hold);
-			RequestTitleIcon(container, Enabled() ? ui::DescribeContainer(container) : ui::ContainerRole{});
+			RequestRow(container, Enabled() ? ui::DescribeContainer(container) : ui::ContainerRole{});
 		}
 
 		void OnModifyButtonBar(QL::ModifyButtonBarEvent* a_event)
 		{
 			if (a_event) {
-				UpdateTitleIconFor(a_event->container);
+				UpdateRowFor(a_event->container);
 			}
 			if (!a_event || !Enabled() || !WantsButton(a_event->container)) {
 				return;
@@ -365,7 +432,7 @@ namespace dova::integrations::quickloot
 		void OnPopulateButtonBar(QL::PopulateButtonBarEvent* a_event)
 		{
 			if (a_event) {
-				UpdateTitleIconFor(a_event->container);
+				UpdateRowFor(a_event->container);
 			}
 			if (!a_event || !Enabled() || !WantsButton(a_event->container)) {
 				return;

@@ -58,9 +58,9 @@ bQuickLoot = true
 ; ("Iron Sword  >  Weapon Rack"). Only in your homes, only for items that belong somewhere else.
 bQuickLootItemTags = true
 
-; QuickLoot IE: show a container's category icon (your SkyUI/I4 icon) next to its name in QuickLoot's
-; title, instead of a word in the info bar. The master still says "Master".
-bQuickLootTitleIcon = true
+; QuickLoot IE: show a container's categories as icons (your SkyUI/I4 icons, one per category) in the
+; bottom-right corner of QuickLoot, instead of their names. The master still says "Master".
+bQuickLootIcons = true
 
 ; Add a container's role to the activate prompt, e.g. "Chest (Weapons, Armor)". Works on VR too.
 ; Nothing is written to your save.
