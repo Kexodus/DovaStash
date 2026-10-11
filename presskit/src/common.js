@@ -11,8 +11,24 @@ window.q = function (name, def) {
   b.style.visibility = "hidden";
   // fixed canvas size (render.py passes the target pixel size)
   if (q("w", "")) {
-    b.style.setProperty("--W", q("w") + "px");
-    b.style.setProperty("--H", q("h") + "px");
+    var w = +q("w"), h = +q("h");
+    if (q("frame", "")) {
+      // Description variant: a rounded black card with a hairline edge and a soft shadow
+      // on a transparent canvas, so it sits on the Nexus page instead of a hard rectangle.
+      // Sizes scale with the canvas so every image shows the same edge once Nexus fits it
+      // to the description width.
+      var m = Math.round(w / 200);
+      b.classList.add("framed");
+      b.style.width = w + "px";
+      b.style.height = h + "px";
+      b.style.setProperty("--fm", m + "px");
+      b.style.setProperty("--fr", Math.round(w * 0.0115) + "px");
+      b.style.setProperty("--fb", Math.max(1, Math.round(w / 1200)) + "px");
+      w -= 2 * m;
+      h -= 2 * m;
+    }
+    b.style.setProperty("--W", w + "px");
+    b.style.setProperty("--H", h + "px");
   }
   if (q("bg", "") === "transparent") {
     document.addEventListener("DOMContentLoaded", function () {

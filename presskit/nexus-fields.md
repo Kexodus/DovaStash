@@ -18,7 +18,7 @@ asked for.
 | Adult content | **No** |
 | Brief overview (summary) | contents of `nexus-summary.txt` (the limit is 350 characters) |
 | Detailed description | contents of `nexus-description.bbcode.txt` |
-| Primary image | `keyart_1920x1080.png` |
+| Primary image | `dovastash-thumbnail-1280x720.png` |
 | Is this a translation? | No |
 | Uses assets from other mods? | No. The bundled SKSE Menu Framework API header is a code header, not an asset; it is credited and LGPL-2.1. |
 
@@ -160,19 +160,23 @@ Upload order, Images tab (files in `presskit/nexus/`):
 
 | # | File | Where it's used |
 |---|---|---|
-| 1 | `dovastash-primary-1920x1080.png` | **Primary image** (thumbnail and the first gallery image) |
-| 2 | `dovastash-gallery-how-it-works-1920x1080.png` | Gallery; also embedded in the description |
-| 3 | `dovastash-gallery-templates-1920x1080.png` | Gallery |
-| 4 | `dovastash-gallery-homes-1920x1080.png` | Gallery |
-| 5 | `dovastash-gallery-categories-1920x1080.png` | Gallery |
-| 6 | `dovastash-gallery-safety-1920x1080.png` | Gallery |
-| 7 | `dovastash-features-1200x700.png` | Gallery (optional); embedded in the description |
+| 1 | `dovastash-thumbnail-1280x720.png` | **Primary image**: the mod tile in search and browse. Emblem and name only, readable at tile size and safe under the tile's crop |
+| 2 | `dovastash-primary-1920x1080.png` | Gallery: emblem, name and tagline |
+| 3 | `dovastash-gallery-how-it-works-1920x1080.png` | Gallery |
+| 4 | `dovastash-gallery-templates-1920x1080.png` | Gallery |
+| 5 | `dovastash-gallery-homes-1920x1080.png` | Gallery |
+| 6 | `dovastash-gallery-categories-1920x1080.png` | Gallery |
+| 7 | `dovastash-gallery-safety-1920x1080.png` | Gallery |
+| 8 | `dovastash-features-1200x700.png` | Gallery (optional); embedded in the description |
 
 **Embedded in the description only.** Don't put these in the gallery, because they would clutter it.
 The description already loads them from GitHub:
 
-- `dovastash-header-1920x480.png`
-- `dovastash-divider-1200x40.png`
+- `dovastash-header-description-1920x480.png` and `dovastash-how-it-works-description-1920x1080.png`:
+  framed copies of the banner and the steps image (rounded corners, a hairline edge, a soft shadow)
+  so they sit on the page instead of as hard black boxes. The section headers and the features image
+  are framed the same way.
+- `dovastash-divider-transparent-1200x40.png`
 - `section-01-features.png` to `section-12-changelog.png`: all 12 section headers.
 
 **Not used on the mod page:**

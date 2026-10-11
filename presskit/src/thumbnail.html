@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>nexus thumbnail</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<style>
+  /* Nexus mod tile (shown at about 320x180, cropped to fill): emblem and name only, large,
+     everything inside the centre 85% so a crop can't cut it. Opaque; the tile rounds its own corners. */
+  body { position: relative; }
+  .stack {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .emblem { margin-bottom: 44px; }
+  .wordmark { font-size: 88px; }
+</style>
+</head>
+<body>
+<div class="stack">
+  <div class="emblem"><script>document.write(mark(360, 9, 4.5));</script></div>
+  <div class="wordmark">DOVA STASH</div>
+</div>
+</body></html>

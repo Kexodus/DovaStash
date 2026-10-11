@@ -19,21 +19,26 @@ The changelog is [`../CHANGELOG.md`](../CHANGELOG.md).
 
 ## Nexus page images
 
-Upload these on the Nexus **Images** tab. Make the primary image the mod's **Primary image**.
+Upload these on the Nexus **Images** tab. Set the thumbnail as the mod's **Primary image**; Nexus uses it
+for the mod tile in search and browse.
 
 | Image | Size | Use |
 |---|---|---|
-| [`dovastash-primary-1920x1080.png`](nexus/dovastash-primary-1920x1080.png) | 1920×1080 | Primary image / thumbnail |
-| [`dovastash-gallery-how-it-works-1920x1080.png`](nexus/dovastash-gallery-how-it-works-1920x1080.png) | 1920×1080 | Gallery: the three steps (also in the description) |
+| [`dovastash-thumbnail-1280x720.png`](nexus/dovastash-thumbnail-1280x720.png) | 1280×720 | **Nexus thumbnail** (set as Primary image). Emblem and name only, readable at tile size and safe under the tile's crop. |
+| [`dovastash-primary-1920x1080.png`](nexus/dovastash-primary-1920x1080.png) | 1920×1080 | Gallery: emblem, name and tagline |
+| [`dovastash-gallery-how-it-works-1920x1080.png`](nexus/dovastash-gallery-how-it-works-1920x1080.png) | 1920×1080 | Gallery: the three steps |
 | [`dovastash-gallery-templates-1920x1080.png`](nexus/dovastash-gallery-templates-1920x1080.png) | 1920×1080 | Gallery: a template applied to a home's chests |
 | [`dovastash-gallery-homes-1920x1080.png`](nexus/dovastash-gallery-homes-1920x1080.png) | 1920×1080 | Gallery: the 22 included templates |
 | [`dovastash-gallery-categories-1920x1080.png`](nexus/dovastash-gallery-categories-1920x1080.png) | 1920×1080 | Gallery: the default categories |
 | [`dovastash-gallery-safety-1920x1080.png`](nexus/dovastash-gallery-safety-1920x1080.png) | 1920×1080 | Gallery: never lose an item |
 | [`dovastash-features-1200x700.png`](nexus/dovastash-features-1200x700.png) | 1200×700 | Description: the six key features (optional gallery image) |
-| [`dovastash-header-1920x480.png`](nexus/dovastash-header-1920x480.png) | 1920×480 | Description banner / page header |
+| [`dovastash-header-1920x480.png`](nexus/dovastash-header-1920x480.png) | 1920×480 | Nexus page header slot |
+| [`dovastash-header-description-1920x480.png`](nexus/dovastash-header-description-1920x480.png) | 1920×480 | Description: the banner, framed |
+| [`dovastash-how-it-works-description-1920x1080.png`](nexus/dovastash-how-it-works-description-1920x1080.png) | 1920×1080 | Description: the three steps, framed |
 | [`dovastash-social-1280x640.png`](nexus/dovastash-social-1280x640.png) | 1280×640 | GitHub: Settings → Social preview |
 
 <p>
+  <img src="nexus/dovastash-thumbnail-1280x720.png" width="49%">
   <img src="nexus/dovastash-primary-1920x1080.png" width="49%">
   <img src="nexus/dovastash-gallery-how-it-works-1920x1080.png" width="49%">
   <img src="nexus/dovastash-gallery-templates-1920x1080.png" width="49%">
@@ -49,6 +54,10 @@ Upload these on the Nexus **Images** tab. Make the primary image the mod's **Pri
 The BBCode file already uses these. They are 1200×112 with the emblem as a left-aligned bullet, plus a 1200×40 divider (and a transparent
 divider for non-black backgrounds).
 
+Everything the description embeds is **framed**: a black card with rounded corners, a hairline gray edge and a soft
+shadow on a transparent canvas, so it sits on the Nexus page's gray instead of as a hard black box. Any page
+renders framed with `?frame=1` (see `common.js`).
+
 ![Features](nexus/section-01-features.png)
 ![How it works](nexus/section-02-how-it-works.png)
 ![Templates](nexus/section-03-templates.png)
@@ -61,7 +70,7 @@ divider for non-black backgrounds).
 ![Permissions](nexus/section-10-permissions.png)
 ![Credits](nexus/section-11-credits.png)
 ![Changelog](nexus/section-12-changelog.png)
-![Divider](nexus/dovastash-divider-1200x40.png)
+![Divider](nexus/dovastash-divider-transparent-1200x40.png)
 
 ## Feature icons
 
@@ -108,7 +117,8 @@ They aren't uploaded to Nexus as they are.
 
 | Token | Value | Use |
 |---|---|---|
-| Background | `#000000` | Every canvas |
+| Background | `#000000` | Every canvas (framed description images: a black card on a transparent canvas) |
+| Frame edge | `#303030`, 1 px per 1200 px of width | The hairline around framed images |
 | Foreground | `#ffffff` | Wordmark, titles, icons, emblem |
 | Grays | `#d4d4d4` `#9c9c9c` `#6a6a6a` `#3c3c3c` `#1e1e1e` | Taglines, captions, quiet labels, rules, faint separators |
 | Type | Cinzel (titles), Jost (text) | Wide-tracked capitals; both SIL OFL, in `src/fonts/` |

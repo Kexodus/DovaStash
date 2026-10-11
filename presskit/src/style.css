@@ -64,6 +64,16 @@ body {
 }
 body.transparent { background: transparent; }
 
+/* ?frame=1 (see common.js): the card sits inset on a transparent canvas */
+/* a non-"none" image stops body's black from propagating to the whole canvas */
+html.framed { background: transparent linear-gradient(transparent, transparent); }
+html.framed body {
+  margin: var(--fm);
+  border: var(--fb) solid #303030;
+  border-radius: var(--fr);
+  box-shadow: 0 1px calc(var(--fm) * 0.8) rgba(0, 0, 0, 0.5);
+}
+
 .wordmark {
   font-family: var(--f-title);
   font-weight: 600;

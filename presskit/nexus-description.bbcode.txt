@@ -1,10 +1,10 @@
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-header-1920x480.png[/img]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-header-description-1920x480.png[/img]
 
 [size=4]Auto-sorting storage for any player home.[/size][/center]
 
 Look at a chest, press [b]K[/b], and your haul goes where it belongs: weapons to the armory, ingredients to the alchemy corner, everything else to the master chest. Popular homes come with ready-made layouts. Anywhere else, pick a master chest and put each item away once. Dova Stash remembers where it goes.
 
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-gallery-how-it-works-1920x1080.png[/img][/center]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-how-it-works-description-1920x1080.png[/img][/center]
 
 [img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-01-features.png[/img]
 
@@ -116,5 +116,5 @@ Free software under the GNU General Public License v3.0 or later, as CommonLibSS
 [*]Eddoursul, whose [i]Stash Organizer[/i] for Fallout: New Vegas inspired the idea. Dova Stash shares no code with it.
 [/list]
 
-[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-divider-1200x40.png[/img]
+[center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/dovastash-divider-transparent-1200x40.png[/img]
 [url=https://github.com/Kexodus/DovaStash]github.com/Kexodus/DovaStash[/url][/center]
