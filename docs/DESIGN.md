@@ -649,9 +649,13 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
   are never added by Learn, and binding one shows the warning "This container runs a script and may
   reject or return items". Detection reads the VM's attached-script table for the reference's handle.
 - **Container ownership:** a container without its own owner inherits the cell's owner. A foreign
-  cell owner rejects the container, except in a `LocTypePlayerHouse` cell (accepted by §9), where it is
-  a warning.
-- **Plain remainder next to a protected copy:** the plain (no extra data) remainder of an item is not
-  moved out of the player's inventory while another copy is worn, favorited or a quest item, because
-  `RemoveItem` without an extra list lets the engine choose the copies. To be revisited after in-game
-  verification (TESTING §2.6).
+  cell owner rejects the container, except in a cell whose own location is a `LocTypePlayerHouse`
+  (accepted by §9), where it is a warning.
+- **Plain remainder next to an extra-data copy (0.2.2):** the plain (no extra data) remainder of an
+  item is not moved out of *any* source (player or container) while an extra-data copy of it stays
+  there: worn, favorited, quest, tempered, enchanted, renamed, or only owned (stolen). `RemoveItem`
+  without an extra list lets the engine choose the copies. Extra-data stacks move first, so this only
+  holds back plain copies whose special sibling is staying (kept, unavailable destination...). The
+  sort reports them as skipped (TESTING §2.6).
+- **Ignored template bindings:** templates list respawning containers as `ignored` so they are never
+  used or learned. They are not counted as "unavailable" when a template is applied.

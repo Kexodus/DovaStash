@@ -1,5 +1,9 @@
 Dova Stash changelog
 
+0.2.3
+- Containers a template marks as off-limits (respawning barrels) no longer count as "unavailable" when the template is applied.
+- Docs: plain-copy rule and its test cases updated.
+
 0.2.2
 - Sort on arrival: with menus that pause the game, items put into the master are sorted when it closes; only Skyrim Souls (unpaused menus) sorts while it is open.
 - Respawning containers are accepted only where the area never resets; "player house" is checked on the cell's own location only.

@@ -185,7 +185,9 @@ namespace dova
 				check(*a_layout.master);
 			}
 			for (const auto& c : a_layout.containers) {
-				check(c.ref);
+				if (!c.ignored) {  // ignored bindings (e.g. respawning barrels a template marks off-limits) never hold items
+					check(c.ref);
+				}
 			}
 			return unavailable;
 		}
@@ -689,7 +691,9 @@ namespace dova
 			check(*home->layout->master);
 		}
 		for (const auto& c : home->layout->containers) {
-			check(c.ref);
+			if (!c.ignored) {  // ignored bindings never hold items
+				check(c.ref);
+			}
 		}
 		Notify(unavailable == 0 ?
 						std::format("Dova Stash: {} layout enabled", name) :

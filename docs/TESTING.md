@@ -25,7 +25,7 @@ The default hotkey is **K** (`iHotkey = 37`).
 ### Expected startup log
 
 ```
-Dova Stash v0.2.2 loaded
+Dova Stash v0.2.3 loaded
 Settings: iLogLevel=1 iHotkey=37 iGamepadHotkey=-1 bAutoEnableTemplates=false bDistributeOnMasterClose=true bLearn=true iMode=0
 kDataLoaded: forms are available
 FormUtil: <n> full + <m> light plugins loaded
@@ -142,20 +142,23 @@ Write down the inventory list, including names, *(Fine)* suffixes, enchantments 
    real ContainerMenu is open. If one is open, the log shows
    `Operation dropped: a ContainerMenu stayed open` after about 5 s.
 
-### 2.6 Known conservative behaviour: spares of an equipped item stay
+### 2.6 Known conservative behaviour: plain copies stay next to a special copy
 
 Moving the plain (no extra data) remainder of an item uses `RemoveItem` with no extra list, which
-lets the engine choose which copies leave. Until it is verified in game that the engine never takes
-the worn/favorited/quest copy, Dova Stash does **not** move the plain remainder out of the player's
-inventory while another copy of the same item is worn, favorited or a quest item.
+lets the engine choose which copies leave. Since 0.2.2, Dova Stash does **not** move plain copies out
+of any source (inventory or container) while a copy with extra data stays there: worn, favorited,
+quest, tempered, enchanted, renamed or stolen. Special copies move first, so this only affects plain
+copies whose special sibling is staying.
 
 1. `player.additem 0001397E 3` (Iron Dagger x3) and equip one dagger.
 2. Deposit.
 3. **Expected:** all 3 daggers stay in the inventory, the equipped one still equipped. The log has an
-   info line `Move skipped: Iron Dagger x2 left in the player inventory because another copy is worn, ...`.
+   info line `Move skipped: Iron Dagger x2 left in <player> because a tempered, enchanted, renamed or worn copy of it stays there`.
 4. Unequip the dagger and Deposit again: all 3 go to their destination.
-5. (To revisit) If you can, note whether the engine takes worn copies when moving the plain remainder,
-   so this restriction can be lifted.
+5. Temper one of two Iron Swords at a grindstone, put a keep quota of 1 on swords, Deposit. **Expected:**
+   the tempered sword stays with you (quota), the plain one stays too (skipped, logged), nothing is lost.
+   Remove the quota and Deposit: both go to their destination, the tempered one keeps its tempering.
+6. Put a tempered and a plain Iron Sword into the master: both are sorted (the tempered one moves first).
 
 ## 3. M2: categories, binding, Distribute, Learn, Retrieve
 

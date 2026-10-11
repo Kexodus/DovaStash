@@ -36,6 +36,10 @@ namespace dova::home
 		std::optional<core::Layout> layout;
 	};
 
+	// Concurrency: the live Home/Layout below is read and written only from SKSE tasks (Controller,
+	// ListUI callbacks, sort operations). That relies on the AE task queue running one task at a time;
+	// the logs show no overlap, but it is an assumption, not a guarantee. Code on the UI thread uses
+	// Display() only.
 	class HomeRegistry
 	{
 	public:
