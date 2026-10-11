@@ -12,6 +12,7 @@ Art and copy for the **Dova Stash** Nexus page. Everything here is loose files; 
 | [`nexus-summary.txt`](nexus-summary.txt) | Nexus **Brief overview** (350 characters at most) |
 | [`nexus-file-description.txt`](nexus-file-description.txt) | Files tab: the main file's description |
 | [`nexus-sticky-post.bbcode.txt`](nexus-sticky-post.bbcode.txt) | Posts tab: first comment, then pin it |
+| [`nexus-article-templates.bbcode.txt`](nexus-article-templates.bbcode.txt) | Nexus **Articles** tab: "Making a home template" (the full guide the description links to) |
 | [`nexus-fields.md`](nexus-fields.md) | Every other field of the upload form: category, tags, requirements, permissions, files, image order |
 
 The changelog is [`../CHANGELOG.md`](../CHANGELOG.md).

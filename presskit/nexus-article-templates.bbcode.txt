@@ -1,0 +1,103 @@
+[img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-08-template-authoring.png[/img]
+
+A template tells Dova Stash which container in a home holds which items. Anyone who walks into that home gets it sorted with no setup. A template is one small JSON file with no code in it.
+
+There are two ways to make one: set the home up in game and export it, or write the file by hand.
+
+[size=4][b]The easy way: set it up in game[/b][/size]
+
+[list=1]
+[*]Walk into the home, look at the chest you want as the inbox, press [b]K[/b] and make it the [b]master[/b].
+[*]Look at each other container, press [b]K[/b], open [b]Categories...[/b] and pick what goes there. Mark anything you never want used (display cases, bookshelves) as [b]Ignore[/b].
+[*]Deposit a full pack and check that everything lands where you expect.
+[*]Open the SKSE Menu Framework panel, go to the [b]Template[/b] tab, fill in a name, your name as author and a version, then press [b]Export[/b].
+[/list]
+
+The file is written to [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json[/font]. Export leaves out your learned items, so only your bindings are shared. With MO2 the file lands in [b]overwrite[/b]. Move it into a mod of its own before you share it.
+
+[size=4][b]The file[/b][/size]
+
+A cut-down version of the Breezehome template that ships with the mod:
+
+[code]{
+  "$schema": "dovastash-layout-1",
+  "name": "Breezehome",
+  "author": "Dova Stash",
+  "version": "1.0.0",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "HearthFires.esm"],
+  "cell": "Skyrim.esm|0x000165A8",
+  "master": "Skyrim.esm|0x000F3922",
+  "containers": [
+    { "ref": "Skyrim.esm|0x000CB437", "label": "Loft cupboard", "categories": ["weapons.*"] },
+    { "ref": "Skyrim.esm|0x000CB433", "label": "Housecarl's dresser", "categories": ["armor.heavy", "armor.light", "armor.shields"] },
+    { "ref": "Skyrim.esm|0x0010EB84", "label": "Alchemy corner chest", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"] },
+    { "ref": "Skyrim.esm|0x0003EE76", "label": "Barrel (respawns, never store items here)", "ignored": true }
+  ]
+}[/code]
+
+[list]
+[*][b]cell[/b]: the home's interior cell. This is how Dova Stash finds the template, so the file name and folder don't matter.
+[*][b]master[/b]: the inbox. Items without a destination wait here, and closing it sorts what's inside. Pick a large chest that is always there.
+[*][b]containers[/b]: every other container you use. [b]ref[/b] is the placed container in the world, never its base object. [b]label[/b] is for people reading the file.
+[*][b]requires[/b]: every plugin the file points into, including the one that owns the cell. A template is only offered when all of them are loaded.
+[*][b]priority[/b] and [b]version[/b]: when several templates exist for one home, the highest priority wins, then the newest version. Leave priority at 0 unless you are deliberately replacing another template.
+[/list]
+
+Form references are written as [font=Courier New]"Plugin.esp|0x00ABCDEF"[/font]: the plugin's file name and the [b]local[/b] form ID, with the load-order byte removed. For an ESL-flagged plugin, keep only the last three digits, for example [font=Courier New]"MyHome.esl|0x00000801"[/font]. In xEdit, a form ID such as [font=Courier New]1A0165A8[/font] becomes [font=Courier New]0x000165A8[/font].
+
+[size=4][b]Categories[/b][/size]
+
+[list]
+[*][font=Courier New]"weapons.*"[/font] covers all weapons, [font=Courier New]"armor.heavy"[/font] only heavy armor, and [font=Courier New]"*"[/font] everything.
+[*]If two containers both take a category, the more exact one wins. A container with [font=Courier New]"weapons.bows"[/font] gets bows ahead of one with [font=Courier New]"weapons.*"[/font]. If both are equally exact, the one listed first wins. The second one is the fallback while the first isn't built yet.
+[*]Default ids:
+[list]
+[*][b]weapons.[/b] swords, greatswords, daggers, axes, waraxes, maces, warhammers, bows, crossbows, staves
+[*][b]armor.[/b] heavy, light, clothing, shields, jewelry
+[*][b]ammo.[/b] arrows, bolts
+[*][b]alchemy.[/b] potions, poisons, food, ingredients
+[*][b]books.[/b] spelltomes, skill, notes, other
+[*][b]soulgems.[/b] empty, filled
+[*][b]misc.[/b] ores_ingots, gems, hides_pelts, animal_parts, dwemer, clutter, building_materials, tools
+[*][b]scrolls[/b] and [b]keys[/b] (no sub-categories)
+[/list]
+[/list]
+
+[size=4][b]Containers to leave alone[/b][/size]
+
+Dova Stash refuses unsafe containers in game anyway, but a good template marks them [font=Courier New]"ignored": true[/font] with a label that says why:
+[list]
+[*][b]Respawning containers.[/b] Their contents can reset, and stored items would be lost.
+[*][b]Scripted bookshelves and display cases.[/b] They only take certain items and hand everything else back.
+[*]Containers that are removed when the house is upgraded.
+[/list]
+Containers that only appear later, such as Hearthfire furniture you haven't built yet, are fine to bind. Dova Stash skips them until they exist.
+
+[size=4][b]Finding containers without playing[/b][/size]
+
+The [url=https://github.com/Kexodus/DovaStash]source repository[/url] has [font=Courier New]tools/esm_dump.py[/font]. It needs Python 3.10 or newer and reads your plugins directly:
+
+[code]python -I esm_dump.py cells Breezehome
+python -I esm_dump.py cell WhiterunBreezehome --with FURN
+python -I esm_dump.py check MyHome.json --categories 00_Default.json[/code]
+
+[list]
+[*][b]cells[/b] finds the cell.
+[*][b]cell[/b] lists every container in it, with its ref, name, position, scripts and respawn flag. [font=Courier New]--with FURN[/font] adds nearby crafting stations and beds, which tells you which room a container is in.
+[*][b]check[/b] validates your file. It fails on refs that are not containers in the cell, respawning containers that are bound, unknown categories, and plugins missing from [b]requires[/b].
+[/list]
+For a home from a mod, add its plugin with [font=Courier New]--add "path\to\MyHome.esp"[/font]. The full reference is in the [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]tools guide[/url].
+
+[size=4][b]Testing[/b][/size]
+
+[list=1]
+[*]Put the file in [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/<YourName>/[/font].
+[*]Start the game. Templates are read at startup.
+[*]Enter the home. You should see "layout available". Press [b]K[/b] at any container to enable it.
+[*]If nothing shows up, check [font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log[/font]. Every problem with a template is listed there, with the file and the entry it is in.
+[/list]
+
+[size=4][b]Sharing[/b][/size]
+
+Upload the file as its own mod, list the home mod as a requirement, and tell users where it goes. Good templates for popular homes may be bundled with Dova Stash, with credit.
