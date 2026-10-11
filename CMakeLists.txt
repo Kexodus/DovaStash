@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(
 	DovaStash
-	VERSION 0.2.0
+	VERSION 0.2.1
 	DESCRIPTION "Auto-sorting loot storage for any Skyrim player home"
 	LANGUAGES CXX
 )
