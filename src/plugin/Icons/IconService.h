@@ -26,4 +26,18 @@ namespace dova::icons
 	// "All"); learned-only -> the icon of the category most of its learned items belong to; ignored or
 	// unmanaged -> empty. The container's current contents never matter.
 	[[nodiscard]] core::IconRef ForContainer(const core::Layout& a_layout, RE::TESObjectREFR* a_container);
+
+	// Everything a container holds, as icons: QuickLoot's bottom-right row and the floating overlay show
+	// the same row. Master: SkyUI's "All" icon. Bound: one icon per bound pattern in binding order
+	// (duplicates shown once), at most `a_max`, the rest counted in `extra` ("+N"). Learned-only: its
+	// single ForContainer icon. Ignored or unmanaged: empty.
+	struct IconRow
+	{
+		std::vector<core::IconRef> icons;
+		std::size_t                extra{ 0 };
+
+		[[nodiscard]] bool Empty() const noexcept { return icons.empty(); }
+		bool               operator==(const IconRow&) const = default;
+	};
+	[[nodiscard]] IconRow RowForContainer(const core::Layout& a_layout, RE::TESObjectREFR* a_container, std::size_t a_max = 5);
 }

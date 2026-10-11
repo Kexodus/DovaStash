@@ -10,27 +10,27 @@ namespace dova::ui::overlay
 {
 	namespace
 	{
-		constexpr auto  kRootName = "DovaStashOverlay";
-		constexpr float kRescanSeconds = 0.25f;  // which containers are shown
-		constexpr float kIconTTLSeconds = 3.0f;  // how long a container's icon choice is cached
+		constexpr auto        kRootName = "DovaStashOverlay";
+		constexpr float       kRescanSeconds = 0.25f;  // which containers are shown
+		constexpr float       kIconTTLSeconds = 3.0f;  // how long a container's icon row is cached
+		constexpr std::size_t kMaxIcons = 5;           // per container, like QuickLoot's row; then "+N"
 
-		struct CachedIcon
+		struct CachedRow
 		{
-			core::IconRef icon;
-			float         age{ 0.0f };
+			icons::IconRow row;
+			float          age{ 0.0f };
 		};
 
 		struct Target
 		{
-			RE::FormID    formID{ 0 };
-			core::IconRef icon;
-			float         distance{ 0.0f };
+			RE::FormID     formID{ 0 };
+			icons::IconRow row;
+			float          distance{ 0.0f };
 		};
 
-		// One HUD clip per shown icon ("s0".."sN" under kRootName), reused across frames.
-		struct Slot
+		// One loaded icon inside a container's row.
+		struct IconState
 		{
-			RE::FormID    formID{ 0 };
 			core::IconRef applied;     // what the clip currently shows
 			bool          loading{ false };
 			int           loadFrames{ 0 };  // frames spent waiting for loadMovie
@@ -39,14 +39,22 @@ namespace dova::ui::overlay
 			double        baseHeight{ 0.0 };
 		};
 
+		// One HUD clip per shown container ("s0".."sN" under kRootName), reused across frames. Inside it:
+		// "i0".."i4" (one icon each) and "more" (the "+N" text).
+		struct Slot
+		{
+			RE::FormID             formID{ 0 };
+			std::vector<IconState> icons;
+		};
+
 		struct State
 		{
-			std::vector<Target>                        targets;
-			std::vector<Slot>                          slots;
-			std::unordered_map<RE::FormID, CachedIcon> iconCache;
+			std::vector<Target>                       targets;
+			std::vector<Slot>                         slots;
+			std::unordered_map<RE::FormID, CachedRow> rowCache;
 			std::unordered_map<RE::FormID, std::chrono::steady_clock::time_point> lastSeen;  // line-of-sight hysteresis
-			float                                      sinceRescan{ kRescanSeconds };
-			bool                                       visible{ false };
+			float                                     sinceRescan{ kRescanSeconds };
+			bool                                      visible{ false };
 		};
 		State g_state;
 
@@ -71,30 +79,41 @@ namespace dova::ui::overlay
 			return !ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME) && !ui->IsMenuOpen(RE::Console::MENU_NAME);
 		}
 
-		core::IconRef IconFor(const core::Layout& a_layout, RE::TESObjectREFR* a_ref)
+		std::string Describe(const icons::IconRow& a_row)
 		{
-			auto& cached = g_state.iconCache[a_ref->GetFormID()];
+			std::string out;
+			for (const auto& icon : a_row.icons) {
+				out += (out.empty() ? "" : ",") + icon.label;
+			}
+			if (a_row.extra) {
+				out += std::format(",+{}", a_row.extra);
+			}
+			return out;
+		}
+
+		icons::IconRow RowFor(const core::Layout& a_layout, RE::TESObjectREFR* a_ref)
+		{
+			auto& cached = g_state.rowCache[a_ref->GetFormID()];
 			if (cached.age <= 0.0f || cached.age > kIconTTLSeconds) {
-				auto icon = icons::ForContainer(a_layout, a_ref);
-				if (!(icon == cached.icon)) {
-					logger::debug("Overlay: {} icon {} | {}{}", game::Describe(a_ref), icon.source, icon.label,
-						icon.color ? std::format(" #{:06X}", *icon.color) : ""s);
+				auto row = icons::RowForContainer(a_layout, a_ref, kMaxIcons);
+				if (!(row == cached.row)) {
+					logger::debug("Overlay: {} icons {}", game::Describe(a_ref), Describe(row));
 				}
-				cached.icon = std::move(icon);
+				cached.row = std::move(row);
 				cached.age = 0.0001f;
 			}
-			return cached.icon;
+			return cached.row;
 		}
 
 		void Rescan()
 		{
 			g_state.targets.clear();
 			const auto current = home::HomeRegistry::Get().Display();
-			auto* player = game::Player();
+			auto*      player = game::Player();
 			if (!current || !current->layout || !player) {
 				return;
 			}
-			const auto& settings = Settings::GetSingleton().GetOverlay();
+			const auto  settings = Settings::GetSingleton().GetOverlay();
 			const auto& layout = *current->layout;
 			const auto  origin = player->GetPosition();
 
@@ -119,11 +138,11 @@ namespace dova::ui::overlay
 						return;
 					}
 				}
-				auto icon = IconFor(layout, ref);
-				if (icon.Empty()) {
+				auto row = RowFor(layout, ref);
+				if (row.Empty()) {
 					return;
 				}
-				g_state.targets.push_back({ ref->GetFormID(), std::move(icon), distance });
+				g_state.targets.push_back({ ref->GetFormID(), std::move(row), distance });
 			};
 			if (layout.master) {
 				consider(*layout.master);
@@ -139,7 +158,7 @@ namespace dova::ui::overlay
 			}
 
 			// Keep every container in the slot it already has: the order by distance changes constantly as
-			// the player moves, and a slot that changes container must reload its icon SWF.
+			// the player moves, and a slot that changes container must reload its icon SWFs.
 			{
 				std::vector<std::optional<Target>> placed(g_state.targets.size());
 				std::vector<Target>                rest;
@@ -163,10 +182,10 @@ namespace dova::ui::overlay
 				}
 			}
 
-			static std::string lastSet;
+			static std::string       lastSet;
 			std::vector<std::string> entries;
 			for (const auto& t : g_state.targets) {
-				entries.push_back(std::format("{:08X}={}|{}", t.formID, t.icon.source, t.icon.label));
+				entries.push_back(std::format("{:08X}={}", t.formID, Describe(t.row)));
 			}
 			std::ranges::sort(entries);  // the set, not the order
 			std::string set;
@@ -174,7 +193,7 @@ namespace dova::ui::overlay
 				set += e + " ";
 			}
 			if (set != lastSet) {
-				logger::debug("Overlay: {} icon(s): {}", g_state.targets.size(), set.empty() ? "none"s : set);
+				logger::debug("Overlay: {} container(s): {}", g_state.targets.size(), set.empty() ? "none"s : set);
 				lastSet = std::move(set);
 			}
 		}
@@ -200,20 +219,12 @@ namespace dova::ui::overlay
 			return true;
 		}
 
-		bool GetSlotClips(RE::GFxValue& a_root, std::size_t a_index, RE::GFxValue& a_slot, RE::GFxValue& a_icon, bool a_create)
+		bool GetChild(RE::GFxValue& a_parent, const std::string& a_name, std::int32_t a_depth, RE::GFxValue& a_child, bool a_create)
 		{
-			const auto name = std::format("s{}", a_index);
-			if (!a_root.GetMember(name.c_str(), &a_slot) || !a_slot.IsDisplayObject()) {
-				if (!a_create || !a_root.CreateEmptyMovieClip(&a_slot, name.c_str(), static_cast<std::int32_t>(a_index))) {
-					return false;
-				}
+			if (a_parent.GetMember(a_name.c_str(), &a_child) && a_child.IsDisplayObject()) {
+				return true;
 			}
-			if (!a_slot.GetMember("icon", &a_icon) || !a_icon.IsDisplayObject()) {
-				if (!a_create || !a_slot.CreateEmptyMovieClip(&a_icon, "icon", 0)) {
-					return false;
-				}
-			}
-			return true;
+			return a_create && a_parent.CreateEmptyMovieClip(&a_child, a_name.c_str(), a_depth);
 		}
 
 		void SetVisible(RE::GFxValue& a_clip, bool a_visible)
@@ -229,35 +240,35 @@ namespace dova::ui::overlay
 			return a_clip.GetMember(a_member, &v) && v.IsNumber() ? v.GetNumber() : 0.0;
 		}
 
-		// Loads/labels the icon clip; returns true once it shows `a_icon`.
-		bool PrepareIcon(RE::GFxMovieView* a_movie, Slot& a_slot, RE::GFxValue& a_iconClip, const core::IconRef& a_icon)
+		// Loads/labels one icon clip; returns true once it shows `a_icon`.
+		bool PrepareIcon(RE::GFxMovieView* a_movie, IconState& a_state, RE::GFxValue& a_iconClip, const core::IconRef& a_icon)
 		{
 			const std::string source = a_icon.source.empty() ? std::string(core::kSkyUIItemIcons) : a_icon.source;
-			if ((!a_slot.loading && !a_slot.labelSet) || a_slot.applied.source != source) {
+			if ((!a_state.loading && !a_state.labelSet) || a_state.applied.source != source) {
 				const RE::GFxValue path(source.c_str());
 				a_iconClip.Invoke("loadMovie", nullptr, &path, 1);
-				a_slot.applied = a_icon;
-				a_slot.applied.source = source;
-				a_slot.loading = true;
-				a_slot.loadFrames = 0;
-				a_slot.labelSet = false;
+				a_state.applied = a_icon;
+				a_state.applied.source = source;
+				a_state.loading = true;
+				a_state.loadFrames = 0;
+				a_state.labelSet = false;
 				logger::debug("Overlay: loading icon SWF {}", source);
 				return false;
 			}
-			if (a_slot.loading) {
+			if (a_state.loading) {
 				RE::GFxValue loaded, total;
 				a_iconClip.Invoke("getBytesLoaded", &loaded);
 				a_iconClip.Invoke("getBytesTotal", &total);
 				if (!loaded.IsNumber() || !total.IsNumber() || total.GetNumber() <= 0.0 || loaded.GetNumber() < total.GetNumber()) {
-					if (++a_slot.loadFrames == 300) {
-						logger::warn("Overlay: icon SWF {} still not loaded after 300 frames (missing file?)", a_slot.applied.source);
+					if (++a_state.loadFrames == 300) {
+						logger::warn("Overlay: icon SWF {} still not loaded after 300 frames (missing file?)", a_state.applied.source);
 					}
 					return false;
 				}
-				a_slot.loading = false;
+				a_state.loading = false;
 			}
-			if (!a_slot.labelSet || a_slot.applied.label != a_icon.label || a_slot.applied.color != a_icon.color) {
-				const auto appliedSource = a_slot.applied.source;
+			if (!a_state.labelSet || a_state.applied.label != a_icon.label || a_state.applied.color != a_icon.color) {
+				const auto appliedSource = a_state.applied.source;
 				a_iconClip.GotoAndStop(a_icon.label.c_str());
 				if (a_icon.color) {
 					// new Color(clip).setRGB(0xRRGGBB): how SkyUI tints icons.
@@ -269,18 +280,34 @@ namespace dova::ui::overlay
 				RE::GFxValue::DisplayInfo info;
 				info.SetScale(100.0, 100.0);
 				a_iconClip.SetDisplayInfo(info);
-				a_slot.baseWidth = Number(a_iconClip, "_width");
-				a_slot.baseHeight = Number(a_iconClip, "_height");
-				if (a_slot.baseWidth <= 0.0 || a_slot.baseHeight <= 0.0) {
+				a_state.baseWidth = Number(a_iconClip, "_width");
+				a_state.baseHeight = Number(a_iconClip, "_height");
+				if (a_state.baseWidth <= 0.0 || a_state.baseHeight <= 0.0) {
 					logger::warn("Overlay: label '{}' in {} has no size (label missing from that SWF?)", a_icon.label, appliedSource);
-				} else {
-					logger::trace("Overlay: label '{}' in {} is {}x{}", a_icon.label, appliedSource, a_slot.baseWidth, a_slot.baseHeight);
 				}
-				a_slot.applied = a_icon;
-				a_slot.applied.source = appliedSource;
-				a_slot.labelSet = true;
+				a_state.applied = a_icon;
+				a_state.applied.source = appliedSource;
+				a_state.labelSet = true;
 			}
-			return a_slot.baseWidth > 0.0 && a_slot.baseHeight > 0.0;
+			return a_state.baseWidth > 0.0 && a_state.baseHeight > 0.0;
+		}
+
+		// "+N" text, drawn with the game's own font alias so the HUD skin's fontconfig applies.
+		bool GetMoreText(RE::GFxValue& a_slot, RE::GFxValue& a_text)
+		{
+			if (a_slot.GetMember("more", &a_text) && a_text.IsDisplayObject()) {
+				return true;
+			}
+			RE::GFxValue args[6]{ RE::GFxValue("more"), RE::GFxValue(100.0), RE::GFxValue(0.0), RE::GFxValue(0.0), RE::GFxValue(80.0), RE::GFxValue(40.0) };
+			a_slot.Invoke("createTextField", nullptr, args, 6);
+			if (!a_slot.GetMember("more", &a_text) || !a_text.IsDisplayObject()) {
+				return false;
+			}
+			a_text.SetMember("embedFonts", RE::GFxValue(true));
+			a_text.SetMember("html", RE::GFxValue(true));
+			a_text.SetMember("selectable", RE::GFxValue(false));
+			a_text.SetMember("autoSize", RE::GFxValue("left"));
+			return true;
 		}
 
 		// Screen anchor: just above the top of the reference's bounds, in HUD movie coordinates.
@@ -315,6 +342,69 @@ namespace dova::ui::overlay
 			}
 		}
 
+		// Lays out one container's row, centred above it: icon icon icon +N. Returns false (slot hidden)
+		// until every icon in the row has loaded, so the row never jumps around while it fills.
+		bool DrawRow(RE::GFxMovieView* a_movie, RE::GFxValue& a_slotClip, Slot& a_slot, const Target& a_target, float a_x, float a_y,
+			double a_size)
+		{
+			const auto& icons = a_target.row.icons;
+			a_slot.icons.resize(std::max(a_slot.icons.size(), icons.size()));
+			std::vector<RE::GFxValue> clips(a_slot.icons.size());
+			bool                      ready = true;
+			for (std::size_t k = 0; k < a_slot.icons.size(); ++k) {
+				const bool used = k < icons.size();
+				if (!GetChild(a_slotClip, std::format("i{}", k), static_cast<std::int32_t>(k), clips[k], used)) {
+					ready = ready && !used;
+					continue;
+				}
+				if (!used) {
+					SetVisible(clips[k], false);
+					continue;
+				}
+				ready = PrepareIcon(a_movie, a_slot.icons[k], clips[k], icons[k]) && ready;
+			}
+			if (!ready) {
+				return false;
+			}
+
+			const double gap = a_size * 0.25;
+			RE::GFxValue more;
+			double       moreWidth = 0.0;
+			const bool   hasMore = a_target.row.extra > 0 && GetMoreText(a_slotClip, more);
+			if (hasMore) {
+				const auto px = static_cast<int>(std::lround(a_size * 0.6));
+				const auto html = std::format("<font face='$EverywhereMediumFont' size='{}' color='#FFFFFF'>+{}</font>", px, a_target.row.extra);
+				more.SetTextHTML(html.c_str());
+				moreWidth = Number(more, "textWidth") + 4.0;
+			} else if (a_slotClip.GetMember("more", &more) && more.IsDisplayObject()) {
+				SetVisible(more, false);
+			}
+
+			const double total = icons.size() * a_size + (icons.size() > 1 ? (icons.size() - 1) * gap : 0.0) + (hasMore ? gap + moreWidth : 0.0);
+			double       cursor = -total / 2.0;
+			for (std::size_t k = 0; k < icons.size(); ++k) {
+				const auto&  st = a_slot.icons[k];
+				const double scale = 100.0 * a_size / std::max(st.baseWidth, st.baseHeight);
+				const double w = st.baseWidth * scale / 100.0, h = st.baseHeight * scale / 100.0;
+				RE::GFxValue::DisplayInfo info;
+				info.SetScale(scale, scale);
+				info.SetPosition(cursor + (a_size - w) / 2.0, -h);  // icons sit on the row's baseline
+				info.SetVisible(true);
+				clips[k].SetDisplayInfo(info);
+				cursor += a_size + gap;
+			}
+			if (hasMore) {
+				RE::GFxValue::DisplayInfo info;
+				info.SetPosition(cursor, -a_size / 2.0 - Number(more, "_height") / 2.0);
+				info.SetVisible(true);
+				more.SetDisplayInfo(info);
+			}
+			RE::GFxValue::DisplayInfo info;
+			info.SetPosition(a_x, a_y);
+			a_slotClip.SetDisplayInfo(info);
+			return true;
+		}
+
 		void Update(RE::HUDMenu* a_menu, float a_interval)
 		{
 			auto* movie = a_menu ? a_menu->uiMovie.get() : nullptr;
@@ -325,12 +415,13 @@ namespace dova::ui::overlay
 			if (!GetRoot(movie, root)) {
 				return;
 			}
-			if (!Settings::GetSingleton().GetOverlay().enabled || !OverlayAllowed()) {
+			const auto settings = Settings::GetSingleton().GetOverlay();
+			if (!settings.enabled || !OverlayAllowed()) {
 				Hide(root);
 				return;
 			}
 
-			for (auto& [id, cached] : g_state.iconCache) {
+			for (auto& [id, cached] : g_state.rowCache) {
 				if (cached.age > 0.0f) {
 					cached.age += a_interval;
 				}
@@ -349,15 +440,14 @@ namespace dova::ui::overlay
 				g_state.visible = true;
 			}
 
-			const auto& settings = Settings::GetSingleton().GetOverlay();
-			const auto  rect = movie->GetVisibleFrameRect();
+			const auto rect = movie->GetVisibleFrameRect();
 			if (g_state.slots.size() < g_state.targets.size()) {
 				g_state.slots.resize(g_state.targets.size());
 			}
 			for (std::size_t i = 0; i < g_state.slots.size(); ++i) {
-				RE::GFxValue slotClip, iconClip;
+				RE::GFxValue slotClip;
 				const bool   active = i < g_state.targets.size();
-				if (!GetSlotClips(root, i, slotClip, iconClip, active)) {
+				if (!GetChild(root, std::format("s{}", i), static_cast<std::int32_t>(i), slotClip, active)) {
 					continue;
 				}
 				if (!active) {
@@ -366,28 +456,20 @@ namespace dova::ui::overlay
 				}
 				auto&       slot = g_state.slots[i];
 				const auto& target = g_state.targets[i];
-				auto*       form = RE::TESForm::LookupByID(target.formID);
-				auto*       ref = form ? form->AsReference() : nullptr;
-				float       x = 0.0f, y = 0.0f;
-				if (!ref || !PrepareIcon(movie, slot, iconClip, target.icon) || !Project(ref, rect, x, y)) {
+				if (slot.formID != target.formID) {
+					slot.formID = target.formID;
+				}
+				auto* form = RE::TESForm::LookupByID(target.formID);
+				auto* ref = form ? form->AsReference() : nullptr;
+				float x = 0.0f, y = 0.0f;
+				// Shrinks to half size and fades to 40% at the edge of the radius.
+				const float  t = std::clamp(target.distance / settings.radius, 0.0f, 1.0f);
+				const double size = settings.iconSize * (1.0 - 0.5 * t);
+				if (!ref || !Project(ref, rect, x, y) || !DrawRow(movie, slotClip, slot, target, x, y, size)) {
 					SetVisible(slotClip, false);
 					continue;
 				}
-				slot.formID = target.formID;
-
-				// Shrinks to half size and fades to 40% at the edge of the radius.
-				const float t = std::clamp(target.distance / settings.radius, 0.0f, 1.0f);
-				const double size = settings.iconSize * (1.0 - 0.5 * t);
-				const double scale = 100.0 * size / std::max(slot.baseWidth, slot.baseHeight);
-				const double width = slot.baseWidth * scale / 100.0;
-				const double height = slot.baseHeight * scale / 100.0;
-
-				RE::GFxValue::DisplayInfo iconInfo;
-				iconInfo.SetScale(scale, scale);
-				iconClip.SetDisplayInfo(iconInfo);
-
 				RE::GFxValue::DisplayInfo info;
-				info.SetPosition(x - width / 2.0, y - height);
 				info.SetAlpha(100.0 - 60.0 * t);
 				info.SetVisible(true);
 				slotClip.SetDisplayInfo(info);

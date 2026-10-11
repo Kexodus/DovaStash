@@ -323,24 +323,12 @@ namespace dova::integrations::quickloot
 			std::vector<core::IconRef> icons;
 			std::size_t                extra = 0;
 			const auto                 home = home::HomeRegistry::Get().Display();
+			// The master keeps the word "Master" in the info bar; only bound containers show the row.
 			if (Settings::GetSingleton().GetIntegrations().quickLootIcons && a_container && home && home->layout &&
 				a_role.kind == ui::ContainerRole::Kind::Bound) {
-				for (const auto& pattern : a_role.binding->categories) {
-					auto icon = icons::ForPattern(pattern);
-					if (icon.Empty() || std::ranges::find(icons, icon) != icons.end()) {
-						continue;  // no icon, or another binding already shows it
-					}
-					if (icons.size() == kMaxIcons) {
-						++extra;
-						continue;
-					}
-					icons.push_back(std::move(icon));
-				}
-				if (icons.empty()) {  // learned items only
-					if (auto icon = icons::ForContainer(*home->layout, a_container); !icon.Empty()) {
-						icons.push_back(std::move(icon));
-					}
-				}
+				auto row = icons::RowForContainer(*home->layout, a_container, kMaxIcons);
+				icons = std::move(row.icons);
+				extra = row.extra;
 			}
 			const auto id = a_container ? a_container->GetFormID() : 0;
 			if (id == g_row.container && icons == g_row.icons && extra == g_row.extra) {
@@ -354,15 +342,8 @@ namespace dova::integrations::quickloot
 		// True when the row will show icons for this container (then the info bar shows no category text).
 		bool RowShowsIcons(const home::DisplayHome& a_home, RE::TESObjectREFR* a_container, const ui::ContainerRole& a_role)
 		{
-			if (!Settings::GetSingleton().GetIntegrations().quickLootIcons || a_role.kind != ui::ContainerRole::Kind::Bound) {
-				return false;
-			}
-			for (const auto& pattern : a_role.binding->categories) {
-				if (!icons::ForPattern(pattern).Empty()) {
-					return true;
-				}
-			}
-			return a_home.layout && !icons::ForContainer(*a_home.layout, a_container).Empty();
+			return Settings::GetSingleton().GetIntegrations().quickLootIcons && a_role.kind == ui::ContainerRole::Kind::Bound && a_home.layout &&
+			       !icons::RowForContainer(*a_home.layout, a_container, kMaxIcons).Empty();
 		}
 
 		// At most one short entry: what the container is ("Master", "Alchemy", "Weapons, Armor +1"), or, when

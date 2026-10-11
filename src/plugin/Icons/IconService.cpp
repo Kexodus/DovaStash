@@ -194,6 +194,40 @@ namespace dova::icons
 		return ForCategory(a_pattern);
 	}
 
+	IconRow RowForContainer(const core::Layout& a_layout, RE::TESObjectREFR* a_container, std::size_t a_max)
+	{
+		IconRow    row;
+		const auto ref = a_container ? game::ToFormRef(a_container) : std::nullopt;
+		if (!ref) {
+			return row;
+		}
+		if (a_layout.IsMaster(*ref)) {
+			row.icons.push_back(ForPattern("*"));
+			return row;
+		}
+		const auto* binding = a_layout.FindContainer(*ref);
+		if (!binding || binding->ignored) {
+			return row;
+		}
+		for (const auto& pattern : binding->categories) {
+			auto icon = ForPattern(pattern);
+			if (icon.Empty() || std::ranges::find(row.icons, icon) != row.icons.end()) {
+				continue;  // no icon, or another binding already shows it
+			}
+			if (row.icons.size() >= a_max) {
+				++row.extra;
+				continue;
+			}
+			row.icons.push_back(std::move(icon));
+		}
+		if (row.icons.empty() && row.extra == 0) {  // learned items only
+			if (auto icon = ForContainer(a_layout, a_container); !icon.Empty()) {
+				row.icons.push_back(std::move(icon));
+			}
+		}
+		return row;
+	}
+
 	core::IconRef ForContainer(const core::Layout& a_layout, RE::TESObjectREFR* a_container)
 	{
 		// Stable by design: the icon says what a container is *for*, so it comes from the layout (its
