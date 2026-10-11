@@ -42,6 +42,7 @@ HEADERS = {
     "credits": "Credits",
     "changelog": "Changelog",
     "permissions": "Permissions",
+    "support": "Support",
 }
 SECTIONS = [
     "features",
@@ -56,6 +57,7 @@ SECTIONS = [
     "permissions",
     "credits",
     "changelog",
+    "support",
 ]
 ICONS = ["any_home", "auto_sort", "templates", "learns", "safe", "menu", "vr", "export", "hotkey"]
 

@@ -54,6 +54,10 @@ for the mod tile in search and browse.
 The BBCode file already uses these. They are 1200×112 with the emblem as a left-aligned bullet, plus a 1200×40 divider (and a transparent
 divider for non-black backgrounds).
 
+The description follows the iharvest-ng layout: a centred intro and a `[line]` under the banner,
+each header wrapped in `[center]`, bold sub-headings with lists under How it works and Installation,
+and a Support section with what to put in a bug report.
+
 Everything the description embeds is **framed**: a black card with rounded corners, a hairline gray edge and a soft
 shadow on a transparent canvas, so it sits on the Nexus page's gray instead of as a hard black box. Any page
 renders framed with `?frame=1` (see `common.js`).
@@ -70,6 +74,7 @@ renders framed with `?frame=1` (see `common.js`).
 ![Permissions](nexus/section-10-permissions.png)
 ![Credits](nexus/section-11-credits.png)
 ![Changelog](nexus/section-12-changelog.png)
+![Support](nexus/section-13-support.png)
 ![Divider](nexus/dovastash-divider-transparent-1200x40.png)
 
 ## Feature icons

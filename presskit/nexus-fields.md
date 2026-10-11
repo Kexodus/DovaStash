@@ -177,7 +177,7 @@ The description already loads them from GitHub:
   so they sit on the page instead of as hard black boxes. The section headers and the features image
   are framed the same way.
 - `dovastash-divider-transparent-1200x40.png`
-- `section-01-features.png` to `section-12-changelog.png`: all 12 section headers.
+- `section-01-features.png` to `section-13-support.png`: all 13 section headers.
 
 **Not used on the mod page:**
 
