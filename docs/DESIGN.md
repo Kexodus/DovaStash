@@ -205,6 +205,7 @@ On entering an eligible cell:
 {
   "$schema": "dovastash-layout-1",
   "name": "Breezehome",
+  "note": "Each container takes the item categories listed...",  // optional, for people reading the file
   "author": "Dova Stash",
   "version": "1.0.0",
   "priority": 0,
@@ -222,7 +223,11 @@ On entering an eligible cell:
       "label": "Alchemy satchel",
       "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]
     },
-    { "ref": "Skyrim.esm|0x000DDDDD", "label": "Display case", "ignored": true }
+    { "ref": "Skyrim.esm|0x000DDDDD", "label": "Barrel", "ignored": true, "note": "Respawns: what you store here can disappear." }
+  ],
+  "displays": [                           // optional: overrides for the displays found in the cell (§8.4)
+    { "ref": "Skyrim.esm|0x000EEEEE", "ignored": true },
+    { "ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"] }
   ],
   "keep": { "inherit": true, "rules": [ { "category": "ammo.arrows", "quota": 50 } ] },
 
@@ -231,6 +236,15 @@ On entering an eligible cell:
   "basedOn": "Templates/Vanilla/Breezehome.json@1.0.0"
 }
 ```
+
+`label` is the name the player sees for a container (the panel, menus); `note` (top level, containers,
+displays) is free text for people reading the file. Dova Stash never acts on a note; the panel shows a
+container's note under its name, so that is where a template says why it ignores a container.
+
+Files are written to be read by people: tabs, one line per container (fields lined up in columns), short
+lists on one line, anything longer than 200 columns spread over lines (`detail::Dump`). The shipped
+templates use the same layout with two-space indents (`tools/datagen/jsonfmt.py`). Comments (`//`, `/* */`)
+are accepted when reading but not kept when Dova Stash writes a file.
 
 Version-2 forward compatibility: a layout describes **bindings of categories to storage endpoints**.
 In v2 an endpoint can also be `{"remote": "central"}`, so v1 files remain valid.
@@ -368,6 +382,7 @@ download that drops into the same `Categories/` folder, not in the main archive.
 | **Distribute** | Master → destinations                 | `ContainerMenu` closes on the master; also a "Sort" button        |
 | **Sort all**   | Master + bound containers → correct one (see §16) | Manual (e.g. after changing bindings)                             |
 | **Retrieve**   | Destinations → player                 | Menu: by category, or everything                                  |
+| **Fill displays** | Player + managed containers → empty racks, mannequins, plaques, cases (§8.4) | Part of Deposit and Sort all (`bFillDisplays`)                    |
 | **Learn**      | Records item → container              | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
 
 ### 8.2 Moving items safely (`ItemMover`)
@@ -382,12 +397,23 @@ download that drops into the same `Categories/` folder, not in the main archive.
   Defer to the menu close to avoid UI desync. Sort on arrival (items put into the master) waits for
   the close when the game is paused, and only runs with the menu open when the menu does not pause
   (Skyrim Souls). The open menus are then told to rebuild their lists.
-- **Plain remainder:** moving the copies without extra data (`RemoveItem` with no extra list) lets the
-  engine pick which copies leave, and it may take a tempered, enchanted, renamed or worn one. Extra-data
-  stacks therefore move first, and a plain move is skipped (the items stay) while any extra-data copy of
-  that object remains in the source.
-- Every operation logs a summary (`moved 143 items in 9 stacks to 6 containers`). A debug option writes a
-  per-item journal.
+- **Plain remainder:** the copies without extra data move with `RemoveItem` and no extra list, after the
+  extra-data stacks. When an extra-data copy of the object stays in the source (worn, kept, tempered), the
+  engine takes plain copies first, as the container menu does. Each such move is checked: every extra-data
+  stack of the source must still be there afterwards. If one left anyway, it is moved back, the error is
+  logged, and plain copies next to an extra-data copy stay where they are for the rest of the session.
+- **Items that come back:** when an object Dova Stash stored in a container goes from that container to the
+  player within 5 seconds (a script hands it back, for example a token that opens a prompt when stored), it
+  is marked for the session and never moved again (`ItemInfo::returns`; logged once at info). Taking it out
+  by hand while that container's menu is open does not count.
+- Every operation logs a summary (`moved 143 items in 9 stacks to 6 containers`). Deposit and Distribute
+  also log a plan summary at info (`Deposit plan: 412 stacks (377 move, 20 kept, 3 quest item, ...)`), and at
+  debug one line per stack: where it goes and why (category, learned, explicit, homeless), or why it stays
+  (the keep rule, quest, non-playable, nameless, comes back when stored, no destination). Homeless stacks staying in the master
+  log at trace.
+- At debug, the inventory journal logs every change to the player's inventory that Dova Stash did not make
+  (`Inventory: +1 Coinpurse [...] from nowhere (created: script or console)`). It shows items that scripts
+  add, swap or remove, and items that come back after a Deposit.
 
 ### 8.3 Keep rules
 
@@ -402,6 +428,59 @@ download that drops into the same `Categories/` folder, not in the main archive.
 Global defaults live in `DovaStash.ini`/`Settings.json`. A layout may override them or set `"inherit": true`.
 
 ---
+
+### 8.4 Displays
+
+Deposit and Sort all put gear on the home's empty displays, so the home looks as if the player had placed
+it by hand (`[Sorting] bFillDisplays`, on by default). Dova Stash never takes anything off a display; the
+player takes things down as usual.
+
+**Finding them.** Displays are recognised from the scripts the game binds to them (read from the Papyrus VM,
+nothing changed), in any home, with or without a template (`game::FindDisplays`):
+
+| Kind | Recognised by | Filled by |
+|---|---|---|
+| `rack` | An activator running `WeaponRackActivateSCRIPT`: weapon racks, wall plaques, dagger displays, coat-of-arms racks (the middle one takes a shield), and home mods' copies of them. `RackType` (1 any weapon, 2 shield, 3 or `Patch14COARacks` no dagger or bow, 4 daggers only) says what it takes | Dropping the very copy at the trigger's pivot node (`SwordPivot01`...), making it keyframed and moving it onto the node once its 3D is loaded: what the script does with the equipped weapon. The trigger's script then disables the activator, and the player picks the weapon up by activating it |
+| `mannequin` | An actor running `MannequinActivatorSCRIPT` | Moving armor into its inventory; its script equips it |
+| `item` | A reference whose script holds playable items in its properties (or a form list of them) and a "placed" flag: the `ClawToPlace` display script that home mods copy for masks, claws, Elder Scrolls, books, artifacts | Bringing the item to the player and activating the plaque for the player, so the home's own script takes it and shows the model |
+| `case` | A container whose script holds playable items in its properties and handles `OnItemAdded` | Moving the items in; its script shows them |
+
+Furniture and harvestables (chopping blocks list firewood and axes) are never displays. A container the
+layout uses for storage is not a case. `esm_dump.py cell` lists the displays it can see in the plugin files.
+
+**Layouts and templates** (`displays`, §6.3) override what was found, by `ref`: `ignored` keeps a display
+empty, `items` replaces what an item plaque or case is made for, or names preferred items for a rack or
+mannequin. An entry for a display the scripts do not reveal needs `kind` (racks still need their
+`WRackTrigger` linked ref, mannequins must be actors, cases containers). Applying a template merges the
+entries like containers (the player's `ignored` wins).
+
+**What goes where** (`core::PlanDisplays`, unit-tested):
+- Candidates are what Deposit would move from the player (never kept, worn, favorited or quest items) and
+  everything movable in the managed containers. What goes on display is taken out of the deposit.
+- One copy of each base form on display in the whole home. Forms already shown (loose weapons and armor in
+  the cell, mannequin outfits, case contents) are not put up again.
+- Items an item plaque or a case is made for are reserved for it: racks and mannequins never take them
+  (a dragon priest mask waits for its plaque).
+- Item plaques swap the item for a model and recreate it when it is taken back, so they only get copies
+  without extra data (`ItemInfo::customized`: tempered, renamed, enchanted by the player, poisoned). Their
+  scripts remove "one of this item", so a plaque is also skipped while the player carries any such copy, or a
+  worn or favorited one, that the script could take instead. Racks, mannequins and cases keep the very copy.
+- Order: item plaques, cases, mannequins, shield racks, dagger racks, racks without daggers or bows, racks for
+  any weapon. Each takes the best remaining item: preferred items first, then Daedric artifacts, then the
+  highest value; the player's copy before a stored one.
+- A mannequin gets one set: the armor sharing a material keyword (`ArmorMaterial*`) with the highest total
+  value that includes a cuirass, one piece per slot (head, hair, body, hands, forearms, feet, calves,
+  circlet). Shields and jewelry other than circlets stay for other displays. A mannequin wearing anything is
+  left alone.
+- A rack is taken while its activator is disabled; unbuilt racks (trigger disabled) are skipped.
+
+**Filling** (`display::Fill`, over the next frames after the sort's own moves): mannequins and cases at once,
+then every rack drop, then a poll every 100 ms until the dropped weapons have 3D (at most 5 s), then item
+plaques one at a time. A plaque that hands an item back (it was full) is activated once more; one that takes
+nothing within 3 s gets its item back where it came from and is left alone for the session. Filling stops
+if the player leaves the cell. The player gets one line at the end (`put 12 items on display`); the log has
+a summary at info (`Displays in Whitepeak Tower: 77 rack (77 empty), 6 mannequin (6 empty), 50 item (50
+empty); 41 items to put up`), the plan and each placement at debug.
 
 ## 9. Home eligibility & safety
 
@@ -651,11 +730,18 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
 - **Container ownership:** a container without its own owner inherits the cell's owner. A foreign
   cell owner rejects the container, except in a cell whose own location is a `LocTypePlayerHouse`
   (accepted by §9), where it is a warning.
-- **Plain remainder next to an extra-data copy (0.2.2):** the plain (no extra data) remainder of an
-  item is not moved out of *any* source (player or container) while an extra-data copy of it stays
-  there: worn, favorited, quest, tempered, enchanted, renamed, or only owned (stolen). `RemoveItem`
-  without an extra list lets the engine choose the copies. Extra-data stacks move first, so this only
-  holds back plain copies whose special sibling is staying (kept, unavailable destination...). The
-  sort reports them as skipped (TESTING §2.6).
+- **Plain remainder next to an extra-data copy:** the plain (no extra data) remainder of an item moves
+  even while an extra-data copy of it stays in the source (worn, favorited, quest, tempered, enchanted,
+  renamed, or only owned). Extra-data stacks move first. The engine takes plain copies first, and each
+  such move is verified; if a special copy left, it is moved back and these moves stop for the session
+  (§8.2, TESTING §2.6). 0.2.2 to 0.2.4 skipped them outright.
+- **Fronts (activators that open a hidden container):** many home mods put an activator (a food
+  shelf, a wine rack, the vanilla bookshelf trigger) in front of a hidden chest, linked to it with the
+  default linked ref (`ActivateLinkedChestDummyScript` and similar). Activating it opens the chest's
+  ContainerMenu. Dova Stash treats such an activator as that container: the hotkey binds the chest,
+  the activate prompt shows the chest's role on the activator, and the floating icons sit on the
+  activator. A front is an `ACTI` reference whose linked ref (no keyword) is a container in the same
+  cell (`game::ContainerBehind`); the cell is scanned once when it is attached (`Home::fronts`). The
+  layout stores the container, never the activator. `esm_dump.py cell` lists them as `openedBy`.
 - **Ignored template bindings:** templates list respawning containers as `ignored` so they are never
   used or learned. They are not counted as "unavailable" when a template is applied.

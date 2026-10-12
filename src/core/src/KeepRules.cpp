@@ -1,6 +1,7 @@
 #include "dova/core/KeepRules.h"
 
 #include <algorithm>
+#include <format>
 #include <map>
 #include <utility>
 
@@ -86,6 +87,44 @@ namespace dova::core
 			}
 		}
 
+		std::string SelectorLabel(const KeepSelector& a_sel)
+		{
+			switch (a_sel.kind) {
+			case KeepSelector::Kind::Equipped:
+				return "equipped";
+			case KeepSelector::Kind::Favorited:
+				return "favorited";
+			case KeepSelector::Kind::Quest:
+				return "quest";
+			case KeepSelector::Kind::Form:
+				return a_sel.form.ToString();
+			case KeepSelector::Kind::Category:
+				return a_sel.pattern;
+			case KeepSelector::Kind::Invalid:
+			default:
+				return "?";
+			}
+		}
+
+		std::string QuotaLabel(const KeepRules::Quota& a_q)
+		{
+			std::string out = "quota";
+			if (a_q.category) {
+				out += " " + *a_q.category;
+			}
+			if (a_q.keywordsAny) {
+				for (const auto& k : *a_q.keywordsAny) {
+					out += " " + k;
+				}
+			}
+			if (a_q.forms) {
+				for (const auto& f : *a_q.forms) {
+					out += " " + f.ToString();
+				}
+			}
+			return out + " " + std::to_string(a_q.quota);
+		}
+
 		bool QuotaMatches(const KeepRules::Quota& a_q, const ItemView& a_view)
 		{
 			if (a_q.category && !PatternMatchesItem(*a_q.category, a_view)) {
@@ -106,17 +145,21 @@ namespace dova::core
 		KeepRules rules;
 		if (a_layoutKeep) {
 			rules._layers.push_back(CompileLayer(*a_layoutKeep, "keep (layout)", a_diags));
+			rules._layers.back().name = "layout";
 		}
 		if (!a_layoutKeep || a_layoutKeep->Inherits()) {
 			rules._layers.push_back(CompileLayer(a_global, "keep (global)", a_diags));
+			rules._layers.back().name = "global";
 		}
 		return rules;
 	}
 
-	std::vector<std::int32_t> KeepRules::ComputeKeepCounts(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories) const
+	std::vector<std::int32_t> KeepRules::ComputeKeepCounts(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories,
+		std::vector<std::string>* a_why) const
 	{
 		const auto n = a_inventory.size();
 		std::vector<std::int32_t> keep(n, 0);
+		std::vector<std::string>  why(n);
 
 		std::vector<ItemView> views(n);
 		for (std::size_t i = 0; i < n; ++i) {
@@ -135,16 +178,19 @@ namespace dova::core
 			if (item.count <= 0) {
 				continue;
 			}
-			if (item.questItem || !item.playable) {
+			if (item.questItem || !item.playable || item.returns) {
 				keptAll[i] = true;
+				why[i] = item.questItem ? "quest item" : item.playable ? "comes back when stored" : "non-playable";
 				continue;
 			}
 			bool decided = false;
 			for (std::size_t l = 0; l < _layers.size() && !decided; ++l) {
 				const auto& layer = _layers[l];
-				if (std::ranges::any_of(layer.always, [&](const KeepSelector& s) { return SelectorMatches(s, views[i]); })) {
+				if (const auto it = std::ranges::find_if(layer.always, [&](const KeepSelector& s) { return SelectorMatches(s, views[i]); });
+					it != layer.always.end()) {
 					keptAll[i] = true;
 					decided = true;
+					why[i] = std::format("always {} ({})", SelectorLabel(*it), layer.name);
 				} else if (std::ranges::any_of(layer.never, [&](const KeepSelector& s) { return SelectorMatches(s, views[i]); })) {
 					decided = true;
 				} else {
@@ -194,7 +240,11 @@ namespace dova::core
 				const auto k = static_cast<std::int32_t>(std::min<std::int64_t>(remaining, a_inventory[i].count));
 				keep[i] = k;
 				remaining -= k;
+				why[i] = std::format("{} ({})", QuotaLabel(quota), _layers[key.first].name);
 			}
+		}
+		if (a_why) {
+			*a_why = std::move(why);
 		}
 		return keep;
 	}

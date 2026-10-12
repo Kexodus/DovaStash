@@ -100,6 +100,42 @@ namespace dova::game
 		return base && base->Is(RE::FormType::Container);
 	}
 
+	RE::TESObjectREFR* ContainerBehind(RE::TESObjectREFR* a_ref)
+	{
+		if (!a_ref) {
+			return nullptr;
+		}
+		if (IsContainerRef(a_ref)) {
+			return a_ref;
+		}
+		const auto* base = a_ref->GetBaseObject();
+		if (!base || !base->Is(RE::FormType::Activator)) {
+			return nullptr;
+		}
+		auto* linked = a_ref->GetLinkedRef(nullptr);
+		if (!linked || linked == a_ref || !IsContainerRef(linked) || linked->GetParentCell() != a_ref->GetParentCell()) {
+			return nullptr;
+		}
+		return linked;
+	}
+
+	std::unordered_map<RE::FormID, RE::FormID> FindFronts(RE::TESObjectCELL* a_cell)
+	{
+		std::unordered_map<RE::FormID, RE::FormID> fronts;
+		if (!a_cell) {
+			return fronts;
+		}
+		a_cell->ForEachReference([&](RE::TESObjectREFR* a_ref) {
+			if (a_ref && !IsContainerRef(a_ref)) {
+				if (auto* container = ContainerBehind(a_ref)) {
+					fronts.emplace(a_ref->GetFormID(), container->GetFormID());
+				}
+			}
+			return RE::BSContainer::ForEachResult::kContinue;
+		});
+		return fronts;
+	}
+
 	std::vector<std::string> AttachedScripts(RE::TESObjectREFR* a_ref)
 	{
 		std::vector<std::string> out;

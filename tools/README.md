@@ -64,6 +64,13 @@ Each container entry:
   - `enableParent.oppositeOfParent: true` means the container *disappears* when its parent marker is
     enabled. These are usually pre-upgrade clutter. Do not bind them unless `refScripts` contains
     `BYOHDivertItemScript`, which moves their contents out before they disappear.
+- `displays` / `displayCounts`: the racks, mannequins, item plaques and display cases Dova Stash fills
+  (DESIGN §8.4), with the rack type or the items each plaque or case is made for. In game an item plaque
+  also needs a "placed" flag in its script and a case an `OnItemAdded` event; these are rarely visible
+  in the plugin, so the list can be a little longer than what the game fills. Template `displays` entries
+  are checked by `check` (ref in the cell, kind, items are items).
+- `openedBy`: activators in front of this container that open it (a food shelf, a wine rack, a bookshelf
+  trigger). Bind the container; Dova Stash shows it on the activator in game.
 - `baseScripts` / `refScripts`: attached Papyrus scripts. `PlayerBookShelfContainerScript` is a bookshelf
   that only displays books and gives everything else back. Leave those out or mark them `"ignored": true`.
 - `position` / `rotationZDeg`: in-game coordinates. Use them to work out which room a container is in.
@@ -89,6 +96,21 @@ Plugin names in form refs use the plugin's own file name, for example `ccBGSSSE0
 `Skyrim.ccc`. Steam may store the file in lower case. That does not matter, because Windows file names
 are case-insensitive.
 
+## `stress_loot.py` (testing)
+
+Writes console batch files (`ds_bulk`, `ds_vanilla`, `ds_cc`, `ds_mods1..N`, `ds_weird`) into the MO2 mod
+`dovastash inventory testing/root/`. Root Builder deploys that folder to the game folder, where `bat` looks.
+Each one fills the player's inventory with items picked from your real MO2 load order: every type and subtype
+the category engine knows, vanilla uniques, and a few items from each mod plugin. `ds_weird` holds the
+oddballs (unnamed, no keywords, scripted, vanilla-name clones). `ds_manifest.csv` lists what each line adds.
+Console form IDs depend on the load order, so regenerate after changing plugins.
+
+```
+python -I tools/stress_loot.py [--mo2 "E:\modding\Kexodus Skyrim"] [--profile Default] [--per-plugin 6]
+```
+
+In game: `bat ds_vanilla`, and so on. Use a throwaway save, because scripted items run their scripts when added.
+
 ## `datagen/` (maintainers)
 
 The scripts that produce the shipped data:
@@ -97,7 +119,10 @@ The scripts that produce the shipped data:
   building-material form lists from the plugins.
 - `datagen/gen_templates.py` writes `Templates/Vanilla/*.json` and `Templates/CreationClub/*.json`. The
   container-to-category bindings in it are hand-picked. The `"ignored"` entries are derived from the plugin
-  data: respawning containers, scripted bookshelves, and containers removed by upgrades.
+  data: respawning containers, scripted bookshelves, and containers removed by upgrades. They are labelled
+  with the container's game name, and the reason goes in `"note"`. The output is laid out by
+  `datagen/jsonfmt.py` (`align=True`): one line per container, fields lined up in columns, like the files the
+  DLL writes.
 - `datagen/gen_ocf_categories.py --ocf "<OCF mod folder>"` writes the optional OCF set,
   `dist/Optional/OCF/Data/SKSE/Plugins/DovaStash/Categories/50_OCF.json`, and `tests/data/ocf_keywords.txt`. It
   reads OCF's `*_KID.ini` files and fails if a category uses a keyword that OCF doesn't put on that record type.

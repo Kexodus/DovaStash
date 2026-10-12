@@ -6,6 +6,7 @@ Ignored entries are derived automatically from the plugin data:
   * enabled only until a house upgrade (enable parent with "opposite" flag) and no Hearthfire
     divert script                                        -> ignored ("removed by an upgrade")
   * explicit extra ignores (quest/test containers)
+Ignored entries are labelled with the game's name for the container; the reason goes in "note".
 """
 import argparse
 import re
@@ -53,13 +54,13 @@ def auto_ignores(conts, bound, extra_ignores, include_plugins):
         if k in extra_ignores:
             reason = extra_ignores[k]
         elif d["respawns"]:
-            reason = "respawns - contents can reset, never store items here"
+            reason = "Respawns: what you store here can disappear."
         elif d["baseEditorId"] == "PlayerBookShelfContainer":
-            reason = "scripted bookshelf - only displays books, returns everything else"
+            reason = "Scripted bookshelf: it only holds books and hands everything else back."
         elif ep.get("oppositeOfParent") and not divert:
-            reason = "removed by a house upgrade - items left inside become unreachable"
+            reason = "Goes away with a house upgrade: anything inside would be lost."
         if reason:
-            res.append({"ref": d["ref"], "label": f"{name} ({reason})", "ignored": True})
+            res.append({"ref": d["ref"], "label": name, "ignored": True, "note": reason})
     return res
 
 
@@ -86,15 +87,18 @@ def build(name, file, cell, requires, master, bindings, extra_ignores=None, auto
     else:
         for k, reason in extra_ignores.items():
             d = conts[k]
-            entries.append({"ref": d["ref"], "label": f"{d.get('baseName')} ({reason})", "ignored": True})
+            entries.append({"ref": d["ref"], "label": d.get("baseName") or d.get("baseEditorId"), "ignored": True, "note": reason})
     seen_cats = {}
     for e in entries:
         for c in e.get("categories", []):
             assert c not in seen_cats, f"{name}: category {c} bound twice ({seen_cats[c]} / {e['ref']})"
             seen_cats[c] = e["ref"]
+    master_name = (conts[mk].get("baseName") or "master container").lower()
     doc = {
         "$schema": "dovastash-layout-1",
         "name": name,
+        "note": f"Each container takes the item categories listed (see Categories/00_Default.json); ignored ones "
+                f"are never used. Anything without a container of its own goes to the master, the {master_name}.",
         "author": "Dova Stash",
         "version": "1.0.0",
         "priority": 0,
@@ -105,7 +109,7 @@ def build(name, file, cell, requires, master, bindings, extra_ignores=None, auto
     }
     path = OUT / file
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(jsonfmt.dumps(doc) + "\n", encoding="utf-8")
+    path.write_text(jsonfmt.dumps(doc, width=200, align=True) + "\n", encoding="utf-8")
     nb = sum(1 for e in entries if not e.get("ignored"))
     ni = sum(1 for e in entries if e.get("ignored"))
     print(f"{file}: {nb} bound, {ni} ignored, master {conts[mk]['ref']} ({conts[mk]['baseName']}), "
@@ -165,7 +169,7 @@ build("Vlindrel Hall", "Vanilla/VlindrelHall.json", S + "00016DFA", VAN_HF, S + 
     (S + "000DC678", "Guest room end table", ["misc.tools"]),
     (S + "000DC6B0", "Upper hall sack", ["misc.clutter"]),
 ], extra_ignores={
-    S + f"000C645{i}": "merchant spouse stock chest - respawns" for i in range(5)
+    S + f"000C645{i}": "Your spouse's shop stock: it respawns." for i in range(5)
 })
 
 # ------------------------------------------------------------------ Hjerim
@@ -184,7 +188,7 @@ build("Hjerim", "Vanilla/Hjerim.json", S + "00016778", VAN_HF, S + "000DF5AC", [
     (S + "000DF66C", "Kitchen large sack", ["alchemy.food"]),
     (S + "000DF670", "Kitchen small sack", ["keys"]),
 ], extra_ignores={
-    S + "000E0E51": "Blood on the Ice quest chest - do not use for storage",
+    S + "000E0E51": "Blood on the Ice quest chest.",
 })
 
 # ------------------------------------------------------------------ Proudspire Manor
@@ -369,7 +373,7 @@ build("Shadowfoot Sanctum", "CreationClub/ShadowfootSanctum.json", U + "00002F98
     (SF + "00000B07", "Bedroom wardrobe", ["armor.clothing"]),
     (SF + "00000E20", "Bedroom chest", ["keys"]),
     (SF + "00000A5A", "Bookcase (by the shrine)", ["books.skill", "books.notes", "books.other"]),
-], extra_ignores={SF + "000009C0": "developer test-items container - leave alone"})
+], extra_ignores={SF + "000009C0": "Developer test container."})
 
 HH = "ccEEJSSE004-Hall.esl|0x"
 build("Hendraheim", "CreationClub/Hendraheim.json", U + "00002FD9",
@@ -438,9 +442,9 @@ build("Goldenhills Plantation", "CreationClub/GoldenhillsPlantation.json", U + "
     (GH + "00000A05", "Wardrobe", ["armor.clothing"]),
     (GH + "00000A8F", "Loft strong box (upgrade)", ["misc.ores_ingots", "misc.hides_pelts"]),
 ], extra_ignores={
-    GH + "000009F4": "scripted farm pantry - managed by the farm",
-    GH + "00000DB9": "removed when the farmhouse is cleaned up - items left inside become unreachable",
-    GH + "00000AF8": "replaced by the kid's bedroom upgrade",
+    GH + "000009F4": "Farm pantry: the farm's own script fills and empties it.",
+    GH + "00000DB9": "Goes away when the farmhouse is cleaned up: anything inside would be lost.",
+    GH + "00000AF8": "Goes away with the children's bedroom upgrade.",
 })
 
 N = "ccAFDSSE001-DweSanctuary.esm|0x"

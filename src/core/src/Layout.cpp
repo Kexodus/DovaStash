@@ -163,6 +163,8 @@ namespace dova::core
 				}
 				if (key == "label" && value.is_string()) {
 					c.label = value.get<std::string>();
+				} else if (key == "note" && value.is_string()) {
+					c.note = value.get<std::string>();
 				} else if (key == "ignored" && value.is_boolean()) {
 					c.ignored = value.get<bool>();
 				} else if (key == "categories" && (value.is_array() || value.is_string())) {
@@ -186,7 +188,7 @@ namespace dova::core
 						}
 					}
 				} else {
-					if (key == "label" || key == "ignored" || key == "categories" || key == "forms") {
+					if (key == "label" || key == "note" || key == "ignored" || key == "categories" || key == "forms") {
 						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
 						a_diags.Warn(a_source, where + ": unknown field (preserved)");
@@ -220,7 +222,97 @@ namespace dova::core
 			if (a_c.ignored) {
 				out["ignored"] = true;
 			}
+			if (!a_c.note.empty()) {
+				out["note"] = a_c.note;
+			}
 			AppendExtra(out, a_c.extra);
+			return out;
+		}
+
+		std::optional<DisplayBinding> ParseDisplay(const json& a_value, const std::string& a_source, const std::string& a_where, Diagnostics& a_diags)
+		{
+			if (!a_value.is_object()) {
+				a_diags.Error(a_source, a_where + ": expected an object, got " + detail::TypeName(a_value) + " (kept verbatim)");
+				return std::nullopt;
+			}
+			const auto refIt = a_value.find("ref");
+			if (refIt == a_value.end() || !refIt->is_string()) {
+				a_diags.Error(a_source, a_where + ": missing \"ref\" (kept verbatim)");
+				return std::nullopt;
+			}
+			auto ref = FormRef::Parse(refIt->get<std::string>());
+			if (!ref) {
+				a_diags.Error(a_source, a_where + ".ref: invalid form reference \"" + refIt->get<std::string>() + "\" (kept verbatim)");
+				return std::nullopt;
+			}
+
+			DisplayBinding d;
+			d.ref = std::move(*ref);
+			for (const auto& [key, value] : a_value.items()) {
+				const auto where = a_where + "." + key;
+				if (key == "ref") {
+					continue;
+				}
+				if (key == "kind" && value.is_string() && ParseDisplayKind(value.get<std::string>())) {
+					d.kind = ParseDisplayKind(value.get<std::string>());
+				} else if (key == "label" && value.is_string()) {
+					d.label = value.get<std::string>();
+				} else if (key == "note" && value.is_string()) {
+					d.note = value.get<std::string>();
+				} else if (key == "ignored" && value.is_boolean()) {
+					d.ignored = value.get<bool>();
+				} else if (key == "items" && (value.is_array() || value.is_string())) {
+					if (auto list = detail::ReadStringList(value, a_source, where, a_diags)) {
+						for (const auto& s : *list) {
+							if (auto f = FormRef::Parse(s)) {
+								d.items.push_back(std::move(*f));
+							} else {
+								a_diags.Error(a_source, where + ": invalid form reference \"" + s + "\" (kept verbatim, ignored)");
+								d.unparsedItems.push_back(s);
+							}
+						}
+					}
+				} else {
+					if (key == "kind") {
+						a_diags.Error(a_source, where + ": expected \"rack\", \"mannequin\", \"item\" or \"case\" (kept verbatim, ignored)");
+					} else if (key == "label" || key == "note" || key == "ignored" || key == "items") {
+						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
+					} else {
+						a_diags.Warn(a_source, where + ": unknown field (preserved)");
+					}
+					d.extra[key] = value;
+				}
+			}
+			return d;
+		}
+
+		ojson DisplayToJson(const DisplayBinding& a_d)
+		{
+			ojson out = ojson::object();
+			out["ref"] = a_d.ref.ToString();
+			if (a_d.kind) {
+				out["kind"] = DisplayKindName(*a_d.kind);
+			}
+			if (!a_d.label.empty()) {
+				out["label"] = a_d.label;
+			}
+			if (!a_d.items.empty() || !a_d.unparsedItems.empty()) {
+				ojson items = ojson::array();
+				for (const auto& f : a_d.items) {
+					items.push_back(f.ToString());
+				}
+				for (const auto& s : a_d.unparsedItems) {
+					items.push_back(s);
+				}
+				out["items"] = std::move(items);
+			}
+			if (a_d.ignored) {
+				out["ignored"] = true;
+			}
+			if (!a_d.note.empty()) {
+				out["note"] = a_d.note;
+			}
+			AppendExtra(out, a_d.extra);
 			return out;
 		}
 
@@ -269,6 +361,12 @@ namespace dova::core
 	{
 		const auto it = std::ranges::find_if(containers, [&](const ContainerBinding& c) { return c.ref == a_ref; });
 		return it == containers.end() ? nullptr : &*it;
+	}
+
+	const DisplayBinding* Layout::FindDisplay(const FormRef& a_ref) const
+	{
+		const auto it = std::ranges::find_if(displays, [&](const DisplayBinding& d) { return d.ref == a_ref; });
+		return it == displays.end() ? nullptr : &*it;
 	}
 
 	// --- Keep config -------------------------------------------------------------------------------
@@ -373,7 +471,7 @@ namespace dova::core
 			if (key == "$schema") {
 				continue;
 			}
-			if (key == "name" || key == "author" || key == "version" || key == "basedOn") {
+			if (key == "name" || key == "note" || key == "author" || key == "version" || key == "basedOn") {
 				if (!value.is_string()) {
 					a_diags.Error(source, key + ": expected a string (kept verbatim)");
 					layout.extra[key] = value;
@@ -382,6 +480,8 @@ namespace dova::core
 				auto s = value.get<std::string>();
 				if (key == "name") {
 					layout.name = std::move(s);
+				} else if (key == "note") {
+					layout.note = std::move(s);
 				} else if (key == "author") {
 					layout.author = std::move(s);
 				} else if (key == "version") {
@@ -427,6 +527,22 @@ namespace dova::core
 						a_diags.Warn(source, "containers[" + std::to_string(i) + "]: duplicate ref " + c->ref.ToString() + "; the first entry is used");
 					}
 					layout.containers.push_back(std::move(*c));
+				}
+			} else if (key == "displays") {
+				if (!value.is_array()) {
+					a_diags.Error(source, "displays: expected an array, got " + detail::TypeName(value) + "; the file is left untouched");
+					return std::nullopt;
+				}
+				for (std::size_t i = 0; i < value.size(); ++i) {
+					auto d = ParseDisplay(value[i], source, "displays[" + std::to_string(i) + "]", a_diags);
+					if (!d) {
+						layout.unparsedDisplays.push_back(value[i]);
+						continue;
+					}
+					if (layout.FindDisplay(d->ref)) {
+						a_diags.Warn(source, "displays[" + std::to_string(i) + "]: duplicate ref " + d->ref.ToString() + "; the first entry is used");
+					}
+					layout.displays.push_back(std::move(*d));
 				}
 			} else if (key == "keep") {
 				if (auto keep = ParseKeepConfig(value, source, a_diags)) {
@@ -482,6 +598,9 @@ namespace dova::core
 		ojson out = ojson::object();
 		out["$schema"] = kLayoutSchema;
 		out["name"] = a_layout.name;
+		if (!a_layout.note.empty()) {
+			out["note"] = a_layout.note;
+		}
 		out["author"] = a_layout.author;
 		out["version"] = a_layout.version;
 		out["priority"] = a_layout.priority;
@@ -502,6 +621,16 @@ namespace dova::core
 			containers.push_back(ToOrdered(c));
 		}
 		out["containers"] = std::move(containers);
+		if (!a_layout.displays.empty() || !a_layout.unparsedDisplays.empty()) {
+			ojson displays = ojson::array();
+			for (const auto& d : a_layout.displays) {
+				displays.push_back(DisplayToJson(d));
+			}
+			for (const auto& d : a_layout.unparsedDisplays) {
+				displays.push_back(ToOrdered(d));
+			}
+			out["displays"] = std::move(displays);
+		}
 		if (a_layout.keep) {
 			out["keep"] = KeepConfigToJson(*a_layout.keep);
 		}

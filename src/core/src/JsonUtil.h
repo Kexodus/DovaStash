@@ -31,6 +31,7 @@ namespace dova::core::detail
 
 	std::string TypeName(const json& a_value);
 
-	// Serializes with tab indentation and a trailing newline.
+	// Serializes for people to read: tab indentation, short lists and entries without nested objects on one
+	// line (up to 200 columns), lists of such entries one per line with their fields lined up, trailing newline.
 	std::string Dump(const nlohmann::ordered_json& a_value);
 }

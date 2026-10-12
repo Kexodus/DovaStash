@@ -114,9 +114,9 @@ Write down the inventory list, including names, *(Fine)* suffixes, enchantments 
 **Expected outcome:**
 
 - These stay in the inventory: gold, lockpicks, torches, the **equipped** sword, the equipped arrows,
-  the **favorited** potion, and the **quest item**. The **spare plain Iron Swords stay too**, because
-  one Iron Sword is equipped (known conservative behaviour, see 2.6). The log shows
-  `Move skipped: Iron Sword ... left in the player inventory because another copy is worn, favorited or a quest item`.
+  the **favorited** potion, and the **quest item**. The spare plain Iron Swords go to the master while
+  the equipped one stays equipped (see 2.6). The log shows
+  `Moved Iron Sword x2 (plain, beside a special copy) <player> -> ...`.
 - These are now in the master: the daggers, the other potions, the enchanted sword, the *(Fine)*
   sword, the renamed player-enchanted item, the soul gems and the stolen item.
 - **Fail if** any of these happen:
@@ -142,23 +142,31 @@ Write down the inventory list, including names, *(Fine)* suffixes, enchantments 
    real ContainerMenu is open. If one is open, the log shows
    `Operation dropped: a ContainerMenu stayed open` after about 5 s.
 
-### 2.6 Known conservative behaviour: plain copies stay next to a special copy
+### 2.6 Plain copies next to a special copy
 
-Moving the plain (no extra data) remainder of an item uses `RemoveItem` with no extra list, which
-lets the engine choose which copies leave. Since 0.2.2, Dova Stash does **not** move plain copies out
-of any source (inventory or container) while a copy with extra data stays there: worn, favorited,
-quest, tempered, enchanted, renamed or stolen. Special copies move first, so this only affects plain
-copies whose special sibling is staying.
+Moving the plain (no extra data) remainder of an item uses `RemoveItem` with no extra list. When a copy
+with extra data stays in the source (worn, favorited, quest, tempered, enchanted, renamed or stolen), the
+engine takes plain copies first, as the container menu does. Dova Stash checks every such move: if a
+special copy left anyway, it is moved back, the log has an `[error]` line
+`Move of plain ... took a tempered, enchanted, renamed or worn copy; put N back`, and from then on plain
+copies next to a special copy stay where they are (`Move skipped: ... left in ...`) until the game restarts.
 
 1. `player.additem 0001397E 3` (Iron Dagger x3) and equip one dagger.
 2. Deposit.
-3. **Expected:** all 3 daggers stay in the inventory, the equipped one still equipped. The log has an
-   info line `Move skipped: Iron Dagger x2 left in <player> because a tempered, enchanted, renamed or worn copy of it stays there`.
-4. Unequip the dagger and Deposit again: all 3 go to their destination.
-5. Temper one of two Iron Swords at a grindstone, put a keep quota of 1 on swords, Deposit. **Expected:**
-   the tempered sword stays with you (quota), the plain one stays too (skipped, logged), nothing is lost.
-   Remove the quota and Deposit: both go to their destination, the tempered one keeps its tempering.
-6. Put a tempered and a plain Iron Sword into the master: both are sorted (the tempered one moves first).
+3. **Expected:** 2 daggers go to their destination, the equipped one stays equipped. The log has
+   `Moved Iron Dagger x2 (plain, beside a special copy) <player> -> ...` and no `[error]` line.
+4. Temper one of two Iron Swords at a grindstone, put a keep quota of 1 on swords, Deposit. **Expected:**
+   the tempered sword stays with you (quota) and keeps its tempering; the plain one goes to its destination.
+5. Put a tempered and a plain Iron Sword into the master: both are sorted (the tempered one moves first).
+6. **Fail if** the `Move of plain ...` error appears: send the log (the engine chose a special copy).
+
+### 2.7 Items that come back when stored
+
+1. Get an item whose script hands it back when stored (for example the Curators Storage Token from
+   Legacy of the Dragonborn) and Deposit.
+2. **Expected:** its prompt shows once. The log has
+   `... came back from <container> right after it was stored (a script returns it); it stays where it is from now on`.
+3. Deposit again: the item stays on you (`stays: comes back when stored`), and no prompt appears.
 
 ## 3. M2: categories, binding, Distribute, Learn, Retrieve
 
@@ -225,6 +233,41 @@ copies whose special sibling is staying.
    explicit forms and containers you added yourself (now without categories) are kept.
 4. Set `bAutoEnableTemplates = true`, start a new session and enter Honeyside (`coc RiftenHoneyside`).
    HUD: *Honeyside layout enabled (by ...)*.
+
+### 3.7 Displays (DESIGN §8.4)
+
+Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (Breezehome has 9 racks).
+`iLogLevel = 0`. Load-order prefixes below assume Dawnguard is `02`; check with `help "Elder Scroll" 4`.
+
+1. Enter the home. Give yourself display gear:
+   `player.additem 000139B9 1` (Daedric Sword), `player.additem 000139A6 1` (Glass Dagger),
+   `player.additem 000139AC 1` (Ebony Battleaxe), `player.additem 0001399D 1` (Elven Bow),
+   `player.additem 0001396E 1` (Daedric Shield), `player.additem 0001396B 1`, `0001396D`, `0001396C`,
+   `0001396A` (Daedric armor set), `player.additem 00013952 1` and `00013954` (Steel armor and helmet),
+   `player.additem 00061CD6 1` (Konahrik), `player.additem 020118F9 1` (Elder Scroll (Blood)).
+   Equip one more sword and keep it equipped.
+2. Deposit. **Expected:**
+   - the log has `Displays in <home>: N rack (N empty), ...; M items to put up`, then `Display plan:` lines;
+   - the daedric sword, battleaxe and bow appear on racks, the glass dagger on a dagger display, the
+     shield on the middle of a coat-of-arms rack (where the home has one), each sitting on the rack like
+     a hand-placed weapon (not lying on the floor, not floating);
+   - one mannequin wears the daedric set, another the steel armor and helmet;
+   - in Whitepeak, Konahrik and the Elder Scroll appear on their plaques;
+   - the equipped sword stays equipped; nothing goes up twice;
+   - HUD: *deposited ...*, then *put N items on display*. The log ends with
+     `Displays: put N items on display (0 skipped, 0 errors)`.
+3. Take a weapon off a rack by activating it, a piece from a mannequin, the mask from its plaque
+   (activate it): each comes back as you would expect from the home, with its enchantment and tempering.
+4. Deposit again. The weapon you took goes back up (the rack is empty again); items still on display are
+   not put up a second time.
+5. Temper a second Konahrik copy (`player.additem 00061CD6 1`, grindstone) and empty its plaque: Deposit puts
+   only plain copies on item plaques (the tempered one goes to storage).
+6. Settings → turn off *Put gear on the home's displays*, Deposit: no `Displays in` line, everything is stored.
+7. Template override: in the layout file add
+   `"displays": [ { "ref": "<a rack activator ref from esm_dump.py cell>", "ignored": true } ]`,
+   reload the save, Deposit: that rack stays empty.
+8. **Fail if** an item ends up on the floor, disappears (check `Inventory:` journal lines), a rack shows two
+   weapons, or a mannequin loses armor it was already wearing. Send the log.
 
 ## 4. Robustness
 

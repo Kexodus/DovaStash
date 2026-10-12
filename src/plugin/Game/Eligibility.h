@@ -42,6 +42,13 @@ namespace dova::game
 	[[nodiscard]] std::vector<std::string> AttachedScripts(RE::TESObjectREFR* a_ref);
 
 	[[nodiscard]] bool IsContainerRef(RE::TESObjectREFR* a_ref);
+
+	// The container `a_ref` stands for: a container is itself; an activator whose linked ref (no keyword)
+	// is a container in the same cell stands for that container. Home mods use such "fronts" for shelves,
+	// racks and cupboards that open a hidden chest (ActivateLinkedChestDummyScript). Else nullptr.
+	[[nodiscard]] RE::TESObjectREFR* ContainerBehind(RE::TESObjectREFR* a_ref);
+	// Every front in `a_cell`: activator -> the container it opens. Main thread.
+	[[nodiscard]] std::unordered_map<RE::FormID, RE::FormID> FindFronts(RE::TESObjectCELL* a_cell);
 	[[nodiscard]] bool IsEffectivelyDisabled(RE::TESObjectREFR* a_ref);
 	[[nodiscard]] bool IsPlayerHouse(RE::TESObjectCELL* a_cell);
 	[[nodiscard]] bool CellNeverResets(RE::TESObjectCELL* a_cell);

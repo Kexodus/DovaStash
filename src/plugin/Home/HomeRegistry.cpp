@@ -46,6 +46,18 @@ namespace dova::home
 			Load(cell, std::move(*cellRef));
 		}
 
+		if (!_home->frontsScanned && cell->IsAttached()) {
+			_home->fronts = game::FindFronts(cell);
+			_home->frontsScanned = true;
+			if (!_home->fronts.empty()) {
+				logger::debug("Cell {}: {} activator(s) open a hidden container", _home->name, _home->fronts.size());
+				for (const auto& [front, container] : _home->fronts) {
+					logger::trace("  {} -> {}", game::Describe(RE::TESForm::LookupByID(front)), game::Describe(RE::TESForm::LookupByID(container)));
+				}
+			}
+			Publish();
+		}
+
 		// Eligibility can change while we stand here (house purchased, faction joined), so check every time.
 		const auto verdict = game::CheckCell(cell);
 		if (!verdict.ok) {
@@ -84,6 +96,13 @@ namespace dova::home
 		display->cellId = _home->cellId;
 		display->name = _home->name;
 		display->layout = _home->layout;
+		display->fronts = _home->fronts;
+		for (const auto& [front, container] : _home->fronts) {
+			auto& anchor = display->frontOf[container];
+			if (!anchor || front < anchor) {
+				anchor = front;  // several fronts for one container: any stable one
+			}
+		}
 		_display.store(std::move(display));
 	}
 

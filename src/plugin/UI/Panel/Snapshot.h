@@ -40,6 +40,7 @@ namespace dova::ui::panel
 		std::string              refText;   // "Skyrim.esm|0x000AAAAA"
 		std::string              label;     // binding label, else the game name
 		std::string              gameName;  // reference display name ("" if not loaded)
+		std::string              note;      // the binding's note (why a template ignores it...)
 		std::vector<std::string> patterns;  // bound category patterns
 		std::string              patternsText;  // display names, comma separated
 		std::size_t              explicitForms{ 0 };

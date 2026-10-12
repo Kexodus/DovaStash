@@ -102,6 +102,8 @@ namespace dova::core
 		bool equipped{ false };
 		bool favorited{ false };
 		bool playable{ true };
+		bool returns{ false };  // a script sent it back the last time it was stored: never moved
+		bool customized{ false };  // this copy differs from its base form: tempered, renamed, enchanted by the player, poisoned
 
 		// --- UI detail (icon resolution, Icons.h) ------------------------------------------------
 		// What SKSE's scaleform extension puts on a SkyUI inventory entry, so SkyUI's default icon

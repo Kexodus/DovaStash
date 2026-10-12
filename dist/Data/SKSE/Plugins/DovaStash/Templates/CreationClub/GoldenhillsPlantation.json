@@ -1,6 +1,7 @@
 {
   "$schema": "dovastash-layout-1",
   "name": "Goldenhills Plantation",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
   "author": "Dova Stash",
   "version": "1.0.0",
   "priority": 0,
@@ -8,37 +9,25 @@
   "cell": "Update.esm|0x000030EC",
   "master": "ccVSVSSE004-BeAFarmer.esl|0x000009F8",
   "containers": [
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000955", "label": "Laboratory chest (upgrade)", "categories": ["soulgems.*", "scrolls", "books.spelltomes"]},
-    {
-      "ref": "ccVSVSSE004-BeAFarmer.esl|0x0000096A",
-      "label": "Laboratory satchel (upgrade)",
-      "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]
-    },
-    {
-      "ref": "ccVSVSSE004-BeAFarmer.esl|0x00000A90",
-      "label": "Bedroom chest (upgrade)",
-      "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields"]
-    },
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000DA9", "label": "Bedroom end table (upgrade)", "categories": ["armor.jewelry", "misc.gems"]},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000A05", "label": "Wardrobe", "categories": ["armor.clothing"]},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000A8F", "label": "Loft strong box (upgrade)", "categories": ["misc.ores_ingots", "misc.hides_pelts"]},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000914", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x000009C0", "label": "Barrel (respawns - contents can reset, never store items here)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x000009C2", "label": "Barrel (respawns - contents can reset, never store items here)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x000009F4", "label": "Pantry Cupboard (scripted farm pantry - managed by the farm)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000AF8", "label": "End Table (replaced by the kid's bedroom upgrade)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000CF8", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000D87", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {
-      "ref": "ccVSVSSE004-BeAFarmer.esl|0x00000DB9",
-      "label": "Cupboard (removed when the farmhouse is cleaned up - items left inside become unreachable)",
-      "ignored": true
-    },
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000DE9", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000ED6", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000EE9", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000EFC", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000F0F", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000F22", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true}
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000955", "label": "Laboratory chest (upgrade)",   "categories": ["soulgems.*", "scrolls", "books.spelltomes"]},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x0000096A", "label": "Laboratory satchel (upgrade)", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000A90", "label": "Bedroom chest (upgrade)",      "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000DA9", "label": "Bedroom end table (upgrade)",  "categories": ["armor.jewelry", "misc.gems"]},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000A05", "label": "Wardrobe",                     "categories": ["armor.clothing"]},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000A8F", "label": "Loft strong box (upgrade)",    "categories": ["misc.ores_ingots", "misc.hides_pelts"]},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000914", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x000009C0", "label": "Barrel",                       "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x000009C2", "label": "Barrel",                       "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x000009F4", "label": "Pantry Cupboard",              "ignored": true, "note": "Farm pantry: the farm's own script fills and empties it."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000AF8", "label": "End Table",                    "ignored": true, "note": "Goes away with the children's bedroom upgrade."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000CF8", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000D87", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000DB9", "label": "Cupboard",                     "ignored": true, "note": "Goes away when the farmhouse is cleaned up: anything inside would be lost."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000DE9", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000ED6", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000EE9", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000EFC", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000F0F", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccVSVSSE004-BeAFarmer.esl|0x00000F22", "label": "Book Shelf",                   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."}
   ]
 }

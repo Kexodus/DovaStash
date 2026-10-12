@@ -48,8 +48,11 @@ namespace dova::core
 		// `a_layoutKeep` may be null (layout without a keep block).
 		[[nodiscard]] static KeepRules Compile(const KeepConfig& a_global, const KeepConfig* a_layoutKeep, Diagnostics& a_diags);
 
-		// Number of items to keep for each stack, parallel to `a_inventory` (0 .. count).
-		[[nodiscard]] std::vector<std::int32_t> ComputeKeepCounts(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories) const;
+		// Number of items to keep for each stack, parallel to `a_inventory` (0 .. count). When `a_why` is
+		// given it receives, parallel too, the rule that kept items of each stack ("always equipped
+		// (global)", "quota alchemy.potions 5 (layout)", "quest item"...), empty where nothing is kept.
+		[[nodiscard]] std::vector<std::int32_t> ComputeKeepCounts(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories,
+			std::vector<std::string>* a_why = nullptr) const;
 
 		struct Quota
 		{
@@ -64,6 +67,7 @@ namespace dova::core
 			std::vector<KeepSelector> always;
 			std::vector<KeepSelector> never;
 			std::vector<Quota>        quotas;
+			std::string               name;  // "layout" or "global", for explanations
 		};
 
 		[[nodiscard]] std::span<const Layer> Layers() const noexcept { return _layers; }

@@ -1,6 +1,7 @@
 #include "Game/ItemAdapter.h"
 
 #include "Game/FormUtil.h"
+#include "Game/ItemMover.h"
 
 namespace dova::game
 {
@@ -315,6 +316,7 @@ namespace dova::game
 			if (!FillBaseInfo(base, object)) {
 				continue;
 			}
+			base.returns = ItemMover::Returns(object->GetFormID());
 
 			const bool entryQuest = entry && entry->IsQuestObject();
 
@@ -356,6 +358,8 @@ namespace dova::game
 					if (const auto* xText = xList->GetByType<RE::ExtraTextDisplayData>(); xText && !xText->displayName.empty()) {
 						info.name = xText->displayName.c_str();
 					}
+					info.customized = xList->HasType<RE::ExtraHealth>() || xList->HasType<RE::ExtraTextDisplayData>() ||
+					                  HasExtraEnchantment(xList) || xList->HasType<RE::ExtraPoison>();
 					info.stackId = a_table.Add(StackRef{ owner, object, xList, count });
 					items.push_back(std::move(info));
 				}

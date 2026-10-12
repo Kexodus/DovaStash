@@ -32,6 +32,8 @@ namespace dova
 		void OnContainerMenuClosed();
 		// Player -> container transfer (TESContainerChangedEvent) — candidate for learning.
 		void OnItemStored(RE::FormID a_container, RE::FormID a_baseObject);
+		// Container -> player transfer: an item a script hands back right after Dova Stash stored it.
+		void OnItemReturned(RE::FormID a_container, RE::FormID a_baseObject);
 		void OnSaveGame();
 
 		// --- actions (main thread; all validate a_cellId against the current cell) --------------------
@@ -85,6 +87,9 @@ namespace dova
 
 		[[nodiscard]] static std::string HotkeyName();
 
+		// Status line for the player: the editor while it is open, else the world UI. Main thread.
+		void Notify(std::string_view a_message);
+
 		// Settings page (main thread): validates, applies and saves to the INI. Everything takes effect
 		// immediately; a UI mode change rebuilds the UIs. No restart needed.
 		void ApplySettings(Settings::Values a_values);
@@ -111,8 +116,6 @@ namespace dova
 		// Saves the layout and lets UI surfaces that show it (QuickLoot info bar) refresh.
 		bool SaveLayout(home::Home& a_home);
 		void EnsureUI();
-		// Status line for the player: the editor while it is open, else the world UI.
-		void Notify(std::string_view a_message);
 
 		ui::StashUIs _ui;
 		std::uint64_t _arrivalSerial{ 0 };

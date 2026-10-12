@@ -20,6 +20,10 @@ namespace dova::home
 		core::LayoutResolution      resolution;
 		bool                        layoutBroken{ false };  // a layout file exists but does not parse: never overwrite
 		bool                        dirty{ false };
+		// Activators that open a hidden container (game::FindFronts): activator -> container. Scanned once
+		// the cell is attached.
+		std::unordered_map<RE::FormID, RE::FormID> fronts;
+		bool                                       frontsScanned{ false };
 
 		[[nodiscard]] bool                           Enabled() const noexcept { return layout.has_value(); }
 		[[nodiscard]] const core::TemplateCandidate* BestTemplate() const;
@@ -34,6 +38,15 @@ namespace dova::home
 		RE::FormID                  cellId{ 0 };
 		std::string                 name;
 		std::optional<core::Layout> layout;
+		std::unordered_map<RE::FormID, RE::FormID> fronts;    // activator -> container it opens
+		std::unordered_map<RE::FormID, RE::FormID> frontOf;   // container -> one activator that opens it
+
+		// The activator that stands for `a_container` on screen, or `a_container` itself.
+		[[nodiscard]] RE::FormID Anchor(RE::FormID a_container) const
+		{
+			const auto it = frontOf.find(a_container);
+			return it != frontOf.end() ? it->second : a_container;
+		}
 	};
 
 	// Concurrency: the live Home/Layout below is read and written only from SKSE tasks (Controller,

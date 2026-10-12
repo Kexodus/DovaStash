@@ -1,6 +1,7 @@
 {
   "$schema": "dovastash-layout-1",
   "name": "Breezehome",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
   "author": "Dova Stash",
   "version": "1.0.0",
   "priority": 0,
@@ -8,33 +9,25 @@
   "cell": "Skyrim.esm|0x000165A8",
   "master": "Skyrim.esm|0x000F3922",
   "containers": [
-    {
-      "ref": "Skyrim.esm|0x0010EB84",
-      "label": "Alchemy corner chest (next to the alchemy lab)",
-      "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]
-    },
-    {"ref": "Skyrim.esm|0x0003EE69", "label": "Dining room cupboard", "categories": ["alchemy.food"]},
-    {"ref": "Skyrim.esm|0x000CB437", "label": "Loft cupboard (by the weapon plaque)", "categories": ["weapons.*"]},
-    {"ref": "Skyrim.esm|0x000CB433", "label": "Housecarl's room dresser", "categories": ["armor.heavy", "armor.light", "armor.shields"]},
-    {"ref": "Skyrim.esm|0x000CB435", "label": "Housecarl's room end table", "categories": ["ammo.*"]},
-    {"ref": "Skyrim.esm|0x000CB432", "label": "Bedroom dresser", "categories": ["armor.clothing"]},
-    {"ref": "Skyrim.esm|0x000CB43A", "label": "Bedroom night table", "categories": ["armor.jewelry", "misc.gems"]},
-    {"ref": "Skyrim.esm|0x000CB42D", "label": "Bedroom end table (left)", "categories": ["soulgems.*", "scrolls"]},
-    {"ref": "Skyrim.esm|0x000CB42E", "label": "Bedroom end table (right)", "categories": ["books.*"]},
-    {
-      "ref": "Skyrim.esm|0x000CB442",
-      "label": "Living room cupboard",
-      "categories": ["misc.ores_ingots", "misc.hides_pelts", "misc.animal_parts", "misc.dwemer"]
-    },
-    {"ref": "Skyrim.esm|0x000CB45D", "label": "Kitchen sack (large)", "categories": ["misc.building_materials", "misc.tools"]},
-    {"ref": "Skyrim.esm|0x000CB45E", "label": "Kitchen sack (large, second)", "categories": ["misc.clutter"]},
-    {"ref": "Skyrim.esm|0x000CB46C", "label": "Living room sack (small)", "categories": ["keys"]},
-    {"ref": "HearthFires.esm|0x00004271", "label": "Chest (respawns - contents can reset, never store items here)", "ignored": true},
-    {"ref": "Skyrim.esm|0x0003EE76", "label": "Barrel (respawns - contents can reset, never store items here)", "ignored": true},
-    {"ref": "Skyrim.esm|0x00102A59", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "Skyrim.esm|0x00102A6C", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "Skyrim.esm|0x00102A81", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "Skyrim.esm|0x00102A8F", "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)", "ignored": true},
-    {"ref": "Skyrim.esm|0x00109E0D", "label": "Apothecary's Satchel (respawns - contents can reset, never store items here)", "ignored": true}
+    {"ref": "Skyrim.esm|0x0010EB84",      "label": "Alchemy corner chest (next to the alchemy lab)", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
+    {"ref": "Skyrim.esm|0x0003EE69",      "label": "Dining room cupboard",                           "categories": ["alchemy.food"]},
+    {"ref": "Skyrim.esm|0x000CB437",      "label": "Loft cupboard (by the weapon plaque)",           "categories": ["weapons.*"]},
+    {"ref": "Skyrim.esm|0x000CB433",      "label": "Housecarl's room dresser",                       "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "Skyrim.esm|0x000CB435",      "label": "Housecarl's room end table",                     "categories": ["ammo.*"]},
+    {"ref": "Skyrim.esm|0x000CB432",      "label": "Bedroom dresser",                                "categories": ["armor.clothing"]},
+    {"ref": "Skyrim.esm|0x000CB43A",      "label": "Bedroom night table",                            "categories": ["armor.jewelry", "misc.gems"]},
+    {"ref": "Skyrim.esm|0x000CB42D",      "label": "Bedroom end table (left)",                       "categories": ["soulgems.*", "scrolls"]},
+    {"ref": "Skyrim.esm|0x000CB42E",      "label": "Bedroom end table (right)",                      "categories": ["books.*"]},
+    {"ref": "Skyrim.esm|0x000CB442",      "label": "Living room cupboard",                           "categories": ["misc.ores_ingots", "misc.hides_pelts", "misc.animal_parts", "misc.dwemer"]},
+    {"ref": "Skyrim.esm|0x000CB45D",      "label": "Kitchen sack (large)",                           "categories": ["misc.building_materials", "misc.tools"]},
+    {"ref": "Skyrim.esm|0x000CB45E",      "label": "Kitchen sack (large, second)",                   "categories": ["misc.clutter"]},
+    {"ref": "Skyrim.esm|0x000CB46C",      "label": "Living room sack (small)",                       "categories": ["keys"]},
+    {"ref": "HearthFires.esm|0x00004271", "label": "Chest",                                          "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "Skyrim.esm|0x0003EE76",      "label": "Barrel",                                         "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "Skyrim.esm|0x00102A59",      "label": "Book Shelf",                                     "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Skyrim.esm|0x00102A6C",      "label": "Book Shelf",                                     "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Skyrim.esm|0x00102A81",      "label": "Book Shelf",                                     "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Skyrim.esm|0x00102A8F",      "label": "Book Shelf",                                     "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Skyrim.esm|0x00109E0D",      "label": "Apothecary's Satchel",                           "ignored": true, "note": "Respawns: what you store here can disappear."}
   ]
 }

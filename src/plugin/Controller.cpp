@@ -3,6 +3,7 @@
 #include "Game/Eligibility.h"
 #include "Game/FormUtil.h"
 #include "Game/ItemAdapter.h"
+#include "Game/ItemMover.h"
 #include "Home/Store.h"
 #include "Input/InputHandler.h"
 #include "Integrations/QuickLoot.h"
@@ -286,6 +287,13 @@ namespace dova
 
 		auto  targetHold = game::RefFromHandle(a_crosshairTarget);  // keeps the ref alive for this call
 		auto* target = targetHold.get();
+		if (target && target->GetParentCell() == cell) {
+			// A shelf or rack that opens a hidden chest stands for that chest.
+			if (auto* behind = game::ContainerBehind(target); behind && behind != target) {
+				logger::debug("Hotkey: {} opens {}", game::Describe(target), game::Describe(behind));
+				target = behind;
+			}
+		}
 		if (target && (!game::IsContainerRef(target) || target->GetParentCell() != cell)) {
 			target = nullptr;  // NPCs, doors, items...: behave as if nothing was targeted
 		}
@@ -483,6 +491,17 @@ namespace dova
 			}
 			_learnBatch.clear();
 		});
+	}
+
+	void Controller::OnItemReturned(RE::FormID a_container, RE::FormID a_baseObject)
+	{
+		if (_openContainer == a_container) {
+			return;  // the player took it out by hand
+		}
+		if (game::ItemMover::NoteReturned(a_baseObject, a_container)) {
+			logger::info("{} came back from {} right after it was stored (a script returns it); it stays where it is from now on",
+				game::Describe(RE::TESForm::LookupByID(a_baseObject)), game::Describe(RE::TESForm::LookupByID(a_container)));
+		}
 	}
 
 	void Controller::OnItemStored(RE::FormID a_container, RE::FormID a_baseObject)

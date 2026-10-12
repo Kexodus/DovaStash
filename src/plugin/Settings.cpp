@@ -61,6 +61,7 @@ namespace dova
 				DOVA_BOOL("Sorting", "bDistributeOnMasterClose", sorting.distributeOnMasterClose),
 				DOVA_BOOL("Sorting", "bSortOnArrival", sorting.sortOnArrival),
 				DOVA_BOOL("Sorting", "bLearn", sorting.learn),
+				DOVA_BOOL("Sorting", "bFillDisplays", sorting.fillDisplays),
 				DOVA_INT("UI", "iMode", ui.mode),
 				DOVA_BOOL("UI", "bCenterMenus", ui.centerMenus),
 				DOVA_BOOL("Integrations", "bQuickLoot", integrations.quickLoot),

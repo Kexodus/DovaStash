@@ -51,6 +51,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Game/ItemMover.cpp
 	Game/Eligibility.h
 	Game/Eligibility.cpp
+	Game/Displays.h
+	Game/Displays.cpp
 	Home/Store.h
 	Home/Store.cpp
 	Home/HomeRegistry.h
@@ -59,6 +61,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Icons/IconService.cpp
 	Sort/SortEngine.h
 	Sort/SortEngine.cpp
+	Sort/DisplayFiller.h
+	Sort/DisplayFiller.cpp
 	Events/EventSinks.h
 	Events/EventSinks.cpp
 	Input/InputHandler.h

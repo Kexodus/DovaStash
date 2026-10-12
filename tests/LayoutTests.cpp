@@ -108,6 +108,61 @@ TEST_CASE("Layout round-trip is stable and ordered", "[layout]")
 	CHECK(first.back() == '\n');
 }
 
+TEST_CASE("Layouts are written compactly, one container per line", "[layout]")
+{
+	const auto text = SerializeLayout(ParseOk(R"({
+		"$schema": "dovastash-layout-1", "name": "Home", "note": "Read me", "cell": "Skyrim.esm|0x1",
+		"containers": [
+			{ "ref": "Skyrim.esm|0x2", "label": "Chest", "categories": ["weapons.*", "ammo.*"] },
+			{ "ref": "Skyrim.esm|0x3", "label": "Big wardrobe", "categories": ["armor.clothing"] },
+			{ "ref": "Skyrim.esm|0x4", "label": "Barrel", "ignored": true, "note": "respawns" }
+		],
+		"displays": [ { "ref": "Skyrim.esm|0x5", "note": "Leave the mask wall to me", "ignored": true } ],
+		"keep": { "rules": [ { "category": "ammo.arrows", "quota": 50 } ] }
+	})"));
+	CHECK(text == "{\n"
+	              "\t\"$schema\": \"dovastash-layout-1\",\n"
+	              "\t\"name\": \"Home\",\n"
+	              "\t\"note\": \"Read me\",\n"
+	              "\t\"author\": \"\",\n"
+	              "\t\"version\": \"\",\n"
+	              "\t\"priority\": 0,\n"
+	              "\t\"cell\": \"Skyrim.esm|0x00000001\",\n"
+	              "\t\"containers\": [\n"
+	              "\t\t{\"ref\": \"Skyrim.esm|0x00000002\", \"label\": \"Chest\",        \"categories\": [\"weapons.*\", \"ammo.*\"]},\n"
+	              "\t\t{\"ref\": \"Skyrim.esm|0x00000003\", \"label\": \"Big wardrobe\", \"categories\": [\"armor.clothing\"]},\n"
+	              "\t\t{\"ref\": \"Skyrim.esm|0x00000004\", \"label\": \"Barrel\",       \"ignored\": true, \"note\": \"respawns\"}\n"
+	              "\t],\n"
+	              "\t\"displays\": [\n"
+	              "\t\t{\"ref\": \"Skyrim.esm|0x00000005\", \"ignored\": true, \"note\": \"Leave the mask wall to me\"}\n"
+	              "\t],\n"
+	              "\t\"keep\": {\n"
+	              "\t\t\"rules\": [\n"
+	              "\t\t\t{\"category\": \"ammo.arrows\", \"quota\": 50}\n"
+	              "\t\t]\n"
+	              "\t}\n"
+	              "}\n");
+
+	const auto layout = ParseOk(text);
+	CHECK(layout.note == "Read me");
+	CHECK(layout.containers[2].note == "respawns");
+	CHECK(layout.displays[0].note == "Leave the mask wall to me");
+	CHECK(SerializeLayout(layout) == text);
+}
+
+TEST_CASE("Entries too long for one line are spread out", "[layout]")
+{
+	std::string categories;
+	for (int i = 0; i < 12; ++i) {
+		categories += (i ? ", " : "") + std::string("\"misc.category_number_") + std::to_string(i) + "\"";
+	}
+	const auto text = SerializeLayout(ParseOk(R"({ "$schema": "dovastash-layout-1", "cell": "Skyrim.esm|0x1",
+		"containers": [ { "ref": "Skyrim.esm|0x2", "label": "Everything", "categories": [)" + categories + R"(] } ] })"));
+	CHECK(text.find("\t\t{\n\t\t\t\"ref\": \"Skyrim.esm|0x00000002\",\n\t\t\t\"label\": \"Everything\",\n\t\t\t\"categories\": [\n"
+	                "\t\t\t\t\"misc.category_number_0\",\n") != std::string::npos);
+	CHECK(SerializeLayout(ParseOk(text)) == text);
+}
+
 TEST_CASE("Layout serialization canonicalizes form refs and sorts learned", "[layout]")
 {
 	const auto a = ParseOk(R"({ "$schema": "dovastash-layout-1", "cell": "skyrim.esm|165a7",

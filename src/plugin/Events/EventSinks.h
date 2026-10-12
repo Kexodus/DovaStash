@@ -3,7 +3,10 @@
 // Game event sinks (DESIGN §5). Every sink only captures plain values (form ids, handles) and enqueues
 // work for the main thread; none of them touches inventories or layouts directly.
 //
-//   TESContainerChangedEvent  player -> container transfers -> Controller::OnItemStored (learning)
+//   TESContainerChangedEvent  player -> container transfers -> Controller::OnItemStored (learning);
+//                             container -> player transfers -> Controller::OnItemReturned (items a
+//                             script hands back after a store);
+//                             any player inventory change -> inventory journal (debug log)
 //   MenuOpenCloseEvent        ContainerMenu open/close -> target tracking, Distribute on master close
 //   BGSActorCellEvent         player entered a cell -> template notification (registered once the
 //   TESCellFullyLoadedEvent   player exists); the cell-loaded event is a fallback for the same purpose

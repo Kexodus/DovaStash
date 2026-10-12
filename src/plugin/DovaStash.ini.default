@@ -35,6 +35,12 @@ bSortOnArrival = true
 ; container as the item's destination ("learned destinations").
 bLearn = true
 
+; true = Deposit and Sort all put your gear on the home's empty displays, as if you had placed it by hand:
+; weapon racks, shield plaques and dagger displays get your best weapons and shields (one of each),
+; mannequins a matching armor set, and plaques made for one item (dragon priest masks, claws, Elder
+; Scrolls...) that item. Nothing is ever taken off a display; take things down by hand as usual.
+bFillDisplays = true
+
 [UI]
 ; What the hotkey opens in the world. Dova Stash draws no menus of its own art: every option below
 ; uses a menu you already have, so whatever UI skin you use applies (any UIExtensions skin, or none).

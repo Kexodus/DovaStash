@@ -19,11 +19,54 @@ namespace dova::events
 			}
 		}
 
+		// "Chest (ref) [Plugin|0x...]", or what a 0 end means: the item came from / went to no container.
+		std::string JournalEnd(RE::FormID a_container, RE::RefHandle a_worldRef, bool a_incoming)
+		{
+			if (a_container != 0) {
+				return game::Describe(RE::TESForm::LookupByID(a_container));
+			}
+			if (a_worldRef != 0) {
+				return std::format("the world ({})", game::Describe(game::RefFromHandle(a_worldRef).get()));
+			}
+			return a_incoming ? "nowhere (created: script or console)" : "nowhere (removed: script, consumed or deleted)";
+		}
+
+		// Inventory journal (debug): every change to the player's inventory that Dova Stash did not make
+		// itself (those are logged as "Moved ..."). Shows items that scripts add, swap or remove, and items
+		// that come back after a Deposit.
+		void Journal(const RE::TESContainerChangedEvent& a_event)
+		{
+			const bool incoming = a_event.newContainer == game::kPlayerRefID;
+			if ((!incoming && a_event.oldContainer != game::kPlayerRefID) || a_event.oldContainer == a_event.newContainer ||
+				!spdlog::should_log(spdlog::level::debug) || game::ItemMover::IsSuppressing()) {
+				return;
+			}
+			const auto other = incoming ? a_event.oldContainer : a_event.newContainer;
+			const auto base = a_event.baseObj;
+			const auto count = a_event.itemCount;
+			const auto worldRef = a_event.reference.native_handle();
+			Enqueue([incoming, other, base, count, worldRef]() {
+				logger::debug("Inventory: {}{} {} {} {}", incoming ? "+" : "-", count, game::Describe(RE::TESForm::LookupByID(base)),
+					incoming ? "from" : "to", JournalEnd(other, worldRef, incoming));
+			});
+		}
+
 		class ContainerChangedSink final : public RE::BSTEventSink<RE::TESContainerChangedEvent>
 		{
 		public:
 			Control ProcessEvent(const RE::TESContainerChangedEvent* a_event, RE::BSTEventSource<RE::TESContainerChangedEvent>*) override
 			{
+				if (a_event) {
+					Journal(*a_event);
+				}
+				// Container -> player: maybe a script handing back what Dova Stash just stored there (not gated on
+				// IsSuppressing: the script can answer within the grace period; our own retrieves never match).
+				if (a_event && a_event->newContainer == game::kPlayerRefID && a_event->oldContainer != 0 &&
+					a_event->oldContainer != game::kPlayerRefID && a_event->itemCount > 0) {
+					const auto container = a_event->oldContainer;
+					const auto base = a_event->baseObj;
+					Enqueue([container, base]() { Controller::Get().OnItemReturned(container, base); });
+				}
 				if (!a_event || a_event->oldContainer != game::kPlayerRefID || a_event->newContainer == 0 ||
 					a_event->newContainer == game::kPlayerRefID || a_event->itemCount <= 0) {
 					return Control::kContinue;

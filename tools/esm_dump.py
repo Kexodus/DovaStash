@@ -520,7 +520,7 @@ class LoadOrder:
                     win, world = rec, w
         return win, world
 
-    def cell_refs(self, cell_key) -> dict[tuple[str, int], tuple[Record, int]]:
+    def cell_refs(self, cell_key, types=("REFR",)) -> dict[tuple[str, int], tuple[Record, int]]:
         """Placed references of a cell (later plugins override earlier ones). For exterior cells this
         includes the worldspace's persistent references whose position falls inside the cell's grid square
         (the game stores those in the worldspace's persistent cell, not under the cell itself)."""
@@ -528,7 +528,7 @@ class LoadOrder:
         for pl in self.plugins:
             for g_off, g_size, gtype in self.find_cell_children(pl, cell_key):
                 for item in pl.walk(g_off + 24, g_off + g_size, descend=None):
-                    if item[0] == "REC" and item[1].type in ("REFR",):
+                    if item[0] == "REC" and item[1].type in types:
                         refs[kl(item[1].key)] = (item[1], gtype)
         crec, world = self.cell_record(cell_key)
         xclc = crec.get("XCLC") if crec is not None else None
@@ -647,54 +647,75 @@ def decode_cont(rec: Record) -> dict:
 
 
 def vmad_scripts(vmad: bytes | None) -> list[str]:
-    """Names of the Papyrus scripts attached via VMAD (properties are skipped, fragments ignored)."""
+    """Names of the Papyrus scripts attached via VMAD (fragments ignored)."""
+    return [name for name, _props in vmad_decode(vmad)]
+
+
+def vmad_decode(vmad: bytes | None) -> list[tuple[str, dict]]:
+    """Scripts attached via VMAD with the properties set on this record: name -> value. Object values are
+    raw form ids of this plugin (resolve them with Plugin.resolve); arrays are lists. Fragments ignored."""
+    out: list[tuple[str, dict]] = []
     if not vmad or len(vmad) < 6:
-        return []
+        return out
     try:
         version, obj_format, count = struct.unpack_from("<hhH", vmad, 0)
         p = 6
-        names = []
 
         def wstr(p):
             ln = struct.unpack_from("<H", vmad, p)[0]
             return vmad[p + 2:p + 2 + ln].decode("cp1252", "replace"), p + 2 + ln
 
+        def obj(p):
+            fid = struct.unpack_from("<I", vmad, p + (0 if obj_format == 1 else 4))[0]
+            return ("form", fid), p + 8
+
         for _ in range(count):
             name, p = wstr(p)
-            names.append(name)
             if version >= 4:
                 p += 1
+            props = {}
+            out.append((name, props))
             nprops = struct.unpack_from("<H", vmad, p)[0]
             p += 2
             for _ in range(nprops):
-                _pname, p = wstr(p)
+                pname, p = wstr(p)
                 ptype = vmad[p]
                 p += 2 if version >= 4 else 1
                 if ptype == 1:
-                    p += 8
+                    props[pname], p = obj(p)
                 elif ptype == 2:
-                    _v, p = wstr(p)
-                elif ptype in (3, 4):
+                    props[pname], p = wstr(p)
+                elif ptype == 3:
+                    props[pname] = struct.unpack_from("<i", vmad, p)[0]
+                    p += 4
+                elif ptype == 4:
+                    props[pname] = struct.unpack_from("<f", vmad, p)[0]
                     p += 4
                 elif ptype == 5:
+                    props[pname] = bool(vmad[p])
                     p += 1
                 elif ptype in (11, 12, 13, 14, 15):
                     n = struct.unpack_from("<I", vmad, p)[0]
                     p += 4
-                    if ptype == 11:
-                        p += 8 * n
-                    elif ptype == 12:
-                        for _ in range(n):
-                            _v, p = wstr(p)
-                    elif ptype in (13, 14):
-                        p += 4 * n
-                    else:
-                        p += n
+                    vals = []
+                    for _ in range(n):
+                        if ptype == 11:
+                            v, p = obj(p)
+                        elif ptype == 12:
+                            v, p = wstr(p)
+                        elif ptype == 13:
+                            v, p = struct.unpack_from("<i", vmad, p)[0], p + 4
+                        elif ptype == 14:
+                            v, p = struct.unpack_from("<f", vmad, p)[0], p + 4
+                        else:
+                            v, p = bool(vmad[p]), p + 1
+                        vals.append(v)
+                    props[pname] = vals
                 else:
-                    return names  # unknown property type: stop, keep what we have
-        return names
+                    return out  # unknown property type: stop, keep what we have
+        return out
     except (struct.error, IndexError):
-        return []
+        return out
 
 
 def _starts_disabled(rec: Record, cell_refs: dict | None, depth: int = 0) -> bool | None:
@@ -890,11 +911,117 @@ def cmd_cell(lo: LoadOrder, args):
         rows.append(d)
     rows.sort(key=lambda r: (r["baseType"] != "CONT", r.get("baseName") or "", r["ref"]))
     out["containers"] = [r for r in rows if r["baseType"] == "CONT"]
+    # Fronts: activators whose default linked ref (XLKR, no keyword) is a container in this cell open that
+    # container (shelves and racks in front of a hidden chest). Dova Stash binds the container behind them.
+    by_ref = {r["ref"]: r for r in out["containers"]}
+    for rrec, _gtype in refs.values():
+        name = rrec.get("NAME")
+        if not name or rrec.flags & REC_FLAG_DELETED:
+            continue
+        base = lo.lookup(rrec.plugin.resolve(struct.unpack_from("<I", name)[0]), ["ACTI"])
+        if base is None:
+            continue
+        for xlkr in rrec.get_all("XLKR"):
+            if len(xlkr) < 8 or struct.unpack_from("<I", xlkr, 0)[0] != 0:
+                continue
+            target = by_ref.get(fmt_ref(rrec.plugin.resolve(struct.unpack_from("<I", xlkr, 4)[0])))
+            if target is not None:
+                target.setdefault("openedBy", []).append({
+                    "ref": fmt_ref(rrec.key), "baseEditorId": base.edid(),
+                    "baseName": base.plugin.lstring(base.get("FULL"))})
     out["containerCount"] = len(out["containers"])
     out["respawningCount"] = sum(1 for r in out["containers"] if r.get("respawns"))
     others = [r for r in rows if r["baseType"] != "CONT"]
     if others:
         out["otherRefs"] = others
+    displays = find_displays(lo, key, args.include_deleted)
+    if displays:
+        out["displays"] = displays
+        counts = {}
+        for d in displays:
+            counts[d["kind"]] = counts.get(d["kind"], 0) + 1
+        out["displayCounts"] = counts
+    return out
+
+
+DISPLAY_ITEM_TYPES = ["ARMO", "WEAP", "BOOK", "MISC", "ALCH", "INGR", "SLGM", "AMMO", "SCRL"]
+RACK_TYPES = {1: "Any", 2: "Shield", 3: "NoDaggerOrBow", 4: "Dagger"}
+
+
+def _scripts_with_props(lo: LoadOrder, rec: Record, base: Record) -> dict[str, dict]:
+    """Script name (lower) -> properties: the base record's, overridden by the reference's. Object values are
+    resolved to load-order keys."""
+    merged: dict[str, dict] = {}
+    for r in (base, rec):
+        for name, props in vmad_decode(r.get("VMAD")):
+            entry = merged.setdefault(name.lower(), {"name": name, "props": {}})
+            for k, v in props.items():
+                if isinstance(v, tuple):
+                    v = ("form", r.plugin.resolve(v[1]))
+                elif isinstance(v, list):
+                    v = [("form", r.plugin.resolve(x[1])) if isinstance(x, tuple) else x for x in v]
+                entry["props"][k] = v
+    return merged
+
+
+def _display_items(lo: LoadOrder, props: dict) -> list[dict]:
+    """Playable item forms a script's properties point at (form lists expanded)."""
+    items, seen = [], set()
+
+    def add(key, depth=0):
+        if kl(key) in seen:
+            return
+        rec = lo.lookup(key, DISPLAY_ITEM_TYPES)
+        if rec is not None:
+            seen.add(kl(key))
+            items.append({"ref": fmt_ref(rec.key), "editorId": rec.edid(), "name": rec.plugin.lstring(rec.get("FULL"))})
+            return
+        flst = lo.lookup(key, ["FLST"]) if depth == 0 else None
+        if flst is not None:
+            for lnam in flst.get_all("LNAM"):
+                add(flst.plugin.resolve(struct.unpack_from("<I", lnam)[0]), depth + 1)
+
+    for v in props.values():
+        for x in (v if isinstance(v, list) else [v]):
+            if isinstance(x, tuple) and x[0] == "form":
+                add(x[1])
+    return items
+
+
+def find_displays(lo: LoadOrder, cell_key, include_deleted=False) -> list[dict]:
+    """Displays Dova Stash fills (DESIGN 8.4), as far as the plugin files show them: vanilla weapon racks
+    (WeaponRackActivateSCRIPT), mannequins (MannequinActivatorSCRIPT), plaques whose script points at items
+    ("item"; in game it also needs a 'placed' flag, which is rarely set in the plugin) and containers whose
+    script points at items ("case"; in game it also needs an OnItemAdded event)."""
+    out = []
+    refs = lo.cell_refs(cell_key, ("REFR", "ACHR"))
+    for rec, _gtype in refs.values():
+        name = rec.get("NAME")
+        if not name or (rec.flags & REC_FLAG_DELETED and not include_deleted):
+            continue
+        base = lo.lookup(rec.plugin.resolve(struct.unpack_from("<I", name)[0]), ["ACTI", "CONT", "NPC_", "MSTT", "STAT"])
+        if base is None:
+            continue
+        scripts = _scripts_with_props(lo, rec, base)
+        if not scripts:
+            continue
+        d = {"ref": fmt_ref(rec.key), "baseType": base.type, "baseEditorId": base.edid(), "baseName": base.plugin.lstring(base.get("FULL"))}
+        rack = scripts.get("weaponrackactivatescript")
+        if rec.type == "ACHR" or base.type == "NPC_":
+            if "mannequinactivatorscript" in scripts:
+                out.append({**d, "kind": "mannequin", "script": scripts["mannequinactivatorscript"]["name"]})
+            continue
+        if rack is not None:
+            props = rack["props"]
+            rtype = 3 if props.get("Patch14COARacks") else props.get("RackType", 1)
+            out.append({**d, "kind": "rack", "rackType": RACK_TYPES.get(rtype, f"unknown ({rtype})"), "script": rack["name"]})
+            continue
+        for entry in scripts.values():
+            items = _display_items(lo, entry["props"])
+            if items:
+                out.append({**d, "kind": "case" if base.type == "CONT" else "item", "script": entry["name"], "items": items})
+                break
+    out.sort(key=lambda r: (r["kind"], r.get("baseEditorId") or "", r["ref"]))
     return out
 
 
@@ -971,13 +1098,27 @@ ENUMS = {
 }
 MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms", "formLists", "plugins",
               "weaponTypes", "armorTypes", "bookTeaches", "alchemy", "soulGem", "enchanted", "ammo"}
-LAYOUT_KEYS = {"$schema", "name", "author", "version", "priority", "requires", "cell", "master", "containers",
+LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "master", "containers", "displays",
                "keep", "learned", "basedOn"}
-CONTAINER_KEYS = {"ref", "label", "categories", "ignored"}
+CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
+DISPLAY_KEYS = {"ref", "kind", "label", "note", "items", "ignored"}
+DISPLAY_KINDS = {"rack", "mannequin", "item", "case"}
 
 
 def _as_list(v):
     return v if isinstance(v, list) else [v]
+
+
+def _pattern_known(cat, category_ids):
+    # Same rules as the plugin: "*" is everything, "x.*" is x and everything below it, ids ignore case.
+    if cat == "*":
+        return True
+    ids = {x.lower() for x in category_ids}
+    c = cat.lower()
+    if c.endswith(".*"):
+        base = c[:-2]
+        return any(x == base or x.startswith(base + ".") for x in ids)
+    return c in ids
 
 
 def _check_ref_syntax(s, where, errors):
@@ -1076,11 +1217,28 @@ def check_layout(lo, doc, errors, warnings, category_ids):
                 warnings.append(f"{where}: category {cat!r} also bound at {cats_seen[cat]}")
             cats_seen[cat] = where
             if category_ids is not None:
-                ok = any(x.startswith(cat[:-1]) for x in category_ids) if cat.endswith(".*") else cat in category_ids
-                if not ok:
+                if not _pattern_known(cat, category_ids):
                     errors.append(f"{where}: unknown category {cat!r}")
         refs.append((where, key, c))
-    for k in [cell_key] + [r[1] for r in refs]:
+    display_refs = []
+    for i, d in enumerate(doc.get("displays", [])):
+        where = f"displays[{i}]"
+        if not isinstance(d, dict):
+            errors.append(f"{where}: expected an object")
+            continue
+        for k in d:
+            if k not in DISPLAY_KEYS:
+                warnings.append(f"{where}: unknown key {k!r}")
+        if "kind" in d and str(d["kind"]).lower() not in DISPLAY_KINDS:
+            errors.append(f"{where}: kind {d['kind']!r} is not one of {sorted(DISPLAY_KINDS)}")
+        key = _check_ref_syntax(d.get("ref", ""), where, errors)
+        if key:
+            display_refs.append((where, key))
+        for j, item in enumerate(_as_list(d.get("items", []))):
+            ik = _check_ref_syntax(item, f"{where}.items[{j}]", errors)
+            if ik:
+                display_refs.append((f"{where}.items[{j}]", ik))
+    for k in [cell_key] + [r[1] for r in refs] + [r[1] for r in display_refs]:
         if k and k[0].lower() not in requires:
             errors.append(f"plugin {k[0]} is referenced but not listed in 'requires'")
     info = {}
@@ -1116,6 +1274,15 @@ def check_layout(lo, doc, errors, warnings, category_ids):
         if where == "master" and d.get("startsDisabled"):
             warnings.append(f"master {fmt_ref(key)} starts disabled (the game enables it later, e.g. when built)")
     info["containersChecked"] = len(refs)
+    if doc.get("displays"):
+        actor_refs = lo.cell_refs(cell_key, ("REFR", "ACHR"))
+        for where, key in display_refs:
+            if ".items[" in where:
+                if lo.lookup(key, DISPLAY_ITEM_TYPES) is None:
+                    errors.append(f"{where}: {fmt_ref(key)} is not an item ({', '.join(DISPLAY_ITEM_TYPES)})")
+            elif kl(key) not in actor_refs:
+                errors.append(f"{where}: {fmt_ref(key)} is not a reference in cell {doc['cell']}")
+        info["displaysChecked"] = len(doc["displays"])
     return info
 
 

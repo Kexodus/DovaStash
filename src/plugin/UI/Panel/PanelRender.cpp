@@ -533,6 +533,9 @@ namespace dova::ui::panel
 				ImGui::SameLine();
 				Disabled("(" + a_row.gameName + ")");
 			}
+			if (!a_row.note.empty()) {
+				Wrapped(a_row.note);
+			}
 			if (!a_row.available) {
 				ColoredWrapped(kRed, std::format(text::kUnavailable, a_row.reason));
 			}
@@ -1254,6 +1257,8 @@ namespace dova::ui::panel
 			Help("Closing the master's menu sorts whatever is left in it.", "[Sorting] bDistributeOnMasterClose");
 			apply |= ImGui::Checkbox("Learn where you put things by hand", &v.sorting.learn);
 			Help("Put an item into a container yourself and that container becomes its home from then on.", "[Sorting] bLearn");
+			apply |= ImGui::Checkbox("Put gear on the home's displays", &v.sorting.fillDisplays);
+			Help("Deposit and Sort all fill empty weapon racks, shield plaques, mannequins and plaques made for one item (masks, claws, Elder Scrolls) with your best gear, one of each. Nothing is taken off a display.", "[Sorting] bFillDisplays");
 			apply |= ImGui::Checkbox("Enable a home's template automatically on first visit", &v.templates.autoEnable);
 			Help("Homes with a ready-made layout are set up as soon as you walk in, instead of asking.", "[General] bAutoEnableTemplates");
 

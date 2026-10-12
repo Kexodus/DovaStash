@@ -6,9 +6,13 @@
 // simply never carry `learned` / `basedOn` (a warning is emitted if they do).
 //
 // Serialization decisions:
-// - Output is pretty-printed with tab indentation and a fixed key order: $schema, name, author,
-//   version, priority, requires, cell, master, containers, keep, learned, basedOn, then any unknown
-//   keys (sorted). name/author/version/priority are always written; optional parts only when set.
+// - Output is indented with tabs and kept compact so people can read it: a short list or an entry without
+//   nested objects stays on one line (one line per container), and the fields of such lines are lined up
+//   in columns (detail::Dump). Fixed key order: $schema, name, note, author, version, priority, requires,
+//   cell, master, containers, displays, keep, learned, basedOn, then any unknown keys (sorted).
+//   name/author/version/priority are always written; optional parts only when set.
+// - `note` (top level, containers, displays) is free text for people reading the file; Dova Stash never
+//   uses it (the panel shows a container's note).
 // - Unknown keys at the top level, in container entries, in keep, and in quota rules are preserved
 //   verbatim (sorted) so newer files survive a round-trip through an older DLL.
 // - Never lose user data: a container entry or learned pair with a malformed form reference is
@@ -32,6 +36,7 @@
 #include <nlohmann/json.hpp>
 
 #include "dova/core/Diagnostics.h"
+#include "dova/core/DisplayKind.h"
 #include "dova/core/FormRef.h"
 
 namespace dova::core
@@ -87,6 +92,7 @@ namespace dova::core
 	{
 		FormRef                  ref;  // container reference (REFR)
 		std::string              label;
+		std::string              note;        // for people reading the file (why it is ignored...)
 		std::vector<std::string> categories;  // patterns
 		std::vector<FormRef>     forms;       // explicit per-item bindings
 		std::vector<std::string> unparsedForms;  // malformed "forms" entries, written back verbatim
@@ -94,9 +100,25 @@ namespace dova::core
 		nlohmann::json           extra = nlohmann::json::object();
 	};
 
+	// A display the layout names (DESIGN §8.4). Dova Stash finds vanilla racks, mannequins, item plaques and
+	// scripted display cases in the cell by itself; an entry overrides what it found there (ignored, other
+	// items) or adds a display it cannot recognise, which then needs `kind`.
+	struct DisplayBinding
+	{
+		FormRef                    ref;  // rack activator, plaque, mannequin actor or case container (REFR/ACHR)
+		std::optional<DisplayKind> kind;
+		std::string                label;
+		std::string                note;
+		std::vector<FormRef>       items;  // Item/Case: what it is made for. Rack/Mannequin: preferred items
+		std::vector<std::string>   unparsedItems;  // malformed "items" entries, written back verbatim
+		bool                       ignored{ false };  // never fill it
+		nlohmann::json             extra = nlohmann::json::object();
+	};
+
 	struct Layout
 	{
 		std::string                   name;
+		std::string                   note;  // what the file is, for people reading it
 		std::string                   author;
 		std::string                   version;
 		std::int32_t                  priority{ 0 };
@@ -104,16 +126,19 @@ namespace dova::core
 		std::optional<FormRef>        cell;
 		std::optional<FormRef>        master;
 		std::vector<ContainerBinding> containers;
+		std::vector<DisplayBinding>   displays;
 		std::optional<KeepConfig>     keep;
 		std::map<FormRef, FormRef>    learned;  // base form -> container ref
 		std::optional<std::string>    basedOn;  // "Templates/Vanilla/Breezehome.json@1.0.0"
 
 		nlohmann::json extra = nlohmann::json::object();               // unknown top-level keys
 		nlohmann::json unparsedContainers = nlohmann::json::array();   // entries we could not parse
+		nlohmann::json unparsedDisplays = nlohmann::json::array();     // display entries we could not parse
 		nlohmann::json unparsedLearned = nlohmann::json::object();     // pairs we could not parse
 
 		[[nodiscard]] const ContainerBinding* FindContainer(const FormRef& a_ref) const;
 		[[nodiscard]] ContainerBinding*       FindContainer(const FormRef& a_ref);
+		[[nodiscard]] const DisplayBinding*   FindDisplay(const FormRef& a_ref) const;
 		[[nodiscard]] bool                    IsMaster(const FormRef& a_ref) const { return master && *master == a_ref; }
 	};
 

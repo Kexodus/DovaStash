@@ -1,6 +1,7 @@
 {
   "$schema": "dovastash-layout-1",
   "name": "Nchuanthumz",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
   "author": "Dova Stash",
   "version": "1.0.0",
   "priority": 0,
@@ -8,89 +9,33 @@
   "cell": "ccAFDSSE001-DweSanctuary.esm|0x00000A5E",
   "master": "ccAFDSSE001-DweSanctuary.esm|0x00000DB9",
   "containers": [
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000EA8", "label": "Chest by the smelter", "categories": ["misc.ores_ingots", "misc.dwemer"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000011C6", "label": "Chest by the mannequins", "categories": ["armor.heavy", "armor.light", "armor.shields"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00001143", "label": "Strong box by the forge", "categories": ["weapons.*"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0000116B", "label": "Strong box by the grindstone", "categories": ["ammo.*"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000FEA97", "label": "Bedroom dresser", "categories": ["armor.clothing"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000013C2", "label": "Chest by the bed rolls", "categories": ["armor.jewelry", "misc.gems"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000F25", "label": "Garden wing chest (by the beds)", "categories": ["books.*"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000EA8", "label": "Chest by the smelter",                   "categories": ["misc.ores_ingots", "misc.dwemer"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000011C6", "label": "Chest by the mannequins",                "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00001143", "label": "Strong box by the forge",                "categories": ["weapons.*"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0000116B", "label": "Strong box by the grindstone",           "categories": ["ammo.*"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000FEA97", "label": "Bedroom dresser",                        "categories": ["armor.clothing"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000013C2", "label": "Chest by the bed rolls",                 "categories": ["armor.jewelry", "misc.gems"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000F25", "label": "Garden wing chest (by the beds)",        "categories": ["books.*"]},
     {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00048630", "label": "Garden wing chest (by the bookshelves)", "categories": ["soulgems.*", "scrolls"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000011DC", "label": "Alchemy satchel", "categories": ["alchemy.ingredients"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00029FDB", "label": "Alchemy satchel (second)", "categories": ["alchemy.potions", "alchemy.poisons"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000A60", "label": "Garden wing cupboard", "categories": ["misc.hides_pelts", "misc.animal_parts"]},
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000E8F", "label": "Kitchen cupboard", "categories": ["alchemy.food"]},
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000A67",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000A72",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000B4E",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000BF6",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000C3E",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000C57",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000C58",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000F38", "label": "Chest (respawns - contents can reset, never store items here)", "ignored": true},
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000FC6",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x0000111E",
-      "label": "Large Sack (removed by a house upgrade - items left inside become unreachable)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x000011A7",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x000012CE",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0000132A", "label": "Sack (removed by a house upgrade - items left inside become unreachable)", "ignored": true},
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x0000146E",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x00001471",
-      "label": "Book Shelf (scripted bookshelf - only displays books, returns everything else)",
-      "ignored": true
-    },
-    {
-      "ref": "ccAFDSSE001-DweSanctuary.esm|0x0004862A",
-      "label": "Large Sack (removed by a house upgrade - items left inside become unreachable)",
-      "ignored": true
-    }
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000011DC", "label": "Alchemy satchel",                        "categories": ["alchemy.ingredients"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00029FDB", "label": "Alchemy satchel (second)",               "categories": ["alchemy.potions", "alchemy.poisons"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000A60", "label": "Garden wing cupboard",                   "categories": ["misc.hides_pelts", "misc.animal_parts"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000E8F", "label": "Kitchen cupboard",                       "categories": ["alchemy.food"]},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000A67", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000A72", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000B4E", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000BF6", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000C3E", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000C57", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000C58", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000F38", "label": "Chest",                                  "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000FC6", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0000111E", "label": "Large Sack",                             "ignored": true, "note": "Goes away with a house upgrade: anything inside would be lost."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000011A7", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x000012CE", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0000132A", "label": "Sack",                                   "ignored": true, "note": "Goes away with a house upgrade: anything inside would be lost."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0000146E", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00001471", "label": "Book Shelf",                             "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0004862A", "label": "Large Sack",                             "ignored": true, "note": "Goes away with a house upgrade: anything inside would be lost."}
   ]
 }

@@ -2,8 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- Deposit and Sort all put your gear on the home's empty displays, as if you had placed it by hand: weapon racks, wall plaques and dagger displays get your best weapons (one of each), coat-of-arms racks a shield, mannequins a matching armor set, and plaques made for one item (dragon priest masks, dragon claws, Elder Scrolls...) that item. Works in any home from the displays' own scripts; templates can ignore a display or pick its items (`displays`). Nothing is taken off a display. Setting: "Put gear on the home's displays".
+
+### Fixed
+
+- Spare copies of worn gear are deposited now. Before, a second Iron Shield stayed on you while you wore one. Each such move checks that the worn, tempered or enchanted copy stayed behind.
+- Shelves, racks and cupboards that open a hidden chest (an activator linked to it, like Whitepeak Tower's Food shelf or a vanilla bookshelf) can be set up with the hotkey now. They show the chest's categories in the prompt and as floating icons.
+- Items that a script hands straight back when stored, such as the Curators Storage Token, stay on you after the first try instead of coming back (and opening their prompt) on every Deposit.
+
 ### Changed
 
+- Templates and saved layouts are easier to read and edit by hand: one line per container with the columns lined up, and short names. The reason a container is left alone is in a separate `note` (shown in the panel under the container's name) instead of filling its name.
 - Floating icons show a container's full category row, like QuickLoot's bottom-right row: up to five icons, then "+N". QuickLoot and the overlay now share one icon-row function.
 
 ### Docs

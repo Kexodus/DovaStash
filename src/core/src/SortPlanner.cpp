@@ -4,6 +4,73 @@
 
 namespace dova::core
 {
+	namespace
+	{
+		// The reason CanMove refuses an item, if it does.
+		std::optional<StackDecision::Outcome> Unmovable(const ItemInfo& a_item) noexcept
+		{
+			using enum StackDecision::Outcome;
+			if (a_item.count <= 0) {
+				return Empty;
+			}
+			if (a_item.questItem) {
+				return Quest;
+			}
+			if (a_item.name.empty()) {
+				return Nameless;  // before NonPlayable: the plugin also marks nameless items non-playable
+			}
+			if (!a_item.playable) {
+				return NonPlayable;
+			}
+			if (a_item.returns) {
+				return Returns;
+			}
+			return std::nullopt;
+		}
+	}
+
+	std::string_view StackDecision::OutcomeName(Outcome a_outcome) noexcept
+	{
+		switch (a_outcome) {
+		case Outcome::Move:
+			return "move";
+		case Outcome::Kept:
+			return "kept";
+		case Outcome::Empty:
+			return "empty stack";
+		case Outcome::Quest:
+			return "quest item";
+		case Outcome::NonPlayable:
+			return "non-playable";
+		case Outcome::Nameless:
+			return "nameless";
+		case Outcome::Returns:
+			return "comes back when stored";
+		case Outcome::NoDestination:
+			return "no destination";
+		case Outcome::Homeless:
+			return "homeless";
+		default:
+			return "?";
+		}
+	}
+
+	std::string_view DestinationReasonName(Destination::Reason a_reason) noexcept
+	{
+		switch (a_reason) {
+		case Destination::Reason::Explicit:
+			return "explicit";
+		case Destination::Reason::Learned:
+			return "learned";
+		case Destination::Reason::Category:
+			return "category";
+		case Destination::Reason::Master:
+			return "homeless";
+		default:
+			return "?";
+		}
+	}
+
 	SortPlanner::SortPlanner(const Layout& a_layout, const CategorySet& a_categories, ContainerAvailability a_available) :
 		_layout(a_layout),
 		_categories(a_categories),
@@ -14,7 +81,7 @@ namespace dova::core
 	{
 		// Nameless items are script tokens (mods track state with unnamed MISC items); they are
 		// invisible in container menus, so moving one would make it vanish for the player.
-		return a_item.count > 0 && !a_item.questItem && a_item.playable && !a_item.name.empty();
+		return !Unmovable(a_item).has_value();
 	}
 
 	bool SortPlanner::IsSortSource(const FormRef& a_container) const
@@ -88,41 +155,75 @@ namespace dova::core
 		return std::nullopt;
 	}
 
-	std::vector<Move> SortPlanner::Deposit(std::span<const ItemInfo> a_inventory, const KeepRules& a_keep) const
+	std::vector<Move> SortPlanner::Deposit(std::span<const ItemInfo> a_inventory, const KeepRules& a_keep,
+		std::vector<StackDecision>* a_explain) const
 	{
-		std::vector<Move> moves;
-		const auto        keep = a_keep.ComputeKeepCounts(a_inventory, _categories);
+		std::vector<Move>          moves;
+		std::vector<std::string>   why;
+		const auto                 keep = a_keep.ComputeKeepCounts(a_inventory, _categories, a_explain ? &why : nullptr);
+		std::vector<StackDecision> decisions(a_explain ? a_inventory.size() : 0);
 		for (std::size_t i = 0; i < a_inventory.size(); ++i) {
-			const auto& item = a_inventory[i];
-			if (!CanMove(item)) {
+			const auto&    item = a_inventory[i];
+			StackDecision  scratch;
+			StackDecision& d = a_explain ? decisions[i] : scratch;
+			if (const auto refused = Unmovable(item)) {
+				d.outcome = *refused;
 				continue;
+			}
+			d.kept = keep[i];
+			if (a_explain) {
+				d.keepRule = std::move(why[i]);
 			}
 			const auto count = item.count - keep[i];
 			if (count <= 0) {
+				d.outcome = StackDecision::Outcome::Kept;
 				continue;
 			}
-			if (const auto dest = ResolveDestination(item)) {
-				moves.push_back(Move{ item.stackId, item.form, count, ContainerRef::Player(), ContainerRef(dest->container) });
+			d.destination = ResolveDestination(item);
+			if (!d.destination) {
+				d.outcome = StackDecision::Outcome::NoDestination;
+				continue;
 			}
+			d.outcome = StackDecision::Outcome::Move;
+			d.moved = count;
+			moves.push_back(Move{ item.stackId, item.form, count, ContainerRef::Player(), ContainerRef(d.destination->container) });
+		}
+		if (a_explain) {
+			*a_explain = std::move(decisions);
 		}
 		return moves;
 	}
 
-	std::vector<Move> SortPlanner::Distribute(std::span<const ItemInfo> a_masterContents) const
+	std::vector<Move> SortPlanner::Distribute(std::span<const ItemInfo> a_masterContents, std::vector<StackDecision>* a_explain) const
 	{
-		std::vector<Move> moves;
-		if (!_layout.master || !IsAvailable(*_layout.master)) {
-			return moves;
-		}
-		const auto& master = *_layout.master;
-		for (const auto& item : a_masterContents) {
-			if (!CanMove(item)) {
+		std::vector<Move>          moves;
+		std::vector<StackDecision> decisions(a_explain ? a_masterContents.size() : 0);
+		const bool                 masterOk = _layout.master && IsAvailable(*_layout.master);
+		for (std::size_t i = 0; i < a_masterContents.size(); ++i) {
+			const auto&    item = a_masterContents[i];
+			StackDecision  scratch;
+			StackDecision& d = a_explain ? decisions[i] : scratch;
+			if (!masterOk) {
+				d.outcome = StackDecision::Outcome::NoDestination;
 				continue;
 			}
-			const auto dest = ResolveDestination(item);
-			if (dest && dest->reason != Destination::Reason::Master && dest->container != master) {
-				moves.push_back(Move{ item.stackId, item.form, item.count, ContainerRef(master), ContainerRef(dest->container) });
+			if (const auto refused = Unmovable(item)) {
+				d.outcome = *refused;
+				continue;
 			}
+			d.destination = ResolveDestination(item);
+			if (!d.destination) {
+				d.outcome = StackDecision::Outcome::NoDestination;
+			} else if (d.destination->reason == Destination::Reason::Master || d.destination->container == *_layout.master) {
+				d.outcome = StackDecision::Outcome::Homeless;
+			} else {
+				d.outcome = StackDecision::Outcome::Move;
+				d.moved = item.count;
+				moves.push_back(Move{ item.stackId, item.form, item.count, ContainerRef(*_layout.master), ContainerRef(d.destination->container) });
+			}
+		}
+		if (a_explain) {
+			*a_explain = std::move(decisions);
 		}
 		return moves;
 	}
@@ -200,7 +301,7 @@ namespace dova::core
 
 	LearnResult Learn(Layout& a_layout, const ItemInfo& a_item, const FormRef& a_container, const CategorySet& a_categories)
 	{
-		if (a_item.questItem || !a_item.playable || a_item.name.empty()) {
+		if (a_item.questItem || !a_item.playable || a_item.name.empty() || a_item.returns) {
 			return LearnResult::RejectedItem;
 		}
 		if (a_layout.IsMaster(a_container)) {

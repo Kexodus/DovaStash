@@ -23,7 +23,8 @@ namespace dova::ui::overlay
 
 		struct Target
 		{
-			RE::FormID     formID{ 0 };
+			RE::FormID     formID{ 0 };  // the container
+			RE::FormID     anchor{ 0 };  // where the icons go: the container, or the activator that opens it
 			icons::IconRow row;
 			float          distance{ 0.0f };
 		};
@@ -118,7 +119,16 @@ namespace dova::ui::overlay
 			const auto  origin = player->GetPosition();
 
 			auto consider = [&](const core::FormRef& a_ref) {
-				auto* ref = game::LookupRef(a_ref);
+				auto* container = game::LookupRef(a_ref);
+				if (!container || container->IsDisabled()) {
+					return;
+				}
+				// A hidden chest behind a shelf: the icons go on the shelf that opens it.
+				auto* ref = container;
+				if (const auto anchor = current->Anchor(container->GetFormID()); anchor != container->GetFormID()) {
+					auto* form = RE::TESForm::LookupByID(anchor);
+					ref = form ? form->AsReference() : nullptr;
+				}
 				if (!ref || ref->IsDisabled() || !ref->Get3D() || !ref->GetParentCell() || ref->GetParentCell()->GetFormID() != current->cellId) {
 					return;
 				}
@@ -138,11 +148,11 @@ namespace dova::ui::overlay
 						return;
 					}
 				}
-				auto row = RowFor(layout, ref);
+				auto row = RowFor(layout, container);
 				if (row.Empty()) {
 					return;
 				}
-				g_state.targets.push_back({ ref->GetFormID(), std::move(row), distance });
+				g_state.targets.push_back({ container->GetFormID(), ref->GetFormID(), std::move(row), distance });
 			};
 			if (layout.master) {
 				consider(*layout.master);
@@ -459,7 +469,7 @@ namespace dova::ui::overlay
 				if (slot.formID != target.formID) {
 					slot.formID = target.formID;
 				}
-				auto* form = RE::TESForm::LookupByID(target.formID);
+				auto* form = RE::TESForm::LookupByID(target.anchor);
 				auto* ref = form ? form->AsReference() : nullptr;
 				float x = 0.0f, y = 0.0f;
 				// Shrinks to half size and fades to 40% at the edge of the radius.

@@ -99,6 +99,33 @@ namespace dova::core
 		std::string category;  // the category that decided it (Reason::Category only)
 	};
 
+	// Why an operation moves a stack, or leaves it where it is (for logs). Parallel to the operation's input.
+	struct StackDecision
+	{
+		enum class Outcome : std::uint8_t
+		{
+			Move,           // `moved` items go to `destination`; `kept` items stay (Deposit keep rules)
+			Kept,           // Deposit: keep rules keep the whole stack (`keepRule` says which)
+			Empty,          // count <= 0
+			Quest,          // quest item: never moved
+			NonPlayable,    // non-playable: never moved
+			Nameless,       // nameless (script token): never moved
+			Returns,        // a script sent it back the last time it was stored: never moved
+			NoDestination,  // no available container takes it, not even the master
+			Homeless        // Distribute: its destination is the master, so it stays there
+		};
+
+		Outcome                    outcome{ Outcome::Empty };
+		std::int32_t               moved{ 0 };
+		std::int32_t               kept{ 0 };
+		std::string                keepRule;  // Deposit: the keep rule behind `kept`
+		std::optional<Destination> destination;
+
+		[[nodiscard]] static std::string_view OutcomeName(Outcome a_outcome) noexcept;
+	};
+
+	[[nodiscard]] std::string_view DestinationReasonName(Destination::Reason a_reason) noexcept;
+
 	// Returns false for containers that cannot be used right now. Empty = everything is available.
 	using ContainerAvailability = std::function<bool(const FormRef&)>;
 
@@ -110,8 +137,11 @@ namespace dova::core
 
 		[[nodiscard]] std::optional<Destination> ResolveDestination(const ItemInfo& a_item) const;
 
-		[[nodiscard]] std::vector<Move> Deposit(std::span<const ItemInfo> a_inventory, const KeepRules& a_keep) const;
-		[[nodiscard]] std::vector<Move> Distribute(std::span<const ItemInfo> a_masterContents) const;
+		// `a_explain`, when given, receives one StackDecision per input stack.
+		[[nodiscard]] std::vector<Move> Deposit(std::span<const ItemInfo> a_inventory, const KeepRules& a_keep,
+			std::vector<StackDecision>* a_explain = nullptr) const;
+		[[nodiscard]] std::vector<Move> Distribute(std::span<const ItemInfo> a_masterContents,
+			std::vector<StackDecision>* a_explain = nullptr) const;
 		[[nodiscard]] std::vector<Move> SortAll(std::span<const ContainerContents> a_containers) const;
 		[[nodiscard]] std::vector<Move> Retrieve(std::span<const ContainerContents> a_containers, std::string_view a_pattern) const;
 

@@ -286,6 +286,7 @@ namespace dova::ui::panel
 			if (a_binding) {
 				row.patterns = a_binding->categories;
 				row.ignored = a_binding->ignored;
+				row.note = a_binding->note;
 				row.explicitForms = a_binding->forms.size();
 				for (const auto& p : a_binding->categories) {
 					row.patternsText += row.patternsText.empty() ? PatternLabel(p) : ", " + PatternLabel(p);

@@ -58,6 +58,9 @@ namespace dova
 			bool sortOnArrival{ true };
 			// DESIGN §8.1 Learn: items you put into a managed container by hand teach their destination.
 			bool learn{ true };
+			// DESIGN §8.4: Deposit and Sort all put gear on the home's empty weapon racks, shield plaques,
+			// mannequins, item plaques and display cases.
+			bool fillDisplays{ true };
 
 			bool operator==(const Sorting&) const = default;
 		};

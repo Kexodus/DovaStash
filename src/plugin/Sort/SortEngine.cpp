@@ -5,6 +5,8 @@
 #include "Game/ItemAdapter.h"
 #include "Game/ItemMover.h"
 #include "Home/Store.h"
+#include "Settings.h"
+#include "Sort/DisplayFiller.h"
 
 namespace dova::sort
 {
@@ -76,9 +78,53 @@ namespace dova::sort
 			return out;
 		}
 
+		// Every stack in the snapshots, as display stock (all of it may go on display).
+		void AddStock(std::vector<core::DisplayStock>& a_stocks, const std::vector<core::ContainerContents>& a_contents)
+		{
+			for (const auto& c : a_contents) {
+				for (const auto& item : c.items) {
+					a_stocks.push_back(core::DisplayStock{ core::ContainerRef(c.ref), item, item.count });
+				}
+			}
+		}
+
 		std::string Plural(std::int32_t a_n, std::string_view a_word)
 		{
 			return std::format("{} {}{}", a_n, a_word, a_n == 1 ? "" : "s");
+		}
+
+		// One line per stack: where it goes and why, or why it stays (debug; homeless stays in the
+		// master at trace, they repeat on every Distribute), then a summary at info.
+		void LogDecisions(Op a_op, std::span<const core::ItemInfo> a_items, std::span<const core::StackDecision> a_why)
+		{
+			using enum core::StackDecision::Outcome;
+			std::map<core::StackDecision::Outcome, std::int32_t> stacks;
+			for (std::size_t i = 0; i < a_items.size() && i < a_why.size(); ++i) {
+				const auto& item = a_items[i];
+				const auto& d = a_why[i];
+				++stacks[d.outcome];
+				const auto what = std::format("{} [{}] x{}", item.name.empty() ? "<nameless>" : item.name, item.form.ToString(), item.count);
+				const auto kept = d.kept > 0 ? std::format("; {} kept by {}", d.kept, d.keepRule) : std::string{};
+				if (d.outcome == Move && d.destination) {
+					const auto& dest = *d.destination;
+					const auto  container = game::Describe(game::LookupRef(dest.container));
+					const auto  reason = dest.reason == core::Destination::Reason::Category ? std::format("category {}", dest.category) :
+					                                                                          std::string(core::DestinationReasonName(dest.reason));
+					logger::debug("{}: {} -> {} x{} ({}){}", OpName(a_op), what, container, d.moved, reason, kept);
+				} else if (d.outcome == Kept) {
+					logger::debug("{}: {} stays: kept by {}", OpName(a_op), what, d.keepRule);
+				} else if (d.outcome == Homeless) {
+					logger::trace("{}: {} stays: homeless", OpName(a_op), what);
+				} else {
+					logger::debug("{}: {} stays: {}{}", OpName(a_op), what, core::StackDecision::OutcomeName(d.outcome), kept);
+				}
+			}
+			std::string summary;
+			for (const auto& [outcome, n] : stacks) {
+				summary += std::format("{}{} {}", summary.empty() ? "" : ", ", n, core::StackDecision::OutcomeName(outcome));
+			}
+			logger::info("{} plan: {} ({})", OpName(a_op), Plural(static_cast<std::int32_t>(a_items.size()), "stack"),
+				summary.empty() ? "nothing" : summary);
 		}
 	}
 
@@ -118,6 +164,8 @@ namespace dova::sort
 		core::SortPlanner planner(layout, categories, available);
 		game::StackTable  stacks;
 		std::vector<core::Move> moves;
+		display::Prepared displays;
+		const bool        fill = Settings::GetSingleton().GetSorting().fillDisplays;
 
 		logger::info("{} in {} ({}){}", OpName(a_op), a_home.name, a_home.cell.ToString(),
 			a_op == Op::Retrieve ? std::format(" pattern '{}'", a_pattern) : "");
@@ -142,7 +190,24 @@ namespace dova::sort
 				for (const auto& d : diags.Items()) {
 					logger::debug("Keep rules: {}", d.ToString());
 				}
-				moves = planner.Deposit(inventory, keep);
+				std::vector<core::StackDecision> why;
+				const bool                       explain = spdlog::should_log(spdlog::level::info);
+				moves = planner.Deposit(inventory, keep, explain || fill ? &why : nullptr);
+				if (explain) {
+					LogDecisions(a_op, inventory, why);
+				}
+				if (fill) {
+					// What Deposit would move may go on display instead, and so may what is already stored.
+					std::vector<core::DisplayStock> stock;
+					for (std::size_t i = 0; i < inventory.size() && i < why.size(); ++i) {
+						if (why[i].outcome == core::StackDecision::Outcome::Move && why[i].moved > 0) {
+							stock.push_back(core::DisplayStock{ core::ContainerRef::Player(), inventory[i], why[i].moved });
+						}
+					}
+					AddStock(stock, SnapshotManaged(layout, available, stacks));
+					displays = display::Prepare(a_home, cell, std::move(stock));
+					core::ReserveForDisplays(moves, displays.stocks, displays.plan);
+				}
 			}
 			break;
 		case Op::Distribute:
@@ -152,12 +217,26 @@ namespace dova::sort
 					return result;
 				}
 				auto* master = game::LookupRef(*layout.master);
-				const auto contents = game::SnapshotInventory(master, stacks);
-				moves = planner.Distribute(contents);
+				const auto                       contents = game::SnapshotInventory(master, stacks);
+				std::vector<core::StackDecision> why;
+				const bool                       explain = spdlog::should_log(spdlog::level::info);
+				moves = planner.Distribute(contents, explain ? &why : nullptr);
+				if (explain) {
+					LogDecisions(a_op, contents, why);
+				}
 			}
 			break;
 		case Op::SortAll:
-			moves = planner.SortAll(SnapshotManaged(layout, available, stacks));
+			{
+				const auto contents = SnapshotManaged(layout, available, stacks);
+				moves = planner.SortAll(contents);
+				if (fill) {
+					std::vector<core::DisplayStock> stock;
+					AddStock(stock, contents);
+					displays = display::Prepare(a_home, cell, std::move(stock));
+					core::ReserveForDisplays(moves, displays.stocks, displays.plan);
+				}
+			}
 			break;
 		case Op::Retrieve:
 			moves = planner.Retrieve(SnapshotManaged(layout, available, stacks), a_pattern);
@@ -165,6 +244,11 @@ namespace dova::sort
 		}
 
 		result.ran = true;
+		if (moves.empty() && !displays.plan.empty()) {
+			logger::info("{}: no moves", OpName(a_op));
+			display::Fill(a_home.cellId, displays, stacks);
+			return result;  // Fill tells the player what went on display
+		}
 		if (moves.empty()) {
 			switch (a_op) {
 			case Op::Deposit:
@@ -192,6 +276,7 @@ namespace dova::sort
 		};
 		const auto report = game::ItemMover::Execute(moves, stacks, resolve);
 		result.items = report.items;
+		display::Fill(a_home.cellId, displays, stacks);
 
 		const auto containers = static_cast<std::int32_t>(a_op == Op::Retrieve ? report.sources.size() : report.targets.size());
 		switch (a_op) {

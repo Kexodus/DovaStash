@@ -209,6 +209,63 @@ TEST_CASE("Deposit respects keep counts and never moves quest or non-playable it
 	}
 }
 
+TEST_CASE("Deposit explains every stack: moved where and why, or why it stays", "[planner][deposit][explain]")
+{
+	using enum StackDecision::Outcome;
+	Fixture f;
+	auto    quest = Weapon(Sk(0x10), WeaponType::Bow);
+	quest.questItem = true;
+	auto unplayable = Weapon(Sk(0x11), WeaponType::Bow);
+	unplayable.playable = false;
+	auto nameless = Misc(Sk(0x12));
+	nameless.name.clear();
+	nameless.playable = false;  // the plugin marks nameless items non-playable too
+	auto equipped = Weapon(Sk(0x13), WeaponType::OneHandSword);
+	equipped.equipped = true;
+
+	const std::vector<ItemInfo> inv{
+		quest, unplayable, nameless, Weapon(Sk(0x14), WeaponType::Bow, 0), equipped,
+		Potion(Sk(0x20), 10, 5, 42),
+		MakeItem(Sk(0x22), ItemType::Book, 2),
+		Misc(kGoldForm, 300),
+	};
+	KeepConfig layoutKeep;
+	layoutKeep.quotas.push_back(QuotaRule{ .category = "alchemy.potions", .quota = 3 });
+	Diagnostics diags;
+	const auto  keep = KeepRules::Compile(DefaultKeepConfig(), &layoutKeep, diags);
+
+	std::vector<StackDecision> why;
+	const auto                 moves = SortPlanner(f.layout, f.categories).Deposit(inv, keep, &why);
+	CHECK(moves == SortPlanner(f.layout, f.categories).Deposit(inv, keep));  // explaining changes nothing
+	REQUIRE(why.size() == inv.size());
+	CHECK(why[0].outcome == Quest);
+	CHECK(why[1].outcome == NonPlayable);
+	CHECK(why[2].outcome == Nameless);
+	CHECK(why[3].outcome == Empty);
+	CHECK(why[4].outcome == Kept);
+	CHECK(why[4].kept == 1);
+	CHECK(why[4].keepRule == "always equipped (global)");
+	CHECK(why[5].outcome == Move);
+	CHECK(why[5].moved == 7);
+	CHECK(why[5].kept == 3);
+	CHECK(why[5].keepRule == "quota alchemy.potions 3 (layout)");
+	REQUIRE(why[5].destination.has_value());
+	CHECK(why[5].destination->container == kSatchel);
+	CHECK(why[5].destination->reason == Destination::Reason::Category);
+	CHECK(why[6].outcome == Move);
+	CHECK(why[6].destination->reason == Destination::Reason::Master);
+	CHECK(why[6].keepRule.empty());
+	CHECK(why[7].outcome == Kept);
+	CHECK(why[7].keepRule == "always Skyrim.esm|0x0000000F (global)");
+
+	// No master and no binding: the book has nowhere to go.
+	f.layout.master.reset();
+	(void)SortPlanner(f.layout, f.categories).Deposit(inv, keep, &why);
+	CHECK(why[6].outcome == NoDestination);
+	CHECK(StackDecision::OutcomeName(NoDestination) == "no destination");
+	CHECK(DestinationReasonName(Destination::Reason::Master) == "homeless");
+}
+
 TEST_CASE("Distribute moves master contents to destinations; homeless stay", "[planner][distribute]")
 {
 	Fixture f;
@@ -224,6 +281,14 @@ TEST_CASE("Distribute moves master contents to destinations; homeless stay", "[p
 	REQUIRE(moves.size() == 2);
 	CHECK(moves[0] == Move{ 0, Sk(0x31), 1, kMaster, kArmory });
 	CHECK(moves[1] == Move{ 9, Sk(0x33), 4, kMaster, kSatchel });
+
+	std::vector<StackDecision> why;
+	CHECK(SortPlanner(f.layout, f.categories).Distribute(master, &why) == moves);
+	REQUIRE(why.size() == 4);
+	CHECK(why[0].outcome == StackDecision::Outcome::Move);
+	CHECK(why[1].outcome == StackDecision::Outcome::Homeless);
+	CHECK(why[2].outcome == StackDecision::Outcome::Quest);
+	CHECK(why[3].destination->category == "alchemy.potions");
 
 	// Master unavailable or missing: nothing happens.
 	CHECK(SortPlanner(f.layout, f.categories, [](const FormRef& a_ref) { return a_ref != kMaster; }).Distribute(master).empty());
@@ -321,6 +386,24 @@ TEST_CASE("Nameless items (script tokens) are never moved or learned", "[planner
 
 	CHECK(Learn(f.layout, token, kLooseChest, f.categories) == LearnResult::RejectedItem);
 	CHECK_FALSE(f.layout.learned.contains(Sk(0xA1)));
+}
+
+TEST_CASE("Items a script sends back when stored are never moved again", "[planner]")
+{
+	Fixture f;
+	auto boomerang = Misc(Sk(0xA3), 1);
+	boomerang.returns = true;
+	CHECK_FALSE(SortPlanner::CanMove(boomerang));
+
+	const std::vector<ItemInfo> inv{ boomerang, MakeItem(Sk(0xA2), ItemType::Book) };
+	std::vector<StackDecision>  why;
+	const auto                  moves = SortPlanner(f.layout, f.categories).Deposit(inv, NoKeep(), &why);
+	REQUIRE(moves.size() == 1);
+	CHECK(moves[0].form == Sk(0xA2));
+	REQUIRE(why.size() == 2);
+	CHECK(why[0].outcome == StackDecision::Outcome::Returns);
+	CHECK(SortPlanner(f.layout, f.categories).Distribute(std::vector<ItemInfo>{ boomerang }).empty());
+	CHECK(Learn(f.layout, boomerang, kLooseChest, f.categories) == LearnResult::RejectedItem);
 }
 
 TEST_CASE("Retrieve by category pattern", "[planner][retrieve]")

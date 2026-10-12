@@ -89,6 +89,12 @@ namespace dova::core
 		for (const auto& c : a_template.containers) {
 			check(c.ref, "container");
 		}
+		for (const auto& d : a_template.displays) {
+			check(d.ref, "display");
+			for (const auto& item : d.items) {
+				check(item, "display item");
+			}
+		}
 	}
 
 	void ValidateLayoutCategories(const Layout& a_layout, const CategorySet& a_categories, std::string_view a_source, Diagnostics& a_diags)
@@ -194,7 +200,7 @@ namespace dova::core
 		};
 
 		// Containers in both: template categories win; the player's ignored flag, explicit forms,
-		// label (when the template has none) and extra keys are kept.
+		// label and note (when the template has none) and extra keys are kept.
 		for (auto& c : layout.containers) {
 			const auto* old = a_existing->FindContainer(c.ref);
 			if (!old) {
@@ -203,6 +209,9 @@ namespace dova::core
 			c.ignored = c.ignored || old->ignored;
 			if (c.label.empty()) {
 				c.label = old->label;
+			}
+			if (c.note.empty()) {
+				c.note = old->note;
 			}
 			for (const auto& f : old->forms) {
 				if (std::ranges::find(c.forms, f) == c.forms.end()) {
@@ -236,6 +245,35 @@ namespace dova::core
 			layout.containers.push_back(std::move(c));
 		}
 
+		// Displays: the template's entries win; the player's ignored flag, and kind, label, note and items
+		// where the template gives none, are kept. Displays only the player layout names are kept as they are.
+		for (auto& d : layout.displays) {
+			const auto* old = a_existing->FindDisplay(d.ref);
+			if (!old) {
+				continue;
+			}
+			d.ignored = d.ignored || old->ignored;
+			if (!d.kind) {
+				d.kind = old->kind;
+			}
+			if (d.label.empty()) {
+				d.label = old->label;
+			}
+			if (d.note.empty()) {
+				d.note = old->note;
+			}
+			if (d.items.empty() && d.unparsedItems.empty()) {
+				d.items = old->items;
+				d.unparsedItems = old->unparsedItems;
+			}
+			mergeExtra(d.extra, old->extra);
+		}
+		for (const auto& old : a_existing->displays) {
+			if (!layout.FindDisplay(old.ref)) {
+				layout.displays.push_back(old);
+			}
+		}
+
 		// Learned destinations: every entry whose container is still part of the layout (not the master).
 		for (const auto& [form, container] : a_existing->learned) {
 			if (layout.FindContainer(container) && !layout.IsMaster(container)) {
@@ -251,6 +289,16 @@ namespace dova::core
 
 		// Unknown top-level keys and entries we could not parse are never dropped.
 		mergeExtra(layout.extra, a_existing->extra);
+		if (a_existing->unparsedDisplays.is_array()) {
+			if (!layout.unparsedDisplays.is_array()) {
+				layout.unparsedDisplays = nlohmann::json::array();
+			}
+			for (const auto& entry : a_existing->unparsedDisplays) {
+				if (std::ranges::find(layout.unparsedDisplays, entry) == layout.unparsedDisplays.end()) {
+					layout.unparsedDisplays.push_back(entry);
+				}
+			}
+		}
 		if (a_existing->unparsedContainers.is_array()) {
 			if (!layout.unparsedContainers.is_array()) {
 				layout.unparsedContainers = nlohmann::json::array();
