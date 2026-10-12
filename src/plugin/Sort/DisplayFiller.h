@@ -9,10 +9,12 @@
 // How each kind is filled (always what the display's own script would do, or the script itself):
 // - Rack: one at a time, exactly like WeaponRackActivateSCRIPT places the equipped weapon: the very copy
 //   (tempering, enchantment, name) is dropped in the open in front of the player, made keyframed once its
-//   3D is loaded, and moved onto the trigger's pivot node. The rack's trigger script must then notice it
-//   and disable the activator: that is how the game knows the rack holds something and lets the player
-//   take the weapon down. If that does not happen within 2 seconds, the weapon goes into the player's
-//   inventory and the rack is left alone for the session.
+//   3D is loaded, and moved onto the trigger's pivot node. A tick later comes the bookkeeping the rack's
+//   script does (game::DisableRack, game::RecordRackItem): the activator is disabled, which is how the
+//   game knows the rack holds something and lets the player take the weapon down. If it is still enabled after
+//   2 seconds (a rack without that script whose trigger did not disable it), the weapon goes into the
+//   player's inventory and Deposit and Sort all leave the rack alone for the session ("Fill now" tries
+//   again).
 // - Mannequin: the armor is moved into the mannequin's inventory; its script equips it.
 // - Case: the items are moved into the case; its script shows them.
 // - Item plaque: the item is brought to the player, and the plaque is activated for the player, so the
@@ -20,7 +22,7 @@
 //   happens while every copy the player carries is plain (no tempered, renamed, enchanted, worn or
 //   favorited copy the script could take instead). If the count went up instead (the plaque was full
 //   and gave its item back), it is activated once more. If nothing happens within 3 seconds, the item
-//   goes back where it came from and that plaque is left alone for the session.
+//   goes back where it came from and Deposit and Sort all leave that plaque alone for the session.
 // Nothing is ever taken off a display. If the player leaves the cell, filling stops (a weapon dropped for
 // a rack and not up yet goes into the player's inventory).
 
@@ -42,8 +44,8 @@ namespace dova::display
 	[[nodiscard]] bool Busy() noexcept;
 
 	// Finds the displays the layout uses (its `displays` entries that are not ignored) and plans what of
-	// `a_stocks` goes on them; `a_only`: that one display. Empty plan when the setting is off, no display
-	// is used, nothing fits, or a Fill is running.
+	// `a_stocks` goes on them; `a_only`: that one display (tried even if it failed earlier this session).
+	// Empty plan when the setting is off, no display is used, nothing fits, or a Fill is running.
 	[[nodiscard]] Prepared Prepare(const home::Home& a_home, RE::TESObjectCELL* a_cell, std::vector<core::DisplayStock> a_stocks,
 		std::optional<RE::FormID> a_only = std::nullopt);
 

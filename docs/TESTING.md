@@ -261,19 +261,27 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
      stored;
    - each weapon sits on its rack like a hand-placed weapon (not on the floor, not floating); the log has
      `Display: <item> from <player> on <rack> (rack)`;
-   - the rack's activate prompt is gone: activating the weapon picks it up (no "you need a weapon equipped").
+   - the rack's activate prompt is gone: activating the weapon picks it up (no "you need a weapon equipped");
+     the weapon stays up (it does not drop into your inventory 2 s later), and the log has
+     `<rack>: holds <weapon> (activator disabled, trigger state ...)`.
 6. Take the weapon off the bow rack (activate it), then Deposit. **Expected:** it goes back up on
    that rack; nothing else goes on racks you did not turn on; items still on display are not put up twice.
+   Then take it down again and use *Fill now* on that rack: it goes up again; the hotkey at it then offers
+   no *Fill now*, and leaving the cell and coming back keeps the weapon on the rack (no activate prompt).
+   *Fill now* on a display case that holds everything it is made for is not offered either; on one that
+   still lacks items you don't have it says *nothing you have or store fits <case>*.
 7. Look at the weapon on the rack, press the hotkey. **Expected:** the rack's menu (*Stop using this rack*).
    Choose it: the weapon stays; after you take it down, Deposit stores it instead.
 8. Temper a second Konahrik copy (`player.additem 00061CD6 1`, grindstone) and empty its plaque: Deposit puts
    only plain copies on item plaques (the tempered one goes to storage).
 9. Settings → turn off *Put gear on the home's displays*, Deposit: no `Displays in` line, everything is stored.
-10. If a rack's trigger ever misses a weapon, the log has `the trigger of <rack> did not notice <item>` and the
-   HUD says the item is in your inventory. Send the log.
+10. If a rack ever does not take a weapon, the log has `<rack> did not take <item>` and the HUD says the item
+   is in your inventory; Deposit and Sort all skip that rack for the session, *Fill now* tries it again. Send
+   the log.
 11. **Fail if** an item ends up on the floor, disappears (check `Inventory:` journal lines), a rack shows two
-   weapons, the game asks for an equipped weapon at a rack Dova Stash filled, or a mannequin loses armor it
-   was already wearing. Send the log.
+   weapons, the game asks for an equipped weapon at a rack Dova Stash filled, a weapon comes back off a rack
+   by itself, *Fill now* says *nothing ... fits* for a display that just took an item, or a mannequin loses
+   armor it was already wearing. Send the log.
 
 ## 4. Robustness
 

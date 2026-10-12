@@ -129,6 +129,7 @@ namespace dova::display
 			void Placed(const Step& a_step)
 			{
 				++_placed;
+				g_failed.erase(a_step.display.ref);
 				logger::debug("Display: {} from {} on {} ({})", a_step.item, Holder(a_step.stack.owner), game::Describe(Ref(a_step.display.ref)),
 					core::DisplayKindName(a_step.display.kind));
 			}
@@ -156,9 +157,9 @@ namespace dova::display
 
 			// Racks, one at a time, the way WeaponRackActivateSCRIPT places the equipped weapon: drop the very
 			// copy in the open, wait for its 3D, make it keyframed and move it onto the trigger's pivot node.
-			// Then the rack's trigger must notice it and disable the activator (that is how the game knows
-			// the rack holds something, and lets the player take the weapon down). If it does not, the
-			// weapon is taken back.
+			// Then the script's bookkeeping (game::DisableRack, game::RecordRackItem): the activator is
+			// disabled (that is how the game knows the rack holds something, and lets the player take the
+			// weapon down). If the activator stays enabled, the weapon is taken back.
 			void NextRack(std::size_t a_index)
 			{
 				if (!StillHere()) {
@@ -229,6 +230,9 @@ namespace dova::display
 				Later([self = shared_from_this(), a_index]() { self->ConfirmRack(a_index, 1); });
 			}
 
+			// A tick after the move (like the script's own short wait, so the trigger events of the move
+			// are past), the bookkeeping the rack's script does; a rack without that script must have its
+			// trigger disable the activator.
 			void ConfirmRack(std::size_t a_index, int a_tick)
 			{
 				if (!StillHere()) {
@@ -236,7 +240,13 @@ namespace dova::display
 				}
 				auto& s = _racks[a_index];
 				auto* rack = Ref(s.display.ref);
+				if (a_tick == 1) {
+					game::DisableRack(s.display);
+				}
 				if (rack && rack->IsDisabled()) {
+					if (auto ref = s.dropped.get()) {
+						game::RecordRackItem(s.display, ref.get());
+					}
 					s.done = true;
 					Placed(s);
 					return NextRack(a_index + 1);
@@ -246,8 +256,8 @@ namespace dova::display
 					return;
 				}
 				g_failed.insert(s.display.ref);
-				logger::warn("Display: the trigger of {} did not notice {} within {} s, so the game would not let you take it down; it is left alone for "
-							 "the rest of this session",
+				logger::warn("Display: {} did not take {} within {} s (its activator is still enabled), so the game would not let you take it down; "
+							 "Deposit and Sort all leave it alone for the rest of this session",
 					game::Describe(rack), s.item, kConfirmTicks / 10);
 				TakeBack(s);
 				NextRack(a_index + 1);
@@ -335,8 +345,8 @@ namespace dova::display
 				}
 				++_errors;
 				g_failed.insert(s.display.ref);
-				logger::warn("Display: {} did not take {} within {} s; it is left alone for the rest of this session", game::Describe(plaque), s.item,
-					kPlaqueTicks / 10);
+				logger::warn("Display: {} did not take {} within {} s; Deposit and Sort all leave it alone for the rest of this session",
+					game::Describe(plaque), s.item, kPlaqueTicks / 10);
 				if (s.broughtToPlayer) {
 					if (auto* container = Ref(s.stack.owner)) {
 						game::ItemMover::SuppressScope suppress;
@@ -474,8 +484,8 @@ namespace dova::display
 			if (a_only && d.ref != *a_only) {
 				return true;
 			}
-			if (g_failed.contains(d.ref)) {
-				return true;
+			if (g_failed.contains(d.ref) && !a_only) {
+				return true;  // "Fill now" (a_only) tries it again
 			}
 			if (d.kind != core::DisplayKind::Case) {
 				return false;

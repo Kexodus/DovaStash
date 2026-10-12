@@ -437,17 +437,18 @@ aims the hotkey at a rack, a mannequin (or the activator in front of it), an ite
 or at a weapon sitting on a rack, and gets a small menu (`ui::DisplayMenu`): *Use this rack* adds the entry
 (nothing goes up until Deposit or Sort all). Once used: *Categories...* picks what a rack or mannequin
 takes, like a container's categories (racks are offered All Weapons, each weapon category and Shields;
-mannequins the armor categories); *Fill now* while it is empty (`sort::FillDisplay`: what Deposit would move
-plus what is stored); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
+mannequins the armor categories); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
+plus what is stored; it also retries a display that failed earlier in the session, see *Filling*; a case is
+full once it holds every item it is made for); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
 does not turn it back on). Templates list the displays that should look hand-placed from the start. A
 display case the layout uses for storage opens the container menu instead.
 
-**Finding them.** Displays are recognised from the scripts the game binds to them (read from the Papyrus VM,
-nothing changed), in any home, with or without a template (`game::FindDisplays`):
+**Finding them.** Displays are recognised from the scripts the game binds to them (read from the Papyrus VM;
+only a rack's own bookkeeping is written, see the table), in any home, with or without a template (`game::FindDisplays`):
 
 | Kind | Recognised by | Filled by |
 |---|---|---|
-| `rack` | An activator running `WeaponRackActivateSCRIPT`: weapon racks, wall plaques, dagger displays, coat-of-arms racks (the middle one takes a shield), and home mods' copies of them. `RackType` (1 any weapon, 2 shield, 3 or `Patch14COARacks` no dagger or bow, 4 daggers only) says what it takes | Exactly what the script does with the equipped weapon: dropping the very copy in the open in front of the player, making it keyframed once its 3D is loaded and moving it onto the trigger's pivot node (`SwordPivot01`...). The trigger's script must then notice it and disable the activator; that is how the game knows the rack holds something, and the player then picks the weapon up by activating it. A weapon dropped inside the rack is pushed out by its collision and never counted, which is why it is dropped in the open |
+| `rack` | An activator running `WeaponRackActivateSCRIPT`: weapon racks, wall plaques, dagger displays, coat-of-arms racks (the middle one takes a shield), and home mods' copies of them. `RackType` (1 any weapon, 2 shield, 3 or `Patch14COARacks` no dagger or bow, 4 daggers only) says what it takes | Exactly what the script does with the equipped weapon: dropping the very copy in the open in front of the player, making it keyframed once its 3D is loaded and moving it onto the trigger's pivot node (`SwordPivot01`...). Then, a tick later (the script's own short wait, so the trigger events of the move are past), the script's bookkeeping (`game::DisableRack`, `game::RecordRackItem`): the activator is disabled, the weapon is recorded in the script (`PlayersDroppedWeapon`; the Unofficial Patch's `PlacedItemInit`), and the trigger is put in its `WaitingForReference` state. A disabled activator is how the game knows the rack holds something; the player picks the weapon up by activating it, and the trigger then re-enables the activator. In the vanilla game the trigger disables the activator itself when the weapon enters it; the Unofficial Patch's trigger never does (its activator script disables itself, and it leaves an empty rack's trigger in a state that ignores items leaving), which is why waiting for the trigger is not enough. A weapon dropped inside the rack is pushed out by its collision and never counted, which is why it is dropped in the open |
 | `mannequin` | An actor running `MannequinActivatorSCRIPT` | Moving armor into its inventory; its script equips it |
 | `item` | A reference whose script holds playable items in its properties (or a form list of them) and a "placed" flag: the `ClawToPlace` display script that home mods copy for masks, claws, Elder Scrolls, books, artifacts | Bringing the item to the player and activating the plaque for the player, so the home's own script takes it and shows the model |
 | `case` | A container whose script holds playable items in its properties and handles `OnItemAdded` | Moving the items in; its script shows them |
@@ -485,12 +486,13 @@ containers (the player's `ignored` wins).
 - A rack is taken while its activator is disabled; unbuilt racks (trigger disabled) are skipped.
 
 **Filling** (`display::Fill`, over the next frames after the sort's own moves): mannequins and cases at once,
-then racks one at a time (drop, wait every 100 ms for 3D for at most 5 s, place, then wait at most 2 s for the
-rack's activator to be disabled by its trigger), then item plaques one at a time. A rack whose trigger does
-not notice the weapon gets nothing: the weapon goes into the player's inventory, the HUD line says so, and
-the rack is left alone for the session. A plaque that hands an item back (it was full) is activated once
-more; one that takes nothing within 3 s gets its item back where it came from and is left alone for the
-session. Filling stops if the player leaves the cell (a weapon dropped for a rack and not up yet goes into
+then racks one at a time (drop, wait every 100 ms for 3D for at most 5 s, place, the script's bookkeeping a
+tick later, then wait at most 2 s for the rack's activator to be disabled), then item plaques one at a time. A
+rack whose activator stays enabled (one without `WeaponRackActivateSCRIPT`'s `PlayersDroppedWeapon`, whose
+trigger did not disable it) gets nothing: the weapon goes into the player's inventory, the HUD line says so,
+and Deposit and Sort all leave the rack alone for the session. A plaque that hands an item back (it was full)
+is activated once more; one that takes nothing within 3 s gets its item back where it came from and Deposit
+and Sort all leave it alone for the session. *Fill now* on such a display tries again. Filling stops if the player leaves the cell (a weapon dropped for a rack and not up yet goes into
 the player's inventory). The player gets one line at the end (`put 12 items on display`); the log has
 a summary at info (`Displays in Whitepeak Tower: 77 rack (77 empty), 6 mannequin (6 empty), 50 item (50
 empty); 41 items to put up`), the plan and each placement at debug.

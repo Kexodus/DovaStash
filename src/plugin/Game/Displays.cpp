@@ -15,6 +15,7 @@ namespace dova::game
 		constexpr std::string_view kRackScript = "WeaponRackActivateSCRIPT";
 		constexpr std::string_view kMannequinScript = "MannequinActivatorSCRIPT";
 		constexpr std::string_view kRackTriggerKeyword = "WRackTrigger";
+		constexpr std::string_view kRackTriggerWaiting = "WaitingForReference";  // the trigger state that notices a take
 
 		// Scripts bound to `a_ref` (copied out under the VM's lock), without the bare engine base types.
 		std::vector<ScriptPtr> BoundScripts(RE::TESObjectREFR* a_ref)
@@ -189,6 +190,30 @@ namespace dova::game
 				}
 			}
 			return false;
+		}
+
+		bool HasState(const ScriptPtr& a_script, std::string_view a_state)
+		{
+			for (auto* type = a_script ? a_script->GetTypeInfo() : nullptr; type; type = type->GetParent()) {
+				const auto* states = type->GetNamedStateIter();
+				for (std::uint32_t s = 0; states && s < type->GetNumNamedStates(); ++s) {
+					if (core::IEquals(states[s].name.c_str(), a_state)) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
+		// The activator's WeaponRackActivateSCRIPT, if it keeps the placed weapon (PlayersDroppedWeapon).
+		ScriptPtr RackScript(RE::TESObjectREFR* a_rack)
+		{
+			for (auto& s : BoundScripts(a_rack)) {
+				if (core::IEquals(ScriptName(s), kRackScript) && s->GetProperty("PlayersDroppedWeapon")) {
+					return s;
+				}
+			}
+			return {};
 		}
 
 		RE::BGSKeyword* RackTriggerKeyword(const std::vector<Var>& a_vars)
@@ -410,6 +435,13 @@ namespace dova::game
 			return !DisplayHolds(a_display).empty();
 		case core::DisplayKind::Item:
 			return a_display.placed.value_or(false);
+		case core::DisplayKind::Case:
+			{
+				const auto holds = DisplayHolds(a_display);
+				return !a_display.items.empty() && std::ranges::all_of(a_display.items, [&](RE::TESBoundObject* a_item) {
+					return std::ranges::find(holds, a_item) != holds.end();
+				});
+			}
 		default:
 			return false;
 		}
@@ -428,6 +460,51 @@ namespace dova::game
 			}
 		}
 		return out;
+	}
+
+	bool DisableRack(const FoundDisplay& a_rack)
+	{
+		auto* rack = a_rack.kind == core::DisplayKind::Rack ? RE::TESForm::LookupByID<RE::TESObjectREFR>(a_rack.ref) : nullptr;
+		if (!rack) {
+			return false;
+		}
+		if (!RackScript(rack)) {
+			logger::debug("{}: no {} with PlayersDroppedWeapon; waiting for its trigger instead", Describe(rack), kRackScript);
+			return false;
+		}
+		if (!rack->IsDisabled()) {
+			rack->Disable();
+		}
+		return true;
+	}
+
+	void RecordRackItem(const FoundDisplay& a_rack, RE::TESObjectREFR* a_item)
+	{
+		auto* rack = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_rack.ref);
+		auto* trigger = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_rack.trigger);
+		if (a_rack.kind != core::DisplayKind::Rack || !rack || !trigger || !a_item || !rack->IsDisabled()) {
+			return;
+		}
+		auto  script = RackScript(rack);
+		auto* dropped = script ? script->GetProperty("PlayersDroppedWeapon") : nullptr;
+		if (!dropped) {
+			return;  // no script to tell (the trigger disabled the activator)
+		}
+		dropped->Pack(a_item);
+		if (auto* init = script->GetProperty("PlacedItemInit")) {
+			init->SetBool(true);  // Unofficial Patch: PlayersDroppedWeapon is reliable
+		}
+		std::string_view state = "unchanged";
+		auto*            vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+		for (auto& s : BoundScripts(trigger)) {
+			if (!vm || !HasState(s, kRackTriggerWaiting) || core::IEquals(s->currentState.c_str(), kRackTriggerWaiting)) {
+				continue;
+			}
+			RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> callback;
+			vm->DispatchMethodCall(s, "GotoState", RE::MakeFunctionArguments(RE::BSFixedString(kRackTriggerWaiting)), callback);
+			state = kRackTriggerWaiting;
+		}
+		logger::debug("{}: holds {} (activator disabled, trigger state {})", Describe(rack), Describe(a_item), state);
 	}
 
 	std::set<RE::FormID> LooseGear(RE::TESObjectCELL* a_cell)

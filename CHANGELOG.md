@@ -4,7 +4,7 @@
 
 ### Added
 
-- Displays: look at a weapon rack, mannequin, or a plaque made for one item (dragon priest masks, dragon claws, Elder Scrolls...) and press the hotkey to use it, and pick what it takes under Categories, like a container (a rack for bows only, a mannequin for light armor). Deposit and Sort all then keep it filled, as if you had placed it by hand: racks get your best weapons (one of each), coat-of-arms racks a shield, mannequins a matching armor set. Weapons go up the way the game's own racks place them, so you take them down as usual. Works in any home from the displays' own scripts; templates can turn displays on and pick their items (`displays`). Nothing is taken off a display. Setting: "Put gear on the home's displays".
+- Displays: look at a weapon rack, mannequin, or a plaque made for one item (dragon priest masks, dragon claws, Elder Scrolls...) and press the hotkey to use it, and pick what it takes under Categories, like a container (a rack for bows only, a mannequin for light armor). Deposit and Sort all then keep it filled, as if you had placed it by hand: racks get your best weapons (one of each), coat-of-arms racks a shield, mannequins a matching armor set. Weapons go up the way the game's own racks place them (the Unofficial Patch's racks too), so you take them down as usual. Works in any home from the displays' own scripts; templates can turn displays on and pick their items (`displays`). Nothing is taken off a display. Setting: "Put gear on the home's displays".
 
 ### Fixed
 

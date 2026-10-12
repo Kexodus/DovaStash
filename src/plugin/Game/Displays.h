@@ -2,11 +2,14 @@
 
 // Displays in a home cell (DESIGN §8.4): finding them and reading their state. Main thread only.
 //
-// Recognised by the scripts the game binds to them (read from the Papyrus VM, nothing is changed):
+// Recognised by the scripts the game binds to them (read from the Papyrus VM; only DisableRack and
+// RecordRackItem change anything):
 // - Rack: an activator running WeaponRackActivateSCRIPT (vanilla weapon racks, shield plaques, dagger
 //   displays, coat-of-arms racks; also the copies home mods make of them). Its RackType property says
 //   what it takes; its WRackTrigger linked ref is the trigger whose pivot nodes hold the weapon. The
-//   trigger's own script disables the activator while something is on the rack.
+//   activator is disabled while something is on the rack: by the trigger's script in the vanilla game,
+//   by the activator's own script with the Unofficial Patch (whose trigger only re-enables it when the
+//   weapon is taken). DisableRack and RecordRackItem do that bookkeeping for a weapon Dova Stash placed.
 // - Mannequin: an actor running MannequinActivatorSCRIPT, which equips the armor added to its inventory.
 // - Item: a reference whose script holds playable items in its properties (or a form list of them) and
 //   a "placed" flag (bool or int, named isPlaced, placed...): the plaques home mods copy from the
@@ -43,11 +46,21 @@ namespace dova::game
 
 	// Built (not disabled, also through enable parents) and, for racks, its trigger has 3D.
 	[[nodiscard]] bool DisplayAvailable(const FoundDisplay& a_display);
-	// Something is on it: a rack's activator is disabled, a mannequin wears armor, a plaque's flag is set.
-	// Cases are never full (see DisplayHolds).
+	// Nothing more goes on it: a rack's activator is disabled, a mannequin wears armor, a plaque's flag is
+	// set, a case holds every item it is made for.
 	[[nodiscard]] bool DisplayFull(const FoundDisplay& a_display);
 	// What a mannequin or a case holds.
 	[[nodiscard]] std::vector<RE::TESBoundObject*> DisplayHolds(const FoundDisplay& a_display);
+
+	// What WeaponRackActivateSCRIPT does when it places a weapon, in two steps. After the weapon was moved
+	// onto the pivot node, DisableRack disables the activator; false (nothing changed) when the activator
+	// has no such script (keeping the weapon in PlayersDroppedWeapon), so only its trigger can disable it.
+	bool DisableRack(const FoundDisplay& a_rack);
+	// Once the activator is disabled: records `a_item` in that script (PlayersDroppedWeapon; the Unofficial
+	// Patch's PlacedItemInit) and puts the trigger in its WaitingForReference state (the Unofficial Patch
+	// leaves an empty rack's trigger in a state that ignores items leaving it), so taking the weapon frees
+	// the rack again and the script puts it back after a cell reload.
+	void RecordRackItem(const FoundDisplay& a_rack, RE::TESObjectREFR* a_item);
 
 	// Base forms of the weapons and armor lying loose in the cell (on racks, tables, the floor).
 	[[nodiscard]] std::set<RE::FormID> LooseGear(RE::TESObjectCELL* a_cell);

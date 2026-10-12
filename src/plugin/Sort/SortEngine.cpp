@@ -335,7 +335,8 @@ namespace dova::sort
 				return result;
 			}
 			if (game::DisplayFull(*found)) {
-				return result;  // it already holds something: nothing to say
+				result.message = std::format("Dova Stash: {} is full", name);
+				return result;
 			}
 		}
 
