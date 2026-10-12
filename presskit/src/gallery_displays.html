@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>displays</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<style>
+  .cols {
+    position: absolute; top: 330px; left: 0; right: 0;
+    display: flex; justify-content: center; gap: 110px;
+  }
+  .col { width: 440px; }
+  .col .ico { margin-bottom: 44px; }
+  .col h2 { font-size: 23px; letter-spacing: 0.3em; margin-right: -0.3em; }
+  .col .d { font-size: 19px; color: var(--gray-2); margin-top: 18px; line-height: 1.5; font-weight: 350; }
+  .col .rule { height: 1px; background: var(--gray-4); margin: 26px 0 12px; }
+  .col ul { list-style: none; }
+  .col li { font-size: 25px; font-weight: 350; height: 52px; display: flex; align-items: center; gap: 22px; }
+  .col li::before { content: ""; width: 14px; height: 1px; background: var(--gray-3); flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<div class="g-page">
+  <div class="g-head">
+    <h1 class="title">Beyond the chests</h1>
+    <div class="g-sub">Your racks, mannequins and workbenches use what you store.</div>
+  </div>
+  <div class="cols" id="c"></div>
+</div>
+<script>
+  // [icon, title, line, items]: what each feature does, as DESIGN §8.4 and the settings page describe it.
+  var C = [
+    ["displays", "Displays", "Press K at one and use it. Your best gear<br>goes up, one of each, as if placed by hand.",
+      ["Weapon and shield racks", "Glass display cases", "Masks, claws, Elder Scrolls", "Categories per rack"]],
+    ["mannequin", "Mannequins", "Each one wears your best matching<br>armor set, or the set you pick.",
+      ["Best matching set", "Or pick any set", "Search every set", "Modded armor too"]],
+    ["workbench", "Workbench", "Sit at a station: the stored materials<br>come to you, and the rest goes back.",
+      ["Forge and smelter", "Tanning rack, cooking pot", "Alchemy and enchanting", "Modded stations too"]]
+  ];
+  document.getElementById("c").innerHTML = C.map(function (c) {
+    return '<div class="col">' + icon(c[0], 132, 2) + '<h2 class="title">' + c[1] + '</h2><div class="d">' + c[2] +
+      '</div><div class="rule"></div><ul>' + c[3].map(function (i) { return "<li>" + i + "</li>"; }).join("") +
+      "</ul></div>";
+  }).join("");
+</script>
+</body></html>

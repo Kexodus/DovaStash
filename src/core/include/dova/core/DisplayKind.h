@@ -19,10 +19,12 @@ namespace dova::core
 	// Which items a vanilla rack takes (WeaponRackActivateSCRIPT.RackType; Patch14COARacks counts as 3).
 	enum class RackType : std::uint8_t
 	{
-		Any = 1,            // every weapon except crossbows (and shields)
+		Any = 1,            // every weapon, no shields (crossbows only where the trigger has a crossbow node)
 		Shield = 2,         // shields only
 		NoDaggerOrBow = 3,  // no daggers, bows or crossbows (coat-of-arms racks)
-		Dagger = 4          // daggers only
+		Dagger = 4,         // daggers only
+		LargeCase = 5       // the Unofficial Patch's large display case: takes what Any takes; the long staves
+		                    // its script turns away are refused by the plugin (they need the staff's 3D)
 	};
 
 	[[nodiscard]] std::string_view           DisplayKindName(DisplayKind a_kind) noexcept;  // "rack", "mannequin", "item", "case"

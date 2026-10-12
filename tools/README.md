@@ -89,8 +89,10 @@ Exterior cells also include the worldspace's persistent references that lie insi
    `weapons.*` are allowed). Mark dangerous containers with `"ignored": true` and a `"note"` that explains
    why; keep `"label"` for the short name players see. List the racks, mannequins and item plaques that
    should be filled in `displays` (the `cell` output's `displays` has their refs); players turn the others
-   on with the hotkey. `categories` limits what a rack or mannequin takes, like a container's. An entry can
-   also change a display's items or name one Dova Stash can't recognise (DESIGN §8.4).
+   on with the hotkey. `categories` limits what a rack or mannequin takes, like a container's; `set` gives a
+   mannequin one armor set, named by any of its pieces (`check` makes sure it is an ARMO). An entry can
+   also change a display's items or name one Dova Stash can't recognise (DESIGN §8.4). Plaques and cases
+   get their own `items` written in game when they are turned on, so leaving them out is fine.
 4. List every plugin the template references in `requires`, including the plugin that owns the cell.
 5. `python -I esm_dump.py check path\to\MyHome.json --categories path\to\Categories\00_Default.json`
    - It fails on refs that are not containers in the declared cell, respawning bound containers, duplicate refs,

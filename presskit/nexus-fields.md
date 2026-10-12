@@ -163,11 +163,12 @@ Upload order, Images tab (files in `presskit/nexus/`):
 | 1 | `dovastash-thumbnail-1280x720.png` | **Primary image**: the mod tile in search and browse. Emblem and name only, readable at tile size and safe under the tile's crop |
 | 2 | `dovastash-primary-1920x1080.png` | Gallery: emblem, name and tagline |
 | 3 | `dovastash-gallery-how-it-works-1920x1080.png` | Gallery |
-| 4 | `dovastash-gallery-templates-1920x1080.png` | Gallery |
-| 5 | `dovastash-gallery-homes-1920x1080.png` | Gallery |
-| 6 | `dovastash-gallery-categories-1920x1080.png` | Gallery |
-| 7 | `dovastash-gallery-safety-1920x1080.png` | Gallery |
-| 8 | `dovastash-features-1200x700.png` | Gallery (optional) |
+| 4 | `dovastash-gallery-menu-1920x1080.png` | Gallery: one key, the hotkey lists |
+| 5 | `dovastash-gallery-templates-1920x1080.png` | Gallery |
+| 6 | `dovastash-gallery-homes-1920x1080.png` | Gallery |
+| 7 | `dovastash-gallery-displays-1920x1080.png` | Gallery: displays, mannequins, workbench |
+| 8 | `dovastash-gallery-categories-1920x1080.png` | Gallery |
+| 9 | `dovastash-features-1200x700.png` | Gallery (optional) |
 
 **Embedded in the description only.** Don't put these in the gallery, because they would clutter it.
 The description already loads them from GitHub:

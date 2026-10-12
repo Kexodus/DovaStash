@@ -28,8 +28,10 @@ Design principles, in priority order:
    UI they already run: SkyUI, whatever HUD/menu skin they use (or none), their icon packs
    (I4 + I5, THICC...), QuickLoot IE, and UIExtensions. They also supply its fonts and sounds. Dova Stash
    ships no textures, icons, fonts or skinned menus. The black-and-white Nexus art is for the mod page
-   only. Every integration is detected at runtime, and each surface falls back to the next available
-   one. See §10.3.
+   only, with one exception the user asked for: the Dova Stash logo above the hotkey's UIExtensions
+   lists (`Interface/DovaStash/logo.dds`, tinted with the skin's own list text colour; optional, §10.3).
+   Every integration is detected at runtime, and each surface falls back to the next available one.
+   See §10.3.
 
 ### Non-goals (v1)
 
@@ -50,14 +52,14 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 | Secondary container → assign categories                | Same: any container in the cell can be bound to one or more categories             |
 | Items put in a container become its default destination | Same: **learned destinations**, recorded from `TESContainerChangedEvent`           |
 | Homeless items stay in master                          | Same                                                                                |
-| Ignored containers                                     | Same: an `ignored` flag excludes a container from sorting and learning             |
+| Ignored containers                                     | Same: an `ignored` flag excludes a container from sorting and learning; **Remove** forgets one instead |
 | Keep / always-remove / quotas, per cell or global      | Same: keep rules with quotas, global defaults plus per-home overrides              |
 | Keeps equipped / hotkeyed / pinned gear                | Keeps equipped, favorited, and quest items, plus gold, lockpicks and torches by default |
-| Retrieve by category / perk / repair / crafting list   | Retrieve by category; "retrieve for crafting" is a later milestone                 |
+| Retrieve by category / perk / repair / crafting list   | Retrieve by category; crafting materials come by themselves at a station (§8.5)   |
 | Hotkey into the air → highlight managed containers     | Same: apply a timed effect shader to managed containers                            |
 | `Stash Organizer.ini` + `[Cell ID].ini` override       | `Layouts/` (player) + `Templates/` (community), resolved by cell identity (§6)     |
 | Settings persist across playthroughs                   | Same: layouts live in JSON, not in the save                                        |
-| Crafting pulls from storage                            | Milestone M5 (§13)                                                                 |
+| Crafting pulls from storage                            | Materials at the workbench (§8.5): brought on sitting down, the rest put back      |
 | Mojave Express (send items between stashes)            | Superseded by central storage (v2)                                                 |
 
 ---
@@ -219,7 +221,8 @@ On entering an eligible cell:
   ],
   "displays": [                        // optional: the displays this home fills (§8.4)
     {"ref": "Skyrim.esm|0x000EEEEE", "label": "Bow rack", "categories": ["weapons.bows"]},
-    {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]}
+    {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]},
+    {"ref": "Skyrim.esm|0x000EEEEF", "label": "Mannequin", "set": "Skyrim.esm|0x00013961"}  // wears the Ebony set
   ],
   "keep": {
     "inherit": true,
@@ -237,6 +240,10 @@ On entering an eligible cell:
 `label` is the name the player sees for a container (the panel, menus); `note` (top level, containers,
 displays) is free text for people reading the file. Dova Stash never acts on a note; the panel shows a
 container's note under its name, so that is where a template says why it ignores a container.
+
+`set` (mannequins, §8.4) names the armor set the mannequin wears by any one of its pieces (an ARMO form;
+Dova Stash writes the set's first body piece). Without it the mannequin picks a set itself ("Auto"). It is
+an optional field of schema 1: an older DLL keeps it as an unknown key.
 
 Files are written to be read by people: tabs, one line per container (fields lined up in columns), short
 lists on one line, anything longer than 200 columns spread over lines (`detail::Dump`). The shipped
@@ -380,6 +387,7 @@ download that drops into the same `Categories/` folder, not in the main archive.
 | **Sort all**   | Master + bound containers → correct one (see §16) | Manual (e.g. after changing bindings)                             |
 | **Retrieve**   | Destinations → player                 | Menu: by category, or everything                                  |
 | **Fill displays** | Player + managed containers → the empty displays in use (§8.4) | Part of Deposit and Sort all (`bFillDisplays`); one display with *Fill now* in its menu |
+| **Crafting supply** | Managed containers → player, the unused rest back (§8.5) | Sitting down at a crafting station in an enabled home (`bCraftingSupply`); back when the crafting menu closes |
 | **Learn**      | Records item → container              | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
 
 ### 8.2 Moving items safely (`ItemMover`)
@@ -437,7 +445,7 @@ aims the hotkey at a rack, a mannequin (or the activator in front of it), an ite
 or at a weapon sitting on a rack, and gets a small menu (`ui::DisplayMenu`): *Use this rack* adds the entry
 (nothing goes up until Deposit or Sort all). Once used: *Categories...* picks what a rack or mannequin
 takes, like a container's categories (racks are offered All Weapons, each weapon category and Shields;
-mannequins the armor categories); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
+mannequins the armor categories); *Armor set... (Auto)* for a mannequin (see *Mannequins* below); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
 plus what is stored; it also retries a display that failed earlier in the session, see *Filling*; a case is
 full once it holds every item it is made for); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
 does not turn it back on). Templates list the displays that should look hand-placed from the start. A
@@ -448,7 +456,7 @@ only a rack's own bookkeeping is written, see the table), in any home, with or w
 
 | Kind | Recognised by | Filled by |
 |---|---|---|
-| `rack` | An activator running `WeaponRackActivateSCRIPT`: weapon racks, wall plaques, dagger displays, coat-of-arms racks (the middle one takes a shield), and home mods' copies of them. `RackType` (1 any weapon, 2 shield, 3 or `Patch14COARacks` no dagger or bow, 4 daggers only) says what it takes | Exactly what the script does with the equipped weapon: dropping the very copy in the open in front of the player, making it keyframed once its 3D is loaded and moving it onto the trigger's pivot node (`SwordPivot01`...). Then, a tick later (the script's own short wait, so the trigger events of the move are past), the script's bookkeeping (`game::DisableRack`, `game::RecordRackItem`): the activator is disabled, the weapon is recorded in the script (`PlayersDroppedWeapon`; the Unofficial Patch's `PlacedItemInit`), and the trigger is put in its `WaitingForReference` state. A disabled activator is how the game knows the rack holds something; the player picks the weapon up by activating it, and the trigger then re-enables the activator. In the vanilla game the trigger disables the activator itself when the weapon enters it; the Unofficial Patch's trigger never does (its activator script disables itself, and it leaves an empty rack's trigger in a state that ignores items leaving), which is why waiting for the trigger is not enough. A weapon dropped inside the rack is pushed out by its collision and never counted, which is why it is dropped in the open |
+| `rack` | An activator running `WeaponRackActivateSCRIPT`: weapon racks, wall plaques, dagger displays, coat-of-arms racks (the middle one takes a shield), and home mods' copies of them. `RackType` (1 any weapon, 2 shield, 3 or `Patch14COARacks` no dagger or bow, 4 daggers only, 5 the Unofficial Patch's large display case: any weapon) says what it takes. Crossbows carry `WeapTypeBow`; they only go on racks whose trigger has the Unofficial Patch's `CrossbowPivot01` node, and never on coat-of-arms racks. What the Unofficial Patch's script turns away is never put up: the Forsworn staves (its `USKPForswornStavesList`) on a rack whose trigger has `BogusPivot` (known before the drop, `game::RackFitOf`), and a long staff (one with the node `Staff3rdPerson:0` or `3rdPersonStaff04:1`) in a display case (trigger node `WRDisplayCase01`): that shows only once the dropped staff has its 3D, so it goes into the player's inventory, as the script hands it back, and that rack is not offered it again this session | Exactly what the script does with the equipped weapon: dropping the very copy in the open in front of the player, making it keyframed once its 3D is loaded and moving it onto the node of the trigger the script picks with Papyrus' own `MoveToNode`, the call the script makes. The node goes by the weapon's first `WeapType*` keyword in the script's order (`SwordPivot01`, `WarAxePivot01`, `MacePivot01`, `GreatSwordPivot01`, `BattleAxePivot01`, `WarhammerPivot01`, `BowPivot01`, `StaffPivot01`, `DaggerPivot01`; `ShieldPivot01` for `ArmorShield`; `core::RackPivot`), and with the Unofficial Patch's script also by the item itself once its 3D is loaded (`game::RackNode`): crossbows on `CrossbowPivot01` (the Dwarven crossbow on `CrossbowPivot02`); staves on `StaffPivotCorruption`, `StaffPivotSanguine`, `StaffPivotFalmer`, `StaffPivotForsworn`, `StaffPivot01`/`02`/`03` by form and mesh node (on coat-of-arms racks `StaffPivotFalmer` or `StaffPivot01`); Ysgramor's, dwarven, daedric and dragonbone shields on their own `ShieldPivot*` nodes. A node the trigger lacks falls back to the plain one. If the VM has not run the move within 2 s, it is done directly (`game::MoveToNodeDirect`): CommonLib's `TESObjectREFR::MoveToNode` is not used, as its `NiMatrix3::ToEulerAnglesXYZ` goes through a `NiFastATan2` whose sign is wrong whenever |y| <= |x| (and its gimbal-lock branches are wrong too), which hung a mace sideways on a wall rack. Then, a tick later (the script's own short wait, so the trigger events of the move are past), the script's bookkeeping (`game::DisableRack`, `game::RecordRackItem`): the activator is disabled, the weapon is recorded in the script (`PlayersDroppedWeapon`; the Unofficial Patch's `PlacedItemInit`), and the trigger is put in its `WaitingForReference` state. A disabled activator is how the game knows the rack holds something; the player picks the weapon up by activating it, and the trigger then re-enables the activator. In the vanilla game the trigger disables the activator itself when the weapon enters it; the Unofficial Patch's trigger never does (its activator script disables itself, and it leaves an empty rack's trigger in a state that ignores items leaving), which is why waiting for the trigger is not enough. A weapon dropped inside the rack is pushed out by its collision and never counted, which is why it is dropped in the open. Unlike with the script, it is never seen on the way (falling in front of the player, hanging in the air until the move): its 3D is hidden from the drop (and whenever it loads, `TESObjectLoadedEvent`) until the bookkeeping is done, then shown, so it appears on the rack (`game::HideDropped`/`ShowDropped`; only the rendering is culled, collision, trigger events and the keyframed motion are untouched). Every way out shows it again: placed, taken back, the player leaving |
 | `mannequin` | An actor running `MannequinActivatorSCRIPT` | Moving armor into its inventory; its script equips it |
 | `item` | A reference whose script holds playable items in its properties (or a form list of them) and a "placed" flag: the `ClawToPlace` display script that home mods copy for masks, claws, Elder Scrolls, books, artifacts | Bringing the item to the player and activating the plaque for the player, so the home's own script takes it and shows the model |
 | `case` | A container whose script holds playable items in its properties and handles `OnItemAdded` | Moving the items in; its script shows them |
@@ -458,10 +466,15 @@ layout uses for storage is not a case. `esm_dump.py cell` lists the displays it 
 
 **Layouts and templates** (`displays`, §6.3) list the displays in use, by `ref`. `categories` (patterns, as
 for containers) limits what a rack or mannequin takes; without it, anything that fits. `items` replaces what an
-item plaque or case is made for, or names preferred items for a rack or mannequin. An entry for a display
+item plaque or case is made for, or names preferred items for a rack or mannequin. When an item plaque or
+case is turned on (the hotkey, a template, or an entry without `items` found on arrival), Dova Stash writes
+the items its script is made for into `items`, so the entry shows, and keeps, exactly what goes on it; edit
+the list to change that. `set` (mannequins) is the armor set it wears, named by any of its pieces (see
+*Mannequins*). An entry for a display
 the scripts do not reveal needs `kind` (racks still need their `WRackTrigger` linked ref, mannequins must be
 actors, cases containers). `ignored` turns a listed display off. Applying a template merges the entries like
-containers (the player's `ignored` wins).
+containers (the player's `ignored` wins; the player's `kind`, `label`, `categories`, `items` and `set` stay
+where the template gives none).
 
 **What goes where** (`core::PlanDisplays`, unit-tested):
 - Candidates are what Deposit would move from the player (never kept, worn, favorited or quest items) and
@@ -476,18 +489,54 @@ containers (the player's `ignored` wins).
   without extra data (`ItemInfo::customized`: tempered, renamed, enchanted by the player, poisoned). Their
   scripts remove "one of this item", so a plaque is also skipped while the player carries any such copy, or a
   worn or favorited one, that the script could take instead. Racks, mannequins and cases keep the very copy.
-- Order: item plaques, cases, mannequins, shield racks, dagger racks, racks without daggers or bows, racks for
-  any weapon. Each takes the best remaining item: preferred items first, then Daedric artifacts, then the
-  highest value; the player's copy before a stored one.
-- A mannequin gets one set: the armor sharing a material keyword (`ArmorMaterial*`) with the highest total
-  value that includes a cuirass, one piece per slot (head, hair, body, hands, forearms, feet, calves,
-  circlet). Shields and jewelry other than circlets stay for other displays. A mannequin wearing anything is
-  left alone.
+- Order: item plaques, cases, mannequins with a chosen set, the other mannequins, shield racks, dagger racks,
+  racks without daggers or bows, large display cases, racks for any weapon. Each takes the best remaining
+  item: preferred items first, then Daedric artifacts, then the highest value; the player's copy before a
+  stored one.
+- A mannequin gets one set (*Mannequins*), one piece per slot (head, hair, body, hands, forearms, feet,
+  calves, circlet). Shields and jewelry other than circlets stay for other displays. A mannequin wearing
+  anything is left alone, except one with a chosen set that wears only pieces of it.
+- A rack takes what its script takes (`core::RackTakes`, by the same keywords as the node): crossbows only
+  where the trigger has a crossbow node (`DisplaySpot::crossbows`), and never a form its script refuses there
+  (`DisplaySpot::refuses`, filled by the plugin from the script and the trigger's nodes, see the table).
 - A rack is taken while its activator is disabled; unbuilt racks (trigger disabled) are skipped.
 
+**Mannequins** (`core/ArmorSets.h`, unit-tested; `game::ArmorIndex`). Approachable by default: *Use this
+mannequin* is all it takes; more control is one menu entry away, and the full list of sets lives in the panel.
+- *Armor sets.* A set is worked out from plain item data, so modded armor without vanilla keywords works too.
+  Pieces are split by plugin (the file defining the form) and material keyword (the first one containing
+  `ArmorMaterial`; none is fine), so a mod tagging its armor `ArmorMaterialEbony` still gets its own set.
+  Within that, pieces sharing a name stem are a set: the name without piece words (`Ebony Cuirass` and
+  `Ebony Boots` are `Ebony`; `Armor of the Old Gods` is `Old Gods`; `Ebony Armor of Major Health` is
+  `Ebony`; bracketed parts are left out), and a longer stem joins a shorter one that starts it (`Steel
+  Horned` joins `Steel`); with a material keyword, stems sharing their first word are one set (`Ebony Mail`).
+  Pieces still alone are put together by what tempers them (the first ingredient of their
+  `CraftingSmithingArmorTable` recipe), one per slot group, so a mod's `Knight Cuirass`, `Sallet` and
+  `Sabatons` make a set. Names are made unique with the armor type, then the plugin. A set's id is its first
+  body piece in FormRef order.
+- *Auto* (no `set`): among the armor that may go up, the set with a body piece covering the most slot groups
+  (head, body, hands, feet) wins, then the highest total value; the body piece first, then the rest, pieces
+  of the body piece's armor type first. Preferred `items`, when any are here, are the only set. Auto groups
+  only what is here (without the tempering hint), so it can differ from the index for unusual mods.
+- *A chosen set* (`set`): *Armor set... (Auto)* in the display menu lists `Auto` and the sets the player
+  has (carried, stored in the home, or on this mannequin), most complete first: `[x] Ebony (4/4)` (slot
+  groups had / slot groups of the set). Choosing one writes its id; `Auto` removes it. The mannequin then
+  takes only pieces of that set (enchanted copies count as the armor they are made from), before the
+  mannequins on Auto, and only on slots it leaves free: it fills up as the pieces arrive (*Fill now* stays
+  offered while a piece could still go on). It never gets another set meanwhile, not even when the set's
+  plugin is missing (the entry is kept). Nothing is taken off: a mannequin wearing armor of another set
+  is left alone until the player takes it off (the HUD line says so when the set is chosen).
+- *Every set in the load order* (the panel's *Armor sets* page, §10.1): built once, lazily, on the main
+  thread, the first time a chosen set or a picker needs it, from every playable ARMO a mannequin can wear
+  (`TESDataHandler`; enchanted copies, ARMO with a template, are left out); its size is logged once at
+  debug. A search box (set, plugin or piece names), *Only sets I have*, a table (set, mod, pieces, slot
+  groups you have), a mannequin of the current home, *Assign Ebony to Mannequin* (also a set
+  the player does not have yet: it fills when the pieces arrive; an unused mannequin is turned on) and
+  *Auto*.
+
 **Filling** (`display::Fill`, over the next frames after the sort's own moves): mannequins and cases at once,
-then racks one at a time (drop, wait every 100 ms for 3D for at most 5 s, place, the script's bookkeeping a
-tick later, then wait at most 2 s for the rack's activator to be disabled), then item plaques one at a time. A
+then racks one at a time (drop, out of sight until it is up, wait every 100 ms for 3D for at most 5 s, place, the script's bookkeeping a
+tick later, then wait at most 2 s for the rack's activator to be disabled, then show it), then item plaques one at a time (their scripts take the item from the inventory and enable the model; nothing is seen moving). A
 rack whose activator stays enabled (one without `WeaponRackActivateSCRIPT`'s `PlayersDroppedWeapon`, whose
 trigger did not disable it) gets nothing: the weapon goes into the player's inventory, the HUD line says so,
 and Deposit and Sort all leave the rack alone for the session. A plaque that hands an item back (it was full)
@@ -496,6 +545,68 @@ and Sort all leave it alone for the session. *Fill now* on such a display tries 
 the player's inventory). The player gets one line at the end (`put 12 items on display`); the log has
 a summary at info (`Displays in Whitepeak Tower: 77 rack (77 empty), 6 mannequin (6 empty), 50 item (50
 empty); 41 items to put up`), the plan and each placement at debug.
+
+### 8.5 Materials at the workbench (crafting supply)
+
+Sitting down at a crafting station in an enabled home brings the stored materials its recipes use into the
+player's inventory; when the crafting menu closes, what is left of them goes back to the container each came
+from (`[Sorting] bCraftingSupply`, on by default: nothing is lost either way, and everything brought goes back
+on its own). Core logic in `core/Crafting.h` (unit-tested), the plugin side in `sort::crafting`
+(`Sort/CraftingSupply.*`) and `game::Recipes` (`Game/RecipeIndex.*`).
+
+**Which station, which materials.** The station is the furniture the player sits at (`TESFurnitureEvent`), so
+modded stations work like vanilla ones. Its materials come from the load order's own recipes, never from a
+list of ours:
+- **Recipes:** every constructible-object recipe (`COBJ`) is indexed once per session, on the first station
+  used (`game::Recipes`; the counts are logged at debug), by its bench keyword (`BNAM`, by EditorID). A
+  station's materials are every component (`CNTO`, form lists expanded) of every recipe whose bench keyword
+  the furniture carries: forge, smelter, tanning rack, sharpening wheel, armor table, cooking pot, spit, oven,
+  staff enchanter, and any modded bench. New materials and recipes that use unusual items are covered by
+  the data itself. Recipe conditions (perks, quests) are not checked: every component of the station comes.
+- **Alchemy labs** (workbench type alchemy) bring every ingredient (`INGR`); **enchanters** (enchanting) every
+  filled soul gem. A station with no recipes of its own and neither type gets nothing.
+- **Never brought** (`core::crafting::Judge`): what no operation moves (quest, non-playable, nameless, items
+  that come back when stored); worn or favorited copies; customized copies (tempered, renamed, enchanted by
+  the player, poisoned); copies with any extra data besides a soul, a stolen item's owner, a count or a unique
+  id; forms without a load-order identity; and weapons, armor and ammo that recipes use as materials, unless
+  `[Sorting] bCraftingSupplyGear` is on (off by default: with a breakdown mod the smelter would bring out
+  every piece of stored gear).
+- **From where:** the master and every non-ignored container of the layout that passes the safety checks
+  (§9), whole stacks, through the `ItemMover` (so the moves are logged, never learned, and never sorted on
+  arrival). Unavailable and ignored containers are never touched.
+
+**The ledger.** What really left each container is measured (counts before and after the pull, at most what
+was planned) and recorded per base form and *stack key*: `""` for plain copies, otherwise the extra data that
+travels with a copy (`owner=...;` for stolen items, `soul=N;` for soul gems). With it, the player's count of
+each (form, key) before the pull.
+
+**Going back** (`core::crafting::PlanReturn`), per (form, key): the copies the player has now that could move,
+minus the copies that reached the player from anywhere but the pull while the station was in use (crafted, or
+handed over by a script; counted against the plain copies first), minus the copies the player had before; at
+most what was brought, never below zero. So:
+- what was used up is not "returned", and the player keeps every copy they carried before (used-up copies
+  count against the brought ones first);
+- **what was just crafted always stays with the player**, also when it is the same form as a brought material
+  (iron ingots smelted while iron ingots were brought, leather strips made at the tanning rack);
+- tempering or enchanting turns a copy into a customized one, which never moves;
+- a reusable soul gem that was used (Azura's Star) now has another key and stays with the player.
+
+Each (form, key) is spread back over the containers it came from in pull order (`core::crafting::ReturnMoves`
+picks the player's matching stacks). A container that is no longer available keeps its share with the player.
+
+**Triggers.** `TESFurnitureEvent` kEnter (player) pulls, before the crafting menu builds its lists; if that was
+missed, the `Crafting Menu` opening pulls for the player's occupied furniture (and refreshes the menus). The
+`Crafting Menu` closing returns; so does getting up (kExit) without the menu open. Crafted copies are counted
+from `TESContainerChangedEvent`s that reach the player from no container (or any container the pull did not
+take from) while the station is in use.
+
+**Saving, loading, leaving.** The ledger lives in memory only (no co-save, §6.4). Loading a game or starting a
+new one forgets it, and leaving the home before getting up does the same: whatever was brought stays in the
+player's inventory, never lost.
+
+**Feedback.** One HUD line each way: `Dova Stash: 34 materials at hand` and `Dova Stash: put 20 back` (nothing
+when nothing went back). The log has a line per stack brought and per (form, key) at the end at debug (`had 2,
+brought 10, crafted 3, now 9 -> 6 back`), and a summary each way at info.
 
 ## 9. Home eligibility & safety
 
@@ -536,8 +647,9 @@ struct IStashUI {
 
 - **MenuFrameworkUI:** chosen when `SKSEMenuFramework::IsInstalled()` returns true and the runtime is not VR. Uses
   `AddWindow` for the contextual stash panel and `SetSection`/`AddSectionItem("Dova Stash/...")` for a
-  global settings page and a template browser. This is the rich editor: category trees, multi-select
-  binding, keep-rule quotas, and template export.
+  global settings page, a template browser and an *Armor sets* page (every armor set in the load order,
+  searchable, assignable to a mannequin of the current home, §8.4 *Mannequins*). This is the rich editor:
+  category trees, multi-select binding, keep-rule quotas, and template export.
 - **MessageBoxUI:** native `RE::MessageBoxData` chains with pagination. It covers every *essential* action
   (enable, bind categories, deposit, retrieve, keep defaults). Advanced editing on VR is done by editing
   JSON or by using a flat-screen session.
@@ -572,7 +684,7 @@ Scaleform UI they already own.
 | Container contents summary, where the selected item goes, hotkey button | **QuickLoot IE** API: `PopulateInfoBar` (V20), `ModifyButtonBar` (V21; legacy `PopulateButtonBar` on V20). Plain text only | Whatever QuickLoot skin is installed, the game's button art | Activate prompt plus K hotkey |
 | Learn from looting | QuickLoot IE `TakeItem` / transfer events, plus the vanilla container-changed sink | — | Vanilla sink only |
 | Retrieving items | **The real `ContainerMenu`** of the bound container, opened by us. We never draw our own item lists | SkyUI 6 lists, I4/I5 item icons, sorting and search | Same (vanilla menu) |
-| In-world menus (master/container actions, assignment, retrieve, browse) | **UIExtensions** `UIListMenu`: plain top-down, scrollable, flat lists (group list → category list). Opened from the DLL (see "Skin-agnostic contracts" below), so no ESP | Whatever replaces UIExtensions' `listmenu.swf` (any skin, or none) | Native `MessageBoxMenu` chain (themed by the menu skin) |
+| In-world menus (master/container actions, assignment, retrieve, browse) | **UIExtensions** `UIListMenu`: plain top-down, scrollable, flat lists (group list → category list), each headed by the menu's name, with category/container icons and the Dova Stash logo where the menu allows it ("List menus" below). Opened from the DLL (see "Skin-agnostic contracts" below), so no ESP | Whatever replaces UIExtensions' `listmenu.swf` (any skin, or none); the player's SkyUI icon SWFs | Native `MessageBoxMenu` chain (themed by the menu skin) |
 | Confirmations, quick actions | Native `MessageBoxMenu` | Menu skin | — |
 | Feedback | `RE::DebugNotification` + vanilla UI sound descriptors (`UIMenuOK`, `ITMGenericUp`...) | HUD skin, sound replacers | — |
 | Floating container icons (off by default) | Empty clips on the vanilla HUD movie: `loadMovie` the player's icon SWF, `gotoAndStop` the label. No art of ours | The player's SkyUI category/item icon SWFs (and packs replacing them) | Off on VR (activate prompt covers it) |
@@ -583,9 +695,49 @@ Scaleform UI they already own.
   `_root.listMenu.LM_AddTreeEntries` / `LM_SetSortingEnabled` on `UIListMenu_LoadMenu`; the choice from
   `UIListMenu_SelectItem` / `UIListMenu_CloseMenu`; at most 128 entries. A skin that still works with
   UIExtensions therefore works with us. Verified: the stock `listmenu.swf` and a replacement skin expose
-  the same names. The wheel menu is not used: lists are easier to read.
+  the same names. The wheel menu is not used: lists are easier to read. The list extras (icons, in-place
+  toggles, logo; "List menus" below) go one step further, into the classes `listmenu.swf` is built from:
+  `ListMenu` (`_root.listMenu`: `itemList`, `onItemPressed`) and SkyUI's `ScrollingList` (`entryList`,
+  `UpdateList`, `getClipByIndex`, `doSetSelectedIndex`, `entryHeight`, each row's `textField`). The
+  stock SWF and Nordic UI's replacement have identical ActionScript (decompiled with JPEXS); a skin
+  without these names gets the plain-text lists, where choosing any entry closes the menu.
 - QuickLoot IE: only its public MIT API header.
 - No colours, fonts, sizes, HTML or skin-specific features in any text we hand to these menus.
+
+**List menus.**
+- **Header.** Every list starts with a plain-ASCII header naming the menu: `-- Whitepeak Tower --`
+  (master menu and setup prompt), `-- Chest --`, `-- Chest: Categories --`, `-- Chest: Weapons --`,
+  `-- Chest: Learned items --`, `-- Retrieve --`, `-- Retrieve: Weapons --`, `-- Browse containers --`,
+  `-- Weapon Rack --`, `-- Weapon Rack: Categories --`, `-- Mannequin: Armor set --`. `UIListMenu` has no unselectable rows, so
+  choosing the header does nothing (the menu stays open). `< Back` follows it on sub-lists. The
+  message-box fallback names the menu in its body text instead.
+- **Icons.** Category entries show their category's icon left of the text (the same `icon` as the
+  container icons below, from the player's SkyUI icon SWFs): the category picker (groups, their
+  categories, "All ..."), the display picker, Retrieve ("Everything" gets SkyUI's "All"), Browse (each
+  container's own icon), and the container menu's `Categories...` (the container's icon). The master
+  menu's actions have none. Each visible row clip gets one child clip that `loadMovie`s the SWF and
+  `gotoAndStop`s the label, and the row's text moves right by one icon column (the same in every row of
+  that list). Row clips are pooled and reused while scrolling, so the list's own `UpdateList` is wrapped:
+  it draws the rows, then we re-dress them for the entry each now shows. Nothing runs per frame: only on
+  redraws, plus a short poll (16 ms, up to ~2 s) while an icon SWF loads.
+- **Toggles stay open.** Choosing a toggle (`[x]`/`[ ]`/`[+]`/`[~]` in the category and display
+  pickers) keeps the menu open: `onItemPressed` is wrapped so that a stay-open entry runs its toggle on the
+  main thread instead of closing the menu, and the new entry texts (marks, learned counts) and icons are
+  written onto the list's entry objects, which the list then redraws. Selection and scroll position stay
+  where they were, with no redraw of the menu itself. Every other entry goes to the SWF's own handler. When
+  the hooks are not available the list closes and reopens on the same entry instead.
+- **Logo.** The Dova Stash logo (`Interface/DovaStash/logo.dds`: white on transparent, from
+  `presskit/logo/`) sits centred above every Dova Stash list, about 2.4 rows high, tinted with the colour
+  the skin gives the list's text. Its space is reserved (an invisible square) before it loads, so the
+  menu is measured and centred with it. If the file is missing or would be off-screen (centring off),
+  the list shows without it.
+- **Centring** (`[UI] bCenterMenus`, on by default). The list and the rename box open in the middle of
+  the screen, whatever the skin's position. The skin's layout is not touched: we measure the menu's own
+  clip (`_root.listMenu` / `_root.textEntry`) and move the movie's `_root`. There is no visible jump.
+  `_root` is transparent while the menu is filled and laid out, and is shown once it is in place. It is
+  measured right away, then every ~16 ms until two measurements agree and its icons and logo have
+  loaded, for at most ~0.4 s. Every outcome shows the menu again (centred, not measurable, or the
+  setting turned off meanwhile).
 
 **Container icons are stable.** The icon says what a container is *for*, so it comes from the layout
 and never from its current contents (contents-based icons flipped with every deposit, per in-game
@@ -660,7 +812,7 @@ shows the word "Master".
 | **M3** | Templates: loader, resolution, apply/re-apply, export; vanilla home template pack                               | All 9 vanilla homes zero-touch |
 | **M4** | Menu Framework UI: panel, category tree, keep-rule editor, template browser; container highlight               | Feature parity plus the editor |
 | **M4b** | Borrowed-UI integration (§10.3), in order: QuickLoot IE; activate-prompt role + category `icon` + I4 rule matcher; Retrieve via real ContainerMenu; UIExtensions list menus; floating icons; translations; optional OCF-keyword category set | Every in-world surface themed by the player's own UI mods; nothing drawn with Dova Stash art |
-| **M5** | Crafting supply pulls (forge/alchemy/enchanting while in an enabled home), quotas, polish, Nexus release        | Release candidate |
+| **M5** | Crafting supply pulls (any crafting station in an enabled home, §8.5: done), quotas, polish, Nexus release     | Release candidate |
 | **v2** | Central storage (ESL), cross-home access                                                                      | — |
 
 ---
@@ -720,6 +872,18 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
   valuable stacks first. Quest and non-playable items are always kept.
 - **Learn:** an unknown container that passes the safety checks is added to the layout with no
   categories. Learning is skipped when the container is already the item's rule-based destination.
+  The category picker shows where a container's learned items belong ("Books (1 learned)",
+  `sort::LearnedByCategory`), though learning binds the exact item, never its category. A container with
+  learned items only names those categories wherever its role is shown: activate prompt "End Table
+  (Books, learned)", QuickLoot's info bar and the list summaries "Books, Potions +1, learned" (most items
+  first; "1 learned item" when none has a category), and the panel's Categories column and category tree.
+  The categories are worked out when the home is published (`DisplayHome::learnedCategories`, each base
+  form classified once per session), so per-frame code never looks up forms.
+- **Ignore vs Remove:** Ignore keeps the entry with `ignored: true`: the container gets nothing, teaches
+  nothing, and stays out (Learn never re-adds it, re-applying a template keeps it off), and its
+  categories come back with Stop ignoring. Remove (`Controller::RemoveContainer`, after a confirmation)
+  deletes the entry and the learned destinations pointing at it; what is inside stays. The master
+  can't be removed. A removed container is unknown again, so Learn may add it back.
 - **Eligibility (§9) addition:** a cell owned by a faction the player belongs to is eligible. Severin
   Manor is owned by `DLC2RRSeverinManorFaction` and has no `LocTypePlayerHouse` keyword.
 - **Plugin names** are compared case-insensitively everywhere. Steam stores CC files in lower case.

@@ -260,6 +260,7 @@ namespace dova::ui::panel
 
 		const auto* layout = home->layout ? &*home->layout : nullptr;
 		std::map<core::FormRef, std::size_t> learnedPerContainer;
+		const auto                           display = home::HomeRegistry::Get().Display();  // learned categories, worked out once per change
 		if (layout) {
 			snap->layoutName = layout->name;
 			snap->layoutAuthor = layout->author;
@@ -294,6 +295,14 @@ namespace dova::ui::panel
 			}
 			if (const auto it = learnedPerContainer.find(a_ref); it != learnedPerContainer.end()) {
 				row.learnedCount = it->second;
+			}
+			if (display) {
+				if (const auto it = display->learnedCategories.find(a_ref); it != display->learnedCategories.end()) {
+					for (const auto& [id, count] : it->second) {
+						row.learnedByCategory[id] = count;
+						row.learnedText += (row.learnedText.empty() ? "" : ", ") + CategoryName(id);
+					}
+				}
 			}
 			const auto verdict = ref ? game::CheckContainer(ref, cell) : game::Verdict::Reject("reference not found (plugin missing?)");
 			row.available = verdict.ok;

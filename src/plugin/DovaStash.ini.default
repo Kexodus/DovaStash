@@ -38,9 +38,23 @@ bLearn = true
 ; true = Deposit and Sort all put your gear on the displays you use, as if you had placed it by hand.
 ; Turn a display on with the hotkey (look at a weapon rack, mannequin or plaque and choose "Use this
 ; rack"), and pick what it takes under "Categories...", like a container; templates can turn some on
-; too. Racks get your best weapons and shields (one of each), mannequins a matching armor set, and
+; too. Racks get your best weapons and shields (one of each), mannequins a matching armor set (or the
+; one you pick under "Armor set..."), and
 ; plaques made for one item (dragon priest masks, claws, Elder Scrolls...) that item. Nothing is ever taken off a display; take things down by hand as usual.
 bFillDisplays = true
+
+; true = sit down at a crafting station in a home you set up (forge, smelter, tanning rack, sharpening
+; wheel, armor table, cooking pot, alchemy lab, enchanter, and modded stations) and the materials its
+; recipes use come out of your containers into your inventory. When you get up, what you didn't use goes
+; back where it came from. What you just made stays with you, and so do the copies you carried before.
+; The recipes are read from your load order, so modded materials and recipes work without a patch.
+; Alchemy labs bring your ingredients, enchanters your filled soul gems.
+bCraftingSupply = true
+
+; true = also bring weapons, armor and ammo that recipes use as materials (breakdown recipes at the
+; smelter, upgrade recipes like the Enhanced Crossbow). Off by default: with a breakdown mod, the
+; smelter would otherwise bring out every piece of gear you store. Tempered or enchanted copies never come.
+bCraftingSupplyGear = false
 
 [UI]
 ; What the hotkey opens in the world. Dova Stash draws no menus of its own art: every option below

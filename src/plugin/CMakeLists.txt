@@ -53,6 +53,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Game/Eligibility.cpp
 	Game/Displays.h
 	Game/Displays.cpp
+	Game/ArmorIndex.h
+	Game/ArmorIndex.cpp
 	Home/Store.h
 	Home/Store.cpp
 	Home/HomeRegistry.h
@@ -63,6 +65,10 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Sort/SortEngine.cpp
 	Sort/DisplayFiller.h
 	Sort/DisplayFiller.cpp
+	Sort/CraftingSupply.h
+	Sort/CraftingSupply.cpp
+	Game/RecipeIndex.h
+	Game/RecipeIndex.cpp
 	Events/EventSinks.h
 	Events/EventSinks.cpp
 	Input/InputHandler.h
@@ -82,8 +88,14 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/Panel/PanelModel.cpp
 	UI/Panel/PanelRender.h
 	UI/Panel/PanelRender.cpp
+	UI/Panel/ArmorSetsModel.h
+	UI/Panel/ArmorSetsModel.cpp
+	UI/Panel/ArmorSetsPage.h
+	UI/Panel/ArmorSetsPage.cpp
 	UI/DisplayMenu.h
 	UI/DisplayMenu.cpp
+	UI/ArmorSetMenu.h
+	UI/ArmorSetMenu.cpp
 	UI/Labels.h
 	UI/Labels.cpp
 	UI/Factory.cpp
@@ -165,6 +177,7 @@ set(_dova_deploy_cmd
 	"-DDLL=$<TARGET_FILE:DovaStash>"
 	"-DPDB=$<TARGET_PDB_FILE:DovaStash>"
 	"-DDIST_DIR=${PROJECT_SOURCE_DIR}/dist/Data/SKSE/Plugins/DovaStash"
+	"-DINTERFACE_DIR=${PROJECT_SOURCE_DIR}/dist/Data/Interface"
 	"-DDEFAULT_INI=${CMAKE_CURRENT_SOURCE_DIR}/DovaStash.ini.default"
 	"-DDEPLOY_DIR=${DOVASTASH_DEPLOY_DIR}"
 	-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Deploy.cmake"

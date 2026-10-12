@@ -36,6 +36,7 @@ A post-build step (`src/plugin/cmake/Deploy.cmake`) runs every time the DLL reli
 | `DovaStash.dll`, `DovaStash.pdb` | `SKSE/Plugins/` |
 | `src/plugin/DovaStash.ini.default` | `SKSE/Plugins/DovaStash.ini`, **only if that file doesn't exist** (user edits are never overwritten) |
 | `dist/Data/SKSE/Plugins/DovaStash/*` | `SKSE/Plugins/DovaStash/` (skipped when missing or empty) |
+| `dist/Data/Interface/*` | `Interface/` (the hotkey list menu's logo, `Interface/DovaStash/logo.dds`) |
 
 Options:
 

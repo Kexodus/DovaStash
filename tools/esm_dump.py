@@ -945,7 +945,7 @@ def cmd_cell(lo: LoadOrder, args):
 
 
 DISPLAY_ITEM_TYPES = ["ARMO", "WEAP", "BOOK", "MISC", "ALCH", "INGR", "SLGM", "AMMO", "SCRL"]
-RACK_TYPES = {1: "Any", 2: "Shield", 3: "NoDaggerOrBow", 4: "Dagger"}
+RACK_TYPES = {1: "Any", 2: "Shield", 3: "NoDaggerOrBow", 4: "Dagger", 5: "LargeCase"}
 
 
 def _scripts_with_props(lo: LoadOrder, rec: Record, base: Record) -> dict[str, dict]:
@@ -1101,7 +1101,7 @@ MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms"
 LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "master", "containers", "displays",
                "keep", "learned", "basedOn"}
 CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
-DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "ignored"}
+DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "set", "ignored"}
 DISPLAY_KINDS = {"rack", "mannequin", "item", "case"}
 
 
@@ -1241,6 +1241,12 @@ def check_layout(lo, doc, errors, warnings, category_ids):
             ik = _check_ref_syntax(item, f"{where}.items[{j}]", errors)
             if ik:
                 display_refs.append((f"{where}.items[{j}]", ik))
+        if "set" in d:
+            if "kind" in d and str(d["kind"]).lower() != "mannequin":
+                warnings.append(f"{where}: 'set' is only used by mannequins")
+            sk = _check_ref_syntax(d["set"], f"{where}.set", errors)
+            if sk:
+                display_refs.append((f"{where}.set", sk))
     for k in [cell_key] + [r[1] for r in refs] + [r[1] for r in display_refs]:
         if k and k[0].lower() not in requires:
             errors.append(f"plugin {k[0]} is referenced but not listed in 'requires'")
@@ -1280,7 +1286,10 @@ def check_layout(lo, doc, errors, warnings, category_ids):
     if doc.get("displays"):
         actor_refs = lo.cell_refs(cell_key, ("REFR", "ACHR"))
         for where, key in display_refs:
-            if ".items[" in where:
+            if where.endswith(".set"):
+                if lo.lookup(key, ["ARMO"]) is None:
+                    errors.append(f"{where}: {fmt_ref(key)} is not an armor piece (ARMO)")
+            elif ".items[" in where:
                 if lo.lookup(key, DISPLAY_ITEM_TYPES) is None:
                     errors.append(f"{where}: {fmt_ref(key)} is not an item ({', '.join(DISPLAY_ITEM_TYPES)})")
             elif kl(key) not in actor_refs:

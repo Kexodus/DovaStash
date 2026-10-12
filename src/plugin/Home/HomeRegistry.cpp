@@ -2,6 +2,7 @@
 
 #include "Game/Eligibility.h"
 #include "Game/FormUtil.h"
+#include "Game/ItemAdapter.h"
 #include "Home/Store.h"
 
 namespace dova::home
@@ -103,7 +104,37 @@ namespace dova::home
 				anchor = front;  // several fronts for one container: any stable one
 			}
 		}
+		if (display->layout) {
+			std::map<core::FormRef, std::map<std::string, std::int32_t>> counts;
+			for (const auto& [item, container] : display->layout->learned) {
+				if (const auto& category = LearnedCategory(item); !category.empty()) {
+					++counts[container][category];
+				}
+			}
+			for (const auto& [container, perCategory] : counts) {
+				auto& sorted = display->learnedCategories[container];
+				sorted.assign(perCategory.begin(), perCategory.end());  // id order
+				std::ranges::stable_sort(sorted, [](const auto& a_lhs, const auto& a_rhs) { return a_lhs.second > a_rhs.second; });
+			}
+		}
 		_display.store(std::move(display));
+	}
+
+	const std::string& HomeRegistry::LearnedCategory(const core::FormRef& a_item)
+	{
+		if (const auto it = _learnedCategory.find(a_item); it != _learnedCategory.end()) {
+			return it->second;
+		}
+		std::string    category;
+		auto*          form = game::LookupForm(a_item);
+		auto*          object = form ? form->As<RE::TESBoundObject>() : nullptr;
+		core::ItemInfo info;
+		if (object && game::FillBaseInfo(info, object)) {
+			if (auto classified = Store::Get().Categories().Classify(info)) {
+				category = std::move(*classified);
+			}
+		}
+		return _learnedCategory.emplace(a_item, std::move(category)).first->second;
 	}
 
 	void HomeRegistry::MarkDirty(Home& a_home)

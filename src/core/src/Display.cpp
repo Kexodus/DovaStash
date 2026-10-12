@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 
+#include "dova/core/ArmorSets.h"
 #include "dova/core/Category.h"
 
 namespace dova::core
@@ -25,17 +26,6 @@ namespace dova::core
 		bool IsShield(const ItemInfo& a_item)
 		{
 			return a_item.type == ItemType::Armor && (HasKeyword(a_item, "ArmorShield") || (a_item.armorSlots & kSlotShield) != 0);
-		}
-
-		// The set a mannequin shows: the item's material keyword, or the item itself.
-		std::string MaterialKey(const ItemInfo& a_item)
-		{
-			for (const auto& k : a_item.keywords) {
-				if (ToLower(k).find("armormaterial") != std::string::npos) {
-					return ToLower(k);
-				}
-			}
-			return "form:" + a_item.form.ToString();
 		}
 
 		double Score(const ItemInfo& a_item)
@@ -66,8 +56,17 @@ namespace dova::core
 			{
 				Pass(DisplayKind::Item, [&](std::size_t i) { FillItem(i); });
 				Pass(DisplayKind::Case, [&](std::size_t i) { FillCase(i); });
-				Pass(DisplayKind::Mannequin, [&](std::size_t i) { FillMannequin(i); });
-				for (const auto rack : { RackType::Shield, RackType::Dagger, RackType::NoDaggerOrBow, RackType::Any }) {
+				for (std::size_t i = 0; i < _spots.size(); ++i) {  // chosen sets first: their pieces wait for them
+					if (_spots[i].kind == DisplayKind::Mannequin && (_spots[i].chosen || !_spots[i].set.empty())) {
+						FillMannequinSet(i);
+					}
+				}
+				Pass(DisplayKind::Mannequin, [&](std::size_t i) {
+					if (!_spots[i].chosen && _spots[i].set.empty()) {
+						FillMannequin(i);
+					}
+				});
+				for (const auto rack : { RackType::Shield, RackType::Dagger, RackType::NoDaggerOrBow, RackType::LargeCase, RackType::Any }) {
 					for (std::size_t i = 0; i < _spots.size(); ++i) {
 						if (_spots[i].kind == DisplayKind::Rack && _spots[i].rack == rack && !_spots[i].full) {
 							FillRack(i);
@@ -170,61 +169,82 @@ namespace dova::core
 				return _left[a_stock] > 0 && !_used.contains(_stocks[a_stock].item.form) && !_reserved.contains(_stocks[a_stock].item.form);
 			}
 
+			// Free armor this mannequin may wear (`a_only`: pieces of its chosen set), best first.
+			std::vector<std::size_t> MannequinCandidates(const DisplaySpot& a_spot, const std::vector<FormRef>* a_only) const
+			{
+				std::vector<std::size_t> out;
+				for (std::size_t s = 0; s < _stocks.size(); ++s) {
+					const auto& item = _stocks[s].item;
+					if (Free(s) && MannequinTakes(item) && Allowed(a_spot, s) && (!a_only || std::ranges::find(*a_only, item.form) != a_only->end())) {
+						out.push_back(s);
+					}
+				}
+				std::ranges::stable_sort(out, [&](std::size_t a_lhs, std::size_t a_rhs) { return Better(a_spot, a_lhs, a_rhs); });
+				return out;
+			}
+
+			// Candidate sets: the preferred items, if any are here; else the armor sets among the candidates
+			// (GroupArmorPieces). The one with a body piece covering the most slot groups wins, then value.
 			void FillMannequin(std::size_t a_spot)
 			{
-				const auto& spot = _spots[a_spot];
-				// Candidate sets: preferred items, if any are here; else one per material.
-				std::map<std::string, std::vector<std::size_t>> sets;
-				for (std::size_t s = 0; s < _stocks.size(); ++s) {
-					if (Free(s) && MannequinTakes(_stocks[s].item) && Allowed(spot, s)) {
-						sets[Preferred(spot, _stocks[s].item) ? std::string("\x01preferred") : MaterialKey(_stocks[s].item)].push_back(s);
+				const auto&             spot = _spots[a_spot];
+				const auto              candidates = MannequinCandidates(spot, nullptr);
+				std::vector<ArmorPiece> pieces;
+				pieces.reserve(candidates.size());
+				std::vector<std::size_t> preferred;
+				for (std::size_t k = 0; k < candidates.size(); ++k) {
+					pieces.push_back(ArmorPieceOf(_stocks[candidates[k]].item));
+					if (Preferred(spot, _stocks[candidates[k]].item)) {
+						preferred.push_back(k);
 					}
 				}
-				if (const auto it = sets.find("\x01preferred"); it != sets.end()) {
-					auto preferred = std::move(it->second);
-					sets.clear();
-					sets.emplace("\x01preferred", std::move(preferred));
-				}
+				// Members come in candidate order, so best first.
+				const auto sets = preferred.empty() ? GroupArmorPieces(pieces) : std::vector<std::vector<std::size_t>>{ preferred };
 
 				std::vector<std::size_t> bestPick;
+				int                      bestGroups = -1;
 				double                   bestValue = -1.0;
-				for (auto& [key, members] : sets) {
-					std::ranges::stable_sort(members, [&](std::size_t a_lhs, std::size_t a_rhs) { return Better(spot, a_lhs, a_rhs); });
-					std::vector<std::size_t> pick;
-					std::uint32_t            slots = 0;
-					std::set<FormRef>        forms;
-					const auto               add = [&](std::size_t a_s) {
-						const auto& item = _stocks[a_s].item;
-						if ((slots & item.armorSlots) != 0 || forms.contains(item.form)) {
-							return;
-						}
-						slots |= item.armorSlots;
-						forms.insert(item.form);
-						pick.push_back(a_s);
-					};
-					for (const auto s : members) {
-						if ((_stocks[s].item.armorSlots & kSlotBody) != 0) {
-							add(s);
-							break;
-						}
-					}
+				for (const auto& members : sets) {
+					auto pick = PickOutfit(pieces, members, 0, true);
 					if (pick.empty()) {
 						continue;  // no body piece: not a set
 					}
-					for (const auto s : members) {
-						add(s);
+					std::uint32_t slots = 0;
+					double        value = 0.0;
+					for (const auto k : pick) {
+						slots |= pieces[k].slots;
+						value += Score(_stocks[candidates[k]].item);
 					}
-					double value = 0.0;
-					for (const auto s : pick) {
-						value += Score(_stocks[s].item);
-					}
-					if (value > bestValue) {
+					const int groups = SlotGroupCount(slots);
+					if (groups > bestGroups || (groups == bestGroups && value > bestValue)) {
+						bestGroups = groups;
 						bestValue = value;
 						bestPick = std::move(pick);
 					}
 				}
-				for (const auto s : bestPick) {
-					Take(a_spot, s);
+				for (const auto k : bestPick) {
+					Take(a_spot, candidates[k]);
+				}
+			}
+
+			// A chosen set: only its pieces, on the slots it leaves free; nothing while it wears anything else
+			// (or what it wears is unknown).
+			void FillMannequinSet(std::size_t a_spot)
+			{
+				const auto& spot = _spots[a_spot];
+				const auto  inSet = [&](const FormRef& a_form) { return std::ranges::find(spot.set, a_form) != spot.set.end(); };
+				if ((spot.full && spot.holds.empty()) || !std::ranges::all_of(spot.holds, inSet)) {
+					return;
+				}
+				const auto              candidates = MannequinCandidates(spot, &spot.set);
+				std::vector<ArmorPiece> pieces;
+				std::vector<std::size_t> order;
+				for (std::size_t k = 0; k < candidates.size(); ++k) {
+					pieces.push_back(ArmorPieceOf(_stocks[candidates[k]].item));
+					order.push_back(k);
+				}
+				for (const auto k : PickOutfit(pieces, order, spot.worn, false)) {
+					Take(a_spot, candidates[k]);
 				}
 			}
 
@@ -233,7 +253,8 @@ namespace dova::core
 				const auto&                spot = _spots[a_spot];
 				std::optional<std::size_t> best;
 				for (std::size_t s = 0; s < _stocks.size(); ++s) {
-					if (!Free(s) || !RackTakes(spot.rack, _stocks[s].item) || !Allowed(spot, s)) {
+					if (!Free(s) || !RackTakes(spot.rack, _stocks[s].item, spot.crossbows) || !Allowed(spot, s) ||
+						std::ranges::find(spot.refuses, _stocks[s].item.form) != spot.refuses.end()) {
 						continue;
 					}
 					if (!best || Better(spot, s, *best)) {
@@ -285,7 +306,27 @@ namespace dova::core
 		if (IsShield(a_item)) {
 			return "ShieldPivot01";
 		}
-		if (a_item.type != ItemType::Weapon || !a_item.weaponType) {
+		if (a_item.type != ItemType::Weapon) {
+			return {};
+		}
+		// WeaponRackActivateSCRIPT.PlaceItem goes by keyword, in this order.
+		static constexpr std::array<std::pair<std::string_view, std::string_view>, 9> kByKeyword{ {
+			{ "WeapTypeSword", "SwordPivot01" },
+			{ "WeapTypeWarAxe", "WarAxePivot01" },
+			{ "WeapTypeMace", "MacePivot01" },
+			{ "WeapTypeGreatsword", "GreatSwordPivot01" },
+			{ "WeapTypeBattleaxe", "BattleAxePivot01" },
+			{ "WeapTypeWarhammer", "WarhammerPivot01" },
+			{ "WeapTypeBow", "BowPivot01" },
+			{ "WeapTypeStaff", "StaffPivot01" },
+			{ "WeapTypeDagger", "DaggerPivot01" },
+		} };
+		for (const auto& [keyword, pivot] : kByKeyword) {
+			if (HasKeyword(a_item, keyword)) {
+				return pivot;
+			}
+		}
+		if (!a_item.weaponType) {
 			return {};
 		}
 		switch (*a_item.weaponType) {
@@ -300,32 +341,40 @@ namespace dova::core
 		case WeaponType::TwoHandSword:
 			return "GreatSwordPivot01";
 		case WeaponType::TwoHandAxe:
-			return HasKeyword(a_item, "WeaponTypeWarhammer") ? "WarhammerPivot01" : "BattleAxePivot01";
+			return "BattleAxePivot01";  // warhammers carry WeapTypeWarhammer
 		case WeaponType::Bow:
+		case WeaponType::Crossbow:
 			return "BowPivot01";
 		case WeaponType::Staff:
 			return "StaffPivot01";
 		default:
-			return {};  // hand-to-hand, crossbows: no rack node holds them
+			return {};  // hand-to-hand: no rack node holds it
 		}
 	}
 
-	bool RackTakes(RackType a_rack, const ItemInfo& a_item)
+	bool RackTakes(RackType a_rack, const ItemInfo& a_item, bool a_crossbows)
 	{
-		if (RackPivot(a_item).empty()) {
+		const auto pivot = RackPivot(a_item);
+		if (pivot.empty()) {
+			return false;
+		}
+		// Crossbows carry WeapTypeBow; only the Unofficial Patch's racks have a node made for them.
+		if (a_item.weaponType == WeaponType::Crossbow && !a_crossbows) {
 			return false;
 		}
 		const bool shield = IsShield(a_item);
-		const auto weapon = a_item.weaponType.value_or(WeaponType::HandToHand);
+		const bool dagger = !shield && pivot == "DaggerPivot01";
+		const bool bow = !shield && pivot == "BowPivot01";
 		switch (a_rack) {
 		case RackType::Any:
+		case RackType::LargeCase:
 			return !shield;
 		case RackType::Shield:
 			return shield;
 		case RackType::NoDaggerOrBow:
-			return !shield && weapon != WeaponType::OneHandDagger && weapon != WeaponType::Bow;
+			return !shield && !dagger && !bow;
 		case RackType::Dagger:
-			return !shield && weapon == WeaponType::OneHandDagger;
+			return dagger;
 		default:
 			return false;
 		}

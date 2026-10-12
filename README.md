@@ -16,13 +16,19 @@ No ESP is needed.
 - **Fills your displays:** turn a weapon rack, mannequin or item plaque (dragon priest masks, claws, Elder
   Scrolls) on with the hotkey, pick the weapon or armor categories it takes, and Deposit puts your best
   matching gear on it, as if placed by hand. Works in any home.
+- **Dresses your mannequins:** each wears your best matching armor set, or one you pick from a searchable
+  index of every set in your load order, modded sets included.
+- **Materials at the workbench:** at a home's forge, smelter, tanning rack, cooking pot, alchemy lab or
+  enchanter, the materials stored in the home come to you, and what you don't use goes back afterwards.
+  Never what you just crafted; modded recipes and materials work too.
 - **Templates:** shareable JSON layouts per home. 22 are included (vanilla, Hearthfire and Creation Club homes).
   You can export your own from inside the game.
 - **Never lose an item:** it preserves tempering, enchantments, names and stolen flags, and never touches
   quest, equipped or favorited items, or script tokens.
 - **Looks like your game, not like a mod:** in-world menus are UIExtensions lists, chests show their role
   in the activate prompt, QuickLoot IE shows what a chest holds and where the selected item goes, and
-  icons above containers use your own SkyUI/I4 icons. Any skin works; nothing is drawn with Dova Stash art.
+  icons above containers and in the lists use your own SkyUI/I4 icons. Any skin works; the only Dova Stash
+  art in game is the small logo above the hotkey lists.
 - **Editor:** the SKSE Menu Framework panel for full editing; native message boxes as the fallback and on VR.
 
 ## Documentation

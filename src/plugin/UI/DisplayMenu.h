@@ -11,10 +11,13 @@ namespace dova::ui
 	{
 		std::string           text;
 		std::function<void()> action;
+		core::IconRef         icon;  // lists only (ListUI); message boxes are text
 	};
 
 	// "Use this rack" when it is not used. When it is: "Categories... (Bows)" for racks and mannequins
-	// (`a_openCategories` shows the picker), "Fill now" while it is empty, "Stop using this rack".
+	// (`a_openCategories` shows the picker; its icon is the first chosen category's, else the
+	// weapons/armor one), "Armor set... (Auto)" for mannequins (UI/ArmorSetMenu.h), "Fill now" while it is
+	// empty (a mannequin with a chosen set: while it can take more of it), "Stop using this rack".
 	[[nodiscard]] std::vector<DisplayOption> DisplayMenuOptions(const DisplayMenu& a_menu, std::function<void()> a_openCategories);
 
 	// What a display's category picker offers, as patterns: racks "weapons.*", every weapon category and

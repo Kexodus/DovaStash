@@ -1,6 +1,7 @@
 #include "Sort/DisplayFiller.h"
 
 #include "Controller.h"
+#include "Game/ArmorIndex.h"
 #include "Game/FormUtil.h"
 #include "Game/ItemMover.h"
 #include "Home/Store.h"
@@ -14,10 +15,14 @@ namespace dova::display
 		constexpr auto kTick = std::chrono::milliseconds(100);
 		constexpr int  kRackTicks = 50;     // wait up to 5 s for a dropped weapon to get its 3D
 		constexpr int  kConfirmTicks = 20;  // wait up to 2 s for a rack's trigger to notice the weapon
+		constexpr int  kMoveTicks = 20;     // wait up to 2 s for the VM to run MoveToNode
 		constexpr int  kPlaqueTicks = 30;   // wait up to 3 s for a plaque's script
 
 		std::atomic<bool>    g_busy{ false };
 		std::set<RE::FormID> g_failed;  // racks and plaques that did not take their item (this session)
+		// (rack, base form) pairs the rack's script turned away once its 3D showed it (a staff too long for
+		// a display case); the rack is not offered that form again this session.
+		std::set<std::pair<RE::FormID, RE::FormID>> g_refused;
 
 		void Later(std::function<void()> a_fn)
 		{
@@ -57,6 +62,7 @@ namespace dova::display
 			std::string         item;   // "Iron Sword" (logs)
 			std::string         pivot;  // Rack
 			RE::ObjectRefHandle dropped;  // Rack: the weapon in the world
+			std::shared_ptr<std::atomic<bool>> moved;  // Rack: Papyrus' MoveToNode ran
 			bool                done{ false };
 			bool                broughtToPlayer{ false };  // Item: came from a container
 			int                 reactivations{ 0 };
@@ -159,7 +165,9 @@ namespace dova::display
 			// copy in the open, wait for its 3D, make it keyframed and move it onto the trigger's pivot node.
 			// Then the script's bookkeeping (game::DisableRack, game::RecordRackItem): the activator is
 			// disabled (that is how the game knows the rack holds something, and lets the player take the
-			// weapon down). If the activator stays enabled, the weapon is taken back.
+			// weapon down). If the activator stays enabled, the weapon is taken back. From the drop until
+			// then the weapon is hidden (game::HideDropped, its 3D only), so it appears on the rack; every
+			// way out shows it again (game::ShowDropped).
 			void NextRack(std::size_t a_index)
 			{
 				if (!StillHere()) {
@@ -199,6 +207,7 @@ namespace dova::display
 						game::Describe(rack));
 					return NextRack(a_index + 1);
 				}
+				game::HideDropped(s.dropped.get().get());  // out of sight until it is up (ConfirmRack shows it)
 				Later([self = shared_from_this(), a_index]() { self->WaitFor3D(a_index, 1); });
 			}
 
@@ -213,6 +222,7 @@ namespace dova::display
 				if (!ref || !trigger) {
 					s.done = true;
 					++_errors;
+					game::ShowDropped();
 					logger::error("Display: {} for {} disappeared before it was placed", s.item, game::Describe(Ref(s.display.ref)));
 					return NextRack(a_index + 1);
 				}
@@ -225,8 +235,61 @@ namespace dova::display
 					TakeBack(s);
 					return NextRack(a_index + 1);
 				}
+				game::HideDropped(ref.get());  // in case its 3D came without the load event
+				// The node the rack's script would pick, now that the weapon's own nodes are known (the
+				// Unofficial Patch's script also turns some staves away here).
+				const auto placement = game::RackNode(s.display, ref.get(), s.pivot);
+				if (placement.node.empty()) {
+					if (auto* base = ref->GetBaseObject()) {
+						g_refused.emplace(s.display.ref, base->GetFormID());
+					}
+					logger::info("Display: {} does not take {}: {} (as its script would refuse it); it is not offered again this session",
+						game::Describe(Ref(s.display.ref)), s.item, placement.refusal);
+					TakeBack(s);
+					return NextRack(a_index + 1);
+				}
+				if (placement.node != s.pivot) {
+					logger::debug("Display: {} goes on {} of {} (the Unofficial Patch's choice)", s.item, placement.node, game::Describe(Ref(s.display.ref)));
+					s.pivot = placement.node;
+				}
 				ref->SetMotionType(RE::hkpMotion::MotionType::kKeyframed, true);
-				ref->MoveToNode(trigger, s.pivot);
+				s.moved = game::PapyrusMoveToNode(ref.get(), trigger, s.pivot);
+				if (!s.moved) {
+					logger::debug("Display: Papyrus' MoveToNode could not be called for {}; moving it directly", s.item);
+					if (!game::MoveToNodeDirect(ref.get(), trigger, s.pivot)) {
+						logger::warn("Display: {} has no {} (or no 3D) any more for {}", game::Describe(Ref(s.display.ref)), s.pivot, s.item);
+						TakeBack(s);
+						return NextRack(a_index + 1);
+					}
+					Later([self = shared_from_this(), a_index]() { self->ConfirmRack(a_index, 1); });
+					return;
+				}
+				Later([self = shared_from_this(), a_index]() { self->WaitMoved(a_index, 1); });
+			}
+
+			// The move runs on the VM's next update; the bookkeeping waits for it (a tick after it, like the
+			// script's own short wait). If the VM does not get to it, the weapon is moved directly.
+			void WaitMoved(std::size_t a_index, int a_tick)
+			{
+				if (!StillHere()) {
+					return Abort();
+				}
+				auto& s = _racks[a_index];
+				if (!*s.moved) {
+					if (a_tick < kMoveTicks) {
+						Later([self = shared_from_this(), a_index, a_tick]() { self->WaitMoved(a_index, a_tick + 1); });
+						return;
+					}
+					auto  ref = s.dropped.get();
+					auto* trigger = Ref(s.display.trigger);
+					logger::warn("Display: the VM did not move {} onto {} within {} s; moving it directly", s.item, game::Describe(Ref(s.display.ref)),
+						kMoveTicks / 10);
+					if (!ref || !trigger || !game::MoveToNodeDirect(ref.get(), trigger, s.pivot)) {
+						logger::warn("Display: {} has no {} (or no 3D) any more for {}", game::Describe(Ref(s.display.ref)), s.pivot, s.item);
+						TakeBack(s);
+						return NextRack(a_index + 1);
+					}
+				}
 				Later([self = shared_from_this(), a_index]() { self->ConfirmRack(a_index, 1); });
 			}
 
@@ -247,6 +310,7 @@ namespace dova::display
 					if (auto ref = s.dropped.get()) {
 						game::RecordRackItem(s.display, ref.get());
 					}
+					game::ShowDropped();  // up and recorded: it appears on the rack (never seen on the way)
 					s.done = true;
 					Placed(s);
 					return NextRack(a_index + 1);
@@ -263,11 +327,13 @@ namespace dova::display
 				NextRack(a_index + 1);
 			}
 
-			// A weapon that could not go up properly goes into the player's inventory (with its extra data).
+			// A weapon that could not go up properly goes into the player's inventory (with its extra data),
+			// shown again first (it stays visible wherever it is if it can't be picked up).
 			void TakeBack(Step& a_step)
 			{
 				a_step.done = true;
 				++_errors;
+				game::ShowDropped();
 				auto ref = a_step.dropped.get();
 				auto* player = game::Player();
 				if (!ref || !player) {
@@ -365,12 +431,14 @@ namespace dova::display
 						TakeBack(s);
 					}
 				}
+				game::ShowDropped();  // nothing stays hidden (TakeBack already showed it)
 				logger::info("Displays: the player left the home; {} items were put up, the rest stays where it is", _placed);
 				g_busy = false;
 			}
 
 			void Finish()
 			{
+				game::ShowDropped();  // nothing stays hidden (every rack step already showed its weapon)
 				g_busy = false;
 				logger::info("Displays: put {} items on display ({} skipped, {} errors)", _placed, _skipped, _errors);
 				if (_placed > 0 || _errors > 0) {
@@ -524,8 +592,23 @@ namespace dova::display
 				spot.categories = binding->categories;
 			}
 			spot.full = game::DisplayFull(d);
+			if (d.kind == core::DisplayKind::Rack && !spot.full) {
+				auto fit = game::RackFitOf(d);
+				spot.crossbows = fit.crossbows;
+				for (const auto& [rack, form] : g_refused) {
+					if (rack == d.ref) {
+						if (auto* object = RE::TESForm::LookupByID<RE::TESBoundObject>(form)) {
+							fit.refuses.push_back(object);
+						}
+					}
+				}
+				spot.refuses = Refs(fit.refuses);
+			}
 			const auto holds = game::DisplayHolds(d);
 			spot.holds = Refs(holds);
+			if (const auto* binding = layout.FindDisplay(spot.ref); binding && binding->set && d.kind == core::DisplayKind::Mannequin) {
+				game::ApplyChosenSet(spot, *binding, a_stocks, holds);  // only that set, as its pieces arrive
+			}
 			shown.insert(spot.holds.begin(), spot.holds.end());
 			auto& [n, empty] = counts[d.kind];
 			++n;

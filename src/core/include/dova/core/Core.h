@@ -2,6 +2,7 @@
 
 // Umbrella header for the engine-independent Dova Stash core.
 
+#include "dova/core/ArmorSets.h"
 #include "dova/core/Category.h"
 #include "dova/core/Diagnostics.h"
 #include "dova/core/Display.h"

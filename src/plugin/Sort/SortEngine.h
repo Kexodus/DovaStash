@@ -37,4 +37,8 @@ namespace dova::sort
 	// Item count per primary category id ("" = homeless) across the home's managed, available
 	// containers. Used by the Retrieve menu.
 	[[nodiscard]] std::map<std::string, std::int32_t> CountByCategory(home::Home& a_home);
+
+	// Learned destinations pointing at `a_container`, counted per primary category id of the item (items
+	// that resolve to no category are left out). The category picker and the learned-only icon use it.
+	[[nodiscard]] std::map<std::string, std::int32_t> LearnedByCategory(const core::Layout& a_layout, const core::FormRef& a_container);
 }

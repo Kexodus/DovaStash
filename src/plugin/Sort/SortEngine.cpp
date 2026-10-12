@@ -1,5 +1,6 @@
 #include "Sort/SortEngine.h"
 
+#include "Game/ArmorIndex.h"
 #include "Game/Eligibility.h"
 #include "Game/FormUtil.h"
 #include "Game/ItemAdapter.h"
@@ -334,7 +335,7 @@ namespace dova::sort
 				result.message = std::format("Dova Stash: {} isn't built yet", name);
 				return result;
 			}
-			if (game::DisplayFull(*found)) {
+			if (game::DisplayFullFor(*found, a_home.layout->FindDisplay(a_display))) {
 				result.message = std::format("Dova Stash: {} is full", name);
 				return result;
 			}
@@ -355,6 +356,27 @@ namespace dova::sort
 		result.ran = true;
 		display::Fill(a_home.cellId, displays, stacks);  // tells the player what went up
 		return result;
+	}
+
+	std::map<std::string, std::int32_t> LearnedByCategory(const core::Layout& a_layout, const core::FormRef& a_container)
+	{
+		std::map<std::string, std::int32_t> out;
+		const auto&                         categories = home::Store::Get().Categories();
+		for (const auto& [item, container] : a_layout.learned) {
+			if (!(container == a_container)) {
+				continue;
+			}
+			auto*          form = game::LookupForm(item);
+			auto*          object = form ? form->As<RE::TESBoundObject>() : nullptr;
+			core::ItemInfo info;
+			if (!object || !game::FillBaseInfo(info, object)) {
+				continue;
+			}
+			if (const auto category = categories.Classify(info)) {
+				++out[*category];
+			}
+		}
+		return out;
 	}
 
 	std::map<std::string, std::int32_t> CountByCategory(home::Home& a_home)

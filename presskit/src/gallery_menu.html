@@ -1,0 +1,64 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>menu</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<style>
+  /* The hotkey lists as the plugin builds them (src/plugin/UI/ListUI.cpp, DisplayMenu.cpp): a header row
+     naming the menu, then the entries, with the emblem above the list as in game. Drawn in the art set's
+     own style, not any UI skin's. */
+  .cols {
+    position: absolute; top: 290px; left: 0; right: 0;
+    display: flex; justify-content: center; align-items: flex-start; gap: 70px;
+  }
+  .col { width: 470px; display: flex; flex-direction: column; align-items: center; }
+  .col .k { font-size: 15px; color: var(--gray-3); }
+  /* the logo sits about 2.4 rows high above every list (DESIGN §10.3) */
+  .col .logo { margin-top: 20px; }
+  .list {
+    width: 100%; margin-top: 14px; padding: 10px 30px 14px;
+    border: 1px solid var(--gray-4); border-radius: 3px;
+  }
+  .list div {
+    height: 42px; display: flex; align-items: center;
+    font-size: 21px; font-weight: 350; color: var(--gray-1); letter-spacing: 0.01em; white-space: nowrap;
+    /* plain ASCII as in game: Jost would join "--" into a dash */
+    font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0, "dlig" 0;
+  }
+  /* Jost's hyphens touch, so "--" would read as one dash: space them like a menu font would */
+  .list .dd { margin-right: 0.09em; }
+  .list div.h { color: var(--paper); font-weight: 400; border-bottom: 1px solid var(--gray-5); margin-bottom: 4px; }
+  .note { margin-top: 22px; font-size: 18px; color: var(--gray-2); font-weight: 350; line-height: 1.55; text-align: center; }
+  .note b { font-weight: 400; color: var(--gray-1); }
+</style>
+</head>
+<body>
+<div class="g-page">
+  <div class="g-head">
+    <h1 class="title">One key</h1>
+    <div class="g-sub">Press K at a container or a rack for its list, or anywhere for the home&rsquo;s.</div>
+  </div>
+  <div class="cols" id="c"></div>
+</div>
+<script>
+  // [label, header, entries, note]. Entry text is exactly what the plugin shows for that state.
+  var L = [
+    ["The home", "Breezehome",
+      ["Deposit", "Sort all", "Retrieve...", "Browse containers...", "Rename Chest...",
+       "Re-apply template \"Breezehome\"", "Advanced...", "Reset home..."],
+      "Retrieve brings a category back out."],
+    ["A container", "Cupboard",
+      ["Categories... (Weapons)", "Open Cupboard", "Rename...", "Learned items (2)...", "Clear categories",
+       "Ignore", "Remove...", "Make master", "Advanced..."],
+      "Its prompt: <b>Cupboard (Weapons)</b><br>Learned only: <b>End Table (Books, learned)</b>"],
+    ["A rack", "Weapon Rack",
+      ["Categories... (Bows)", "Fill now", "Stop using this rack"],
+      "Off until you choose <b>Use this rack</b>.<br>Deposit then puts your best bow up."]
+  ];
+  document.getElementById("c").innerHTML = L.map(function (l) {
+    return '<div class="col"><div class="k caps">' + l[0] + "</div>" + mark(96, 8, 4) +
+      '<div class="list"><div class="h"><span class="dd">-</span>-&nbsp;' + l[1] + '&nbsp;<span class="dd">-</span>-</div>' +
+      l[2].map(function (e) { return "<div>" + e + "</div>"; }).join("") +
+      '</div><div class="note">' + l[3] + "</div></div>";
+  }).join("");
+</script>
+</body></html>

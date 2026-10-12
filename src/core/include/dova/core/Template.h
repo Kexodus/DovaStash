@@ -19,7 +19,7 @@
 //       unknown keys kept), so learned destinations to them stay valid; a previous master that the
 //       template does not use is kept the same way;
 //     * displays in both: the template's entry, with the player's ignored flag (OR) and the player's
-//       kind/label/items where the template gives none; displays only in the player layout: kept;
+//       kind/label/items/set where the template gives none; displays only in the player layout: kept;
 //     * every learned entry whose container is in the merged layout (and is not the master);
 //     * the player's keep block (replaces the template's), unparsed learned entries, unparsed
 //       container entries and unknown top-level keys.

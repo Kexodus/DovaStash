@@ -281,9 +281,13 @@ namespace dova::core
 							}
 						}
 					}
+				} else if (key == "set" && value.is_string() && FormRef::Parse(value.get<std::string>())) {
+					d.set = FormRef::Parse(value.get<std::string>());
 				} else {
 					if (key == "kind") {
 						a_diags.Error(a_source, where + ": expected \"rack\", \"mannequin\", \"item\" or \"case\" (kept verbatim, ignored)");
+					} else if (key == "set") {
+						a_diags.Error(a_source, where + ": expected a form reference to a piece of the set (kept verbatim, ignored)");
 					} else if (key == "label" || key == "note" || key == "ignored" || key == "items" || key == "categories") {
 						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
@@ -317,6 +321,9 @@ namespace dova::core
 					items.push_back(s);
 				}
 				out["items"] = std::move(items);
+			}
+			if (a_d.set) {
+				out["set"] = a_d.set->ToString();
 			}
 			if (a_d.ignored) {
 				out["ignored"] = true;

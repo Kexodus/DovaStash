@@ -3,6 +3,7 @@
 #include "Game/FormUtil.h"
 #include "Game/ItemAdapter.h"
 #include "Home/Store.h"
+#include "Sort/SortEngine.h"
 
 #include <fstream>
 #include <sstream>
@@ -254,22 +255,7 @@ namespace dova::icons
 			}
 		}
 		// 2. Learned-only containers: the category most of their learned items belong to.
-		const auto&                           categories = home::Store::Get().Categories();
-		std::map<std::string, std::int32_t> votes;
-		for (const auto& [item, container] : a_layout.learned) {
-			if (!(container == *ref)) {
-				continue;
-			}
-			auto* form = game::LookupForm(item);
-			auto* object = form ? form->As<RE::TESBoundObject>() : nullptr;
-			core::ItemInfo info;
-			if (!object || !game::FillBaseInfo(info, object)) {
-				continue;
-			}
-			if (const auto category = categories.Classify(info)) {
-				++votes[*category];
-			}
-		}
+		const auto votes = sort::LearnedByCategory(a_layout, *ref);
 		const auto best = std::ranges::max_element(votes, {}, [](const auto& a_vote) { return a_vote.second; });
 		if (best != votes.end()) {
 			return ForCategory(best->first);

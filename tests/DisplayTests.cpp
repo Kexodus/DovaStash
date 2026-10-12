@@ -70,12 +70,23 @@ TEST_CASE("Rack pivots follow the vanilla rack script", "[display]")
 	CHECK(RackPivot(Weapon(Sk(1), WeaponType::OneHandDagger)) == "DaggerPivot01");
 	CHECK(RackPivot(Weapon(Sk(1), WeaponType::TwoHandAxe)) == "BattleAxePivot01");
 	auto hammer = Weapon(Sk(1), WeaponType::TwoHandAxe);
-	hammer.keywords = { "WeaponTypeWarhammer" };
+	hammer.keywords = { "WeapTypeWarhammer" };
 	CHECK(RackPivot(hammer) == "WarhammerPivot01");
 	CHECK(RackPivot(Weapon(Sk(1), WeaponType::Staff)) == "StaffPivot01");
-	CHECK(RackPivot(Weapon(Sk(1), WeaponType::Crossbow)).empty());
+	CHECK(RackPivot(Weapon(Sk(1), WeaponType::Crossbow)) == "BowPivot01");
+	CHECK(RackPivot(Weapon(Sk(1), WeaponType::HandToHand)).empty());
 	CHECK(RackPivot(Armor(Sk(1), kShieldSlot, 10, { "ArmorShield" })) == "ShieldPivot01");
 	CHECK(RackPivot(Armor(Sk(1), kBody, 10)).empty());
+
+	// The script goes by keyword (in its order), not by the engine's weapon type.
+	auto oddSword = Weapon(Sk(1), WeaponType::OneHandSword);
+	oddSword.keywords = { "WeapTypeDagger" };
+	CHECK(RackPivot(oddSword) == "DaggerPivot01");
+	CHECK_FALSE(RackTakes(RackType::NoDaggerOrBow, oddSword));
+	CHECK(RackTakes(RackType::Dagger, oddSword));
+	auto both = Weapon(Sk(1), WeaponType::OneHandMace);
+	both.keywords = { "weaptypedagger", "WeapTypeMace" };
+	CHECK(RackPivot(both) == "MacePivot01");
 
 	const auto dagger = Weapon(Sk(1), WeaponType::OneHandDagger);
 	const auto bow = Weapon(Sk(2), WeaponType::Bow);
@@ -91,6 +102,52 @@ TEST_CASE("Rack pivots follow the vanilla rack script", "[display]")
 	CHECK(RackTakes(RackType::NoDaggerOrBow, sword));
 	CHECK(RackTakes(RackType::Dagger, dagger));
 	CHECK_FALSE(RackTakes(RackType::Dagger, sword));
+	CHECK(RackTakes(RackType::LargeCase, sword));
+	CHECK(RackTakes(RackType::LargeCase, dagger));
+	CHECK(RackTakes(RackType::LargeCase, bow));
+	CHECK(RackTakes(RackType::LargeCase, Weapon(Sk(5), WeaponType::Staff)));  // long ones: refused by the plugin
+	CHECK_FALSE(RackTakes(RackType::LargeCase, shield));
+
+	// Crossbows only where the trigger has a crossbow node (the Unofficial Patch's racks).
+	auto crossbow = Weapon(Sk(6), WeaponType::Crossbow);
+	crossbow.keywords = { "WeapTypeBow" };
+	CHECK_FALSE(RackTakes(RackType::Any, crossbow));
+	CHECK(RackTakes(RackType::Any, crossbow, true));
+	CHECK(RackTakes(RackType::LargeCase, crossbow, true));
+	CHECK_FALSE(RackTakes(RackType::NoDaggerOrBow, crossbow, true));
+	CHECK_FALSE(RackTakes(RackType::Dagger, crossbow, true));
+	CHECK_FALSE(RackTakes(RackType::Shield, crossbow, true));
+}
+
+TEST_CASE("Racks skip crossbows without a crossbow node and forms their script refuses", "[display]")
+{
+	auto crossbow = Valued(Weapon(Sk(0x10), WeaponType::Crossbow), 900);
+	crossbow.keywords = { "WeapTypeBow" };
+	const std::vector<DisplayStock> stocks{
+		OnPlayer(crossbow),                                              // 0
+		OnPlayer(Valued(Weapon(Sk(0x11), WeaponType::Staff), 500)),       // 1 a staff that does not fit the case
+		OnPlayer(Valued(Weapon(Sk(0x12), WeaponType::OneHandSword), 10)),  // 2
+	};
+
+	auto plainRack = Rack(0xA1);
+	auto caseRack = Rack(0xA2, RackType::LargeCase);
+	caseRack.refuses = { Sk(0x11) };
+	{
+		const std::vector<DisplaySpot> spots{ plainRack, caseRack };
+		const auto                     plan = PlanDisplays(spots, stocks, {});
+		// The case comes first and skips the staff; the plain rack can't take the crossbow.
+		REQUIRE(plan.size() == 2);
+		CHECK(plan[0] == DisplayAssignment{ 1, 2, 1 });
+		CHECK(plan[1] == DisplayAssignment{ 0, 1, 1 });
+	}
+	{
+		plainRack.crossbows = true;
+		const std::vector<DisplaySpot> spots{ plainRack, caseRack };
+		const auto                     plan = PlanDisplays(spots, stocks, {});
+		REQUIRE(plan.size() == 2);
+		CHECK(plan[0] == DisplayAssignment{ 1, 2, 1 });
+		CHECK(plan[1] == DisplayAssignment{ 0, 0, 1 });
+	}
 }
 
 TEST_CASE("Racks take the best weapons, one copy of each, specialised racks first", "[display]")
@@ -171,14 +228,14 @@ TEST_CASE("Mannequins wear one matching set with a body piece", "[display]")
 		Spot(0xC3, DisplayKind::Mannequin) };
 	const auto plan = PlanDisplays(spots, stocks, {});
 
-	// Daedric (cuirass and the better gauntlets), then iron (cuirass, helmet, the boots-and-gloves piece),
-	// then nothing: the glass helmet has no cuirass.
+	// The more complete set first: iron (cuirass, helmet, the boots-and-gloves piece: four slot groups),
+	// then daedric (cuirass and the better gauntlets), then nothing: the glass helmet has no cuirass.
 	REQUIRE(plan.size() == 5);
-	CHECK(plan[0] == DisplayAssignment{ 0, 2, 1 });
-	CHECK(plan[1] == DisplayAssignment{ 0, 3, 1 });
-	CHECK(plan[2] == DisplayAssignment{ 1, 0, 1 });
-	CHECK(plan[3] == DisplayAssignment{ 1, 1, 1 });
-	CHECK(plan[4] == DisplayAssignment{ 1, 5, 1 });
+	CHECK(plan[0] == DisplayAssignment{ 0, 0, 1 });
+	CHECK(plan[1] == DisplayAssignment{ 0, 1, 1 });
+	CHECK(plan[2] == DisplayAssignment{ 0, 5, 1 });
+	CHECK(plan[3] == DisplayAssignment{ 1, 2, 1 });
+	CHECK(plan[4] == DisplayAssignment{ 1, 3, 1 });
 }
 
 TEST_CASE("Cases get every item they are made for that they lack", "[display]")

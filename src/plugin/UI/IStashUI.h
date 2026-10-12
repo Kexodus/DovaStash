@@ -22,6 +22,8 @@ namespace dova::ui
 		std::vector<std::string> categories;     // racks and mannequins: what they take (empty: anything that fits)
 	};
 
+	struct ArmorSetMenu;
+
 	class IStashUI
 	{
 	public:
@@ -35,6 +37,8 @@ namespace dova::ui
 		// Turn a display on or off, pick its categories, or fill it now. The default is native message boxes
 		// (UI/DisplayMenu.cpp).
 		virtual void OpenDisplayMenu(const DisplayMenu& a_menu);
+		// A mannequin's armor set picker (UI/ArmorSetMenu.h). The default is native message boxes.
+		virtual void OpenArmorSetMenu(const ArmorSetMenu& a_menu);
 		virtual void Notify(std::string_view a_message) = 0;
 		// The current home or its layout may have changed outside the UI (cell change, learned items).
 		virtual void OnHomeChanged() {}

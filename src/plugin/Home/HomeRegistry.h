@@ -40,6 +40,10 @@ namespace dova::home
 		std::optional<core::Layout> layout;
 		std::unordered_map<RE::FormID, RE::FormID> fronts;    // activator -> container it opens
 		std::unordered_map<RE::FormID, RE::FormID> frontOf;   // container -> one activator that opens it
+		// Per container: the primary categories of the items learned for it with their counts, most items
+		// first (ties in id order; items in no category are left out). Worked out when published, so
+		// display code never looks up or classifies forms.
+		std::map<core::FormRef, std::vector<std::pair<std::string, std::int32_t>>> learnedCategories;
 
 		// The activator that stands for `a_container` on screen, or `a_container` itself.
 		[[nodiscard]] RE::FormID Anchor(RE::FormID a_container) const
@@ -90,8 +94,12 @@ namespace dova::home
 		// Republishes the display copy of _home (or clears it). Called after every change.
 		void Publish();
 		void Resolve(Home& a_home);
+		// Primary category id of a learned base form ("" when it is not loaded or in no category). Cached:
+		// base forms and the category set do not change during a session.
+		const std::string& LearnedCategory(const core::FormRef& a_item);
 
 		std::optional<Home>                             _home;
+		std::unordered_map<core::FormRef, std::string>  _learnedCategory;
 		std::atomic<std::shared_ptr<const DisplayHome>> _display;
 		std::unordered_set<RE::FormID> _notified;  // cells that showed the template notification this session
 	};

@@ -4,17 +4,26 @@
 // ones the player turned on with the hotkey, or that a template lists. Deposit and Sort all plan them
 // before their own moves (core::PlanDisplays, so what goes up is taken out of the deposit); "Fill now" in
 // a display's menu fills just that one. Fill then places the items over the next frames. Main thread only.
-// A rack or mannequin with categories takes only items in them (the layout entry's `categories`).
+// A rack or mannequin with categories takes only items in them (the layout entry's `categories`). A
+// mannequin with a `set` takes only that armor set (game::ApplyChosenSet), and more of it as it arrives.
 //
 // How each kind is filled (always what the display's own script would do, or the script itself):
 // - Rack: one at a time, exactly like WeaponRackActivateSCRIPT places the equipped weapon: the very copy
 //   (tempering, enchantment, name) is dropped in the open in front of the player, made keyframed once its
-//   3D is loaded, and moved onto the trigger's pivot node. A tick later comes the bookkeeping the rack's
+//   3D is loaded, and moved onto the trigger's pivot node with Papyrus' own MoveToNode
+//   (game::PapyrusMoveToNode; game::MoveToNodeDirect if the VM can't run it within 2 seconds). The node
+//   is the one the script picks (game::RackNode: the Unofficial Patch's script picks some bow, staff and
+//   shield nodes from the weapon's own 3D); a weapon that script would turn away there (a staff too long
+//   for a display case) goes into the player's inventory, and that rack is not offered that item again
+//   this session. A tick after that move comes the bookkeeping the rack's
 //   script does (game::DisableRack, game::RecordRackItem): the activator is disabled, which is how the
 //   game knows the rack holds something and lets the player take the weapon down. If it is still enabled after
 //   2 seconds (a rack without that script whose trigger did not disable it), the weapon goes into the
 //   player's inventory and Deposit and Sort all leave the rack alone for the session ("Fill now" tries
-//   again).
+//   again). The weapon is kept out of sight from its drop until it is up (game::HideDropped: only its 3D
+//   is culled, collision and trigger events are untouched), so it appears on the rack instead of being
+//   seen falling or hanging in the air; every way out (placed, taken back, the player leaving) shows it
+//   again (game::ShowDropped).
 // - Mannequin: the armor is moved into the mannequin's inventory; its script equips it.
 // - Case: the items are moved into the case; its script shows them.
 // - Item plaque: the item is brought to the player, and the plaque is activated for the player, so the

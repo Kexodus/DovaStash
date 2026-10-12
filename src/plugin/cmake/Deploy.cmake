@@ -1,4 +1,4 @@
-# Post-build deploy, run as: cmake -DDLL=... -DPDB=... -DDIST_DIR=... -DDEFAULT_INI=... -DDEPLOY_DIR=... -P Deploy.cmake
+# Post-build deploy, run as: cmake -DDLL=... -DPDB=... -DDIST_DIR=... -DINTERFACE_DIR=... -DDEFAULT_INI=... -DDEPLOY_DIR=... -P Deploy.cmake
 #
 # Layout produced under DEPLOY_DIR (an MO2 mod folder, i.e. maps onto Skyrim's Data/):
 #   SKSE/Plugins/DovaStash.dll, DovaStash.pdb
@@ -6,6 +6,7 @@
 #                                       default INI has but it lacks are appended (new settings show up
 #                                       without touching the user's values)
 #   SKSE/Plugins/DovaStash/...          mirror of dist/Data/SKSE/Plugins/DovaStash (if present)
+#   Interface/...                       mirror of dist/Data/Interface (if present: the list menu logo)
 
 foreach(_var DLL DEPLOY_DIR)
 	if(NOT DEFINED ${_var} OR "${${_var}}" STREQUAL "")
@@ -91,4 +92,13 @@ if(DEFINED DIST_DIR AND IS_DIRECTORY "${DIST_DIR}")
 	endif()
 else()
 	message(STATUS "No dist data folder (${DIST_DIR}), skipping")
+endif()
+
+# The hotkey list menu's logo (Interface/DovaStash/logo.dds): Scaleform loads it relative to Interface/.
+if(DEFINED INTERFACE_DIR AND IS_DIRECTORY "${INTERFACE_DIR}")
+	file(GLOB _interface_entries "${INTERFACE_DIR}/*")
+	if(_interface_entries)
+		file(COPY ${_interface_entries} DESTINATION "${DEPLOY_DIR}/Interface")
+		message(STATUS "Deployed interface files from ${INTERFACE_DIR}")
+	endif()
 endif()

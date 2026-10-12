@@ -114,6 +114,7 @@ namespace dova::core
 		std::vector<std::string>   categories;  // Rack/Mannequin: patterns it takes (empty: anything that fits)
 		std::vector<FormRef>       items;  // Item/Case: what it is made for. Rack/Mannequin: preferred items
 		std::vector<std::string>   unparsedItems;  // malformed "items" entries, written back verbatim
+		std::optional<FormRef>     set;  // Mannequin: any piece of the armor set it wears (ArmorSets.h); nullopt: it picks a set
 		bool                       ignored{ false };  // never fill it
 		nlohmann::json             extra = nlohmann::json::object();
 	};

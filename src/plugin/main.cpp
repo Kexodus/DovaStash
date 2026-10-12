@@ -14,6 +14,7 @@
 #include "Integrations/QuickLoot.h"
 #include "Log.h"
 #include "Settings.h"
+#include "Sort/CraftingSupply.h"
 #include "UI/MenuFramework.h"
 #include "UI/Overlay.h"
 #include "UI/UIExtensions.h"
@@ -63,14 +64,19 @@ namespace
 			dova::icons::Load();
 			dova::Controller::Get().Init();
 			dova::events::RegisterSinks();
+			dova::sort::crafting::RegisterSinks();
 			dova::ui::uiext::RegisterSinks();
 			dova::input::RegisterInputSink();
 			dova::hooks::InstallActivatePrompt();
 			dova::ui::overlay::Install();
 			dova::diagnostics::LogEnvironment();
 			break;
+		case SKSE::MessagingInterface::kPreLoadGame:
+			dova::sort::crafting::Reset("loading a game");
+			break;
 		case SKSE::MessagingInterface::kNewGame:
 			logger::info("kNewGame");
+			dova::sort::crafting::Reset("new game");
 			dova::events::RegisterPlayerSinks();
 			break;
 		case SKSE::MessagingInterface::kPostLoadGame:

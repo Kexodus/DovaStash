@@ -44,6 +44,10 @@ namespace dova
 		void ToggleCategory(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_pattern);
 		void ClearCategories(RE::FormID a_cellId, const core::FormRef& a_container);
 		void SetIgnored(RE::FormID a_cellId, const core::FormRef& a_container, bool a_ignored);
+		// Takes the container out of the layout: its entry (categories, explicit items, label) and the
+		// learned destinations pointing at it go; what is inside stays. Not the master. Unlike Ignore,
+		// nothing is kept, so Learn may add it again when items are put in by hand.
+		void RemoveContainer(RE::FormID a_cellId, const core::FormRef& a_container);
 		// Displays (DESIGN §8.4): only the ones the layout uses are filled, by Deposit and Sort all (or Fill
 		// now). Turning one off keeps it in the layout as ignored (nothing is taken down).
 		void SetDisplayUsed(RE::FormID a_cellId, const core::FormRef& a_display, bool a_used);

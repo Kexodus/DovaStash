@@ -88,10 +88,11 @@ def jobs():
         ("banner.html", {}, 1920, 480, "nexus/dovastash-header-1920x480.png", False),
         ("features.html", {}, 1200, 700, "nexus/dovastash-features-1200x700.png", False),
         ("gallery_how_it_works.html", {}, 1920, 1080, "nexus/dovastash-gallery-how-it-works-1920x1080.png", False),
+        ("gallery_menu.html", {}, 1920, 1080, "nexus/dovastash-gallery-menu-1920x1080.png", False),
         ("gallery_templates.html", {}, 1920, 1080, "nexus/dovastash-gallery-templates-1920x1080.png", False),
         ("gallery_homes.html", {}, 1920, 1080, "nexus/dovastash-gallery-homes-1920x1080.png", False),
         ("gallery_categories.html", {}, 1920, 1080, "nexus/dovastash-gallery-categories-1920x1080.png", False),
-        ("gallery_safety.html", {}, 1920, 1080, "nexus/dovastash-gallery-safety-1920x1080.png", False),
+        ("gallery_displays.html", {}, 1920, 1080, "nexus/dovastash-gallery-displays-1920x1080.png", False),
         # Description cards: the same art framed so it blends into the page (see frame()).
         ("banner.html", frame(1920), 1920, 480, "nexus/dovastash-header-card.png", True),
         ("gallery_how_it_works.html", frame(1920), 1920, 1080, "nexus/dovastash-how-it-works-card.png", True),

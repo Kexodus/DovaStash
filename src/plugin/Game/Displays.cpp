@@ -245,7 +245,7 @@ namespace dova::game
 			d.script = ScriptName(a_script);
 			if (coa || type == 3) {
 				d.rack = core::RackType::NoDaggerOrBow;
-			} else if (type == 1 || type == 2 || type == 4) {
+			} else if (type == 1 || type == 2 || type == 4 || type == 5) {
 				d.rack = static_cast<core::RackType>(type);
 			} else {
 				logger::debug("{}: weapon rack of unknown type {}; not a display", Describe(a_ref), type);
@@ -478,6 +478,212 @@ namespace dova::game
 		return true;
 	}
 
+	namespace
+	{
+		// Sets the flag once the VM ran the call.
+		class DoneFlag final : public RE::BSScript::IStackCallbackFunctor
+		{
+		public:
+			explicit DoneFlag(std::shared_ptr<std::atomic<bool>> a_flag) :
+				_flag(std::move(a_flag))
+			{}
+
+			void operator()(RE::BSScript::Variable) override { *_flag = true; }
+			void SetObject(const RE::BSTSmartPointer<RE::BSScript::Object>&) override {}
+
+		private:
+			std::shared_ptr<std::atomic<bool>> _flag;
+		};
+	}
+
+	std::shared_ptr<std::atomic<bool>> PapyrusMoveToNode(RE::TESObjectREFR* a_item, RE::TESObjectREFR* a_target, std::string_view a_node)
+	{
+		auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+		auto* policy = vm ? vm->GetObjectHandlePolicy() : nullptr;
+		if (!policy || !a_item || !a_target) {
+			return nullptr;
+		}
+		const auto handle = policy->GetHandleForObject(a_item->GetFormType(), a_item);
+		if (handle == policy->EmptyHandle()) {
+			return nullptr;
+		}
+		auto                                                     flag = std::make_shared<std::atomic<bool>>(false);
+		RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> callback{ new DoneFlag(flag) };
+		auto* args = RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(a_target), RE::BSFixedString(a_node));
+		if (!vm->DispatchMethodCall(handle, "ObjectReference", "MoveToNode", args, callback)) {
+			return nullptr;
+		}
+		return flag;
+	}
+
+	namespace
+	{
+		// The angles the game turns back into `a_rotate` (a reference's 3D is built as
+		// NiMatrix3::SetEulerAnglesXYZ(angle), the inverse of the ToEulerAnglesXYZ the MoveToNode native
+		// uses). CommonLib's ToEulerAnglesXYZ has the same formulas but goes through its NiFastATan2,
+		// which drops Gamebryo's `if (offset)` and so negates the result whenever |y| <= |x|; its
+		// gimbal-lock branches have the wrong sign too. std::atan2 and a consistent gimbal case instead.
+		RE::NiPoint3 AnglesOf(const RE::NiMatrix3& a_rotate)
+		{
+			const auto&  e = a_rotate.entry;
+			const float  sinY = -e[0][2];
+			const float  cosY = std::sqrt(e[0][0] * e[0][0] + e[0][1] * e[0][1]);
+			RE::NiPoint3 angle;
+			angle.y = std::atan2(sinY, cosY);
+			if (cosY > 1.0e-5f) {
+				angle.x = std::atan2(e[1][2], e[2][2]);
+				angle.z = std::atan2(e[0][1], e[0][0]);
+			} else if (sinY > 0.0f) {
+				angle.x = std::atan2(e[1][0], e[1][1]);  // y = +90 degrees: only x - z matters
+				angle.z = 0.0f;
+			} else {
+				angle.x = std::atan2(-e[1][0], e[1][1]);  // y = -90 degrees: only x + z matters
+				angle.z = 0.0f;
+			}
+			return angle;
+		}
+
+		bool HasNode(RE::TESObjectREFR* a_ref, std::string_view a_node)
+		{
+			auto* root = a_ref ? a_ref->Get3D() : nullptr;
+			return root && root->GetObjectByName(RE::BSFixedString(a_node));
+		}
+
+		// The Unofficial Patch's WeaponRackActivateSCRIPT (it has USKPForswornStavesList) and its variables
+		// (which live in the script object, so it is kept with them).
+		struct PatchedRack
+		{
+			ScriptPtr        script;
+			std::vector<Var> vars;
+		};
+
+		std::optional<PatchedRack> PatchedRackScript(const FoundDisplay& a_rack)
+		{
+			auto*       rack = a_rack.kind == core::DisplayKind::Rack ? RE::TESForm::LookupByID<RE::TESObjectREFR>(a_rack.ref) : nullptr;
+			PatchedRack out{ rack ? RackScript(rack) : ScriptPtr{}, {} };
+			out.vars = Variables(out.script);
+			if (!FindVar(out.vars, "USKPForswornStavesList")) {
+				return std::nullopt;
+			}
+			return out;
+		}
+
+		RE::BGSListForm* ForswornStaves(const std::vector<Var>& a_vars)
+		{
+			auto* form = FormOf(FindVar(a_vars, "USKPForswornStavesList"));
+			return form ? form->As<RE::BGSListForm>() : nullptr;
+		}
+	}
+
+	RackFit RackFitOf(const FoundDisplay& a_rack)
+	{
+		RackFit    out;
+		const auto patched = PatchedRackScript(a_rack);
+		auto*      trigger = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_rack.trigger);
+		if (!patched || !trigger) {
+			return out;
+		}
+		out.crossbows = HasNode(trigger, "CrossbowPivot01");
+		if (auto* staves = ForswornStaves(patched->vars); staves && HasNode(trigger, "BogusPivot")) {
+			staves->ForEachForm([&](RE::TESForm* a_form) {
+				if (auto* object = a_form ? a_form->As<RE::TESBoundObject>() : nullptr) {
+					out.refuses.push_back(object);
+				}
+				return RE::BSContainer::ForEachResult::kContinue;
+			});
+		}
+		return out;
+	}
+
+	RackPlacement RackNode(const FoundDisplay& a_rack, RE::TESObjectREFR* a_item, std::string_view a_pivot)
+	{
+		RackPlacement out{ std::string(a_pivot), {} };
+		const auto    patched = PatchedRackScript(a_rack);
+		auto*         trigger = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_rack.trigger);
+		auto*         base = a_item ? a_item->GetBaseObject() : nullptr;
+		if (!patched || !trigger || !base) {
+			return out;  // the vanilla script: core's choice
+		}
+		const auto form = [&](std::string_view a_name) -> RE::TESForm* { return FormOf(FindVar(patched->vars, a_name)); };
+		const auto keyword = [&](std::string_view a_name) {
+			auto* k = form(a_name);
+			return k && k->Is(RE::FormType::Keyword) && a_item->HasKeyword(k->As<RE::BGSKeyword>());
+		};
+		auto*      staves = ForswornStaves(patched->vars);
+		const bool forsworn = staves && staves->HasForm(base);
+
+		std::string_view node = a_pivot;
+		if (a_pivot == "StaffPivot01") {
+			// CheckRackType, then HandlePlayerItem: staves the rack turns away.
+			if (forsworn && HasNode(trigger, "BogusPivot")) {
+				out.node.clear();
+				out.refusal = "its rack has no room for a Forsworn staff";
+				return out;
+			}
+			if (HasNode(trigger, "WRDisplayCase01") && (HasNode(a_item, "Staff3rdPerson:0") || HasNode(a_item, "3rdPersonStaff04:1"))) {
+				out.node.clear();
+				out.refusal = "the staff is too long for the display case";
+				return out;
+			}
+			if (a_rack.rack == core::RackType::NoDaggerOrBow) {  // PlaceStaffCoA
+				node = HasNode(a_item, "Staff3rdPerson:0") ? "StaffPivotFalmer" : "StaffPivot01";
+			} else if (base == form("DA16SkullOfCorruption")) {  // PlaceStaff
+				node = "StaffPivotCorruption";
+			} else if (base == form("DA14SanguineRose")) {
+				node = "StaffPivotSanguine";
+			} else if (HasNode(a_item, "Staff3rdPerson:0") || base == form("DA15Wabbajack")) {
+				node = "StaffPivotFalmer";
+			} else if (forsworn) {
+				node = "StaffPivotForsworn";
+			} else if (HasNode(a_item, "DragonPriestStaff3rd:0") || HasNode(a_item, "MQ_DragonPriestStaff3rd01:0")) {
+				node = "StaffPivot03";
+			} else if (HasNode(a_item, "Staff01:0") || HasNode(a_item, "Staff03:1") || base == form("MG07StaffOfMagnus")) {
+				node = "StaffPivot01";
+			} else {
+				node = "StaffPivot02";
+			}
+		} else if (a_pivot == "BowPivot01") {  // PlaceBow
+			if (HasNode(a_item, "CrossbowRoot") && HasNode(trigger, "CrossbowPivot01")) {
+				node = HasNode(a_item, "DwarvenCrossbow.nif") ? "CrossbowPivot02" : "CrossbowPivot01";
+			}
+		} else if (a_pivot == "ShieldPivot01") {  // PlaceShield
+			if (base == form("ArmorShieldOfYsgramor")) {
+				node = "ShieldPivotYsgramor";
+			} else if (keyword("ArmorMaterialDwarven") && base != form("DA13Spellbreaker")) {
+				node = "ShieldPivotDwarven";
+			} else if (keyword("ArmorMaterialDaedric")) {
+				node = "ShieldPivotDaedric";
+			} else if (keyword("ArmorMaterialDragonPlate")) {
+				node = "ShieldPivotDragonBone";
+			}
+		}
+		if (node != a_pivot) {
+			if (HasNode(trigger, node)) {
+				out.node = std::string(node);
+			} else {
+				logger::debug("{}: its trigger has no {} for {}; using {}", Describe(RE::TESForm::LookupByID(a_rack.ref)), node, Describe(a_item), a_pivot);
+			}
+		}
+		return out;
+	}
+
+	bool MoveToNodeDirect(RE::TESObjectREFR* a_item, RE::TESObjectREFR* a_target, std::string_view a_node)
+	{
+		auto* root = a_target ? a_target->Get3D() : nullptr;
+		auto* node = root ? root->GetObjectByName(RE::BSFixedString(a_node)) : nullptr;
+		if (!a_item || !node) {
+			return false;
+		}
+		// TESObjectREFR::MoveTo_Impl (private in CommonLib), called the way CommonLib's MoveToNode calls it.
+		using MoveTo_t = void (*)(RE::TESObjectREFR*, const RE::ObjectRefHandle&, RE::TESObjectCELL*, RE::TESWorldSpace*, const RE::NiPoint3&,
+			const RE::NiPoint3&);
+		static REL::Relocation<MoveTo_t> moveTo{ RELOCATION_ID(56227, 56626) };
+		const auto                       handle = a_target->GetHandle();
+		const auto                       angle = AnglesOf(node->world.rotate);
+		moveTo(a_item, handle, a_target->GetParentCell(), a_item->GetWorldspace(), node->world.translate, angle);
+		return true;
+	}
+
 	void RecordRackItem(const FoundDisplay& a_rack, RE::TESObjectREFR* a_item)
 	{
 		auto* rack = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_rack.ref);
@@ -521,5 +727,67 @@ namespace dova::game
 			return RE::BSContainer::ForEachResult::kContinue;
 		});
 		return out;
+	}
+
+	namespace
+	{
+		std::atomic<RE::FormID> g_hidden{ 0 };  // the dropped weapon HideDropped keeps out of sight (0 = none)
+
+		// App-culls (hides) or shows the root of `a_id`'s 3D; only the rendering changes. Nothing without 3D
+		// (the reference is gone, picked up or unloaded: a 3D loaded later is a fresh, visible copy).
+		void Cull(RE::FormID a_id, bool a_cull)
+		{
+			auto* ref = a_id != 0 ? RE::TESForm::LookupByID<RE::TESObjectREFR>(a_id) : nullptr;
+			if (auto* root = ref ? ref->Get3D() : nullptr) {
+				root->SetAppCulled(a_cull);
+			}
+		}
+
+		// Hides the weapon the moment its 3D loads (also when it loads again before it is up), so it is
+		// never seen falling in front of the player or hanging in the air before it is moved onto the rack.
+		class LoadedSink final : public RE::BSTEventSink<RE::TESObjectLoadedEvent>
+		{
+		public:
+			RE::BSEventNotifyControl ProcessEvent(const RE::TESObjectLoadedEvent* a_event, RE::BSTEventSource<RE::TESObjectLoadedEvent>*) override
+			{
+				if (a_event && a_event->loaded && a_event->formID != 0 && a_event->formID == g_hidden.load()) {
+					Cull(a_event->formID, true);
+				}
+				return RE::BSEventNotifyControl::kContinue;
+			}
+		};
+
+		LoadedSink g_loadedSink;
+	}
+
+	void HideDropped(RE::TESObjectREFR* a_item)
+	{
+		static const bool registered = [] {
+			auto* holder = RE::ScriptEventSourceHolder::GetSingleton();
+			if (!holder) {
+				logger::warn("Displays: no script event source; a weapon dropped for a rack shows until its 3D is seen");
+				return false;
+			}
+			holder->AddEventSink<RE::TESObjectLoadedEvent>(&g_loadedSink);
+			logger::debug("Displays: object-loaded sink registered (weapons for racks stay hidden until they are up)");
+			return true;
+		}();
+		(void)registered;
+		if (!a_item) {
+			return;
+		}
+		const auto id = a_item->GetFormID();
+		if (const auto previous = g_hidden.exchange(id); previous != 0 && previous != id) {
+			logger::debug("Displays: {:08X} was still hidden; showing it", previous);
+			Cull(previous, false);
+		}
+		Cull(id, true);
+	}
+
+	void ShowDropped()
+	{
+		if (const auto id = g_hidden.exchange(0); id != 0) {
+			Cull(id, false);
+		}
 	}
 }

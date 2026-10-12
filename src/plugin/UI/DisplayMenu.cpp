@@ -1,6 +1,8 @@
 #include "UI/DisplayMenu.h"
 
 #include "Controller.h"
+#include "Icons/IconService.h"
+#include "UI/ArmorSetMenu.h"
 #include "UI/Labels.h"
 #include "UI/MessageBox.h"
 
@@ -135,7 +137,12 @@ namespace dova::ui
 			return out;
 		}
 		if (!DisplayCategoryChoices(a_menu.kind).empty()) {
-			out.push_back({ std::format("Categories... ({})", Summary(a_menu)), std::move(a_openCategories) });
+			auto icon = a_menu.categories.empty() ? icons::ForCategory(a_menu.kind == core::DisplayKind::Mannequin ? "armor" : "weapons") :
+			                                        icons::ForPattern(a_menu.categories.front());
+			out.push_back({ std::format("Categories... ({})", Summary(a_menu)), std::move(a_openCategories), std::move(icon) });
+		}
+		if (a_menu.kind == core::DisplayKind::Mannequin) {
+			out.push_back({ std::format("Armor set... ({})", ArmorSetSummary(cellId, ref)), [cellId, ref]() { OpenArmorSets(cellId, ref); } });
 		}
 		if (!a_menu.full) {
 			out.push_back({ "Fill now", [cellId, ref]() { Controller::Get().FillDisplay(cellId, ref); } });

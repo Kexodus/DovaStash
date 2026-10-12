@@ -212,11 +212,17 @@ copies next to a special copy stay where they are (`Move skipped: ... left in ..
    Choose **Weapons... → Swords (3)**. Only swords come back (*retrieved 3 items from 1 container*).
 4. Retrieve a root with one category, e.g. *Keys*. It retrieves directly, with no submenu.
 
-### 3.5 Ignore / Make master / Reset
+### 3.5 Ignore / Remove / Make master / Reset
 
 1. Container menu → **Ignore**. HUD: *... is now ignored*. Deposit and Sort all never touch it, and
    learned items no longer go there.
 2. **Stop ignoring** restores it.
+2a. Container menu on a container with categories and a learned item → **Remove...** → *Yes*. HUD:
+   *<name> removed (what's inside stays)*. Its entry and its learned items are gone from the layout
+   JSON; its items are still inside. The master menu has no **Remove...**.
+2b. Put a book into a container with no categories by hand (learning on), close it and look at it.
+   **Expected:** the activate prompt reads e.g. *End Table (Books, learned)*. Then **Categories...**: the
+   book's group reads *[ ] Books... (1 learned)* and, inside it, *[ ] Books (1 learned)*.
 3. Container menu on another chest → **Make master**. The old master becomes unmanaged and the new
    one is the master. The old master's items are not moved.
 4. Master menu → **Reset home...** → *Yes*. HUD: *Breezehome reset (layout backed up)*. The layout
@@ -253,17 +259,36 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
 4. Press the hotkey at it again: *Categories... (any weapon)*, *Fill now*, *Stop using this rack*. Open
    *Categories...*, tick *Bows*, go back: the entry reads *Categories... (Bows)*.
 5. Use a second rack without categories, a dagger display, the middle of a coat-of-arms rack, a mannequin
-   (aim at the mannequin; set its categories to *Light Armor*) and, in Whitepeak, Konahrik's and the Elder
-   Scroll's plaques. Then Deposit. **Expected:**
+   (aim at the mannequin; set its categories to *Light Armor*) and, in Whitepeak, a glass display case (aim
+   inside it, at *Weapon Rack*), Konahrik's and the Elder Scroll's plaques. Then Deposit. **Expected:**
    - the elven bow on the bow rack (not the more valuable sword), the daedric sword or battleaxe on the
-     second rack, the glass dagger on the dagger display, the shield on the coat-of-arms rack, Konahrik and
-     the Elder Scroll on their plaques; the mannequin stays empty (no light armor) and the daedric set is
-     stored;
-   - each weapon sits on its rack like a hand-placed weapon (not on the floor, not floating); the log has
+     second rack, the glass dagger on the dagger display, a weapon lying in the glass case,
+     the shield on the coat-of-arms rack, Konahrik and the Elder Scroll on their plaques; the mannequin
+     stays empty (no light armor) and the daedric set is stored;
+   - the layout file's entries for the two plaques list their own item under `items` (Konahrik:
+     `Skyrim.esm|0x00061CD6`), and nothing else ever goes on them;
+   - each weapon sits on its rack like a hand-placed weapon (not on the floor, not floating, not turned
+     sideways: a mace hangs upright, as when you place it yourself); the log has
      `Display: <item> from <player> on <rack> (rack)`;
+   - watch the racks while it fills (third person helps): no weapon is ever seen falling in front of you,
+     lying on the floor or hanging in the air near a rack; each one just appears on its rack, one after the
+     other (plaques: the model appears, nothing moves);
    - the rack's activate prompt is gone: activating the weapon picks it up (no "you need a weapon equipped");
      the weapon stays up (it does not drop into your inventory 2 s later), and the log has
      `<rack>: holds <weapon> (activator disabled, trigger state ...)`.
+5a. Same node as by hand (the Unofficial Patch picks special nodes; find form ids with `help "<name>" 4`).
+   Store everything, empty the racks you use, and give yourself a warhammer, a mace, a Dawnguard
+   crossbow and Dwarven crossbow, the Skull of Corruption, the Wabbajack, a Forsworn staff, a Falmer staff,
+   the Shield of Ysgramor and a dwarven shield. Turn on plain racks (no categories), a coat-of-arms rack's
+   sides and middle, and a glass display case; Deposit, a few at a time. **Expected:**
+   - each item hangs exactly as when you place it yourself on the same rack (warhammer on the warhammer
+     spot, not the battleaxe's; staves and shields on their own spots); the log has `Display: <item> goes on
+     <node> of <rack> (the Unofficial Patch's choice)` for crossbows, staves and those shields;
+   - crossbows only go on racks whose trigger has a crossbow spot (never on a coat-of-arms rack); elsewhere
+     they are stored;
+   - a Falmer staff (too long) never stays in a glass display case: if one is tried, the log has
+     `<case> does not take <staff>: the staff is too long for the display case`, the staff is in your
+     inventory, and the next Deposit puts another weapon in that case and never that staff.
 6. Take the weapon off the bow rack (activate it), then Deposit. **Expected:** it goes back up on
    that rack; nothing else goes on racks you did not turn on; items still on display are not put up twice.
    Then take it down again and use *Fill now* on that rack: it goes up again; the hotkey at it then offers
@@ -274,14 +299,79 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    Choose it: the weapon stays; after you take it down, Deposit stores it instead.
 8. Temper a second Konahrik copy (`player.additem 00061CD6 1`, grindstone) and empty its plaque: Deposit puts
    only plain copies on item plaques (the tempered one goes to storage).
+8a. Mannequins, Auto. Clear the mannequin's categories (*Categories...*, untick *Light Armor*), keep the
+   Daedric set and the steel armor and helmet stored, *Fill now*. **Expected:** it wears the whole Daedric set
+   (four pieces beat the steel pair); the steel stays stored; the log has `Display plan: ... (mannequin)`
+   lines for the four pieces. With an armor mod whose pieces have no vanilla material keyword (most
+   standalone armor mods), store its pieces, use a second mannequin, *Fill now*: it wears that mod's pieces,
+   never mixed with vanilla ones.
+8b. Mannequins, a chosen set. Use a third (empty) mannequin. Carry only the Ebony Armor
+   (`player.additem 00013961 1`; other pieces: `help "Ebony" 4`). Hotkey at it: **Expected:** *Armor set...
+   (Auto)* under *Categories...*; open it: `[x] Auto` and the sets you have, most complete first, e.g.
+   `[ ] Ebony (1/4)`. Choose Ebony: HUD *Mannequin wears Ebony*, back in its menu: *Armor set... (Ebony)* and
+   *Fill now*; the layout entry has `"set": "Skyrim.esm|0x00013961"`. *Fill now*: only the cuirass goes on
+   (the Daedric set stays stored). Give yourself Ebony Boots, Deposit: the boots go on too; *Fill now* is
+   offered until all four slots are taken. *Armor set...* → `Auto` removes `set` (HUD *... picks its own
+   set*); nothing is taken off.
+8c. Choose a set for a mannequin that wears another one (the Daedric mannequin → Ebony). **Expected:** HUD
+   *... wears Ebony once you take its armor off*; Deposit puts nothing on it; take the Daedric pieces off by
+   hand, Deposit: the Ebony pieces you have go on.
+8d. Armor sets page (SKSE Menu Framework → Dova Stash → *Armor sets*). **Expected:** the first open takes a
+   moment once; the log has one `Armor sets: N sets from M armor pieces in the load order` line. Searching
+   `ebony` lists `Ebony` (Skyrim.esm) and modded Ebony-tagged sets separately; a mod's name or a piece's
+   name finds its set; *Only sets I have* narrows to sets with pieces you carry or store (the *You have*
+   column, e.g. `1/4`); hovering a set lists its pieces, `(have)` on yours. Pick a mannequin, select a set
+   you have no piece of (e.g. Dragonplate), *Assign*: the mannequin's row reads `: Dragonplate`, Deposit
+   puts nothing on it; add a Dragonplate piece, Deposit: it goes on. *Auto* returns it to Auto.
 9. Settings → turn off *Put gear on the home's displays*, Deposit: no `Displays in` line, everything is stored.
 10. If a rack ever does not take a weapon, the log has `<rack> did not take <item>` and the HUD says the item
    is in your inventory; Deposit and Sort all skip that rack for the session, *Fill now* tries it again. Send
-   the log.
-11. **Fail if** an item ends up on the floor, disappears (check `Inventory:` journal lines), a rack shows two
+   the log. Leave the home while racks are still filling: the weapon not up yet is in your inventory, and
+   when you come back every weapon on a rack is visible.
+11. **Fail if** an item ends up on the floor, disappears (check `Inventory:` journal lines), is seen
+   floating or falling on its way to a rack, stays invisible (a rack without its activate prompt and no
+   weapon to see, or an invisible weapon you can still pick up), a rack shows two
    weapons, the game asks for an equipped weapon at a rack Dova Stash filled, a weapon comes back off a rack
-   by itself, *Fill now* says *nothing ... fits* for a display that just took an item, or a mannequin loses
-   armor it was already wearing. Send the log.
+   by itself, *Fill now* says *nothing ... fits* for a display that just took an item, a mannequin loses
+   armor it was already wearing, or a mannequin with a chosen set gets a piece of another set. Send the log.
+
+### 3.8 Materials at the workbench (DESIGN §8.5)
+
+Breezehome (forge, tanning rack, alchemy lab, enchanter, cooking pot) or any home with stations, set up with a
+master and a chest. `iLogLevel = 0`.
+
+1. Store materials: `player.additem 0005ACE4 10` (Iron Ingot), `player.additem 000800E4 10` (Leather Strips),
+   `player.additem 00071CF3 6` (Iron Ore), `player.additem 000DB5D2 4` (Leather), `player.additem 00034CDF 5`
+   (Salt Pile), `player.additem 0002E4FF 2` (Grand Soul Gem, filled). Deposit, then keep **2 Iron Ingots** on
+   you (`player.additem 0005ACE4 2`).
+2. Sit at the forge. **Expected:** before the menu shows, HUD *Dova Stash: N materials at hand*; the log has
+   `Recipes: ... recipes at ... bench keywords` once (first station of the session), `Crafting supply: brought
+   ...` per stack and `brought N items (... kinds) to <forge>` at info. The forge's lists show the recipes the
+   stored ingots and strips allow. Nothing that isn't a forge material came (no salt, no soul gems).
+3. Craft one Iron Dagger (1 ingot, 1 strip), leave the menu. **Expected:** HUD *Dova Stash: put 22 back* (9 ingots,
+   9 strips, 4 leather, back where Deposit had put them); you still have your **2** ingots and the dagger. Log:
+   `Iron Ingot ...: had 2, brought 10, crafted 0, now 11 -> 9 back` and `+1 Iron Dagger ... (crafted; stays with you)`.
+4. Smelter: sit, smelt 2 Iron Ore into 2 Iron Ingots, leave. **Expected:** the 2 new ingots stay with you (the
+   log line for Iron Ingot shows `crafted 2`); the 4 unused ore go back. Tanning rack: make strips from leather;
+   the new strips stay with you, unused leather goes back.
+5. Alchemy lab: every stored ingredient comes (not potions), the unused rest goes back; the potion you make stays.
+   Enchanter: filled soul gems come; the one you use is gone, the rest go back; the enchanted item stays.
+6. Grindstone / workbench: improve a weapon you carry. **Expected:** the tempered weapon never moves; the
+   unused ingots go back.
+7. Sit at a station and get up before the menu shows (move away quickly): everything brought goes back
+   (`(got up)` in the log).
+8. Sit at a station, wait for the HUD line, then quickload an older save before leaving the menu (or quit to
+   the main menu and load). **Expected:** `Crafting supply: loading a game; the N items brought ... stay with
+   you`; the loaded game is exactly as it was saved, and nothing is moved after it loads.
+9. Settings → turn off *Materials at the workbench*: sitting down brings nothing. Turn on *Weapons and armor used
+   as materials too*: with Dawnguard, a stored Crossbow comes to the forge (Enhanced Crossbow recipe); a tempered
+   or enchanted one never does.
+10. A station outside a home (Warmaiden's forge in Whiterun): nothing comes. A modded station (any mod adding
+   its own bench keyword and recipes): its materials come without a patch.
+11. **Fail if** anything you carried before leaves your inventory, anything you crafted goes into a container,
+   an item disappears (check `Inventory:` journal lines), a favorited, worn, tempered or enchanted copy moves,
+   or the forge's list misses recipes for materials that came (then the menu built its list before the pull:
+   send the log).
 
 ## 4. Robustness
 
@@ -355,7 +445,9 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 1. The table lists the master first (*[Master] Chest*, *(items without a destination)*), then every
    managed container with its categories, learned count and status. A container that is
    unavailable, such as unbuilt Hearthfire furniture, shows *unavailable: container is disabled
-   (not built yet?)* in red. Hover the name to see the FormRef.
+   (not built yet?)* in red. Hover the name to see the FormRef. A container with learned items only
+   (2b in §3.5) shows *Books, learned* in grey under Categories; selected, its tree shows
+   *[ ] Books (1 learned)* and a grey *Learned here: Books. ...* line.
 2. Select the loft cupboard. In the details:
    - Type *Weapons* into **Label** and click **Rename**. The table shows *Weapons*, and the layout JSON
      has `"label": "Weapons"`.
@@ -366,7 +458,8 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    - Add `"weapons.swords.*"` by hand in the JSON and re-enter the cell. The pattern is listed under
      *Other patterns (unknown categories)* with a **Remove** button, which works.
 3. **Ignore** → the status shows *(ignored)* and the category tree shows the ignored note.
-   **Stop ignoring** restores it.
+   **Stop ignoring** restores it. **Remove...** → **Yes** takes the container out of the list.
+   **Remove...** is not offered on the master or on a container that is not managed yet.
 4. **Clear categories** empties the list (status line: *categories cleared for ...*).
 5. **Make master...** → **Yes**. The selected container becomes the master (header updates). The old
    master is no longer listed. No items are moved.
@@ -458,14 +551,21 @@ skin in MO2). Dova Stash must work the same with both.
 
 | # | Steps | Expected |
 |---|---|---|
-| 6.2.1 | In an enabled home, press K at nothing | A top-down list: Deposit, Sort all, Retrieve..., Browse containers..., template entry, Advanced..., Reset home... It is drawn by your UIExtensions list menu skin. |
-| 6.2.2 | Press K at a managed container | A list: Categories... (with a summary), Open \<name\>, Clear categories, Ignore, Make master, Advanced... |
-| 6.2.3 | Categories... -> pick a group -> toggle two categories | Each toggle reopens the same group list with `[x]` updated. **< Back** returns to the groups, which show `[x]` / `[~]` / `[ ]`. Esc also goes back. |
+| 6.2.1 | In an enabled home, press K at nothing | A top-down list headed `-- <home name> --`: Deposit, Sort all, Retrieve..., Browse containers..., template entry, Advanced..., Reset home... It is drawn by your UIExtensions list menu skin. |
+| 6.2.2 | Press K at a managed container | A list headed `-- <container name> --`: Categories... (with a summary), Open \<name\>, Clear categories, Ignore, Remove..., Make master, Advanced... |
+| 6.2.3 | Categories... -> pick a group -> toggle two categories | The menu stays open: each toggle flips its `[x]` in place, with the selection and scroll position where they were and no close/reopen flash. Debug log: `entry N chosen, list instance M stays open`, then `updated in place`. **< Back** returns to the groups, which show `[x]` / `[~]` / `[ ]`. Esc also goes back. |
 | 6.2.4 | Retrieve... -> a group -> a category | The items move to you. Counts match what was stored. |
 | 6.2.5 | Browse containers... -> pick a container across the room | That container's own menu opens (SkyUI, with your I4 icons). Items you put in are learned like a normal visit. |
 | 6.2.6 | Advanced... | The SKSE Menu Framework panel opens on the same container (or message boxes without the framework). |
 | 6.2.7 | Open the list, press Esc; open it again right away | It reopens. No "close the open menu first" message. |
 | 6.2.8 | Set `iMode = 1`, restart, press K | Native message boxes, as before. |
+| 6.2.9 | Walk through every list: Categories... and a group, Learned items..., Retrieve... and a group, Browse containers..., a display and its Categories... | Each starts with a plain header naming it, then **< Back** on sub-lists: `-- Chest: Categories --`, `-- Chest: Weapons --`, `-- Chest: Learned items --`, `-- Retrieve --`, `-- Retrieve: Weapons --`, `-- Browse containers --`, `-- Weapon Rack --`, `-- Weapon Rack: Categories --`. Choosing a header does nothing (the menu stays open). |
+| 6.2.10 | With "Open the lists in the middle of the screen" on (default), open lists of different lengths and the rename box | No jump: each menu appears already centred, never at the skin's own position first. With the debug log, one `centred (... -> ...) after N tries` line per menu. |
+| 6.2.11 | Turn that setting off in the panel, press K | The list opens where the skin puts it, shown at once. |
+| 6.2.12 | Press K at nothing, then at a container, then open a sub-list | The Dova Stash logo sits centred above every list, clear of the entries, in the same colour as the list text, and the whole menu (logo included) is centred. Debug log: `logo shown`. |
+| 6.2.13 | Categories..., a group, Retrieve..., Browse containers..., a display's Categories... | Each category entry has its icon left of the text (your SkyUI/I4 icons, same as the floating icons and QuickLoot); Browse shows each container's icon; the container menu's Categories... shows the container's icon. Text lines up in one column; the header and `< Back` have a blank icon slot. The master menu's actions have no icons. |
+| 6.2.14 | In a long list (more rows than fit), scroll down and up with the mouse wheel and the keys | Every row keeps the icon of its own entry (rows are reused while scrolling). No stutter. |
+| 6.2.15 | Rename `Interface/DovaStash/logo.dds` in the mod folder, open a list | The list shows after at most ~0.4 s, with an empty space where the logo goes; after ~2 s one warning `did not load` in the log. Restore the file. |
 
 ### 6.3 Activate prompt
 

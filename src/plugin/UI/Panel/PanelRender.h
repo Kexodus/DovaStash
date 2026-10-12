@@ -1,7 +1,8 @@
 #pragma once
 
-// ImGui side of the Menu Framework panel. PanelRender.cpp is (with UI/MenuFramework.cpp) the only
-// translation unit that includes the vendored SKSEMenuFramework.h (it drags in <windows.h>).
+// ImGui side of the Menu Framework panel. PanelRender.cpp is (with UI/MenuFramework.cpp and
+// UI/Panel/ArmorSetsPage.cpp) the only translation unit that includes the vendored SKSEMenuFramework.h
+// (it drags in <windows.h>).
 //
 // Render callbacks run on the RENDER thread: they read PanelModel snapshots only and turn every button
 // press into a PanelModel::Post() closure that runs on the main thread.

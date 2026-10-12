@@ -1,5 +1,6 @@
 #include "Controller.h"
 
+#include "Game/ArmorIndex.h"
 #include "Game/Displays.h"
 #include "Game/Eligibility.h"
 #include "Game/FormUtil.h"
@@ -58,6 +59,37 @@ namespace dova
 				std::this_thread::sleep_for(a_delay);
 				SKSE::GetTaskInterface()->AddTask(std::move(fn));
 			}).detach();
+		}
+
+		// Writes what each used item plaque and display case is made for (its script's items) into its layout
+		// entry when the entry names none, so the layout shows and keeps exactly what goes on it (DESIGN
+		// §8.4). Entries whose display is not loaded or not recognised are left as they are. True if any changed.
+		bool RecordDisplayItems(core::Layout& a_layout)
+		{
+			bool changed = false;
+			for (auto& b : a_layout.displays) {
+				if (b.ignored || !b.items.empty() || !b.unparsedItems.empty()) {
+					continue;
+				}
+				auto*      ref = game::LookupRef(b.ref);
+				const auto found = ref ? game::InspectDisplay(ref) : std::nullopt;
+				if (!found || (found->kind != core::DisplayKind::Item && found->kind != core::DisplayKind::Case)) {
+					continue;
+				}
+				std::vector<core::FormRef> items;
+				for (const auto* item : found->items) {
+					if (auto r = game::ToFormRef(item); r && std::ranges::find(items, *r) == items.end()) {
+						items.push_back(std::move(*r));
+					}
+				}
+				if (items.empty()) {
+					continue;
+				}
+				logger::debug("Display {}: made for {} item(s); written to its layout entry", game::Describe(ref), items.size());
+				b.items = std::move(items);
+				changed = true;
+			}
+			return changed;
 		}
 
 		std::string Trim(std::string_view a_text)
@@ -388,7 +420,7 @@ namespace dova
 		menu.name = game::RefName(ref);
 		menu.kind = found->kind;
 		menu.used = binding && !binding->ignored;
-		menu.full = game::DisplayFull(*found);
+		menu.full = game::DisplayFullFor(*found, binding);  // a mannequin with a chosen set: while it can take more
 		if (binding) {
 			menu.categories = binding->categories;
 		}
@@ -405,6 +437,9 @@ namespace dova
 			Editor().OnHomeChanged();
 		}
 		auto* home = Registry().Current();
+		if (home && home->layout && !home->layoutBroken && RecordDisplayItems(*home->layout)) {
+			SaveLayout(*home);
+		}
 		if (!home || home->layout || home->layoutBroken) {
 			return;
 		}
@@ -417,6 +452,9 @@ namespace dova
 
 		if (Settings::GetSingleton().GetTemplates().autoEnable) {
 			if (Registry().ApplyBestTemplate(*home)) {
+				if (RecordDisplayItems(*home->layout)) {
+					SaveLayout(*home);
+				}
 				Notify(std::format("Dova Stash: {} layout enabled (by {})", name, author));
 			}
 			return;
@@ -739,6 +777,9 @@ namespace dova
 			Notify("Dova Stash: could not apply the template (see log)");
 			return;
 		}
+		if (RecordDisplayItems(*home->layout)) {
+			SaveLayout(*home);
+		}
 
 		// Report bindings that fail the safety checks right now (disabled Hearthfire furniture, etc.).
 		int   unavailable = 0;
@@ -835,6 +876,36 @@ namespace dova
 		Notify(std::format("Dova Stash: {} is now ignored", binding->label));
 	}
 
+	void Controller::RemoveContainer(RE::FormID a_cellId, const core::FormRef& a_container)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			return;
+		}
+		auto& layout = *home->layout;
+		if (layout.IsMaster(a_container)) {
+			Notify("Dova Stash: the master can't be removed; make another container the master first");
+			return;
+		}
+		const auto* binding = layout.FindContainer(a_container);
+		auto        label = binding && !binding->label.empty() ? binding->label : game::RefName(game::LookupRef(a_container));
+		if (label.empty()) {
+			label = a_container.ToString();  // not loaded (plugin missing): still removable
+		}
+		const auto  bindings = std::erase_if(layout.containers, [&](const core::ContainerBinding& b) { return b.ref == a_container; });
+		const auto  learned = std::erase_if(layout.learned, [&](const auto& a_pair) { return a_pair.second == a_container; });
+		if (bindings == 0 && learned == 0) {
+			return;
+		}
+		SaveLayout(*home);
+		logger::debug("{} removed from the layout of {} ({} learned destination(s) forgotten)", a_container.ToString(), home->name, learned);
+		Notify(std::format("Dova Stash: {} removed (what's inside stays)", label));
+	}
+
 	void Controller::ReopenDisplayMenu(RE::FormID a_cellId, const core::FormRef& a_display)
 	{
 		auto* home = Registry().CurrentIf(a_cellId);
@@ -874,6 +945,7 @@ namespace dova
 			// Kept as ignored, so re-applying a template that lists it does not turn it back on.
 			it->ignored = true;
 		}
+		RecordDisplayItems(*home->layout);
 		SaveLayout(*home);
 		logger::info("Display {} in {}: {}", game::Describe(ref), home->name, a_used ? "used" : "no longer used");
 		Notify(a_used ? std::format("Dova Stash: {} is used now", name) : std::format("Dova Stash: {} won't be filled anymore", name));
@@ -962,6 +1034,9 @@ namespace dova
 		if (!Registry().ApplyTemplate(*home, *chosen)) {
 			Notify("Dova Stash: could not apply the template (see log)");
 			return;
+		}
+		if (RecordDisplayItems(*home->layout)) {
+			SaveLayout(*home);
 		}
 		const auto unavailable = CountUnavailable(*home->layout, PlayerCell());
 		const auto name = chosen->layout.name;

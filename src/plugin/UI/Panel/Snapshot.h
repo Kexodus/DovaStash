@@ -45,6 +45,8 @@ namespace dova::ui::panel
 		std::string              patternsText;  // display names, comma separated
 		std::size_t              explicitForms{ 0 };
 		std::size_t              learnedCount{ 0 };
+		std::map<std::string, std::int32_t> learnedByCategory;  // learned items per primary category id
+		std::string              learnedText;  // their category names, most items first ("Books, Potions")
 		bool                     master{ false };
 		bool                     managed{ false };  // has a binding entry (or is the master)
 		bool                     ignored{ false };

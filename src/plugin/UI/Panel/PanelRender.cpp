@@ -4,6 +4,8 @@
 
 #include "Controller.h"
 #include "Sort/SortEngine.h"
+#include "UI/Labels.h"
+#include "UI/Panel/ArmorSetsPage.h"
 #include "UI/Panel/PanelModel.h"
 #include "UI/Panel/Strings.h"
 
@@ -472,7 +474,7 @@ namespace dova::ui::panel
 			if (node.children.empty()) {
 				const bool exact = HasPattern(a_row, node.id);
 				bool       value = exact;
-				if (ImGui::Checkbox(node.name.c_str(), &value)) {
+				if (ImGui::Checkbox(std::format("{}{}###leaf", node.name, ui::LearnedSuffix(a_row.learnedByCategory, node.id + ".*")).c_str(), &value)) {
 					a_toggle(node.id);
 				}
 				if (!exact && Covers(a_row, node.id)) {
@@ -483,7 +485,7 @@ namespace dova::ui::panel
 				const auto all = node.id + ".*";
 				const bool exactAll = HasPattern(a_row, all);
 				const auto mark = exactAll ? "[x] "sv : (Covers(a_row, node.id) || AnyBelow(a_row, a_tree, a_index)) ? "[~] "sv : "[ ] "sv;
-				const bool open = ImGui::TreeNodeEx(std::format("{}{}###tree", mark, node.name).c_str(), 0);
+				const bool open = ImGui::TreeNodeEx(std::format("{}{}{}###tree", mark, node.name, ui::LearnedSuffix(a_row.learnedByCategory, all)).c_str(), 0);
 				if (!exactAll && Covers(a_row, node.id)) {
 					ImGui::SameLine();
 					Disabled(text::kViaWider);
@@ -570,6 +572,12 @@ namespace dova::ui::panel
 			if (ImGui::Button(a_row.ignored ? text::kStopIgnoring : text::kIgnore)) {
 				Do([cell, ref, ignored = !a_row.ignored]() { Controller::Get().SetIgnored(cell, ref, ignored); }, Refresh::Full);
 			}
+			if (a_row.managed || a_row.learnedCount > 0) {  // something to remove (never the master: returned above)
+				ImGui::SameLine();
+				if (ConfirmButton(text::kRemoveContainer, "remove:" + a_row.refText, std::format(text::kConfirmRemove, a_row.label, ui::kRemoveExplained))) {
+					Do([cell, ref]() { Controller::Get().RemoveContainer(cell, ref); }, Refresh::Full);
+				}
+			}
 			if (!a_row.patterns.empty()) {
 				ImGui::SameLine();
 				if (ImGui::Button(text::kClearCategories)) {
@@ -595,6 +603,8 @@ namespace dova::ui::panel
 			ImGui::SeparatorText(text::kCategoriesHeader);
 			if (a_row.ignored) {
 				ColoredWrapped(kGrey, text::kIgnoredInfo);
+			} else if (!a_row.learnedText.empty()) {
+				ColoredWrapped(kGrey, std::format(text::kLearnedInfo, a_row.learnedText));
 			}
 			const std::function<void(std::string)> toggle = [cell, ref](std::string a_pattern) {
 				Do([cell, ref, pattern = std::move(a_pattern)]() { Controller::Get().ToggleCategory(cell, ref, pattern); });
@@ -653,6 +663,8 @@ namespace dova::ui::panel
 						Disabled(text::kHomeless);
 					} else if (row.ignored) {
 						Disabled(std::format("{} {}", text::kIgnoredTag, row.patternsText));
+					} else if (row.patternsText.empty() && !row.learnedText.empty()) {
+						Disabled(std::format(text::kLearnedOnly, row.learnedText));
 					} else {
 						Text(row.patternsText.empty() ? std::string(text::kNone) : row.patternsText);
 					}
@@ -1259,6 +1271,14 @@ namespace dova::ui::panel
 			Help("Put an item into a container yourself and that container becomes its home from then on.", "[Sorting] bLearn");
 			apply |= ImGui::Checkbox("Put gear on the home's displays", &v.sorting.fillDisplays);
 			Help("Deposit and Sort all fill the displays you turned on with the hotkey (weapon racks, mannequins, plaques made for one item such as masks, claws, Elder Scrolls) with your best gear, one of each. Nothing is taken off a display.", "[Sorting] bFillDisplays");
+			apply |= ImGui::Checkbox("Materials at the workbench", &v.sorting.craftingSupply);
+			Help("Sit down at a forge, smelter, tanning rack, cooking pot, alchemy lab, enchanter or any modded station in your home: the stored materials its recipes use come to you, and what you didn't use goes back when you get up. What you just made stays with you.", "[Sorting] bCraftingSupply");
+			ImGui::BeginDisabled(!v.sorting.craftingSupply);
+			ImGui::Indent();
+			apply |= ImGui::Checkbox("Weapons and armor used as materials too", &v.sorting.craftingSupplyGear);
+			Help("Also brings gear that recipes use up (breakdown recipes at the smelter, the Enhanced Crossbow). Off: a breakdown mod would bring out every piece of gear you store. Tempered or enchanted copies never come.", "[Sorting] bCraftingSupplyGear");
+			ImGui::Unindent();
+			ImGui::EndDisabled();
 			apply |= ImGui::Checkbox("Enable a home's template automatically on first visit", &v.templates.autoEnable);
 			Help("Homes with a ready-made layout are set up as soon as you walk in, instead of asking.", "[General] bAutoEnableTemplates");
 
@@ -1469,6 +1489,7 @@ namespace dova::ui::panel
 		SKSEMenuFramework::AddSectionItem(text::kItemHome, RenderHomePage);
 		SKSEMenuFramework::AddSectionItem(text::kItemSettings, RenderSettingsPage);
 		SKSEMenuFramework::AddSectionItem(text::kItemTemplates, RenderTemplatesPage);
+		SKSEMenuFramework::AddSectionItem(text::kItemArmorSets, RenderArmorSetsPage);  // UI/Panel/ArmorSetsPage.cpp
 		SKSEMenuFramework::AddSectionItem(text::kItemDiagnostics, RenderDiagnosticsPage);
 		SKSEMenuFramework::AddSectionItem(text::kItemAbout, RenderAboutPage);
 		static auto* event = SKSEMenuFramework::AddEvent(OnFrameworkEvent, 0.0f);  // lives for the whole session

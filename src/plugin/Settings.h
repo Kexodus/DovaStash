@@ -61,6 +61,11 @@ namespace dova
 			// DESIGN §8.4: Deposit and Sort all put gear on the home's empty weapon racks, shield plaques,
 			// mannequins, item plaques and display cases.
 			bool fillDisplays{ true };
+			// DESIGN §8.5: sitting down at a crafting station in an enabled home brings the stored materials
+			// its recipes use; what is left goes back when you get up (never what you just crafted).
+			bool craftingSupply{ true };
+			// ... including weapons, armor and ammo that recipes use as materials (breakdown, upgrades).
+			bool craftingSupplyGear{ false };
 
 			bool operator==(const Sorting&) const = default;
 		};

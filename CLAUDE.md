@@ -49,7 +49,8 @@ Test game: Skyrim AE 1.6.1170 via MO2 (SKSE, Address Library, SKSE Menu Framewor
 
 - In-game UI borrows the player's own UI mods (DESIGN §1 principle 6, §10.3): target each mod's own
   interface (UIExtensions' `UIListMenu.psc` contract, QuickLoot IE's public API), never a particular
-  skin; plain text only; no in-game art of ours.
+  skin; plain text only; no in-game art of ours, except the Dova Stash logo above the hotkey's
+  UIExtensions lists (`dist/Data/Interface/DovaStash/logo.dds`, user-approved; DESIGN §1 principle 6).
 
 - C++23, MSVC. Tabs for indentation (matches CommonLib `.clang-format`).
 - Logging via spdlog to `My Games/Skyrim Special Edition/SKSE/DovaStash.log`. Shipped default is

@@ -2,6 +2,7 @@
 
 #include "Game/FormUtil.h"
 #include "Home/Store.h"
+#include "Sort/SortEngine.h"
 
 namespace dova::ui
 {
@@ -84,6 +85,18 @@ namespace dova::ui
 		return n;
 	}
 
+	std::string LearnedSuffix(const std::map<std::string, std::int32_t>& a_learned, std::string_view a_pattern)
+	{
+		const auto n = CountMatching(a_learned, a_pattern);
+		return n > 0 ? std::format(" ({} learned)", n) : std::string{};
+	}
+
+	std::map<std::string, std::int32_t> LearnedOf(RE::FormID a_cellId, const core::FormRef& a_container)
+	{
+		auto* home = home::HomeRegistry::Get().CurrentIf(a_cellId);
+		return home && home->layout ? sort::LearnedByCategory(*home->layout, a_container) : std::map<std::string, std::int32_t>{};
+	}
+
 	bool HasPattern(const core::ContainerBinding* a_binding, std::string_view a_pattern)
 	{
 		return a_binding && std::ranges::any_of(a_binding->categories, [&](const std::string& p) { return core::IEquals(p, a_pattern); });
@@ -116,6 +129,9 @@ namespace dova::ui
 				++role.learned;
 			}
 		}
+		if (const auto it = home->learnedCategories.find(*ref); it != home->learnedCategories.end()) {
+			role.learnedCategories = &it->second;
+		}
 		role.binding = layout.FindContainer(*ref);
 		if (!role.binding) {
 			role.kind = ContainerRole::Kind::Unmanaged;
@@ -144,7 +160,20 @@ namespace dova::ui
 					out += std::format(" +{}", patterns.size() - shown);
 				}
 				if (out.empty() && a_role.learned > 0) {
-					out = std::format("{} learned item{}", a_role.learned, a_role.learned == 1 ? "" : "s");
+					// Learned items only: where they belong ("Books, learned"), else how many there are.
+					const auto* learned = a_role.learnedCategories;
+					if (learned && !learned->empty()) {
+						const auto shownLearned = std::min(learned->size(), a_maxPatterns);
+						for (std::size_t i = 0; i < shownLearned; ++i) {
+							out += (i == 0 ? "" : ", ") + CategoryName((*learned)[i].first);
+						}
+						if (learned->size() > shownLearned) {
+							out += std::format(" +{}", learned->size() - shownLearned);
+						}
+						out += ", learned";
+					} else {
+						out = std::format("{} learned item{}", a_role.learned, a_role.learned == 1 ? "" : "s");
+					}
 				}
 				return out;
 			}

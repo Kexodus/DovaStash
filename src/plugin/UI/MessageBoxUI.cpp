@@ -252,7 +252,8 @@ namespace dova::ui
 		} else if (binding->ignored) {
 			state = "Ignored by Dova Stash";
 		} else if (binding->categories.empty()) {
-			state = "No categories (learned destinations only)";
+			const auto summary = RoleSummary(DescribeContainer(a_container), 3);
+			state = summary.empty() ? "No categories" : summary;  // "Books, learned"
 		} else {
 			for (const auto& p : binding->categories) {
 				state += state.empty() ? PatternLabel(p) : ", " + PatternLabel(p);
@@ -268,6 +269,12 @@ namespace dova::ui
 		}
 		const bool ignored = binding && binding->ignored;
 		options.push_back({ ignored ? "Stop ignoring" : "Ignore", [cellId, ref = *ref, ignored]() { Controller::Get().SetIgnored(cellId, ref, !ignored); } });
+		const bool learned = std::ranges::any_of(a_home.layout->learned, [&](const auto& a_pair) { return a_pair.second == *ref; });
+		if (binding || learned) {
+			options.push_back({ "Remove...", [this, cellId, ref = *ref, name = game::RefName(a_container)]() {
+								   Confirm(std::format("Remove {} from Dova Stash?\n{}", name, kRemoveExplained), [cellId, ref]() { Controller::Get().RemoveContainer(cellId, ref); });
+							   } });
+		}
 		options.push_back({ "Make master", [cellId, ref = *ref]() { Controller::Get().MakeMaster(cellId, ref); } });
 		ShowOptions(std::move(body), std::move(options));
 	}
@@ -284,6 +291,7 @@ namespace dova::ui
 	void MessageBoxUI::OpenAssignRoots(RE::FormID a_cellId, const core::FormRef& a_container, std::size_t a_page)
 	{
 		const auto* binding = FindBinding(a_cellId, a_container);
+		const auto  learned = LearnedOf(a_cellId, a_container);
 
 		std::vector<Option> options;
 		const auto          roots = RootCategories();
@@ -301,12 +309,12 @@ namespace dova::ui
 			}
 
 			if (children.empty()) {
-				options.push_back({ std::format("{} {}", mark, CategoryName(root)), [this, a_cellId, a_container, all, page]() {
+				options.push_back({ std::format("{} {}{}", mark, CategoryName(root), LearnedSuffix(learned, all)), [this, a_cellId, a_container, all, page]() {
 									   Controller::Get().ToggleCategory(a_cellId, a_container, all);
 									   OpenAssignRoots(a_cellId, a_container, page);
 								   } });
 			} else {
-				options.push_back({ std::format("{} {}...", mark, CategoryName(root)),
+				options.push_back({ std::format("{} {}...{}", mark, CategoryName(root), LearnedSuffix(learned, all)),
 					[this, a_cellId, a_container, root]() { OpenAssignChildren(a_cellId, a_container, root); } });
 			}
 		}
@@ -321,6 +329,7 @@ namespace dova::ui
 	void MessageBoxUI::OpenAssignChildren(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_root, std::size_t a_page)
 	{
 		const auto* binding = FindBinding(a_cellId, a_container);
+		const auto  learned = LearnedOf(a_cellId, a_container);
 
 		std::vector<Option> options;
 		const auto          all = a_root + ".*";
@@ -336,7 +345,7 @@ namespace dova::ui
 			const auto  page = (i + 1) / kPerPage;
 			// [x] bound exactly, [+] covered by a wider pattern, [ ] not routed here.
 			const auto mark = HasPattern(binding, id) ? "[x]" : Covers(binding, id) ? "[+]" : "[ ]";
-			options.push_back({ std::format("{} {}", mark, CategoryName(id)), [this, a_cellId, a_container, a_root, id, page]() {
+			options.push_back({ std::format("{} {}{}", mark, CategoryName(id), LearnedSuffix(learned, id + ".*")), [this, a_cellId, a_container, a_root, id, page]() {
 								   Controller::Get().ToggleCategory(a_cellId, a_container, id);
 								   OpenAssignChildren(a_cellId, a_container, a_root, page);
 							   } });

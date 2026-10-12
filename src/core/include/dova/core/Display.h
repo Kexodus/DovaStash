@@ -14,13 +14,21 @@
 // - Item plaques swap the item for a model and recreate it when taken back, so they only get copies
 //   without extra data of their own (`ItemInfo::customized`). Racks, mannequins and cases keep the very
 //   copy (tempering, enchantment, name).
+// - Racks take what WeaponRackActivateSCRIPT takes (RackTakes), on the node it picks from the item's
+//   keywords (RackPivot). Crossbows only go on racks whose trigger has a crossbow node (the Unofficial
+//   Patch's), and a rack never gets a form its script refuses there (DisplaySpot::refuses: the plugin
+//   reads that from the rack's script and its trigger's nodes).
 // - Order: item plaques, cases, mannequins (one matching set each), shield plaques, dagger racks, racks
-//   without daggers or bows, then racks for any weapon. Each takes the best remaining item: preferred
+//   without daggers or bows, large display cases, then racks for any weapon. Each takes the best remaining item: preferred
 //   items (the display's `items`) first, then Daedric artifacts, then the highest value; the player's
 //   own copy before a stored one; ties keep input order.
-// - Mannequins take one set: the armor sharing a material keyword (ArmorMaterial*) with the highest total
-//   value that includes a body piece. Each slot is filled once (no overlapping slot masks). Shields,
-//   jewelry other than circlets, and armor without a standard slot are left for other displays.
+// - Mannequins take one set (ArmorSets.h: same plugin and material keyword or name stem): the one with a
+//   body piece covering the most slot groups (head, body, hands, feet), then the highest total value. Each
+//   slot is filled once (no overlapping slot masks). Shields, jewelry other than circlets, and armor
+//   without a standard slot are left for other displays.
+// - A mannequin with a chosen set (DisplaySpot::set, the layout's `set`) takes only pieces of it, and
+//   goes before the others. It takes more while it wears nothing else and has free slots (`holds`,
+//   `worn`), so a set fills up as the pieces arrive.
 
 #include <cstdint>
 #include <optional>
@@ -37,9 +45,16 @@
 
 namespace dova::core
 {
-	// Node of a vanilla rack trigger that holds `a_item` ("SwordPivot01"), empty when no rack takes it.
+	// Node of a rack trigger that holds `a_item` ("SwordPivot01"), empty when no rack takes it. Like
+	// WeaponRackActivateSCRIPT: by the first WeapType* keyword in the script's order (sword, war axe, mace,
+	// greatsword, battleaxe, warhammer, bow, staff, dagger), else by the weapon type; ArmorShield is a
+	// shield. Crossbows (WeapTypeBow) get BowPivot01. The Unofficial Patch's script picks other nodes for
+	// some bows, staves and shields from the item's own 3D; the plugin refines this choice
+	// (game::RackNode).
 	[[nodiscard]] std::string_view RackPivot(const ItemInfo& a_item);
-	[[nodiscard]] bool             RackTakes(RackType a_rack, const ItemInfo& a_item);
+	// Whether a rack of type `a_rack` takes `a_item`. `a_crossbows`: its trigger has a crossbow node (the
+	// Unofficial Patch's racks); crossbows go nowhere else.
+	[[nodiscard]] bool             RackTakes(RackType a_rack, const ItemInfo& a_item, bool a_crossbows = false);
 	[[nodiscard]] bool             MannequinTakes(const ItemInfo& a_item);
 
 	struct DisplaySpot
@@ -50,7 +65,12 @@ namespace dova::core
 		std::vector<FormRef>     items;       // Item/Case: what it is made for. Rack/Mannequin: preferred items
 		std::vector<std::string> categories;  // Rack/Mannequin: patterns it takes (empty: anything that fits)
 		bool                     full{ false };  // Rack/Mannequin/Item: something is on it already
-		std::vector<FormRef>     holds;  // Case: what is inside already
+		std::vector<FormRef>     holds;  // Case: what is inside already. Mannequin: the armor it wears
+		bool                     crossbows{ false };  // Rack: its trigger has a crossbow node
+		std::vector<FormRef>     refuses;  // Rack: forms its script refuses here (staves that do not fit)
+		std::vector<FormRef>     set;  // Mannequin: the pieces of its chosen set (empty: it picks a set itself)
+		std::uint32_t            worn{ 0 };  // Mannequin with a set: slots taken by what it wears (`holds`)
+		bool                     chosen{ false };  // Mannequin: it has a chosen set (even one with no known pieces)
 	};
 
 	// A stack that may go on display: `available` copies of `item`, held by `from`.

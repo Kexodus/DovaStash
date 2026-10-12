@@ -81,6 +81,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kHomeless = "(items without a destination)";
 	inline constexpr auto             kIgnoredTag = "(ignored)";
 	inline constexpr auto             kNotManaged = "not managed yet";
+	inline constexpr std::string_view kLearnedOnly = "{}, learned";  // category names of the learned items
 	inline constexpr auto             kAvailable = "available";
 	inline constexpr auto             kSelectContainer = "Select a container above, or look at one in the world and press the hotkey.";
 	inline constexpr auto             kMasterInfo = "This is the master container. Items without a destination stay here, and closing it sorts its contents into the other containers.";
@@ -90,6 +91,8 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kOpenContainerHelp = "Opens this container's own menu. The Dova Stash window closes first.";
 	inline constexpr auto             kIgnore = "Ignore";
 	inline constexpr auto             kStopIgnoring = "Stop ignoring";
+	inline constexpr auto             kRemoveContainer = "Remove...";
+	inline constexpr std::string_view kConfirmRemove = "Remove {} from Dova Stash? {}";  // label, ui::kRemoveExplained
 	inline constexpr auto             kMakeMaster = "Make master...";
 	inline constexpr std::string_view kConfirmMakeMaster = "Make {} the master? The current master becomes an ordinary container; no items are moved.";
 	inline constexpr auto             kClearCategories = "Clear categories";
@@ -97,7 +100,8 @@ namespace dova::ui::panel::text
 	inline constexpr std::string_view kConfirmForget = "Forget the {} learned item destination(s) of {}?";
 	inline constexpr std::string_view kExplicitForms = "{} explicit item binding(s) (edit them in the layout JSON).";
 	inline constexpr auto             kCategoriesHeader = "Categories sent here";
-	inline constexpr auto             kIgnoredInfo = "Ignored containers receive nothing and teach nothing. Their categories are kept for when you stop ignoring them.";
+	inline constexpr std::string_view kLearnedInfo = "Learned here: {}. Only those exact items come here; tick a category to send all of it.";
+	inline constexpr auto             kIgnoredInfo = "Ignored containers receive nothing and teach nothing, and Dova Stash never adds them back. Their categories are kept for when you stop ignoring them. To forget a container instead, use Remove.";
 	inline constexpr auto             kEverything = "Everything (*)";
 	inline constexpr std::string_view kAllOf = "All {} ({}.*)";  // name, id
 	inline constexpr auto             kViaWider = "(via a wider pattern)";
@@ -167,4 +171,25 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kDiagNone = "No problems.";
 	inline constexpr std::string_view kDiagCounts = "{} error(s), {} warning(s)";
 	inline constexpr auto             kAboutText = "Auto-sorting loot storage for any player home. Look at a container in a player home and press the hotkey to open the stash window.";
+
+	// Armor sets page (mannequins)
+	inline constexpr auto             kItemArmorSets = "Armor sets";
+	inline constexpr auto             kSetsIntro = "Every armor set in your load order, modded ones included. Pick a mannequin and a set: it wears that set as you get the pieces (Deposit, Sort all, Fill now). Auto: it wears your most complete matching set.";
+	inline constexpr auto             kSetsNotInHome = "Go to one of your homes to dress its mannequins. You can still browse the sets.";
+	inline constexpr auto             kSetsNotEnabled = "Set this home up first (This home).";
+	inline constexpr auto             kSetsNoMannequins = "No mannequins in this home.";
+	inline constexpr auto             kSetsMannequin = "Mannequin";
+	inline constexpr std::string_view kSetsMannequinRow = "{}: {}";  // name, set
+	inline constexpr auto             kSetsNotUsed = " (not used yet)";
+	inline constexpr auto             kSetsSearchHint = "Search sets, mods, pieces";
+	inline constexpr auto             kSetsOnlyHave = "Only sets I have";
+	inline constexpr std::string_view kSetsCount = "{} of {} sets";
+	inline constexpr std::string_view kSetsTooMany = "Showing the first {}; search to narrow it down.";
+	inline constexpr auto             kColSet = "Set";
+	inline constexpr auto             kColMod = "Mod";
+	inline constexpr auto             kColPieces = "Pieces";
+	inline constexpr auto             kColHave = "You have";
+	inline constexpr std::string_view kSetsAssign = "Assign {} to {}";  // set, mannequin
+	inline constexpr auto             kSetsAuto = "Auto";
+	inline constexpr auto             kSetsPickSet = "Select a set in the list.";
 }

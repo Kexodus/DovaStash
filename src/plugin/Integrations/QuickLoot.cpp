@@ -346,9 +346,9 @@ namespace dova::integrations::quickloot
 			       !icons::RowForContainer(*a_home.layout, a_container, kMaxIcons).Empty();
 		}
 
-		// At most one short entry: what the container is ("Master", "Alchemy", "Weapons, Armor +1"), or, when
-		// the item-list tags are off, where the selected item goes ("> Weapon Rack"). Nothing for ignored
-		// or unmanaged containers, no prefix. Short on purpose: the info bar is right-aligned and long text
+		// At most one short entry: what the container is ("Master", "Alchemy", "Weapons, Armor +1", "Books,
+		// learned"), or, when the item-list tags are off, where the selected item goes ("> Weapon Rack").
+		// Nothing for ignored or unmanaged containers, no prefix. Short on purpose: the info bar is right-aligned and long text
 		// runs into the weight readout. Bound containers show the category icon row instead of their
 		// names (RowShowsIcons); the master keeps the word "Master".
 		void OnPopulateInfoBar(QL::PopulateInfoBarEvent* a_event)

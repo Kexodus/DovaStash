@@ -27,10 +27,11 @@ for the mod tile in search and browse.
 | [`dovastash-thumbnail-1280x720.png`](nexus/dovastash-thumbnail-1280x720.png) | 1280×720 | **Nexus thumbnail** (set as Primary image). Emblem and name only, readable at tile size and safe under the tile's crop. |
 | [`dovastash-primary-1920x1080.png`](nexus/dovastash-primary-1920x1080.png) | 1920×1080 | Gallery: emblem, name and tagline |
 | [`dovastash-gallery-how-it-works-1920x1080.png`](nexus/dovastash-gallery-how-it-works-1920x1080.png) | 1920×1080 | Gallery: the three steps |
+| [`dovastash-gallery-menu-1920x1080.png`](nexus/dovastash-gallery-menu-1920x1080.png) | 1920×1080 | Gallery: one key, the hotkey lists for the home, a container and a rack (their entries as the plugin shows them) |
 | [`dovastash-gallery-templates-1920x1080.png`](nexus/dovastash-gallery-templates-1920x1080.png) | 1920×1080 | Gallery: a template applied to a home's chests |
 | [`dovastash-gallery-homes-1920x1080.png`](nexus/dovastash-gallery-homes-1920x1080.png) | 1920×1080 | Gallery: the 22 included templates |
+| [`dovastash-gallery-displays-1920x1080.png`](nexus/dovastash-gallery-displays-1920x1080.png) | 1920×1080 | Gallery: displays, mannequins and the workbench |
 | [`dovastash-gallery-categories-1920x1080.png`](nexus/dovastash-gallery-categories-1920x1080.png) | 1920×1080 | Gallery: the default categories |
-| [`dovastash-gallery-safety-1920x1080.png`](nexus/dovastash-gallery-safety-1920x1080.png) | 1920×1080 | Gallery: never lose an item |
 | [`dovastash-features-1200x700.png`](nexus/dovastash-features-1200x700.png) | 1200×700 | Gallery (optional): the six key features |
 | [`dovastash-header-1920x480.png`](nexus/dovastash-header-1920x480.png) | 1920×480 | Nexus page header slot |
 | [`dovastash-header-card.png`](nexus/dovastash-header-card.png) | 1976×536 | Description: the banner as a card |
@@ -42,10 +43,11 @@ for the mod tile in search and browse.
   <img src="nexus/dovastash-thumbnail-1280x720.png" width="49%">
   <img src="nexus/dovastash-primary-1920x1080.png" width="49%">
   <img src="nexus/dovastash-gallery-how-it-works-1920x1080.png" width="49%">
+  <img src="nexus/dovastash-gallery-menu-1920x1080.png" width="49%">
   <img src="nexus/dovastash-gallery-templates-1920x1080.png" width="49%">
   <img src="nexus/dovastash-gallery-homes-1920x1080.png" width="49%">
+  <img src="nexus/dovastash-gallery-displays-1920x1080.png" width="49%">
   <img src="nexus/dovastash-gallery-categories-1920x1080.png" width="49%">
-  <img src="nexus/dovastash-gallery-safety-1920x1080.png" width="49%">
 </p>
 
 ![Features](nexus/dovastash-features-1200x700.png)
@@ -132,8 +134,8 @@ screenshots show; not in the Nexus image order yet.
 | Image | Size | Highlights |
 |---|---|---|
 | [`dovastash-ingame-master-1920x1080.png`](in-game-examples/dovastash-ingame-master-1920x1080.png) | 1920×1080 | The master: custom name, its floating icon, "Master" in QuickLoot IE, the **Stash** button |
-| [`dovastash-ingame-categories-1920x1080.png`](in-game-examples/dovastash-ingame-categories-1920x1080.png) | 1920×1080 | A bound container: the category icon row and its floating icon |
-| [`dovastash-ingame-room-1920x1080.png`](in-game-examples/dovastash-ingame-room-1920x1080.png) | 1920×1080 | Floating icons above the wardrobe and the weapon barrel |
+| [`dovastash-ingame-categories-1920x1080.png`](in-game-examples/dovastash-ingame-categories-1920x1080.png) | 1920×1080 | A bound container: the category icon row and its floating icon (captured before floating icons showed the whole row: recapture) |
+| [`dovastash-ingame-room-1920x1080.png`](in-game-examples/dovastash-ingame-room-1920x1080.png) | 1920×1080 | Floating icons above the wardrobe and the weapon barrel (single icons, from before the icon rows: recapture) |
 
 <p>
   <img src="in-game-examples/dovastash-ingame-master-1920x1080.png" width="49%">
