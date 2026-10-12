@@ -60,7 +60,7 @@ Homes with a template need no setup. Set [font=Courier New]bAutoEnableTemplates=
 [*][b]Vanilla and DLC:[/b] Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall, Severin Manor, and Lakeview Manor, Heljarchen Hall and Windstad Manor with their cellars.
 [*][b]Creation Club:[/b] Bloodchill Manor, Gallows Hall, Goldenhills Plantation, Hendraheim, Myrwatch and its gallery, Nchuanthumz, Shadowfoot Sanctum, Tundra Homestead and its cellar. Each is offered only if you own that content.
 [/list]
-Applying a template copies it into your own layout, so your edits are never overwritten. Re-applying replaces only the category bindings and writes a backup first.
+Applying a template copies it into your own layout, so your edits are never overwritten. Re-applying replaces only the master and the category bindings, and writes a backup first.
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-04-requirements.png[/img][/center]
 

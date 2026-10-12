@@ -12,7 +12,7 @@ Art and copy for the **Dova Stash** Nexus page. Everything here is loose files; 
 | [`nexus-summary.txt`](nexus-summary.txt) | Nexus **Brief overview** (350 characters at most) |
 | [`nexus-file-description.txt`](nexus-file-description.txt) | Files tab: the main file's description |
 | [`nexus-sticky-post.bbcode.txt`](nexus-sticky-post.bbcode.txt) | Posts tab: first comment, then pin it |
-| [`nexus-article-templates.bbcode.txt`](nexus-article-templates.bbcode.txt) | Nexus **Articles** tab: "Making a home template" (the full guide the description links to) |
+| [`nexus-article-templates.bbcode.txt`](nexus-article-templates.bbcode.txt) | Nexus **Articles** tab: "Making a home template" (the description links to `tools/README.md` on GitHub instead) |
 | [`nexus-fields.md`](nexus-fields.md) | Every other field of the upload form: category, tags, requirements, permissions, files, image order |
 
 The changelog is [`../CHANGELOG.md`](../CHANGELOG.md).
@@ -121,6 +121,29 @@ They aren't uploaded to Nexus as they are.
   <img src="reference/ingame-floating-icons-room.jpg" width="49%">
 </p>
 
+## In-game examples
+
+The reference screenshots with the art set laid over them: the emblem and wordmark top left, a
+Cinzel title and Jost caption on a bottom shade, and each feature marked with corner brackets, a
+hairline leader and a black label chip. A mock-up of how press art could highlight what the
+screenshots show; not in the Nexus image order yet.
+
+| Image | Size | Highlights |
+|---|---|---|
+| [`dovastash-ingame-master-1920x1080.png`](in-game-examples/dovastash-ingame-master-1920x1080.png) | 1920×1080 | The master: custom name, its floating icon, "Master" in QuickLoot IE, the **Stash** button |
+| [`dovastash-ingame-categories-1920x1080.png`](in-game-examples/dovastash-ingame-categories-1920x1080.png) | 1920×1080 | A bound container: the category icon row and its floating icon |
+| [`dovastash-ingame-room-1920x1080.png`](in-game-examples/dovastash-ingame-room-1920x1080.png) | 1920×1080 | Floating icons above the wardrobe and the weapon barrel |
+
+<p>
+  <img src="in-game-examples/dovastash-ingame-master-1920x1080.png" width="49%">
+  <img src="in-game-examples/dovastash-ingame-categories-1920x1080.png" width="49%">
+  <img src="in-game-examples/dovastash-ingame-room-1920x1080.png" width="49%">
+</p>
+
+Crops, copy and callout positions are in `SHOTS` in `src/ingame.html` (boxes in the 3440×1440
+source pixels, labels in output pixels). They are in color, so `--check-gray` skips them and the
+size cap is Nexus's 8 MB instead of 1.5 MB. The overlay itself keeps to the palette below.
+
 ## Style
 
 | Token | Value | Use |
@@ -140,7 +163,7 @@ three-bay chest) is original and not based on any Bethesda or Skyrim logo.
 Requires Windows, Python 3.10 or later (standard library only), and Microsoft Edge.
 
 ```powershell
-python -I presskit/src/render.py --check-gray   # every image into nexus/ and logo/, verified
+python -I presskit/src/render.py --check-gray   # every image into nexus/, logo/ and in-game-examples/, verified
 python -I presskit/src/render.py section-        # only images whose name contains a filter
 ```
 

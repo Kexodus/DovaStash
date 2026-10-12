@@ -1,0 +1,121 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>in game</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+<style>
+  /* An in-game screenshot, cropped full-bleed, with the art set's type and hairlines over it.
+     ?shot=<key> picks one of SHOTS below. Boxes are in source pixels (3440x1440 captures);
+     labels are in output pixels. */
+  .g-page { overflow: hidden; }
+  .photo { position: absolute; display: block; }
+  /* bottom shade for the title block, and a light one up top for the lockup */
+  .shade { position: absolute; inset: 0;
+    background:
+      linear-gradient(to top, rgba(0,0,0,0.92) 0, rgba(0,0,0,0.72) 150px, rgba(0,0,0,0) 360px),
+      linear-gradient(to bottom, rgba(0,0,0,0.55) 0, rgba(0,0,0,0) 170px); }
+
+  .lockup { position: absolute; top: 46px; left: 56px; display: flex; align-items: center; gap: 18px; }
+  .lockup .wordmark { font-size: 21px; letter-spacing: 0.3em; }
+
+  .caption { position: absolute; left: 56px; bottom: 56px; }
+  .caption h1 { font-size: 46px; }
+  .caption .sub { margin-top: 20px; font-size: 23px; color: var(--gray-1); font-weight: 350; letter-spacing: 0.02em; }
+
+  /* callouts: corner brackets on the feature, a hairline leader, a black label chip */
+  svg.lines { position: absolute; inset: 0; overflow: visible; }
+  svg.lines * { fill: none; stroke: var(--paper); stroke-width: 1.5px; shape-rendering: geometricPrecision; }
+  svg.lines .dot { fill: var(--paper); stroke: none; }
+  svg.lines .halo { stroke: rgba(0,0,0,0.55); stroke-width: 4px; }
+  .chip {
+    position: absolute; transform: translateY(-50%);
+    padding: 14px 20px 15px;
+    background: rgba(0,0,0,0.80);
+    border: 1px solid var(--gray-4);
+    border-radius: 3px;
+  }
+  .chip.r { transform: translate(-100%, -50%); text-align: right; }
+  .chip .k { font-size: 15px; font-weight: 500; }
+  .chip .n { margin-top: 9px; font-size: 18px; color: var(--gray-1); font-weight: 350; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="g-page" id="page"></div>
+<script>
+var SHOTS = {
+  master: {
+    src: "../reference/ingame-quickloot-master.jpg",
+    crop: { x: 820, y: 40, s: 0.8 },
+    title: "The master",
+    sub: "Your inbox. Deposit sends everything to where it belongs.",
+    callouts: [
+      { box: [1880, 392, 2338, 442], label: "Your name", note: "Rename any container", at: [1080, 170], side: "l" },
+      { box: [1612, 362, 1688, 442], label: "Floating icon", note: "The master takes everything", at: [500, 170], side: "r" },
+      { box: [2470, 895, 2566, 937], label: "Role", note: "QuickLoot IE shows the master", at: [1560, 560], side: "l" },
+      { box: [2340, 962, 2478, 1016], label: "Stash", note: "Your hotkey, on the button bar", at: [1560, 800], side: "l" }
+    ]
+  },
+  categories: {
+    src: "../reference/ingame-quickloot-category-icons.jpg",
+    crop: { x: 820, y: 40, s: 0.8 },
+    title: "Categories at a glance",
+    sub: "A bound container shows what it holds, in your own SkyUI icons.",
+    callouts: [
+      { box: [2200, 890, 2566, 942], label: "Categories", note: "Weapons, armor and 7 more", at: [1560, 590], side: "l" },
+      { box: [1598, 480, 1678, 560], label: "Floating icon", note: "Above the container, optional", at: [440, 250], side: "r" }
+    ]
+  },
+  room: {
+    src: "../reference/ingame-floating-icons-room.jpg",
+    crop: { x: 440, y: 0, s: 0.75 },
+    title: "Floating icons",
+    sub: "See what each container holds before you open it. Off by default.",
+    callouts: [
+      { box: [870, 352, 956, 430], label: "Armor", note: "The wardrobe", at: [560, 190], side: "l" },
+      { box: [2280, 620, 2352, 700], label: "Weapons", note: "The weapon barrel", at: [1530, 340], side: "l" }
+    ]
+  }
+};
+
+(function () {
+  var W = +q("w", 1920), H = +q("h", 1080);
+  var S = SHOTS[q("shot", "master")];
+  var c = S.crop, page = document.getElementById("page");
+  function px(v) { return Math.round(v * 100) / 100; }
+  function out(x, y) { return [(x - c.x) * c.s, (y - c.y) * c.s]; }
+
+  var h = '<img class="photo" src="' + S.src + '" style="left:' + px(-c.x * c.s) + "px;top:" +
+          px(-c.y * c.s) + "px;width:" + px(3440 * c.s) + 'px">';
+  h += '<div class="shade"></div>';
+
+  // brackets and leaders
+  var svg = '<svg class="lines" width="' + W + '" height="' + H + '">';
+  var chips = "";
+  S.callouts.forEach(function (o) {
+    var a = out(o.box[0], o.box[1]), b = out(o.box[2], o.box[3]);
+    var pad = 8, x0 = a[0] - pad, y0 = a[1] - pad, x1 = b[0] + pad, y1 = b[1] + pad;
+    var arm = Math.min(16, (x1 - x0) / 3, (y1 - y0) / 3);
+    var br = "M" + x0 + "," + (y0 + arm) + "V" + y0 + "H" + (x0 + arm) +
+             "M" + (x1 - arm) + "," + y0 + "H" + x1 + "V" + (y0 + arm) +
+             "M" + x1 + "," + (y1 - arm) + "V" + y1 + "H" + (x1 - arm) +
+             "M" + (x0 + arm) + "," + y1 + "H" + x0 + "V" + (y1 - arm);
+    // leader: from the bracket side facing the label to the chip's near edge
+    var lx = o.at[0], ly = o.at[1];
+    var sx = lx < x0 ? x0 : (lx > x1 ? x1 : (x0 + x1) / 2);
+    var sy = (lx >= x0 && lx <= x1) ? (ly < y0 ? y0 : y1) : (y0 + y1) / 2;
+    // the chip attaches by its left edge, or its right edge for side "r"
+    var leader = "M" + sx + "," + sy + "L" + lx + "," + ly;
+    svg += '<path class="halo" d="' + br + leader + '"/>';
+    svg += '<path d="' + br + leader + '"/>';
+    svg += '<circle class="dot" cx="' + sx + '" cy="' + sy + '" r="3"/>';
+    chips += '<div class="chip' + (o.side === "r" ? " r" : "") + '" style="left:' + lx + "px;top:" + ly + 'px">' +
+             '<div class="k caps">' + o.label + '</div><div class="n">' + o.note + "</div></div>";
+  });
+  svg += "</svg>";
+
+  h += svg + chips;
+  h += '<div class="lockup">' + mark(44, 9, 4.5) + '<div class="wordmark">DOVA STASH</div></div>';
+  h += '<div class="caption"><h1 class="title">' + S.title + '</h1><div class="sub">' + S.sub + "</div></div>";
+  page.innerHTML = h;
+})();
+</script>
+</body></html>

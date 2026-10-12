@@ -1,4 +1,5 @@
-"""Render the Dova Stash press kit images into presskit/nexus/ and presskit/logo/.
+"""Render the Dova Stash press kit images into presskit/nexus/, presskit/logo/ and
+presskit/in-game-examples/.
 
 Stdlib only. Run from anywhere with:   python -I presskit/src/render.py [--check-gray] [name-filter]
 
@@ -8,7 +9,8 @@ Steps:
   2. Screenshot every page with headless Microsoft Edge at the exact pixel size.
   3. Verify each PNG: IHDR width/height, alpha channel for *_transparent files,
      file size under 1.5 MB, and (with --check-gray) that every pixel is neutral
-     (R == G == B), i.e. the set really is black, white and gray only.
+     (R == G == B), i.e. the set really is black, white and gray only. In-game examples
+     are screenshots, so they skip the gray check and get a larger size cap.
 """
 import concurrent.futures
 import json
@@ -28,6 +30,9 @@ DATA = ROOT / "dist" / "Data" / "SKSE" / "Plugins" / "DovaStash"
 EDGE = os.environ.get(
     "DS_EDGE", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
 MAX_BYTES = 1_500_000
+PHOTO_DIR = "in-game-examples/"   # screenshot-based art: in color, so no gray check
+PHOTO_MAX_BYTES = 8_000_000       # Nexus image upload limit
+INGAME = ["master", "categories", "room"]
 
 HEADERS = {
     "features": "Features",
@@ -104,6 +109,10 @@ def jobs():
                   f"nexus/section-{i:02d}-{key.replace('_', '-')}.png", True))
     for name in ICONS:
         j.append(("icon.html", {"name": name}, 256, 256, f"nexus/icon-{name.replace('_', '-')}-256.png", False))
+    # Real screenshots from reference/ with the art set's callouts over them.
+    for shot in INGAME:
+        j.append(("ingame.html", {"shot": shot}, 1920, 1080,
+                  f"{PHOTO_DIR}dovastash-ingame-{shot}-1920x1080.png", False))
     return j
 
 
@@ -264,14 +273,16 @@ def main(argv):
         pw, ph, depth, color = png_info(path)
         w, h = canvas(query, w, h)
         size = path.stat().st_size
+        photo = name.startswith(PHOTO_DIR)
+        limit = PHOTO_MAX_BYTES if photo else MAX_BYTES
         problems = []
         if (pw, ph) != (w, h):
             problems.append(f"size {pw}x{ph} != {w}x{h}")
         if transparent and (color != 6 or not png_alpha_ok(path)):
             problems.append("background is not transparent")
-        if size > MAX_BYTES:
-            problems.append(f"{size} bytes > {MAX_BYTES}")
-        if check_gray and not png_is_neutral(path):
+        if size > limit:
+            problems.append(f"{size} bytes > {limit}")
+        if check_gray and not photo and not png_is_neutral(path):
             problems.append("contains non-neutral (colored) pixels")
         status = "FAIL" if problems else "ok  "
         failures += bool(problems)
