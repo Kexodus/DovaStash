@@ -245,8 +245,8 @@ namespace dova::core
 			layout.containers.push_back(std::move(c));
 		}
 
-		// Displays: the template's entries win; the player's ignored flag, and kind, label, note and items
-		// where the template gives none, are kept. Displays only the player layout names are kept as they are.
+		// Displays: the template's entries win; the player's ignored flag, and kind, label, note, categories
+		// and items where the template gives none, are kept. Displays only the player layout names are kept as they are.
 		for (auto& d : layout.displays) {
 			const auto* old = a_existing->FindDisplay(d.ref);
 			if (!old) {
@@ -261,6 +261,9 @@ namespace dova::core
 			}
 			if (d.note.empty()) {
 				d.note = old->note;
+			}
+			if (d.categories.empty()) {
+				d.categories = old->categories;
 			}
 			if (d.items.empty() && d.unparsedItems.empty()) {
 				d.items = old->items;

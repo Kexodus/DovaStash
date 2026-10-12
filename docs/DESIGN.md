@@ -209,30 +209,27 @@ On entering an eligible cell:
   "author": "Dova Stash",
   "version": "1.0.0",
   "priority": 0,
-  "requires": ["Skyrim.esm"],             // all must be loaded for the template to be offered
-  "cell": "Skyrim.esm|0x000165A7",        // illustrative ID — real IDs get verified in xEdit
-  "master": "Skyrim.esm|0x000AAAAA",      // container reference (REFR), not base CONT
+  "requires": ["Skyrim.esm"],          // all must be loaded for the template to be offered
+  "cell": "Skyrim.esm|0x000165A7",     // illustrative IDs; real ones come from xEdit or esm_dump.py
+  "master": "Skyrim.esm|0x000AAAAA",   // a container reference (REFR), not the base CONT
   "containers": [
-    {
-      "ref": "Skyrim.esm|0x000BBBBB",
-      "label": "Armory chest",
-      "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields"]
-    },
-    {
-      "ref": "Skyrim.esm|0x000CCCCC",
-      "label": "Alchemy satchel",
-      "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]
-    },
-    { "ref": "Skyrim.esm|0x000DDDDD", "label": "Barrel", "ignored": true, "note": "Respawns: what you store here can disappear." }
+    {"ref": "Skyrim.esm|0x000BBBBB", "label": "Armory chest",    "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "Skyrim.esm|0x000CCCCC", "label": "Alchemy satchel", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
+    {"ref": "Skyrim.esm|0x000DDDDD", "label": "Barrel",          "ignored": true, "note": "Respawns: what you store here can disappear."}
   ],
-  "displays": [                           // optional: overrides for the displays found in the cell (§8.4)
-    { "ref": "Skyrim.esm|0x000EEEEE", "ignored": true },
-    { "ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"] }
+  "displays": [                        // optional: the displays this home fills (§8.4)
+    {"ref": "Skyrim.esm|0x000EEEEE", "label": "Bow rack", "categories": ["weapons.bows"]},
+    {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]}
   ],
-  "keep": { "inherit": true, "rules": [ { "category": "ammo.arrows", "quota": 50 } ] },
+  "keep": {
+    "inherit": true,
+    "rules": [
+      {"category": "ammo.arrows", "quota": 50}
+    ]
+  },
 
   // Player layouts only (never in shipped templates):
-  "learned": { "Skyrim.esm|0x0001397E": "Skyrim.esm|0x000BBBBB" },
+  "learned": {"Skyrim.esm|0x0001397E": "Skyrim.esm|0x000BBBBB"},
   "basedOn": "Templates/Vanilla/Breezehome.json@1.0.0"
 }
 ```
@@ -382,7 +379,7 @@ download that drops into the same `Categories/` folder, not in the main archive.
 | **Distribute** | Master → destinations                 | `ContainerMenu` closes on the master; also a "Sort" button        |
 | **Sort all**   | Master + bound containers → correct one (see §16) | Manual (e.g. after changing bindings)                             |
 | **Retrieve**   | Destinations → player                 | Menu: by category, or everything                                  |
-| **Fill displays** | Player + managed containers → empty racks, mannequins, plaques, cases (§8.4) | Part of Deposit and Sort all (`bFillDisplays`)                    |
+| **Fill displays** | Player + managed containers → the empty displays in use (§8.4) | Part of Deposit and Sort all (`bFillDisplays`); one display with *Fill now* in its menu |
 | **Learn**      | Records item → container              | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
 
 ### 8.2 Moving items safely (`ItemMover`)
@@ -431,16 +428,26 @@ Global defaults live in `DovaStash.ini`/`Settings.json`. A layout may override t
 
 ### 8.4 Displays
 
-Deposit and Sort all put gear on the home's empty displays, so the home looks as if the player had placed
+Deposit and Sort all put gear on the displays the player uses, so the home looks as if the player had placed
 it by hand (`[Sorting] bFillDisplays`, on by default). Dova Stash never takes anything off a display; the
 player takes things down as usual.
+
+**Turning them on.** A display is filled only when the layout lists it (and it is not `ignored`). The player
+aims the hotkey at a rack, a mannequin (or the activator in front of it), an item plaque or a display case,
+or at a weapon sitting on a rack, and gets a small menu (`ui::DisplayMenu`): *Use this rack* adds the entry
+(nothing goes up until Deposit or Sort all). Once used: *Categories...* picks what a rack or mannequin
+takes, like a container's categories (racks are offered All Weapons, each weapon category and Shields;
+mannequins the armor categories); *Fill now* while it is empty (`sort::FillDisplay`: what Deposit would move
+plus what is stored); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
+does not turn it back on). Templates list the displays that should look hand-placed from the start. A
+display case the layout uses for storage opens the container menu instead.
 
 **Finding them.** Displays are recognised from the scripts the game binds to them (read from the Papyrus VM,
 nothing changed), in any home, with or without a template (`game::FindDisplays`):
 
 | Kind | Recognised by | Filled by |
 |---|---|---|
-| `rack` | An activator running `WeaponRackActivateSCRIPT`: weapon racks, wall plaques, dagger displays, coat-of-arms racks (the middle one takes a shield), and home mods' copies of them. `RackType` (1 any weapon, 2 shield, 3 or `Patch14COARacks` no dagger or bow, 4 daggers only) says what it takes | Dropping the very copy at the trigger's pivot node (`SwordPivot01`...), making it keyframed and moving it onto the node once its 3D is loaded: what the script does with the equipped weapon. The trigger's script then disables the activator, and the player picks the weapon up by activating it |
+| `rack` | An activator running `WeaponRackActivateSCRIPT`: weapon racks, wall plaques, dagger displays, coat-of-arms racks (the middle one takes a shield), and home mods' copies of them. `RackType` (1 any weapon, 2 shield, 3 or `Patch14COARacks` no dagger or bow, 4 daggers only) says what it takes | Exactly what the script does with the equipped weapon: dropping the very copy in the open in front of the player, making it keyframed once its 3D is loaded and moving it onto the trigger's pivot node (`SwordPivot01`...). The trigger's script must then notice it and disable the activator; that is how the game knows the rack holds something, and the player then picks the weapon up by activating it. A weapon dropped inside the rack is pushed out by its collision and never counted, which is why it is dropped in the open |
 | `mannequin` | An actor running `MannequinActivatorSCRIPT` | Moving armor into its inventory; its script equips it |
 | `item` | A reference whose script holds playable items in its properties (or a form list of them) and a "placed" flag: the `ClawToPlace` display script that home mods copy for masks, claws, Elder Scrolls, books, artifacts | Bringing the item to the player and activating the plaque for the player, so the home's own script takes it and shows the model |
 | `case` | A container whose script holds playable items in its properties and handles `OnItemAdded` | Moving the items in; its script shows them |
@@ -448,11 +455,12 @@ nothing changed), in any home, with or without a template (`game::FindDisplays`)
 Furniture and harvestables (chopping blocks list firewood and axes) are never displays. A container the
 layout uses for storage is not a case. `esm_dump.py cell` lists the displays it can see in the plugin files.
 
-**Layouts and templates** (`displays`, §6.3) override what was found, by `ref`: `ignored` keeps a display
-empty, `items` replaces what an item plaque or case is made for, or names preferred items for a rack or
-mannequin. An entry for a display the scripts do not reveal needs `kind` (racks still need their
-`WRackTrigger` linked ref, mannequins must be actors, cases containers). Applying a template merges the
-entries like containers (the player's `ignored` wins).
+**Layouts and templates** (`displays`, §6.3) list the displays in use, by `ref`. `categories` (patterns, as
+for containers) limits what a rack or mannequin takes; without it, anything that fits. `items` replaces what an
+item plaque or case is made for, or names preferred items for a rack or mannequin. An entry for a display
+the scripts do not reveal needs `kind` (racks still need their `WRackTrigger` linked ref, mannequins must be
+actors, cases containers). `ignored` turns a listed display off. Applying a template merges the entries like
+containers (the player's `ignored` wins).
 
 **What goes where** (`core::PlanDisplays`, unit-tested):
 - Candidates are what Deposit would move from the player (never kept, worn, favorited or quest items) and
@@ -461,6 +469,8 @@ entries like containers (the player's `ignored` wins).
   the cell, mannequin outfits, case contents) are not put up again.
 - Items an item plaque or a case is made for are reserved for it: racks and mannequins never take them
   (a dragon priest mask waits for its plaque).
+- A rack or mannequin with categories only takes items whose categories (every category the item matches,
+  `CategorySet::MatchAll`, as containers use) match one of its patterns.
 - Item plaques swap the item for a model and recreate it when it is taken back, so they only get copies
   without extra data (`ItemInfo::customized`: tempered, renamed, enchanted by the player, poisoned). Their
   scripts remove "one of this item", so a plaque is also skipped while the player carries any such copy, or a
@@ -475,10 +485,13 @@ entries like containers (the player's `ignored` wins).
 - A rack is taken while its activator is disabled; unbuilt racks (trigger disabled) are skipped.
 
 **Filling** (`display::Fill`, over the next frames after the sort's own moves): mannequins and cases at once,
-then every rack drop, then a poll every 100 ms until the dropped weapons have 3D (at most 5 s), then item
-plaques one at a time. A plaque that hands an item back (it was full) is activated once more; one that takes
-nothing within 3 s gets its item back where it came from and is left alone for the session. Filling stops
-if the player leaves the cell. The player gets one line at the end (`put 12 items on display`); the log has
+then racks one at a time (drop, wait every 100 ms for 3D for at most 5 s, place, then wait at most 2 s for the
+rack's activator to be disabled by its trigger), then item plaques one at a time. A rack whose trigger does
+not notice the weapon gets nothing: the weapon goes into the player's inventory, the HUD line says so, and
+the rack is left alone for the session. A plaque that hands an item back (it was full) is activated once
+more; one that takes nothing within 3 s gets its item back where it came from and is left alone for the
+session. Filling stops if the player leaves the cell (a weapon dropped for a rack and not up yet goes into
+the player's inventory). The player gets one line at the end (`put 12 items on display`); the log has
 a summary at info (`Displays in Whitepeak Tower: 77 rack (77 empty), 6 mannequin (6 empty), 50 item (50
 empty); 41 items to put up`), the plan and each placement at debug.
 
@@ -614,7 +627,8 @@ shows the word "Master".
 
 - **Flat:** one configurable hotkey (keyboard and gamepad), read via a `BSInputDeviceManager` event sink.
   The crosshair target comes from `SKSE::CrosshairRefEvent`.
-  - Tap on a container opens the contextual menu.
+  - Tap on a container opens the contextual menu; on a display (rack, mannequin, item plaque, display case,
+    or a weapon on a rack) the display menu (§8.4).
   - Tap on nothing in an enabled home opens the master menu or Deposit (configurable).
   - Hold briefly to highlight containers.
 - **VR:** no keyboard. The candidate approach is "activate a container **while sneaking**" to open the

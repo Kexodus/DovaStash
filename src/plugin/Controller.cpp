@@ -1,5 +1,6 @@
 #include "Controller.h"
 
+#include "Game/Displays.h"
 #include "Game/Eligibility.h"
 #include "Game/FormUtil.h"
 #include "Game/ItemAdapter.h"
@@ -288,6 +289,9 @@ namespace dova
 		auto  targetHold = game::RefFromHandle(a_crosshairTarget);  // keeps the ref alive for this call
 		auto* target = targetHold.get();
 		if (target && target->GetParentCell() == cell) {
+			if (OpenDisplayMenu(*home, target)) {
+				return;
+			}
 			// A shelf or rack that opens a hidden chest stands for that chest.
 			if (auto* behind = game::ContainerBehind(target); behind && behind != target) {
 				logger::debug("Hotkey: {} opens {}", game::Describe(target), game::Describe(behind));
@@ -352,6 +356,46 @@ namespace dova
 			return;
 		}
 		Notify(std::format("Dova Stash: look at a container and press {} to set up {}", HotkeyName(), home->name));
+	}
+
+	bool Controller::OpenDisplayMenu(home::Home& a_home, RE::TESObjectREFR* a_target)
+	{
+		const auto found = game::DisplayAt(a_target);
+		auto*      ref = found ? RE::TESForm::LookupByID<RE::TESObjectREFR>(found->ref) : nullptr;
+		const auto display = game::ToFormRef(ref);
+		if (!display) {
+			return false;
+		}
+		if (found->kind == core::DisplayKind::Case && a_home.layout) {
+			// A container the layout uses for storage is a container, not a case.
+			const auto* binding = a_home.layout->FindContainer(*display);
+			if (a_home.layout->IsMaster(*display) || (binding && !binding->ignored)) {
+				return false;
+			}
+		}
+		if (a_home.layoutBroken) {
+			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			return true;
+		}
+		if (!a_home.layout) {
+			Notify(std::format("Dova Stash: set up {} first: look at a container and press {}", a_home.name, HotkeyName()));
+			return true;
+		}
+		const auto*     binding = a_home.layout->FindDisplay(*display);
+		ui::DisplayMenu menu;
+		menu.cellId = a_home.cellId;
+		menu.ref = *display;
+		menu.name = game::RefName(ref);
+		menu.kind = found->kind;
+		menu.used = binding && !binding->ignored;
+		menu.full = game::DisplayFull(*found);
+		if (binding) {
+			menu.categories = binding->categories;
+		}
+		logger::debug("Hotkey -> display menu: {} ({}, {}, {})", game::Describe(ref), core::DisplayKindName(found->kind), menu.used ? "used" : "not used",
+			menu.full ? "full" : "empty");
+		UI().OpenDisplayMenu(menu);
+		return true;
 	}
 
 	void Controller::OnCellMaybeChanged()
@@ -789,6 +833,83 @@ namespace dova
 		binding->ignored = true;
 		SaveLayout(*home);
 		Notify(std::format("Dova Stash: {} is now ignored", binding->label));
+	}
+
+	void Controller::ReopenDisplayMenu(RE::FormID a_cellId, const core::FormRef& a_display)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		auto* ref = game::LookupRef(a_display);
+		if (home && ref) {
+			OpenDisplayMenu(*home, ref);
+		}
+	}
+
+	void Controller::SetDisplayUsed(RE::FormID a_cellId, const core::FormRef& a_display, bool a_used)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			return;
+		}
+		auto*      ref = game::LookupRef(a_display);
+		const auto name = game::RefName(ref);
+		auto&      displays = home->layout->displays;
+		const auto it = std::ranges::find(displays, a_display, &core::DisplayBinding::ref);
+		if (a_used) {
+			if (it == displays.end()) {
+				core::DisplayBinding binding;
+				binding.ref = a_display;
+				binding.label = name;
+				displays.push_back(std::move(binding));
+			} else {
+				it->ignored = false;
+			}
+		} else {
+			if (it == displays.end() || it->ignored) {
+				return;
+			}
+			// Kept as ignored, so re-applying a template that lists it does not turn it back on.
+			it->ignored = true;
+		}
+		SaveLayout(*home);
+		logger::info("Display {} in {}: {}", game::Describe(ref), home->name, a_used ? "used" : "no longer used");
+		Notify(a_used ? std::format("Dova Stash: {} is used now", name) : std::format("Dova Stash: {} won't be filled anymore", name));
+	}
+
+	void Controller::ToggleDisplayCategory(RE::FormID a_cellId, const core::FormRef& a_display, const std::string& a_pattern)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		auto* binding = home && home->layout ? home->layout->FindDisplay(a_display) : nullptr;
+		if (!binding) {
+			return;
+		}
+		auto&      patterns = binding->categories;
+		const auto it = std::ranges::find_if(patterns, [&](const std::string& p) { return core::IEquals(p, a_pattern); });
+		const bool remove = it != patterns.end();
+		if (remove) {
+			patterns.erase(it);
+		} else {
+			patterns.push_back(a_pattern);
+		}
+		logger::info("Display {}: {} {}", game::Describe(game::LookupRef(a_display)), remove ? "unbound" : "bound", a_pattern);
+		SaveLayout(*home);
+	}
+
+	void Controller::FillDisplay(RE::FormID a_cellId, const core::FormRef& a_display)
+	{
+		RunWhenContainerMenuClosed([this, a_cellId, a_display]() {
+			auto* home = Registry().CurrentIf(a_cellId);
+			if (!home) {
+				return;
+			}
+			const auto result = sort::FillDisplay(*home, a_display);
+			if (!result.message.empty()) {
+				Notify(result.message);
+			}
+		});
 	}
 
 	void Controller::Browse(RE::FormID a_cellId, const core::FormRef& a_container)

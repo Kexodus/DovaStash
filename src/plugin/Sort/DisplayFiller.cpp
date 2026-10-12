@@ -3,6 +3,7 @@
 #include "Controller.h"
 #include "Game/FormUtil.h"
 #include "Game/ItemMover.h"
+#include "Home/Store.h"
 #include "Log.h"
 #include "Settings.h"
 
@@ -11,11 +12,12 @@ namespace dova::display
 	namespace
 	{
 		constexpr auto kTick = std::chrono::milliseconds(100);
-		constexpr int  kRackTicks = 50;    // wait up to 5 s for dropped weapons to get their 3D
-		constexpr int  kPlaqueTicks = 30;  // wait up to 3 s for a plaque's script
+		constexpr int  kRackTicks = 50;     // wait up to 5 s for a dropped weapon to get its 3D
+		constexpr int  kConfirmTicks = 20;  // wait up to 2 s for a rack's trigger to notice the weapon
+		constexpr int  kPlaqueTicks = 30;   // wait up to 3 s for a plaque's script
 
 		std::atomic<bool>    g_busy{ false };
-		std::set<RE::FormID> g_failed;  // plaques that did not take their item (this session)
+		std::set<RE::FormID> g_failed;  // racks and plaques that did not take their item (this session)
 
 		void Later(std::function<void()> a_fn)
 		{
@@ -54,12 +56,25 @@ namespace dova::display
 			game::StackRef      stack;
 			std::string         item;   // "Iron Sword" (logs)
 			std::string         pivot;  // Rack
-			RE::ObjectRefHandle dropped;
+			RE::ObjectRefHandle dropped;  // Rack: the weapon in the world
 			bool                done{ false };
 			bool                broughtToPlayer{ false };  // Item: came from a container
 			int                 reactivations{ 0 };
 			std::int32_t        before{ 0 };
 		};
+
+		// Where a weapon from a container is dropped before it goes up: in the open in front of the player,
+		// like the equipped weapon WeaponRackActivateSCRIPT drops (DropObject).
+		RE::NiPoint3 InFrontOfPlayer()
+		{
+			auto*      player = game::Player();
+			auto       spot = player->GetPosition();
+			const auto yaw = player->data.angle.z;
+			spot.x += std::sin(yaw) * 60.0f;
+			spot.y += std::cos(yaw) * 60.0f;
+			spot.z += 80.0f;
+			return spot;
+		}
 
 		class Job : public std::enable_shared_from_this<Job>
 		{
@@ -89,11 +104,8 @@ namespace dova::display
 					for (auto& s : _direct) {
 						MoveInto(s);
 					}
-					for (auto& s : _racks) {
-						Drop(s);
-					}
 				}
-				PollRacks(0);
+				NextRack(0);
 			}
 
 		private:
@@ -142,79 +154,118 @@ namespace dova::display
 				Placed(a_step);
 			}
 
-			// Racks: drop the copy at the pivot node (WeaponRackActivateSCRIPT drops the equipped weapon).
-			void Drop(Step& a_step)
-			{
-				auto* source = Ref(a_step.stack.owner);
-				auto* rack = Ref(a_step.display.ref);
-				auto* trigger = Ref(a_step.display.trigger);
-				auto* root = trigger ? trigger->Get3D() : nullptr;
-				auto* node = root ? root->GetObjectByName(a_step.pivot) : nullptr;
-				if (!source || !rack || !node || rack->IsDisabled() || !Movable(a_step, source)) {
-					if (!node && source && rack) {
-						logger::warn("Display skipped: {} has no {} node for {}", game::Describe(rack), a_step.pivot, a_step.item);
-					}
-					a_step.done = true;
-					++_skipped;
-					return;
-				}
-				RE::NiPoint3 angle;
-				node->world.rotate.ToEulerAnglesXYZ(angle);
-				const auto position = node->world.translate;
-				const auto before = game::LiveCount(source, a_step.stack.object);
-				a_step.dropped = source->RemoveItem(a_step.stack.object, 1, RE::ITEM_REMOVE_REASON::kDropping, a_step.stack.extra, nullptr, &position, &angle);
-				const auto after = game::LiveCount(source, a_step.stack.object);
-				if (!a_step.dropped.get()) {
-					a_step.done = true;
-					++_errors;
-					logger::error("Display: dropping {} from {} for {} gave no reference (count {} -> {})", a_step.item, Holder(a_step.stack.owner),
-						game::Describe(rack), before, after);
-				}
-			}
-
-			void Settle(Step& a_step, bool a_loaded)
-			{
-				a_step.done = true;
-				auto  ref = a_step.dropped.get();
-				auto* trigger = Ref(a_step.display.trigger);
-				if (!ref || !trigger) {
-					++_errors;
-					logger::error("Display: {} for {} disappeared before it was placed", a_step.item, game::Describe(Ref(a_step.display.ref)));
-					return;
-				}
-				if (a_loaded) {
-					ref->SetMotionType(RE::hkpMotion::MotionType::kKeyframed, true);
-				} else {
-					logger::warn("Display: {} has no 3D after {} s; placed without fixing it in place", a_step.item, kRackTicks / 10);
-				}
-				ref->MoveToNode(trigger, a_step.pivot);
-				Placed(a_step);
-			}
-
-			void PollRacks(int a_tick)
+			// Racks, one at a time, the way WeaponRackActivateSCRIPT places the equipped weapon: drop the very
+			// copy in the open, wait for its 3D, make it keyframed and move it onto the trigger's pivot node.
+			// Then the rack's trigger must notice it and disable the activator (that is how the game knows
+			// the rack holds something, and lets the player take the weapon down). If it does not, the
+			// weapon is taken back.
+			void NextRack(std::size_t a_index)
 			{
 				if (!StillHere()) {
 					return Abort();
 				}
-				bool waiting = false;
-				for (auto& s : _racks) {
-					if (s.done) {
-						continue;
+				if (a_index >= _racks.size()) {
+					return NextPlaque(0);
+				}
+				auto& s = _racks[a_index];
+				auto* player = game::Player();
+				auto* source = Ref(s.stack.owner);
+				auto* rack = Ref(s.display.ref);
+				auto* trigger = Ref(s.display.trigger);
+				auto* root = trigger ? trigger->Get3D() : nullptr;
+				auto* node = root ? root->GetObjectByName(s.pivot) : nullptr;
+				if (!source || !rack || !node || rack->IsDisabled() || !Movable(s, source)) {
+					if (!node && source && rack) {
+						logger::warn("Display skipped: {} has no {} node for {}", game::Describe(rack), s.pivot, s.item);
 					}
-					auto ref = s.dropped.get();
-					if (ref && ref->Is3DLoaded()) {
-						Settle(s, true);
-					} else if (a_tick >= kRackTicks) {
-						Settle(s, false);
+					s.done = true;
+					++_skipped;
+					return NextRack(a_index + 1);
+				}
+				{
+					game::ItemMover::SuppressScope suppress;
+					if (source == player) {
+						s.dropped = player->RemoveItem(s.stack.object, 1, RE::ITEM_REMOVE_REASON::kDropping, s.stack.extra, nullptr);
 					} else {
-						waiting = true;
+						const auto spot = InFrontOfPlayer();
+						s.dropped = source->RemoveItem(s.stack.object, 1, RE::ITEM_REMOVE_REASON::kDropping, s.stack.extra, nullptr, &spot);
 					}
 				}
-				if (waiting) {
-					Later([self = shared_from_this(), a_tick]() { self->PollRacks(a_tick + 1); });
+				if (!s.dropped.get()) {
+					s.done = true;
+					++_errors;
+					logger::error("Display: dropping {} from {} for {} gave no reference (see the inventory journal)", s.item, Holder(s.stack.owner),
+						game::Describe(rack));
+					return NextRack(a_index + 1);
+				}
+				Later([self = shared_from_this(), a_index]() { self->WaitFor3D(a_index, 1); });
+			}
+
+			void WaitFor3D(std::size_t a_index, int a_tick)
+			{
+				if (!StillHere()) {
+					return Abort();
+				}
+				auto& s = _racks[a_index];
+				auto  ref = s.dropped.get();
+				auto* trigger = Ref(s.display.trigger);
+				if (!ref || !trigger) {
+					s.done = true;
+					++_errors;
+					logger::error("Display: {} for {} disappeared before it was placed", s.item, game::Describe(Ref(s.display.ref)));
+					return NextRack(a_index + 1);
+				}
+				if (!ref->Is3DLoaded()) {
+					if (a_tick < kRackTicks) {
+						Later([self = shared_from_this(), a_index, a_tick]() { self->WaitFor3D(a_index, a_tick + 1); });
+						return;
+					}
+					logger::warn("Display: {} had no 3D after {} s, so it can't be fixed on {}", s.item, kRackTicks / 10, game::Describe(Ref(s.display.ref)));
+					TakeBack(s);
+					return NextRack(a_index + 1);
+				}
+				ref->SetMotionType(RE::hkpMotion::MotionType::kKeyframed, true);
+				ref->MoveToNode(trigger, s.pivot);
+				Later([self = shared_from_this(), a_index]() { self->ConfirmRack(a_index, 1); });
+			}
+
+			void ConfirmRack(std::size_t a_index, int a_tick)
+			{
+				if (!StillHere()) {
+					return Abort();
+				}
+				auto& s = _racks[a_index];
+				auto* rack = Ref(s.display.ref);
+				if (rack && rack->IsDisabled()) {
+					s.done = true;
+					Placed(s);
+					return NextRack(a_index + 1);
+				}
+				if (a_tick < kConfirmTicks) {
+					Later([self = shared_from_this(), a_index, a_tick]() { self->ConfirmRack(a_index, a_tick + 1); });
 					return;
 				}
-				NextPlaque(0);
+				g_failed.insert(s.display.ref);
+				logger::warn("Display: the trigger of {} did not notice {} within {} s, so the game would not let you take it down; it is left alone for "
+							 "the rest of this session",
+					game::Describe(rack), s.item, kConfirmTicks / 10);
+				TakeBack(s);
+				NextRack(a_index + 1);
+			}
+
+			// A weapon that could not go up properly goes into the player's inventory (with its extra data).
+			void TakeBack(Step& a_step)
+			{
+				a_step.done = true;
+				++_errors;
+				auto ref = a_step.dropped.get();
+				auto* player = game::Player();
+				if (!ref || !player) {
+					return;
+				}
+				player->PickUpObject(ref.get(), 1, false, false);
+				++_takenBack;
+				logger::info("Display: {} is in your inventory now", a_step.item);
 			}
 
 			// Plaques: one at a time, activated for the player with the item in the inventory.
@@ -298,6 +349,12 @@ namespace dova::display
 
 			void Abort()
 			{
+				// A weapon dropped for a rack and not up yet must not stay on the floor.
+				for (auto& s : _racks) {
+					if (!s.done && s.dropped.get()) {
+						TakeBack(s);
+					}
+				}
 				logger::info("Displays: the player left the home; {} items were put up, the rest stays where it is", _placed);
 				g_busy = false;
 			}
@@ -308,7 +365,9 @@ namespace dova::display
 				logger::info("Displays: put {} items on display ({} skipped, {} errors)", _placed, _skipped, _errors);
 				if (_placed > 0 || _errors > 0) {
 					auto message = std::format("Dova Stash: put {} item{} on display", _placed, _placed == 1 ? "" : "s");
-					if (_errors > 0) {
+					if (_takenBack > 0) {
+						message += std::format(" ({} couldn't go up and {} in your inventory)", _takenBack, _takenBack == 1 ? "is" : "are");
+					} else if (_errors > 0) {
 						message += std::format(" ({} failed, see log)", _errors);
 					}
 					Controller::Get().Notify(message);
@@ -322,6 +381,7 @@ namespace dova::display
 			std::int32_t      _placed{ 0 };
 			std::int32_t      _skipped{ 0 };
 			std::int32_t      _errors{ 0 };
+			std::int32_t      _takenBack{ 0 };
 		};
 
 		std::optional<core::FormRef> RefOf(RE::FormID a_id)
@@ -340,46 +400,53 @@ namespace dova::display
 			return out;
 		}
 
-		// Layout `displays` entries: ignore, add, or change the items of what the scripts revealed.
-		void ApplyLayout(const core::Layout& a_layout, std::vector<game::FoundDisplay>& a_found)
+		// The displays the layout uses: its `displays` entries that are not ignored (turned on with the hotkey,
+		// or listed by a template). An entry can change the items of what the scripts revealed, or add a
+		// display they don't reveal (it then needs `kind`).
+		std::vector<game::FoundDisplay> UsedDisplays(const core::Layout& a_layout, const std::vector<game::FoundDisplay>& a_found)
 		{
+			std::vector<game::FoundDisplay> out;
 			for (const auto& b : a_layout.displays) {
+				if (b.ignored) {
+					continue;
+				}
 				auto* ref = game::LookupRef(b.ref);
 				if (!ref) {
 					logger::debug("Displays: layout entry {} does not resolve (plugin missing?)", b.ref.ToString());
 					continue;
 				}
-				auto it = std::ranges::find(a_found, ref->GetFormID(), &game::FoundDisplay::ref);
-				if (b.ignored) {
-					if (it != a_found.end()) {
-						a_found.erase(it);
-					}
+				if (std::ranges::find(out, ref->GetFormID(), &game::FoundDisplay::ref) != out.end()) {
 					continue;
 				}
-				if (it == a_found.end()) {
-					auto declared = b.kind ? game::DeclaredDisplay(ref, *b.kind) : std::nullopt;
-					if (!declared) {
+				const auto it = std::ranges::find(a_found, ref->GetFormID(), &game::FoundDisplay::ref);
+				std::optional<game::FoundDisplay> d;
+				if (it != a_found.end()) {
+					d = *it;
+					if (b.kind && *b.kind != d->kind && log::FirstTime(std::format("display-kind:{:08X}", ref->GetFormID()))) {
+						logger::warn("Displays: layout says {} is a {}, its script makes it a {}; using {}", game::Describe(ref),
+							core::DisplayKindName(*b.kind), core::DisplayKindName(d->kind), core::DisplayKindName(d->kind));
+					}
+				} else {
+					d = b.kind ? game::DeclaredDisplay(ref, *b.kind) : std::nullopt;
+					if (!d) {
 						if (log::FirstTime(std::format("display-entry:{:08X}", ref->GetFormID()))) {
 							logger::warn("Displays: layout entry {} ({}) is no display Dova Stash can fill{}", b.ref.ToString(), game::Describe(ref),
 								b.kind ? "" : " (give it a \"kind\")");
 						}
 						continue;
 					}
-					a_found.push_back(std::move(*declared));
-					it = std::prev(a_found.end());
-				} else if (b.kind && *b.kind != it->kind && log::FirstTime(std::format("display-kind:{:08X}", ref->GetFormID()))) {
-					logger::warn("Displays: layout says {} is a {}, its script makes it a {}; using {}", game::Describe(ref), core::DisplayKindName(*b.kind),
-						core::DisplayKindName(it->kind), core::DisplayKindName(it->kind));
 				}
 				if (!b.items.empty()) {
-					it->items.clear();
+					d->items.clear();
 					for (const auto& f : b.items) {
 						if (auto* form = game::LookupForm(f); form && form->As<RE::TESBoundObject>()) {
-							it->items.push_back(form->As<RE::TESBoundObject>());
+							d->items.push_back(form->As<RE::TESBoundObject>());
 						}
 					}
 				}
+				out.push_back(std::move(*d));
 			}
+			return out;
 		}
 	}
 
@@ -388,7 +455,7 @@ namespace dova::display
 		return g_busy.load();
 	}
 
-	Prepared Prepare(const home::Home& a_home, RE::TESObjectCELL* a_cell, std::vector<core::DisplayStock> a_stocks)
+	Prepared Prepare(const home::Home& a_home, RE::TESObjectCELL* a_cell, std::vector<core::DisplayStock> a_stocks, std::optional<RE::FormID> a_only)
 	{
 		Prepared out;
 		if (!Settings::GetSingleton().GetSorting().fillDisplays || !a_home.layout || !a_cell) {
@@ -399,9 +466,14 @@ namespace dova::display
 			return out;
 		}
 		const auto& layout = *a_home.layout;
-		auto        found = game::FindDisplays(a_cell);
-		ApplyLayout(layout, found);
+		if (std::ranges::none_of(layout.displays, [](const core::DisplayBinding& b) { return !b.ignored; })) {
+			return out;  // no display turned on: nothing to look for
+		}
+		auto found = UsedDisplays(layout, game::FindDisplays(a_cell));
 		std::erase_if(found, [&](const game::FoundDisplay& d) {
+			if (a_only && d.ref != *a_only) {
+				return true;
+			}
 			if (g_failed.contains(d.ref)) {
 				return true;
 			}
@@ -438,6 +510,9 @@ namespace dova::display
 			spot.kind = d.kind;
 			spot.rack = d.rack;
 			spot.items = Refs(d.items);
+			if (const auto* binding = layout.FindDisplay(spot.ref)) {
+				spot.categories = binding->categories;
+			}
 			spot.full = game::DisplayFull(d);
 			const auto holds = game::DisplayHolds(d);
 			spot.holds = Refs(holds);
@@ -449,6 +524,12 @@ namespace dova::display
 			out.found.push_back(d);
 		}
 		out.stocks = std::move(a_stocks);
+		if (std::ranges::any_of(out.spots, [](const core::DisplaySpot& a_spot) { return !a_spot.categories.empty(); })) {
+			const auto& categories = home::Store::Get().Categories();
+			for (auto& stock : out.stocks) {
+				stock.categories = categories.MatchAll(stock.item);
+			}
+		}
 		out.plan = core::PlanDisplays(out.spots, out.stocks, shown);
 
 		std::string summary;

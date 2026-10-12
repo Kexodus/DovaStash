@@ -11,29 +11,31 @@ namespace
 	constexpr std::string_view kDesignExample = R"({
   "$schema": "dovastash-layout-1",
   "name": "Breezehome",
+  "note": "Each container takes the item categories listed...",  // optional, for people reading the file
   "author": "Dova Stash",
   "version": "1.0.0",
   "priority": 0,
-  "requires": ["Skyrim.esm"],             // all must be loaded for the template to be offered
-  "cell": "Skyrim.esm|0x000165A7",        // illustrative ID — real IDs get verified in xEdit
-  "master": "Skyrim.esm|0x000AAAAA",      // container reference (REFR), not base CONT
+  "requires": ["Skyrim.esm"],          // all must be loaded for the template to be offered
+  "cell": "Skyrim.esm|0x000165A7",     // illustrative IDs; real ones come from xEdit or esm_dump.py
+  "master": "Skyrim.esm|0x000AAAAA",   // a container reference (REFR), not the base CONT
   "containers": [
-    {
-      "ref": "Skyrim.esm|0x000BBBBB",
-      "label": "Armory chest",
-      "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields"]
-    },
-    {
-      "ref": "Skyrim.esm|0x000CCCCC",
-      "label": "Alchemy satchel",
-      "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]
-    },
-    { "ref": "Skyrim.esm|0x000DDDDD", "label": "Display case", "ignored": true }
+    {"ref": "Skyrim.esm|0x000BBBBB", "label": "Armory chest",    "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "Skyrim.esm|0x000CCCCC", "label": "Alchemy satchel", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
+    {"ref": "Skyrim.esm|0x000DDDDD", "label": "Barrel",          "ignored": true, "note": "Respawns: what you store here can disappear."}
   ],
-  "keep": { "inherit": true, "rules": [ { "category": "ammo.arrows", "quota": 50 } ] },
+  "displays": [                        // optional: the displays this home fills (§8.4)
+    {"ref": "Skyrim.esm|0x000EEEEE", "label": "Bow rack", "categories": ["weapons.bows"]},
+    {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]}
+  ],
+  "keep": {
+    "inherit": true,
+    "rules": [
+      {"category": "ammo.arrows", "quota": 50}
+    ]
+  },
 
   // Player layouts only (never in shipped templates):
-  "learned": { "Skyrim.esm|0x0001397E": "Skyrim.esm|0x000BBBBB" },
+  "learned": {"Skyrim.esm|0x0001397E": "Skyrim.esm|0x000BBBBB"},
   "basedOn": "Templates/Vanilla/Breezehome.json@1.0.0"
 })";
 

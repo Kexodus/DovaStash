@@ -9,6 +9,8 @@
 // - One copy of each base form on display in the whole home: forms already shown (loose weapons and
 //   armor in the cell, mannequin outfits, full plaques, case contents) are not put up again.
 // - Items a plaque or a case is made for are reserved for it: racks and mannequins never take them.
+// - A rack or mannequin with categories (patterns, as for containers) only takes items in one of them; the
+//   item's categories are every category it matches (CategorySet::MatchAll), like containers use.
 // - Item plaques swap the item for a model and recreate it when taken back, so they only get copies
 //   without extra data of their own (`ItemInfo::customized`). Racks, mannequins and cases keep the very
 //   copy (tempering, enchantment, name).
@@ -24,6 +26,7 @@
 #include <optional>
 #include <set>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -41,20 +44,22 @@ namespace dova::core
 
 	struct DisplaySpot
 	{
-		FormRef              ref;
-		DisplayKind          kind{ DisplayKind::Rack };
-		RackType             rack{ RackType::Any };  // Rack only
-		std::vector<FormRef> items;  // Item/Case: what it is made for. Rack/Mannequin: preferred items
-		bool                 full{ false };  // Rack/Mannequin/Item: something is on it already
-		std::vector<FormRef> holds;  // Case: what is inside already
+		FormRef                  ref;
+		DisplayKind              kind{ DisplayKind::Rack };
+		RackType                 rack{ RackType::Any };  // Rack only
+		std::vector<FormRef>     items;       // Item/Case: what it is made for. Rack/Mannequin: preferred items
+		std::vector<std::string> categories;  // Rack/Mannequin: patterns it takes (empty: anything that fits)
+		bool                     full{ false };  // Rack/Mannequin/Item: something is on it already
+		std::vector<FormRef>     holds;  // Case: what is inside already
 	};
 
 	// A stack that may go on display: `available` copies of `item`, held by `from`.
 	struct DisplayStock
 	{
-		ContainerRef from;
-		ItemInfo     item;
-		std::int32_t available{ 0 };
+		ContainerRef             from;
+		ItemInfo                 item;
+		std::int32_t             available{ 0 };
+		std::vector<std::string> categories;  // category ids the item matches (needed by spots with categories)
 	};
 
 	struct DisplayAssignment

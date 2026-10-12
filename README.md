@@ -13,6 +13,9 @@ No ESP is needed.
 - **Any home:** eligibility comes from runtime safety checks (ownership, respawning containers), not a whitelist.
 - **Category sorting:** 37 default categories defined in JSON, driven by keywords, so items distributed by KID sort correctly.
 - **Learns as you go:** put an item in a chest once, and that chest becomes its home.
+- **Fills your displays:** turn a weapon rack, mannequin or item plaque (dragon priest masks, claws, Elder
+  Scrolls) on with the hotkey, pick the weapon or armor categories it takes, and Deposit puts your best
+  matching gear on it, as if placed by hand. Works in any home.
 - **Templates:** shareable JSON layouts per home. 22 are included (vanilla, Hearthfire and Creation Club homes).
   You can export your own from inside the game.
 - **Never lose an item:** it preserves tempering, enchantments, names and stolen flags, and never touches

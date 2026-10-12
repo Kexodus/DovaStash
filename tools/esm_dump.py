@@ -1101,7 +1101,7 @@ MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms"
 LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "master", "containers", "displays",
                "keep", "learned", "basedOn"}
 CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
-DISPLAY_KEYS = {"ref", "kind", "label", "note", "items", "ignored"}
+DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "ignored"}
 DISPLAY_KINDS = {"rack", "mannequin", "item", "case"}
 
 
@@ -1231,6 +1231,9 @@ def check_layout(lo, doc, errors, warnings, category_ids):
                 warnings.append(f"{where}: unknown key {k!r}")
         if "kind" in d and str(d["kind"]).lower() not in DISPLAY_KINDS:
             errors.append(f"{where}: kind {d['kind']!r} is not one of {sorted(DISPLAY_KINDS)}")
+        for cat in _as_list(d.get("categories", [])):
+            if category_ids is not None and not _pattern_known(cat, category_ids):
+                errors.append(f"{where}: unknown category {cat!r}")
         key = _check_ref_syntax(d.get("ref", ""), where, errors)
         if key:
             display_refs.append((where, key))
@@ -1286,6 +1289,30 @@ def check_layout(lo, doc, errors, warnings, category_ids):
     return info
 
 
+def strip_json_comments(text: str) -> str:
+    """Removes // and /* */ comments outside strings, as the DLL does when it reads JSON."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '"':
+            j = i + 1
+            while j < n and text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            out.append(text[i:j + 1])
+            i = j + 1
+        elif text.startswith("//", i):
+            while i < n and text[i] not in "\r\n":
+                i += 1
+        elif text.startswith("/*", i):
+            end = text.find("*/", i + 2)
+            i = n if end < 0 else end + 2
+            out.append(" ")
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
 def cmd_check(lo, args):
     files = []
     for f in args.files:
@@ -1295,7 +1322,7 @@ def cmd_check(lo, args):
     docs = []
     for f in files:
         try:
-            docs.append((f, json.loads(f.read_text(encoding="utf-8")), None))
+            docs.append((f, json.loads(strip_json_comments(f.read_text(encoding="utf-8-sig"))), None))
         except (OSError, json.JSONDecodeError) as e:
             docs.append((f, None, f"invalid JSON: {e}"))
     # category files first, so layouts can be checked against the known category ids

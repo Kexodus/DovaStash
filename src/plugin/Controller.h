@@ -44,6 +44,14 @@ namespace dova
 		void ToggleCategory(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_pattern);
 		void ClearCategories(RE::FormID a_cellId, const core::FormRef& a_container);
 		void SetIgnored(RE::FormID a_cellId, const core::FormRef& a_container, bool a_ignored);
+		// Displays (DESIGN §8.4): only the ones the layout uses are filled, by Deposit and Sort all (or Fill
+		// now). Turning one off keeps it in the layout as ignored (nothing is taken down).
+		void SetDisplayUsed(RE::FormID a_cellId, const core::FormRef& a_display, bool a_used);
+		// Racks and mannequins: the categories they take, like a container's (none: anything that fits).
+		void ToggleDisplayCategory(RE::FormID a_cellId, const core::FormRef& a_display, const std::string& a_pattern);
+		void FillDisplay(RE::FormID a_cellId, const core::FormRef& a_display);
+		// Shows a display's menu again (after its category picker).
+		void ReopenDisplayMenu(RE::FormID a_cellId, const core::FormRef& a_display);
 		// Opens the container's real ContainerMenu (SkyUI and the player's icon mods draw it), from
 		// anywhere in the home.
 		void Browse(RE::FormID a_cellId, const core::FormRef& a_container);
@@ -101,6 +109,8 @@ namespace dova
 		// every 100 ms for up to ~5 s.
 		void RunWhenContainerMenuClosed(std::function<void()> a_fn, int a_retries = 50);
 
+		// The hotkey aimed at a display (game::DisplayAt): opens its menu and returns true.
+		bool OpenDisplayMenu(home::Home& a_home, RE::TESObjectREFR* a_target);
 		// Binding for `a_container`, created (as a plain managed container) if needed.
 		core::ContainerBinding* EnsureBinding(home::Home& a_home, const core::FormRef& a_container);
 		// Container ref by FormRef if it is currently usable in this home; notifies the reason otherwise.

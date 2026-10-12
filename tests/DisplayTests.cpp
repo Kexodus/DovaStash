@@ -38,12 +38,12 @@ namespace
 
 	DisplaySpot Rack(std::uint32_t a_id, RackType a_type = RackType::Any)
 	{
-		return DisplaySpot{ Sk(a_id), DisplayKind::Rack, a_type, {}, false, {} };
+		return DisplaySpot{ Sk(a_id), DisplayKind::Rack, a_type, {}, {}, false, {} };
 	}
 
 	DisplaySpot Spot(std::uint32_t a_id, DisplayKind a_kind, std::vector<FormRef> a_items = {})
 	{
-		return DisplaySpot{ Sk(a_id), a_kind, RackType::Any, std::move(a_items), false, {} };
+		return DisplaySpot{ Sk(a_id), a_kind, RackType::Any, std::move(a_items), {}, false, {} };
 	}
 
 	DisplayBinding Binding(FormRef a_ref, std::optional<DisplayKind> a_kind, std::string a_label, std::vector<FormRef> a_items, bool a_ignored)
@@ -215,6 +215,64 @@ TEST_CASE("Preferred items win a rack; artifacts beat value", "[display]")
 	CHECK(plan[0] == DisplayAssignment{ 0, 2, 1 });
 	CHECK(plan[1] == DisplayAssignment{ 1, 1, 1 });
 	CHECK(plan[2] == DisplayAssignment{ 2, 0, 1 });
+}
+
+TEST_CASE("Racks and mannequins with categories take only items in them", "[display]")
+{
+	std::vector<DisplayStock> stocks{
+		OnPlayer(Valued(Weapon(Sk(0x10), WeaponType::OneHandSword), 500)),
+		OnPlayer(Valued(Weapon(Sk(0x11), WeaponType::Bow), 50)),
+		OnPlayer(Armor(Sk(0x20), kBody, 900, { "ArmorMaterialDaedric" })),
+		OnPlayer(Armor(Sk(0x21), kBody, 100, { "ArmorMaterialLeather" })),
+	};
+	stocks[0].categories = { "weapons.swords" };
+	stocks[1].categories = { "weapons.bows" };
+	stocks[2].categories = { "armor.heavy" };
+	stocks[3].categories = { "armor.light" };
+
+	auto bows = Rack(0xA1);
+	bows.categories = { "weapons.bows" };
+	auto mannequin = Spot(0xA2, DisplayKind::Mannequin);
+	mannequin.categories = { "armor.light" };
+	const std::vector<DisplaySpot> spots{ bows, mannequin, Rack(0xA3) };
+
+	const auto plan = PlanDisplays(spots, stocks, {});
+	REQUIRE(plan.size() == 3);
+	const auto has = [&](std::size_t a_spot, std::size_t a_stock) {
+		return std::ranges::find(plan, DisplayAssignment{ a_spot, a_stock, 1 }) != plan.end();
+	};
+	CHECK(has(0, 1));  // the bow rack gets the bow, not the more valuable sword
+	CHECK(has(1, 3));  // the light-armor mannequin skips the daedric set
+	CHECK(has(2, 0));  // a rack without categories takes anything that fits
+
+	// Categories that match nothing here: the rack stays empty.
+	auto staves = Rack(0xA4);
+	staves.categories = { "weapons.staves" };
+	CHECK(PlanDisplays(std::vector{ staves }, stocks, {}).empty());
+	// Wildcards work as for containers.
+	auto weapons = Rack(0xA5);
+	weapons.categories = { "weapons.*" };
+	const auto any = PlanDisplays(std::vector{ weapons }, stocks, {});
+	REQUIRE(any.size() == 1);
+	CHECK(any[0].stock == 0);
+}
+
+TEST_CASE("Display categories survive a round trip", "[display][layout]")
+{
+	Diagnostics diags;
+	const auto  layout = ParseLayoutText(R"({ "$schema": "dovastash-layout-1", "cell": "Skyrim.esm|0x1",
+		"displays": [ { "ref": "Skyrim.esm|0xA01", "label": "Bow rack", "categories": ["weapons.bows", "weapons.crossbows"] },
+		              { "ref": "Skyrim.esm|0xA02", "categories": ["not a pattern*x"] } ] })",
+		"cats.json", diags);
+	REQUIRE(layout);
+	CHECK_FALSE(diags.HasErrors());
+	CHECK(diags.WarningCount() == 1);  // the invalid pattern
+	REQUIRE(layout->displays.size() == 2);
+	CHECK(layout->displays[0].categories == std::vector<std::string>{ "weapons.bows", "weapons.crossbows" });
+	const auto text = SerializeLayout(*layout);
+	CHECK(text.find("\"label\": \"Bow rack\", \"categories\": [\"weapons.bows\", \"weapons.crossbows\"]") != std::string::npos);
+	Diagnostics again;
+	CHECK(SerializeLayout(*ParseLayoutText(text, "cats.json", again)) == text);
 }
 
 TEST_CASE("Items going on display are taken out of the deposit", "[display]")

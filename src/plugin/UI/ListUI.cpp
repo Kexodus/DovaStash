@@ -3,6 +3,7 @@
 #include "Controller.h"
 #include "Game/FormUtil.h"
 #include "Sort/SortEngine.h"
+#include "UI/DisplayMenu.h"
 #include "UI/Labels.h"
 #include "UI/MessageBox.h"
 #include "UI/UIExtensions.h"
@@ -240,6 +241,33 @@ namespace dova::ui
 		items.push_back({ "Advanced...", [this, cellId, ref = *ref]() { OpenEditor(cellId, ref); } });
 		if (!ShowList(std::move(items)) && _fallback) {
 			_fallback->OpenContainerMenu(a_home, a_container);
+		}
+	}
+
+	void ListUI::OpenDisplayMenu(const DisplayMenu& a_menu)
+	{
+		const auto openCategories = [this, cellId = a_menu.cellId, ref = a_menu.ref, kind = a_menu.kind]() { OpenDisplayCategories(cellId, ref, kind); };
+		std::vector<Item> list;
+		for (auto& o : DisplayMenuOptions(a_menu, openCategories)) {
+			list.push_back({ std::move(o.text), std::move(o.action) });
+		}
+		if (!ShowList(std::move(list))) {
+			IStashUI::OpenDisplayMenu(a_menu);
+		}
+	}
+
+	void ListUI::OpenDisplayCategories(RE::FormID a_cellId, const core::FormRef& a_display, core::DisplayKind a_kind)
+	{
+		const auto        patterns = DisplayCategories(a_cellId, a_display);
+		std::vector<Item> items;
+		for (const auto& choice : DisplayCategoryChoices(a_kind)) {
+			items.push_back({ DisplayCategoryEntry(patterns, choice), [this, a_cellId, a_display, a_kind, choice]() {
+								 Controller::Get().ToggleDisplayCategory(a_cellId, a_display, choice);
+								 OpenDisplayCategories(a_cellId, a_display, a_kind);
+							 } });
+		}
+		if (!ShowList(std::move(items), [a_cellId, a_display]() { Controller::Get().ReopenDisplayMenu(a_cellId, a_display); })) {
+			ListUnavailable(*this);
 		}
 	}
 

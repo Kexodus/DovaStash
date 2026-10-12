@@ -5,6 +5,8 @@
 #include <map>
 #include <string>
 
+#include "dova/core/Category.h"
+
 namespace dova::core
 {
 	namespace
@@ -152,6 +154,17 @@ namespace dova::core
 				}
 			}
 
+			// A rack or mannequin with categories takes only items in one of them.
+			bool Allowed(const DisplaySpot& a_spot, std::size_t a_stock) const
+			{
+				if (a_spot.categories.empty()) {
+					return true;
+				}
+				return std::ranges::any_of(a_spot.categories, [&](const std::string& p) {
+					return std::ranges::any_of(_stocks[a_stock].categories, [&](const std::string& id) { return CategoryPatternMatches(p, id); });
+				});
+			}
+
 			bool Free(std::size_t a_stock) const
 			{
 				return _left[a_stock] > 0 && !_used.contains(_stocks[a_stock].item.form) && !_reserved.contains(_stocks[a_stock].item.form);
@@ -163,7 +176,7 @@ namespace dova::core
 				// Candidate sets: preferred items, if any are here; else one per material.
 				std::map<std::string, std::vector<std::size_t>> sets;
 				for (std::size_t s = 0; s < _stocks.size(); ++s) {
-					if (Free(s) && MannequinTakes(_stocks[s].item)) {
+					if (Free(s) && MannequinTakes(_stocks[s].item) && Allowed(spot, s)) {
 						sets[Preferred(spot, _stocks[s].item) ? std::string("\x01preferred") : MaterialKey(_stocks[s].item)].push_back(s);
 					}
 				}
@@ -220,7 +233,7 @@ namespace dova::core
 				const auto&                spot = _spots[a_spot];
 				std::optional<std::size_t> best;
 				for (std::size_t s = 0; s < _stocks.size(); ++s) {
-					if (!Free(s) || !RackTakes(spot.rack, _stocks[s].item)) {
+					if (!Free(s) || !RackTakes(spot.rack, _stocks[s].item) || !Allowed(spot, s)) {
 						continue;
 					}
 					if (!best || Better(spot, s, *best)) {

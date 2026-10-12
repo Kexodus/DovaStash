@@ -8,20 +8,22 @@ There are two ways to make one: set the home up in game and export it, or write 
 
 [list=1]
 [*]Walk into the home, look at the chest you want as the inbox, press [b]K[/b] and make it the [b]master[/b].
-[*]Look at each other container, press [b]K[/b], open [b]Categories...[/b] and pick what goes there. Mark anything you never want used (display cases, bookshelves) as [b]Ignore[/b].
+[*]Look at each other container, press [b]K[/b], open [b]Categories...[/b] and pick what goes there. Mark anything you never want used for storage (scripted display cases, bookshelves) as [b]Ignore[/b].
+[*]Look at each weapon rack, mannequin and plaque you want filled, press [b]K[/b] and choose [b]Use this rack[/b] (or mannequin, display). Press [b]K[/b] again and open [b]Categories...[/b] to pick what a rack or mannequin takes.
 [*]Deposit a full pack and check that everything lands where you expect.
 [*]In the SKSE Menu Framework, open [b]Dova Stash > This home[/b] and go to the [b]Template[/b] tab. Fill in a name, your name as author and a version, then press [b]Export[/b].
 [/list]
 
-The file is written to [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json[/font]. It holds your categories, ignored containers and this home's keep rules. Learned items are left out. With MO2 the file lands in [b]overwrite[/b]. Move it into a mod of its own before you share it.
+The file is written to [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json[/font]. It holds your categories, ignored containers, display settings and this home's keep rules. Learned items are left out. With MO2 the file lands in [b]overwrite[/b]. Move it into a mod of its own before you share it.
 
 [size=4][b]The file[/b][/size]
 
-A cut-down version of the Breezehome template that ships with the mod:
+A cut-down version of the Breezehome template that ships with the mod. One line per container, with the columns lined up, is how Dova Stash writes these files too:
 
 [code]{
   "$schema": "dovastash-layout-1",
   "name": "Breezehome",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
   "author": "Dova Stash",
   "version": "1.0.0",
   "priority": 0,
@@ -29,18 +31,19 @@ A cut-down version of the Breezehome template that ships with the mod:
   "cell": "Skyrim.esm|0x000165A8",
   "master": "Skyrim.esm|0x000F3922",
   "containers": [
-    { "ref": "Skyrim.esm|0x000CB437", "label": "Loft cupboard", "categories": ["weapons.*"] },
-    { "ref": "Skyrim.esm|0x000CB433", "label": "Housecarl's dresser", "categories": ["armor.heavy", "armor.light", "armor.shields"] },
-    { "ref": "Skyrim.esm|0x0010EB84", "label": "Alchemy corner chest", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"] },
-    { "ref": "Skyrim.esm|0x0003EE76", "label": "Barrel (respawns, never store items here)", "ignored": true },
-    { "ref": "HearthFires.esm|0x00004271", "label": "Chest (respawns, never store items here)", "ignored": true }
+    {"ref": "Skyrim.esm|0x000CB437",      "label": "Loft cupboard (by the weapon plaque)",           "categories": ["weapons.*"]},
+    {"ref": "Skyrim.esm|0x000CB433",      "label": "Housecarl's room dresser",                       "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "Skyrim.esm|0x0010EB84",      "label": "Alchemy corner chest (next to the alchemy lab)", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
+    {"ref": "HearthFires.esm|0x00004271", "label": "Chest",                                          "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "Skyrim.esm|0x00102A59",      "label": "Book Shelf",                                     "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."}
   ]
 }[/code]
 
 [list]
 [*][b]cell[/b]: the home's interior cell. This is how Dova Stash finds the template, so the file name and folder don't matter.
 [*][b]master[/b]: the inbox. Items without a destination wait here, and closing it sorts what's inside. Pick a large chest that is always there.
-[*][b]containers[/b]: every other container you use. [b]ref[/b] is the placed container in the world, never its base object. [b]label[/b] is for people reading the file.
+[*][b]containers[/b]: every other container you use. [b]ref[/b] is the placed container in the world, never its base object. [b]label[/b] is the name players see for it in the editor, so keep it short and say where it is.
+[*][b]note[/b]: free text for people reading the file, at the top or on any entry. Dova Stash never acts on it; the editor shows a container's note under its name. Use it to say why a container is ignored.
 [*][b]requires[/b]: every plugin the file points into, including the one that owns the cell. A template is only offered when all of them are loaded.
 [*][b]priority[/b] and [b]version[/b]: when several templates exist for one home, the highest priority wins, then the newest version. Write versions as numbers like [font=Courier New]1.2.0[/font]. Leave priority at 0 unless you are deliberately replacing another template.
 [/list]
@@ -67,13 +70,31 @@ Form references are written as [font=Courier New]"Plugin.esp|0x00ABCDEF"[/font]:
 
 [size=4][b]Containers to leave alone[/b][/size]
 
-Dova Stash refuses respawning containers in game, but not the others below. A good template marks all of them [font=Courier New]"ignored": true[/font] with a label that says why:
+Dova Stash refuses respawning containers in game, but not the others below. A good template marks all of them [font=Courier New]"ignored": true[/font] with a [b]note[/b] that says why:
 [list]
 [*][b]Respawning containers.[/b] Their contents can reset, and stored items would be lost.
 [*][b]Scripted bookshelves and display cases.[/b] They only take certain items and hand everything else back.
 [*]Containers that are removed when the house is upgraded.
 [/list]
 Containers that only appear later, such as Hearthfire furniture you haven't built yet, are fine to bind. Dova Stash skips them until they exist.
+
+[size=4][b]Displays[/b][/size]
+
+Deposit puts the player's best gear on weapon racks, shield and dagger displays, mannequins, and plaques made for one item (dragon priest masks, claws, Elder Scrolls), but only on the displays that are turned on: by the player with the hotkey, or by your template. List the ones that should look hand-placed from the start:
+
+[code]"displays": [
+  {"ref": "MyHome.esp|0x00000D10", "label": "Bow rack", "categories": ["weapons.bows"]},
+  {"ref": "MyHome.esp|0x00000D20", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]},
+  {"ref": "MyHome.esp|0x00000D12", "ignored": true, "note": "Trophy wall: left for the player."}
+][/code]
+
+[list]
+[*][b]ref[/b]: the rack's activator, the plaque, the mannequin (the actor, not the trigger in front of it) or the display case. Dova Stash recognises the game's own racks and mannequins and most home mods' plaques by their scripts.
+[*][b]categories[/b]: what a rack or mannequin takes, with the same ids as containers. Without it, anything that fits.
+[*][b]items[/b]: what a plaque or display case is made for, or the items a rack or mannequin should get first.
+[*][b]kind[/b]: only for a display Dova Stash doesn't recognise by itself: [font=Courier New]rack[/font], [font=Courier New]mannequin[/font], [font=Courier New]item[/font] (a plaque for one item) or [font=Courier New]case[/font].
+[*][b]ignored[/b]: listed but not used. Players can still turn it on.
+[/list]
 
 [size=4][b]Finding containers without playing[/b][/size]
 
@@ -85,8 +106,8 @@ python -I esm_dump.py check MyHome.json --categories "<Data>\SKSE\Plugins\DovaSt
 
 [list]
 [*][b]cells[/b] finds the cell.
-[*][b]cell[/b] lists every container in it, with its ref, name, position, scripts and respawn flag. [font=Courier New]--with FURN[/font] adds nearby crafting stations and beds, which tells you which room a container is in.
-[*][b]check[/b] validates your file. It fails on refs that are not containers in the cell, respawning containers that are bound, unknown categories, and plugins missing from [b]requires[/b].
+[*][b]cell[/b] lists every container in it, with its ref, name, position, scripts and respawn flag, and the displays Dova Stash fills ([b]displays[/b]). [font=Courier New]--with FURN[/font] adds nearby crafting stations and beds, which tells you which room a container is in.
+[*][b]check[/b] validates your file. It fails on refs that are not containers in the cell, respawning containers that are bound, unknown categories, display entries that point at nothing in the cell, and plugins missing from [b]requires[/b].
 [/list]
 For a home from a mod, add its plugin before the command: [font=Courier New]python -I esm_dump.py --add "path\to\MyHome.esp" cells MyHome[/font]. Without it, [b]check[/b] can't see the home and skips the container checks. The full reference is in the [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]tools guide[/url].
 

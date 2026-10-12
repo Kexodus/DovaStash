@@ -4,7 +4,7 @@
 
 ### Added
 
-- Deposit and Sort all put your gear on the home's empty displays, as if you had placed it by hand: weapon racks, wall plaques and dagger displays get your best weapons (one of each), coat-of-arms racks a shield, mannequins a matching armor set, and plaques made for one item (dragon priest masks, dragon claws, Elder Scrolls...) that item. Works in any home from the displays' own scripts; templates can ignore a display or pick its items (`displays`). Nothing is taken off a display. Setting: "Put gear on the home's displays".
+- Displays: look at a weapon rack, mannequin, or a plaque made for one item (dragon priest masks, dragon claws, Elder Scrolls...) and press the hotkey to use it, and pick what it takes under Categories, like a container (a rack for bows only, a mannequin for light armor). Deposit and Sort all then keep it filled, as if you had placed it by hand: racks get your best weapons (one of each), coat-of-arms racks a shield, mannequins a matching armor set. Weapons go up the way the game's own racks place them, so you take them down as usual. Works in any home from the displays' own scripts; templates can turn displays on and pick their items (`displays`). Nothing is taken off a display. Setting: "Put gear on the home's displays".
 
 ### Fixed
 
@@ -14,6 +14,7 @@
 
 ### Changed
 
+- `esm_dump.py check` accepts `//` and `/* */` comments in templates, as the game does.
 - Templates and saved layouts are easier to read and edit by hand: one line per container with the columns lined up, and short names. The reason a container is left alone is in a separate `note` (shown in the panel under the container's name) instead of filling its name.
 - Floating icons show a container's full category row, like QuickLoot's bottom-right row: up to five icons, then "+N". QuickLoot and the overlay now share one icon-row function.
 

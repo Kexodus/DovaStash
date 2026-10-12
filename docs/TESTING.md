@@ -246,28 +246,34 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    `0001396A` (Daedric armor set), `player.additem 00013952 1` and `00013954` (Steel armor and helmet),
    `player.additem 00061CD6 1` (Konahrik), `player.additem 020118F9 1` (Elder Scroll (Blood)).
    Equip one more sword and keep it equipped.
-2. Deposit. **Expected:**
-   - the log has `Displays in <home>: N rack (N empty), ...; M items to put up`, then `Display plan:` lines;
-   - the daedric sword, battleaxe and bow appear on racks, the glass dagger on a dagger display, the
-     shield on the middle of a coat-of-arms rack (where the home has one), each sitting on the rack like
-     a hand-placed weapon (not lying on the floor, not floating);
-   - one mannequin wears the daedric set, another the steel armor and helmet;
-   - in Whitepeak, Konahrik and the Elder Scroll appear on their plaques;
-   - the equipped sword stays equipped; nothing goes up twice;
-   - HUD: *deposited ...*, then *put N items on display*. The log ends with
-     `Displays: put N items on display (0 skipped, 0 errors)`.
-3. Take a weapon off a rack by activating it, a piece from a mannequin, the mask from its plaque
-   (activate it): each comes back as you would expect from the home, with its enchantment and tempering.
-4. Deposit again. The weapon you took goes back up (the rack is empty again); items still on display are
-   not put up a second time.
-5. Temper a second Konahrik copy (`player.additem 00061CD6 1`, grindstone) and empty its plaque: Deposit puts
+2. Deposit before turning anything on. **Expected:** no `Displays in` line; everything is stored, no rack
+   gets anything.
+3. Take the gear back out (Retrieve), look at an empty weapon rack, press the hotkey. **Expected:** a menu
+   with *Use this rack*. Choose it. **Expected:** HUD *Weapon Rack is used now*; nothing goes on the rack yet.
+4. Press the hotkey at it again: *Categories... (any weapon)*, *Fill now*, *Stop using this rack*. Open
+   *Categories...*, tick *Bows*, go back: the entry reads *Categories... (Bows)*.
+5. Use a second rack without categories, a dagger display, the middle of a coat-of-arms rack, a mannequin
+   (aim at the mannequin; set its categories to *Light Armor*) and, in Whitepeak, Konahrik's and the Elder
+   Scroll's plaques. Then Deposit. **Expected:**
+   - the elven bow on the bow rack (not the more valuable sword), the daedric sword or battleaxe on the
+     second rack, the glass dagger on the dagger display, the shield on the coat-of-arms rack, Konahrik and
+     the Elder Scroll on their plaques; the mannequin stays empty (no light armor) and the daedric set is
+     stored;
+   - each weapon sits on its rack like a hand-placed weapon (not on the floor, not floating); the log has
+     `Display: <item> from <player> on <rack> (rack)`;
+   - the rack's activate prompt is gone: activating the weapon picks it up (no "you need a weapon equipped").
+6. Take the weapon off the bow rack (activate it), then Deposit. **Expected:** it goes back up on
+   that rack; nothing else goes on racks you did not turn on; items still on display are not put up twice.
+7. Look at the weapon on the rack, press the hotkey. **Expected:** the rack's menu (*Stop using this rack*).
+   Choose it: the weapon stays; after you take it down, Deposit stores it instead.
+8. Temper a second Konahrik copy (`player.additem 00061CD6 1`, grindstone) and empty its plaque: Deposit puts
    only plain copies on item plaques (the tempered one goes to storage).
-6. Settings → turn off *Put gear on the home's displays*, Deposit: no `Displays in` line, everything is stored.
-7. Template override: in the layout file add
-   `"displays": [ { "ref": "<a rack activator ref from esm_dump.py cell>", "ignored": true } ]`,
-   reload the save, Deposit: that rack stays empty.
-8. **Fail if** an item ends up on the floor, disappears (check `Inventory:` journal lines), a rack shows two
-   weapons, or a mannequin loses armor it was already wearing. Send the log.
+9. Settings → turn off *Put gear on the home's displays*, Deposit: no `Displays in` line, everything is stored.
+10. If a rack's trigger ever misses a weapon, the log has `the trigger of <rack> did not notice <item>` and the
+   HUD says the item is in your inventory. Send the log.
+11. **Fail if** an item ends up on the floor, disappears (check `Inventory:` journal lines), a rack shows two
+   weapons, the game asks for an equipped weapon at a rack Dova Stash filled, or a mannequin loses armor it
+   was already wearing. Send the log.
 
 ## 4. Robustness
 

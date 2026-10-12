@@ -259,6 +259,15 @@ namespace dova::core
 					d.label = value.get<std::string>();
 				} else if (key == "note" && value.is_string()) {
 					d.note = value.get<std::string>();
+				} else if (key == "categories" && (value.is_array() || value.is_string())) {
+					if (auto list = detail::ReadStringList(value, a_source, where, a_diags)) {
+						d.categories = std::move(*list);
+						for (const auto& p : d.categories) {
+							if (!IsValidCategoryPattern(p)) {
+								a_diags.Warn(a_source, where + ": invalid category pattern \"" + p + "\" (kept, never matches)");
+							}
+						}
+					}
 				} else if (key == "ignored" && value.is_boolean()) {
 					d.ignored = value.get<bool>();
 				} else if (key == "items" && (value.is_array() || value.is_string())) {
@@ -275,7 +284,7 @@ namespace dova::core
 				} else {
 					if (key == "kind") {
 						a_diags.Error(a_source, where + ": expected \"rack\", \"mannequin\", \"item\" or \"case\" (kept verbatim, ignored)");
-					} else if (key == "label" || key == "note" || key == "ignored" || key == "items") {
+					} else if (key == "label" || key == "note" || key == "ignored" || key == "items" || key == "categories") {
 						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
 						a_diags.Warn(a_source, where + ": unknown field (preserved)");
@@ -295,6 +304,9 @@ namespace dova::core
 			}
 			if (!a_d.label.empty()) {
 				out["label"] = a_d.label;
+			}
+			if (!a_d.categories.empty()) {
+				out["categories"] = a_d.categories;
 			}
 			if (!a_d.items.empty() || !a_d.unparsedItems.empty()) {
 				ojson items = ojson::array();
@@ -364,6 +376,12 @@ namespace dova::core
 	}
 
 	const DisplayBinding* Layout::FindDisplay(const FormRef& a_ref) const
+	{
+		const auto it = std::ranges::find_if(displays, [&](const DisplayBinding& d) { return d.ref == a_ref; });
+		return it == displays.end() ? nullptr : &*it;
+	}
+
+	DisplayBinding* Layout::FindDisplay(const FormRef& a_ref)
 	{
 		const auto it = std::ranges::find_if(displays, [&](const DisplayBinding& d) { return d.ref == a_ref; });
 		return it == displays.end() ? nullptr : &*it;

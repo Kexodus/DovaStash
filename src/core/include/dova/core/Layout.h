@@ -100,15 +100,18 @@ namespace dova::core
 		nlohmann::json           extra = nlohmann::json::object();
 	};
 
-	// A display the layout names (DESIGN §8.4). Dova Stash finds vanilla racks, mannequins, item plaques and
-	// scripted display cases in the cell by itself; an entry overrides what it found there (ignored, other
-	// items) or adds a display it cannot recognise, which then needs `kind`.
+	// A display the layout uses (DESIGN §8.4): only listed displays that are not ignored are filled. The
+	// player turns one on with the hotkey (an entry is added) and off again (it stays, ignored); templates
+	// list theirs. `categories` limits what a rack or mannequin takes, like a container's. Dova Stash
+	// recognises vanilla racks, mannequins, item plaques and scripted display cases by their scripts; an
+	// entry can change their items, or name a display it cannot recognise (with `kind`).
 	struct DisplayBinding
 	{
 		FormRef                    ref;  // rack activator, plaque, mannequin actor or case container (REFR/ACHR)
 		std::optional<DisplayKind> kind;
 		std::string                label;
 		std::string                note;
+		std::vector<std::string>   categories;  // Rack/Mannequin: patterns it takes (empty: anything that fits)
 		std::vector<FormRef>       items;  // Item/Case: what it is made for. Rack/Mannequin: preferred items
 		std::vector<std::string>   unparsedItems;  // malformed "items" entries, written back verbatim
 		bool                       ignored{ false };  // never fill it
@@ -139,6 +142,7 @@ namespace dova::core
 		[[nodiscard]] const ContainerBinding* FindContainer(const FormRef& a_ref) const;
 		[[nodiscard]] ContainerBinding*       FindContainer(const FormRef& a_ref);
 		[[nodiscard]] const DisplayBinding*   FindDisplay(const FormRef& a_ref) const;
+		[[nodiscard]] DisplayBinding*         FindDisplay(const FormRef& a_ref);
 		[[nodiscard]] bool                    IsMaster(const FormRef& a_ref) const { return master && *master == a_ref; }
 	};
 

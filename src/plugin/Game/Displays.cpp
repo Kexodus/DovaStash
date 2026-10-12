@@ -274,6 +274,59 @@ namespace dova::game
 		return std::nullopt;
 	}
 
+	std::optional<FoundDisplay> DisplayAt(RE::TESObjectREFR* a_ref)
+	{
+		if (auto d = InspectDisplay(a_ref)) {
+			return d;
+		}
+		const auto* base = a_ref ? a_ref->GetBaseObject() : nullptr;
+		auto*       cell = a_ref ? a_ref->GetParentCell() : nullptr;
+		auto*       root = a_ref ? a_ref->Get3D() : nullptr;
+		if (!base || !cell) {
+			return std::nullopt;
+		}
+		const bool activator = base->Is(RE::FormType::Activator);
+		const bool gear = base->Is(RE::FormType::Weapon) || base->Is(RE::FormType::Armor);
+		if ((!activator || !root) && !gear) {
+			return std::nullopt;
+		}
+		// An activator in front of a mannequin: the mannequin standing inside it. A weapon or shield: the
+		// rack whose trigger it sits in.
+		const auto                  position = a_ref->GetPosition();
+		std::optional<FoundDisplay> best;
+		float                       bestDistance = std::numeric_limits<float>::max();
+		for (auto& d : FindDisplays(cell)) {
+			float distance = 0.0f;
+			if (activator && d.kind == core::DisplayKind::Mannequin) {
+				auto* actor = RE::TESForm::LookupByID<RE::TESObjectREFR>(d.ref);
+				if (!actor) {
+					continue;
+				}
+				distance = root->worldBound.center.GetDistance(actor->GetPosition());
+				if (distance > root->worldBound.radius) {
+					continue;
+				}
+			} else if (gear && d.kind == core::DisplayKind::Rack) {
+				auto* trigger = RE::TESForm::LookupByID<RE::TESObjectREFR>(d.trigger);
+				auto* triggerRoot = trigger ? trigger->Get3D() : nullptr;
+				if (!triggerRoot) {
+					continue;
+				}
+				distance = triggerRoot->worldBound.center.GetDistance(position);
+				if (distance > triggerRoot->worldBound.radius) {
+					continue;
+				}
+			} else {
+				continue;
+			}
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				best = std::move(d);
+			}
+		}
+		return best;
+	}
+
 	std::optional<FoundDisplay> DeclaredDisplay(RE::TESObjectREFR* a_ref, core::DisplayKind a_kind)
 	{
 		if (!a_ref) {

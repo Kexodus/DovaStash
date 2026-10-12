@@ -64,8 +64,9 @@ Each container entry:
   - `enableParent.oppositeOfParent: true` means the container *disappears* when its parent marker is
     enabled. These are usually pre-upgrade clutter. Do not bind them unless `refScripts` contains
     `BYOHDivertItemScript`, which moves their contents out before they disappear.
-- `displays` / `displayCounts`: the racks, mannequins, item plaques and display cases Dova Stash fills
-  (DESIGN §8.4), with the rack type or the items each plaque or case is made for. In game an item plaque
+- `displays` / `displayCounts`: the racks, mannequins, item plaques and display cases Dova Stash can fill
+  (DESIGN §8.4), with the rack type or the items each plaque or case is made for. Only the ones a layout
+  lists are filled: copy the refs you want into the template's `displays`. In game an item plaque
   also needs a "placed" flag in its script and a case an `OnItemAdded` event; these are rarely visible
   in the plugin, so the list can be a little longer than what the game fills. Template `displays` entries
   are checked by `check` (ref in the cell, kind, items are items).
@@ -85,12 +86,18 @@ Exterior cells also include the worldspace's persistent references that lie insi
    plus the nearby crafting stations and beds.
 3. Pick a `master`, preferably a large, always-present, non-respawning chest. Bind the other containers to
    categories (see `dist/Data/SKSE/Plugins/DovaStash/Categories/00_Default.json` for the ids; wildcards like
-   `weapons.*` are allowed). Mark dangerous containers with `"ignored": true` and a label that explains why.
+   `weapons.*` are allowed). Mark dangerous containers with `"ignored": true` and a `"note"` that explains
+   why; keep `"label"` for the short name players see. List the racks, mannequins and item plaques that
+   should be filled in `displays` (the `cell` output's `displays` has their refs); players turn the others
+   on with the hotkey. `categories` limits what a rack or mannequin takes, like a container's. An entry can
+   also change a display's items or name one Dova Stash can't recognise (DESIGN §8.4).
 4. List every plugin the template references in `requires`, including the plugin that owns the cell.
 5. `python -I esm_dump.py check path\to\MyHome.json --categories path\to\Categories\00_Default.json`
    - It fails on refs that are not containers in the declared cell, respawning bound containers, duplicate refs,
-     unknown categories, and plugins that are missing from `requires`.
+     unknown categories, display entries that point at nothing in the cell, and plugins that are missing
+     from `requires`.
    - It warns about bookshelves, containers that disappear on upgrade, and a master that starts disabled.
+   - `//` and `/* */` comments are allowed, as in game.
 
 Plugin names in form refs use the plugin's own file name, for example `ccBGSSSE001-Fish.esm` as written in
 `Skyrim.ccc`. Steam may store the file in lower case. That does not matter, because Windows file names

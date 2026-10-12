@@ -15,6 +15,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]A master container as your inbox.[/b] [b]Deposit[/b] sends everything you aren't keeping to where it belongs. Items you drop into the master are sorted out of it right away.
 [*][b]37 keyword-driven categories.[/b] Weapons by type, armor by weight class, potions, ingredients, books, soul gems, ores, gems and more, defined in JSON. Items that KID gives vendor keywords sort without a patch.
 [*][b]Learns as you go.[/b] Put an item into a container by hand once and that container becomes its home.
+[*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor. Your best weapons go up on the racks, a matching armor set on each mannequin, and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down.
 [*][b]22 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and Creation Club homes. Export your own from the game.
 [*][b]Never loses an item.[/b] Enchantments, tempering, custom names, stolen flags and souls survive every move. Equipped, favorited and quest items stay with you. Containers that empty themselves when the area resets are refused.
 [*][b]Your UI, not ours.[/b] In-world menus are UIExtensions lists (any skin), with the game's message boxes as the fallback. Settings and the full editor live in SKSE Menu Framework.
@@ -91,7 +92,7 @@ Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right
 [list]
 [*]Hotkeys, keyboard and gamepad
 [*]What the hotkey opens: UIExtensions lists, message boxes or the panel
-[*]Sort on arrival, sort when the master closes, learning
+[*]Sort on arrival, sort when the master closes, learning, filling displays
 [*]Enable templates automatically
 [*]QuickLoot IE: item tags and category icons
 [*]Activate prompt and floating icons

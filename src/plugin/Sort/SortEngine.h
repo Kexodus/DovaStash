@@ -29,6 +29,11 @@ namespace dova::sort
 	// `a_pattern` is used by Retrieve only. The home must be the player's current cell.
 	[[nodiscard]] Result Run(home::Home& a_home, Op a_op, std::string_view a_pattern = {});
 
+	// Fills one display the layout uses (DisplayFiller; "Fill now" in its menu): from what Deposit would
+	// move off the player and what the managed containers hold. `message` says why nothing
+	// went up; what does go up is reported by the filler.
+	[[nodiscard]] Result FillDisplay(home::Home& a_home, const core::FormRef& a_display);
+
 	// Item count per primary category id ("" = homeless) across the home's managed, available
 	// containers. Used by the Retrieve menu.
 	[[nodiscard]] std::map<std::string, std::int32_t> CountByCategory(home::Home& a_home);

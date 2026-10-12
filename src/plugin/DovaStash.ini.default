@@ -35,10 +35,11 @@ bSortOnArrival = true
 ; container as the item's destination ("learned destinations").
 bLearn = true
 
-; true = Deposit and Sort all put your gear on the home's empty displays, as if you had placed it by hand:
-; weapon racks, shield plaques and dagger displays get your best weapons and shields (one of each),
-; mannequins a matching armor set, and plaques made for one item (dragon priest masks, claws, Elder
-; Scrolls...) that item. Nothing is ever taken off a display; take things down by hand as usual.
+; true = Deposit and Sort all put your gear on the displays you use, as if you had placed it by hand.
+; Turn a display on with the hotkey (look at a weapon rack, mannequin or plaque and choose "Use this
+; rack"), and pick what it takes under "Categories...", like a container; templates can turn some on
+; too. Racks get your best weapons and shields (one of each), mannequins a matching armor set, and
+; plaques made for one item (dragon priest masks, claws, Elder Scrolls...) that item. Nothing is ever taken off a display; take things down by hand as usual.
 bFillDisplays = true
 
 [UI]

@@ -30,11 +30,13 @@ namespace dova::ui
 		void OpenMasterMenu(home::Home& a_home, RE::TESObjectREFR* a_master) override;
 		void OpenContainerMenu(home::Home& a_home, RE::TESObjectREFR* a_container) override;
 		void OpenSetupPrompt(home::Home& a_home, RE::TESObjectREFR* a_container) override;
+		void OpenDisplayMenu(const DisplayMenu& a_menu) override;
 		void Notify(std::string_view a_message) override;
 		void OnHomeChanged() override;
 
 	private:
 		void OpenAssignGroups(RE::FormID a_cellId, const core::FormRef& a_container);
+		void OpenDisplayCategories(RE::FormID a_cellId, const core::FormRef& a_display, core::DisplayKind a_kind);
 		void OpenAssignGroup(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_root);
 		void OpenRetrieve(RE::FormID a_cellId);
 		void OpenRetrieveGroup(RE::FormID a_cellId, const std::string& a_root);

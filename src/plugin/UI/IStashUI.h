@@ -10,6 +10,18 @@
 
 namespace dova::ui
 {
+	// What the hotkey found when aimed at a display (DESIGN §8.4).
+	struct DisplayMenu
+	{
+		RE::FormID               cellId{ 0 };
+		core::FormRef            ref;   // rack activator, plaque, mannequin actor or case
+		std::string              name;  // "Weapon Rack"
+		core::DisplayKind        kind{ core::DisplayKind::Rack };
+		bool                     used{ false };  // the layout uses it (Deposit and Sort all fill it)
+		bool                     full{ false };  // it holds something now
+		std::vector<std::string> categories;     // racks and mannequins: what they take (empty: anything that fits)
+	};
+
 	class IStashUI
 	{
 	public:
@@ -20,6 +32,9 @@ namespace dova::ui
 		virtual void OpenContainerMenu(home::Home& a_home, RE::TESObjectREFR* a_container) = 0;
 		// Home without a player layout. `a_container` may be null (then only template options are shown).
 		virtual void OpenSetupPrompt(home::Home& a_home, RE::TESObjectREFR* a_container) = 0;
+		// Turn a display on or off, pick its categories, or fill it now. The default is native message boxes
+		// (UI/DisplayMenu.cpp).
+		virtual void OpenDisplayMenu(const DisplayMenu& a_menu);
 		virtual void Notify(std::string_view a_message) = 0;
 		// The current home or its layout may have changed outside the UI (cell change, learned items).
 		virtual void OnHomeChanged() {}

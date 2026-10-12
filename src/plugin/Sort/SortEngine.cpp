@@ -88,6 +88,30 @@ namespace dova::sort
 			}
 		}
 
+		core::KeepRules CompileKeep(const core::Layout& a_layout)
+		{
+			core::Diagnostics diags;
+			auto              keep = core::KeepRules::Compile(home::Store::Get().GlobalKeep(), a_layout.keep ? &*a_layout.keep : nullptr, diags);
+			for (const auto& d : diags.Items()) {
+				logger::debug("Keep rules: {}", d.ToString());
+			}
+			return keep;
+		}
+
+		// What Deposit would move off the player may go on display instead, and so may what is already stored.
+		std::vector<core::DisplayStock> DepositStock(const core::Layout& a_layout, std::span<const core::ItemInfo> a_inventory,
+			std::span<const core::StackDecision> a_why, const Availability& a_available, game::StackTable& a_stacks)
+		{
+			std::vector<core::DisplayStock> stock;
+			for (std::size_t i = 0; i < a_inventory.size() && i < a_why.size(); ++i) {
+				if (a_why[i].outcome == core::StackDecision::Outcome::Move && a_why[i].moved > 0) {
+					stock.push_back(core::DisplayStock{ core::ContainerRef::Player(), a_inventory[i], a_why[i].moved });
+				}
+			}
+			AddStock(stock, SnapshotManaged(a_layout, a_available, a_stacks));
+			return stock;
+		}
+
 		std::string Plural(std::int32_t a_n, std::string_view a_word)
 		{
 			return std::format("{} {}{}", a_n, a_word, a_n == 1 ? "" : "s");
@@ -184,12 +208,8 @@ namespace dova::sort
 		switch (a_op) {
 		case Op::Deposit:
 			{
-				const auto        inventory = game::SnapshotInventory(player, stacks);
-				core::Diagnostics diags;
-				const auto        keep = core::KeepRules::Compile(home::Store::Get().GlobalKeep(), layout.keep ? &*layout.keep : nullptr, diags);
-				for (const auto& d : diags.Items()) {
-					logger::debug("Keep rules: {}", d.ToString());
-				}
+				const auto                       inventory = game::SnapshotInventory(player, stacks);
+				const auto                       keep = CompileKeep(layout);
 				std::vector<core::StackDecision> why;
 				const bool                       explain = spdlog::should_log(spdlog::level::info);
 				moves = planner.Deposit(inventory, keep, explain || fill ? &why : nullptr);
@@ -197,15 +217,7 @@ namespace dova::sort
 					LogDecisions(a_op, inventory, why);
 				}
 				if (fill) {
-					// What Deposit would move may go on display instead, and so may what is already stored.
-					std::vector<core::DisplayStock> stock;
-					for (std::size_t i = 0; i < inventory.size() && i < why.size(); ++i) {
-						if (why[i].outcome == core::StackDecision::Outcome::Move && why[i].moved > 0) {
-							stock.push_back(core::DisplayStock{ core::ContainerRef::Player(), inventory[i], why[i].moved });
-						}
-					}
-					AddStock(stock, SnapshotManaged(layout, available, stacks));
-					displays = display::Prepare(a_home, cell, std::move(stock));
+					displays = display::Prepare(a_home, cell, DepositStock(layout, inventory, why, available, stacks));
 					core::ReserveForDisplays(moves, displays.stocks, displays.plan);
 				}
 			}
@@ -296,6 +308,51 @@ namespace dova::sort
 		if (report.skipped > 0 || report.errors > 0) {
 			result.message += std::format(" ({} skipped, see log)", report.skipped + report.errors);
 		}
+		return result;
+	}
+
+	Result FillDisplay(home::Home& a_home, const core::FormRef& a_display)
+	{
+		Result result;
+		auto*  player = game::Player();
+		auto*  cell = player ? player->GetParentCell() : nullptr;
+		auto*  ref = game::LookupRef(a_display);
+		if (!a_home.layout || !ref || !cell || cell->GetFormID() != a_home.cellId) {
+			return result;
+		}
+		const auto name = game::RefName(ref);
+		if (!Settings::GetSingleton().GetSorting().fillDisplays) {
+			result.message = "Dova Stash: putting gear on displays is off in the settings";
+			return result;
+		}
+		if (display::Busy()) {
+			result.message = "Dova Stash: still putting things on display; try again in a moment";
+			return result;
+		}
+		if (const auto found = game::DisplayAt(ref)) {
+			if (!game::DisplayAvailable(*found)) {
+				result.message = std::format("Dova Stash: {} isn't built yet", name);
+				return result;
+			}
+			if (game::DisplayFull(*found)) {
+				return result;  // it already holds something: nothing to say
+			}
+		}
+
+		const auto&       layout = *a_home.layout;
+		Availability      available(cell);
+		core::SortPlanner planner(layout, home::Store::Get().Categories(), available);
+		game::StackTable  stacks;
+		const auto        inventory = game::SnapshotInventory(player, stacks);
+		std::vector<core::StackDecision> why;
+		(void)planner.Deposit(inventory, CompileKeep(layout), &why);
+		const auto displays = display::Prepare(a_home, cell, DepositStock(layout, inventory, why, available, stacks), ref->GetFormID());
+		if (displays.plan.empty()) {
+			result.message = std::format("Dova Stash: nothing you have or store fits {}", name);
+			return result;
+		}
+		result.ran = true;
+		display::Fill(a_home.cellId, displays, stacks);  // tells the player what went up
 		return result;
 	}
 

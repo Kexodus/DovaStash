@@ -82,6 +82,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/Panel/PanelModel.cpp
 	UI/Panel/PanelRender.h
 	UI/Panel/PanelRender.cpp
+	UI/DisplayMenu.h
+	UI/DisplayMenu.cpp
 	UI/Labels.h
 	UI/Labels.cpp
 	UI/Factory.cpp

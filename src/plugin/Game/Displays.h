@@ -33,6 +33,10 @@ namespace dova::game
 	[[nodiscard]] std::vector<FoundDisplay> FindDisplays(RE::TESObjectCELL* a_cell);
 	// The same checks for one reference; nullopt when it is no display Dova Stash recognises.
 	[[nodiscard]] std::optional<FoundDisplay> InspectDisplay(RE::TESObjectREFR* a_ref);
+	// The display the player aims at with the hotkey: the display itself, a mannequin through the activator
+	// in front of it, or a rack through the weapon sitting on it (a full rack's activator is disabled, so
+	// the crosshair finds the weapon). nullopt when it is none of these.
+	[[nodiscard]] std::optional<FoundDisplay> DisplayAt(RE::TESObjectREFR* a_ref);
 	// A display a layout declares with `kind` that the scripts do not reveal (racks still need their
 	// WRackTrigger linked ref, mannequins must be actors, cases containers). Its state is unknown.
 	[[nodiscard]] std::optional<FoundDisplay> DeclaredDisplay(RE::TESObjectREFR* a_ref, core::DisplayKind a_kind);
