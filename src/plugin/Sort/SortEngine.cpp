@@ -13,15 +13,17 @@ namespace dova::sort
 {
 	namespace
 	{
-		// Per-operation container availability (DESIGN §9 "templates bypass none of these checks").
+		// Per-operation container availability (DESIGN §9 "templates bypass none of these checks"). In a
+		// multi-cell home, containers in the home's other cells count when they can be reached from here
+		// (home::CheckHomeContainer, DESIGN §6.7); the others are skipped like unbuilt ones.
 		// Copyable (core stores it in a std::function); the cache is shared.
 		class Availability
 		{
 		public:
 			// `a_quiet`: log unavailable containers at debug level only (frequent read-only queries such
 			// as CountByCategory would otherwise repeat the warning for every unbuilt Hearthfire wing).
-			explicit Availability(RE::TESObjectCELL* a_cell, bool a_quiet = false) :
-				_cell(a_cell),
+			explicit Availability(const home::Home& a_home, bool a_quiet = false) :
+				_home(&a_home),
 				_quiet(a_quiet),
 				_cache(std::make_shared<std::map<core::FormRef, bool>>())
 			{}
@@ -32,9 +34,13 @@ namespace dova::sort
 					return it->second;
 				}
 				auto*      ref = game::LookupRef(a_ref);
-				const auto verdict = ref ? game::CheckContainer(ref, _cell) : game::Verdict::Reject("reference not found (plugin missing?)");
+				core::Reach reach = core::Reach::Here;
+				const auto verdict = ref ? home::CheckHomeContainer(ref, *_home, &reach) :
+				                           game::Verdict::Reject(_home->MultiCell() ? "not in memory (in an area of the home that is not loaded and not persistent, or its plugin is missing)" :
+				                                                                      "reference not found (plugin missing?)");
 				if (!verdict.ok) {
-					if (_quiet) {
+					// Out of reach from this area of a multi-cell home is expected, not a problem: debug.
+					if (_quiet || reach == core::Reach::Unreachable || (!ref && _home->MultiCell())) {
 						logger::debug("Container {} unavailable: {}", a_ref.ToString(), verdict.reason);
 					} else {
 						logger::warn("Container {} unavailable: {}", a_ref.ToString(), verdict.reason);
@@ -47,7 +53,7 @@ namespace dova::sort
 			}
 
 		private:
-			RE::TESObjectCELL*                            _cell;
+			const home::Home*                             _home;
 			bool                                          _quiet{ false };
 			std::shared_ptr<std::map<core::FormRef, bool>> _cache;
 		};
@@ -185,7 +191,7 @@ namespace dova::sort
 
 		const auto& layout = *a_home.layout;
 		const auto& categories = home::Store::Get().Categories();
-		Availability available(cell);
+		Availability available(a_home);
 		core::SortPlanner planner(layout, categories, available);
 		game::StackTable  stacks;
 		std::vector<core::Move> moves;
@@ -342,7 +348,7 @@ namespace dova::sort
 		}
 
 		const auto&       layout = *a_home.layout;
-		Availability      available(cell);
+		Availability      available(a_home);
 		core::SortPlanner planner(layout, home::Store::Get().Categories(), available);
 		game::StackTable  stacks;
 		const auto        inventory = game::SnapshotInventory(player, stacks);
@@ -391,7 +397,7 @@ namespace dova::sort
 			return counts;
 		}
 		const auto&      categories = home::Store::Get().Categories();
-		Availability     available(cell, true);
+		Availability     available(a_home, true);
 		game::StackTable stacks;
 		for (const auto& contents : SnapshotManaged(*a_home.layout, available, stacks)) {
 			for (const auto& item : contents.items) {

@@ -118,7 +118,7 @@ namespace dova::ui
 			return;
 		}
 		if (home->layoutBroken) {
-			Controller::Get().Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Controller::Get().Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return;
 		}
 		auto*      ref = game::LookupRef(a_mannequin);

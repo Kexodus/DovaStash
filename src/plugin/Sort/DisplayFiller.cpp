@@ -552,6 +552,11 @@ namespace dova::display
 			if (a_only && d.ref != *a_only) {
 				return true;
 			}
+			// Multi-cell homes (DESIGN §6.7): displays need their 3D and their cell's scripts, so only the ones in
+			// the player's cell are filled (a layout entry with `kind` elsewhere in the home waits for its cell).
+			if (const auto* ref = RE::TESForm::LookupByID<RE::TESObjectREFR>(d.ref); !ref || ref->GetParentCell() != a_cell) {
+				return true;
+			}
 			if (g_failed.contains(d.ref) && !a_only) {
 				return true;  // "Fill now" (a_only) tries it again
 			}
@@ -590,6 +595,9 @@ namespace dova::display
 			spot.items = Refs(d.items);
 			if (const auto* binding = layout.FindDisplay(spot.ref)) {
 				spot.categories = binding->categories;
+				// "only": nothing but its items (which may all be missing: it then waits). A mannequin's chosen set decides instead.
+				spot.only = binding->only && !binding->items.empty() &&
+				            (d.kind == core::DisplayKind::Rack || (d.kind == core::DisplayKind::Mannequin && !binding->set));
 			}
 			spot.full = game::DisplayFull(d);
 			if (d.kind == core::DisplayKind::Rack && !spot.full) {
@@ -608,6 +616,12 @@ namespace dova::display
 			spot.holds = Refs(holds);
 			if (const auto* binding = layout.FindDisplay(spot.ref); binding && binding->set && d.kind == core::DisplayKind::Mannequin) {
 				game::ApplyChosenSet(spot, *binding, a_stocks, holds);  // only that set, as its pieces arrive
+			} else if (spot.only && d.kind == core::DisplayKind::Mannequin) {
+				for (auto* h : holds) {  // its items fill the slots it leaves free, like a chosen set
+					if (const auto* armor = h ? h->As<RE::TESObjectARMO>() : nullptr) {
+						spot.worn |= armor->GetSlotMask().underlying();
+					}
+				}
 			}
 			shown.insert(spot.holds.begin(), spot.holds.end());
 			auto& [n, empty] = counts[d.kind];

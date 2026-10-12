@@ -25,7 +25,8 @@ namespace
   ],
   "displays": [                        // optional: the displays this home fills (§8.4)
     {"ref": "Skyrim.esm|0x000EEEEE", "label": "Bow rack", "categories": ["weapons.bows"]},
-    {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]},
+    {"ref": "Skyrim.esm|0x000EEEF0", "label": "Sword rack", "items": ["MyArmory.esp|0x00000D62"], "only": true},  // only this sword; skipped without MyArmory.esp
+    {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]},  // what its script is made for
     {"ref": "Skyrim.esm|0x000EEEEF", "label": "Mannequin", "set": "Skyrim.esm|0x00013961"}  // wears the Ebony set
   ],
   "keep": {
@@ -71,9 +72,12 @@ TEST_CASE("DESIGN 6.3 layout example parses completely", "[layout]")
 	CHECK(layout->containers[0].categories.size() == 4);
 	CHECK_FALSE(layout->containers[0].ignored);
 	CHECK(layout->containers[2].ignored);
-	REQUIRE(layout->displays.size() == 3);
-	CHECK(layout->displays[1].items == std::vector<FormRef>{ Sk(0x61CD6) });
-	CHECK(layout->displays[2].set == Sk(0x13961));
+	REQUIRE(layout->displays.size() == 4);
+	CHECK(layout->displays[1].items == std::vector<FormRef>{ F("MyArmory.esp|0xD62") });
+	CHECK(layout->displays[1].only);
+	CHECK(layout->displays[2].items == std::vector<FormRef>{ Sk(0x61CD6) });
+	CHECK_FALSE(layout->displays[2].only);
+	CHECK(layout->displays[3].set == Sk(0x13961));
 	REQUIRE(layout->keep);
 	CHECK(layout->keep->inherit == true);
 	CHECK(layout->keep->quotasKeyIsRules);

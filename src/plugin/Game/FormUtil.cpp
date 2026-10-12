@@ -119,28 +119,30 @@ namespace dova::game
 		return core::FormRef{ std::string(file->GetFilename()), local };
 	}
 
-	RE::TESForm* LookupForm(const core::FormRef& a_ref)
+	std::optional<RE::FormID> FormIdOf(const core::FormRef& a_ref)
 	{
 		if (!a_ref.IsValid()) {
-			return nullptr;
+			return std::nullopt;
 		}
 		const auto& t = Tables();
 		const auto  it = t.byName.find(core::ToLower(a_ref.plugin));
 		if (it == t.byName.end()) {
-			return nullptr;
+			return std::nullopt;
 		}
 		const auto* file = it->second;
-
-		RE::FormID id = 0;
 		if (IsLightLoaded(file)) {
 			if (a_ref.localId > 0xFFF) {
-				return nullptr;  // not addressable in a light plugin; never guess
+				return std::nullopt;  // not addressable in a light plugin; never guess
 			}
-			id = 0xFE000000u | (static_cast<std::uint32_t>(file->smallFileCompileIndex) << 12) | a_ref.localId;
-		} else {
-			id = (static_cast<std::uint32_t>(file->compileIndex) << 24) | (a_ref.localId & 0x00FFFFFF);
+			return 0xFE000000u | (static_cast<std::uint32_t>(file->smallFileCompileIndex) << 12) | a_ref.localId;
 		}
-		return RE::TESForm::LookupByID(id);
+		return (static_cast<std::uint32_t>(file->compileIndex) << 24) | (a_ref.localId & 0x00FFFFFF);
+	}
+
+	RE::TESForm* LookupForm(const core::FormRef& a_ref)
+	{
+		const auto id = FormIdOf(a_ref);
+		return id ? RE::TESForm::LookupByID(*id) : nullptr;
 	}
 
 	RE::TESObjectREFR* LookupRef(const core::FormRef& a_ref)

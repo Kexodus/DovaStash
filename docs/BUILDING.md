@@ -68,6 +68,33 @@ cmake --build --preset core-tests
 ctest --preset core-tests
 ```
 
+## Dova Stash Editor (DovaStashEditor.exe, no CommonLib)
+
+The standalone template editor (docs/EDITOR.md). Its own preset and build directory (`build/editor`), so the
+plugin and test builds are unaffected; the root option `DOVASTASH_BUILD_EDITOR` is off everywhere else.
+vcpkg feature `editor`: Dear ImGui (`dx11-binding`, `win32-binding`), lz4 and zlib; it links `dova_core`.
+
+```powershell
+cmake --preset editor
+cmake --build --preset editor-release        # or editor-debug
+```
+
+Output: `build/editor/editor/Release/DovaStashEditor.exe` (not deployed by the build). Without arguments it
+opens the window; commands print to the console instead:
+
+```powershell
+$exe = 'build\editor\editor\Release\DovaStashEditor.exe'
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --list-mods whitepeak         # mods, Nexus ids, plugins
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --mod 92177 --homes           # player homes in a mod's plugins
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --cell WhiterunBreezehome     # containers, displays, doors
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --cell WhiterunBreezehome --draft > Breezehome.json
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --mod 92177 --cell bcr58WhiteTower --screenshot shot.bmp
+```
+
+It is a Windows-subsystem program: from PowerShell or cmd, pipe the output (`| Out-Host`, `| more`) to wait
+for it; Git Bash waits by itself. To run it from MO2, add it under *Tools > Executables*; it finds the
+instance from MO2 and reads the merged Data folder (docs/EDITOR.md §4.8).
+
 ## Timings (16-thread machine, cold)
 
 | Step | Time |

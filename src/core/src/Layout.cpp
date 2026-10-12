@@ -281,6 +281,8 @@ namespace dova::core
 							}
 						}
 					}
+				} else if (key == "only" && value.is_boolean()) {
+					d.only = value.get<bool>();
 				} else if (key == "set" && value.is_string() && FormRef::Parse(value.get<std::string>())) {
 					d.set = FormRef::Parse(value.get<std::string>());
 				} else {
@@ -288,7 +290,7 @@ namespace dova::core
 						a_diags.Error(a_source, where + ": expected \"rack\", \"mannequin\", \"item\" or \"case\" (kept verbatim, ignored)");
 					} else if (key == "set") {
 						a_diags.Error(a_source, where + ": expected a form reference to a piece of the set (kept verbatim, ignored)");
-					} else if (key == "label" || key == "note" || key == "ignored" || key == "items" || key == "categories") {
+					} else if (key == "label" || key == "note" || key == "ignored" || key == "items" || key == "categories" || key == "only") {
 						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
 						a_diags.Warn(a_source, where + ": unknown field (preserved)");
@@ -321,6 +323,9 @@ namespace dova::core
 					items.push_back(s);
 				}
 				out["items"] = std::move(items);
+			}
+			if (a_d.only) {
+				out["only"] = true;
 			}
 			if (a_d.set) {
 				out["set"] = a_d.set->ToString();
@@ -536,6 +541,11 @@ namespace dova::core
 				} else {
 					layout.extra[key] = value;
 				}
+			} else if (key == "cells") {
+				// More cells of a multi-cell home (HomeCells.h). A value of the wrong type is kept verbatim.
+				if (!ParseHomeCells(value, source, layout.cells, layout.unparsedCells, a_diags)) {
+					layout.extra[key] = value;
+				}
 			} else if (key == "containers") {
 				if (!value.is_array()) {
 					// Unusable document: saving would replace the player's hand-edited data.
@@ -601,6 +611,7 @@ namespace dova::core
 		if (!layout.cell && !layout.extra.contains("cell")) {
 			a_diags.Error(source, "missing \"cell\"");
 		}
+		ValidateHomeCells(layout.cell, layout.cells, source, a_diags);
 		if (layout.master) {
 			if (const auto* c = layout.FindContainer(*layout.master); c && c->ignored) {
 				a_diags.Warn(source, "the master container is also listed as ignored");
@@ -634,6 +645,9 @@ namespace dova::core
 		}
 		if (a_layout.cell) {
 			out["cell"] = a_layout.cell->ToString();
+		}
+		if (!a_layout.cells.empty() || (a_layout.unparsedCells.is_array() && !a_layout.unparsedCells.empty())) {
+			out["cells"] = HomeCellsToJson(a_layout.cells, a_layout.unparsedCells);
 		}
 		if (a_layout.master) {
 			out["master"] = a_layout.master->ToString();

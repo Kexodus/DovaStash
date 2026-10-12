@@ -7,6 +7,7 @@
 #include "Settings.h"
 #include "UI/Labels.h"
 #include "UI/MessageBox.h"
+#include "UI/SaveTemplate.h"
 
 namespace dova::ui
 {
@@ -94,6 +95,11 @@ namespace dova::ui
 		std::vector<Option> options;
 		std::string         body;
 
+		if (a_home.backup) {
+			// The player's own setup, kept outside Data (DESIGN §6.6): first, as it is what they had.
+			body = std::format("Dova Stash: set up {}?", a_home.name);
+			options.push_back({ std::format(kRestoreLastSetup, a_home.backup->date), [cellId]() { Controller::Get().RestoreBackup(cellId); } });
+		}
 		if (a_container) {
 			if (auto ref = game::ToFormRef(a_container)) {
 				body = std::format("Dova Stash: set up {}?", a_home.name);
@@ -110,6 +116,13 @@ namespace dova::ui
 			}
 			body += std::format("\nTemplate available: {} (by {})", best->layout.name, best->layout.author);
 			options.push_back({ std::format("Use template \"{}\"", best->layout.name), [cellId]() { Controller::Get().UseTemplate(cellId); } });
+		}
+		if (const auto offer = home::HomeRegistry::Get().OfferArea()) {
+			// Multi-cell homes (DESIGN §6.7): this cell joins the home the player just came from.
+			if (body.empty()) {
+				body = std::format("Dova Stash: {}", a_home.name);
+			}
+			options.push_back({ std::format(kAddArea, offer->homeName), [cellId]() { Controller::Get().AddArea(cellId); } });
 		}
 		if (options.empty()) {
 			Notify(std::format("Dova Stash: look at a container and press {} to set up this home", Controller::HotkeyName()));
@@ -132,7 +145,7 @@ namespace dova::ui
 		options.push_back({ "Retrieve...", [this, cellId]() { OpenRetrieveMenu(cellId); } });
 		options.push_back({ "Browse containers...", [this, cellId]() { OpenBrowseMenu(cellId); } });
 		if (const auto* best = a_home.BestTemplate()) {
-			const bool basedOnTemplate = a_home.layout && a_home.layout->basedOn.has_value();
+			const bool basedOnTemplate = a_home.layout && a_home.layout->basedOn && a_home.layout->basedOn->starts_with(best->source + "@");
 			const auto name = best->layout.name;
 			options.push_back({ basedOnTemplate ? std::format("Re-apply template \"{}\"", name) : std::format("Use template \"{}\"", name),
 				[this, cellId, name]() {
@@ -140,8 +153,15 @@ namespace dova::ui
 						[cellId]() { Controller::Get().UseTemplate(cellId); });
 				} });
 		}
+		options.push_back({ kSaveAsTemplate, [cellId]() { SaveAsTemplate(cellId); } });
+		if (const auto* area = a_home.extra ? a_home.HereArea() : nullptr) {
+			// In an extra cell of a multi-cell home (DESIGN §6.7).
+			options.push_back({ std::format(kRemoveArea, a_home.name), [this, cellId, cell = area->cell, question = std::format(kConfirmRemoveArea, area->name, a_home.name)]() {
+								   Confirm(question, [cellId, cell]() { Controller::Get().RemoveArea(cellId, cell); });
+							   } });
+		}
 		options.push_back({ "Reset home...", [this, cellId, name = a_home.name]() {
-							   Confirm(std::format("Reset Dova Stash for {}?\nYour layout file is backed up (.bak); no items are moved.", name),
+							   Confirm(std::format("Reset Dova Stash for {}?\nYour setup is backed up (.bak); no items are moved.", name),
 								   [cellId]() { Controller::Get().ResetHome(cellId); });
 						   } });
 		ShowOptions(std::move(body), std::move(options));

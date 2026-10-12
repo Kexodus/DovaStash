@@ -26,9 +26,9 @@ namespace dova::ui::panel::text
 
 	// Header
 	inline constexpr std::string_view kHeaderHome = "{}";                // home name
-	inline constexpr std::string_view kHeaderLayout = "Layout: {} v{} by {}";  // name, version, author
+	inline constexpr std::string_view kHeaderLayout = "Setup: {} v{} by {}";  // name, version, author
 	inline constexpr std::string_view kHeaderBasedOn = "Based on template: {}";
-	inline constexpr auto             kHeaderCustom = "Custom layout (not based on a template)";
+	inline constexpr auto             kHeaderCustom = "Custom setup (not from a template)";
 	inline constexpr std::string_view kHeaderMaster = "Master: {}";
 	inline constexpr auto             kHeaderNoMaster = "Master: none (items without a destination stay in your inventory)";
 	inline constexpr std::string_view kUnavailable = "unavailable: {}";
@@ -38,7 +38,8 @@ namespace dova::ui::panel::text
 	inline constexpr std::string_view kSetupMakeMaster = "Make {} the master";
 	inline constexpr std::string_view kSetupLookAt = "Look at a container and press {} to make it the master.";
 	inline constexpr auto             kSetupTemplates = "Templates for this home";
-	inline constexpr auto             kSetupBroken = "This home's layout file is broken and was left untouched. Fix it by hand (see DovaStash.log) or reset the home (the file is renamed to .bak).";
+	inline constexpr auto             kSetupBroken = "This home's setup file is broken and was left untouched. Fix it by hand (see DovaStash.log), restore a saved setup below, or reset the home (the file is renamed to .bak).";
+	inline constexpr auto             kSetupBrokenNoBackup = "This home's setup file is broken and was left untouched. Fix it by hand (see DovaStash.log) or reset the home (the file is renamed to .bak).";
 
 	// Tabs
 	inline constexpr auto kTabActions = "Actions";
@@ -70,7 +71,22 @@ namespace dova::ui::panel::text
 	inline constexpr std::string_view kConfirmTemplate = "Use the template \"{}\"? Your learned destinations, keep rules and ignored containers are kept; the master and category bindings are replaced by the template's. A backup is saved; no items are moved.";
 	inline constexpr auto             kResetHeader = "Reset";
 	inline constexpr auto             kResetHome = "Reset home...";
-	inline constexpr std::string_view kConfirmReset = "Reset Dova Stash for {}? The layout file is backed up (.bak); no items are moved.";
+	inline constexpr std::string_view kConfirmReset = "Reset Dova Stash for {}? Your setup is backed up (.bak); no items are moved.";
+	inline constexpr auto             kBackupsHeader = "Saved setups";
+	inline constexpr auto             kBackupsTip = "Each time this home's setup changes, Dova Stash also keeps a copy outside the Data folder: in Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups (Skyrim VR: My Games/Skyrim VR). MO2 never puts it in its overwrite folder, so cleaning that folder does not lose it. The latest copy, plus the copies from your last sessions.";
+	inline constexpr std::string_view kRestoreLast = "Restore last setup ({})...";  // date
+	inline constexpr std::string_view kRestoreOlder = "Restore the setup from {}...";  // date
+	inline constexpr std::string_view kOlderBackups = "Older copies ({})";  // count
+	inline constexpr auto             kNoBackups = "No saved copy of this home's setup yet.";
+	// Multi-cell homes (DESIGN §6.7)
+	inline constexpr auto             kAreasHeader = "Areas";
+	inline constexpr auto             kAreasTip = "The cells this home spans: the main one, a cellar, the grounds outside... You are in the home in any of them. From one area, containers in another are used when their reference is persistent (the panel says which); displays are filled only in the area you are in. To add an area, walk into it from the home and press the hotkey.";
+	inline constexpr auto             kAreaMain = "(main)";
+	inline constexpr auto             kAreaHere = "(you are here)";
+	inline constexpr std::string_view kAreaExcluded = "{} is listed but has a setup of its own, so it is not part of this home.";  // cell
+	inline constexpr std::string_view kHereArea = "in {}";  // area name, after the home's name
+	inline constexpr std::string_view kInArea = "In {}";  // area name
+	inline constexpr auto             kRemoteTip = "In another area of this home, used from here: its reference is persistent (or its area is loaded).";
 
 	// Containers tab
 	inline constexpr auto             kColContainer = "Container";
@@ -98,7 +114,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kClearCategories = "Clear categories";
 	inline constexpr std::string_view kForgetLearned = "Forget learned ({})...";
 	inline constexpr std::string_view kConfirmForget = "Forget the {} learned item destination(s) of {}?";
-	inline constexpr std::string_view kExplicitForms = "{} explicit item binding(s) (edit them in the layout JSON).";
+	inline constexpr std::string_view kExplicitForms = "{} fixed item binding(s) (edit them in this home's file under Layouts/).";
 	inline constexpr auto             kCategoriesHeader = "Categories sent here";
 	inline constexpr std::string_view kLearnedInfo = "Learned here: {}. Only those exact items come here; tick a category to send all of it.";
 	inline constexpr auto             kIgnoredInfo = "Ignored containers receive nothing and teach nothing, and Dova Stash never adds them back. Their categories are kept for when you stop ignoring them. To forget a container instead, use Remove.";
@@ -138,11 +154,15 @@ namespace dova::ui::panel::text
 	inline constexpr std::string_view kFormsCount = "{} form(s)";
 
 	// Template tab
-	inline constexpr auto             kExportIntro = "Export this home's setup as a template that other players can drop into Data/SKSE/Plugins/DovaStash/Templates/. Learned destinations are not exported.";
+	inline constexpr auto             kExportIntro = "Save this home's setup as a template: a copy you can bring back with Use template after a reset, or share (other players drop it into Data/SKSE/Plugins/DovaStash/Templates/). The hotkey menu's Save as template... does the same.";
+	inline constexpr auto             kExportLearned = "Keep learned items (as fixed item bindings)";
+	inline constexpr auto             kExportLearnedTip = "Items you taught Dova Stash by putting them away by hand are saved as fixed item bindings of their containers, so they go to the same containers for anyone who uses this template. Untick it for a template to share without your personal habits.";
 	inline constexpr auto             kExportName = "Name";
 	inline constexpr auto             kExportAuthor = "Author";
+	inline constexpr auto             kExportAuthorHint = "your character's name";
 	inline constexpr auto             kExportVersion = "Version";
-	inline constexpr std::string_view kExportFile = "Writes Data/SKSE/Plugins/DovaStash/Templates/User/{}.json (under MO2: the overwrite folder).";
+	inline constexpr auto             kExportVersionHint = "automatic";
+	inline constexpr std::string_view kExportFile = "Writes Data/SKSE/Plugins/DovaStash/Templates/User/{}.json (under MO2: the overwrite folder). This home offers it right away. Replacing a file backs it up and, with an automatic version, raises its version.";
 	inline constexpr auto             kExport = "Export";
 	inline constexpr auto             kExporting = "Exporting...";
 	inline constexpr auto             kOverwrite = "Overwrite";
@@ -167,7 +187,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kDiagCategories = "Categories";
 	inline constexpr auto             kDiagTemplates = "Templates";
 	inline constexpr auto             kDiagSettings = "Settings.json (global keep defaults)";
-	inline constexpr auto             kDiagHome = "This home's layout";
+	inline constexpr auto             kDiagHome = "This home's setup";
 	inline constexpr auto             kDiagNone = "No problems.";
 	inline constexpr std::string_view kDiagCounts = "{} error(s), {} warning(s)";
 	inline constexpr auto             kAboutText = "Auto-sorting loot storage for any player home. Look at a container in a player home and press the hotkey to open the stash window.";

@@ -41,6 +41,17 @@
 			}
 		},
 		{
+			"name": "editor",
+			"displayName": "Dova Stash Editor (standalone template editor, no CommonLib)",
+			"inherits": "base",
+			"cacheVariables": {
+				"DOVASTASH_BUILD_PLUGIN": "OFF",
+				"DOVASTASH_BUILD_TESTS": "OFF",
+				"DOVASTASH_BUILD_EDITOR": "ON",
+				"VCPKG_MANIFEST_FEATURES": "editor"
+			}
+		},
+		{
 			"name": "plugin-source",
 			"displayName": "SKSE plugin with CommonLibSSE-NG compiled from source (required for Debug)",
 			"inherits": "plugin",
@@ -53,7 +64,9 @@
 	"buildPresets": [
 		{ "name": "core-tests", "configurePreset": "core-tests", "configuration": "Debug" },
 		{ "name": "plugin-release", "configurePreset": "plugin", "configuration": "Release" },
-		{ "name": "plugin-debug", "configurePreset": "plugin-source", "configuration": "Debug" }
+		{ "name": "plugin-debug", "configurePreset": "plugin-source", "configuration": "Debug" },
+		{ "name": "editor-release", "configurePreset": "editor", "configuration": "Release" },
+		{ "name": "editor-debug", "configurePreset": "editor", "configuration": "Debug" }
 	],
 	"testPresets": [
 		{ "name": "core-tests", "configurePreset": "core-tests", "configuration": "Debug", "output": { "outputOnFailure": true } }

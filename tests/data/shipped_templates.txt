@@ -1,0 +1,26 @@
+# The shipped templates as they are released (tests/ShippedTemplateTests.cpp): one line per file under
+# dist/Data/SKSE/Plugins/DovaStash/Templates, "<path> <FNV-1a 64 of the file, CR bytes removed>".
+# Existing templates must keep loading and behaving exactly as before: change this list only for a deliberate
+# change to a shipped template (the failing test prints the new line).
+CreationClub/BloodchillManor.json 8f6f0fa6c916bcb8
+CreationClub/GallowsHall.json 0d55c117cc440281
+CreationClub/GoldenhillsPlantation.json c5e2f0b4866d150a
+CreationClub/Hendraheim.json e6e6d56b55c26df1
+CreationClub/Myrwatch.json 5eb8356d8dda052b
+CreationClub/MyrwatchGallery.json dddb0f974426f0fb
+CreationClub/Nchuanthumz.json 274de909be573f3f
+CreationClub/ShadowfootSanctum.json e2d01b02706ee64f
+CreationClub/TundraHomestead.json 9a9ef099b0349103
+CreationClub/TundraHomesteadCellar.json 82772380e7fa817e
+Vanilla/Breezehome.json 169d6298a6e38c70
+Vanilla/HeljarchenHall.json 567131b86e860543
+Vanilla/HeljarchenHallCellar.json 91552e65d13651e6
+Vanilla/Hjerim.json 3850e007e30f7378
+Vanilla/Honeyside.json af5a2d53cea1a0d3
+Vanilla/LakeviewManor.json f184d23ff1226290
+Vanilla/LakeviewManorCellar.json 25c88f25c4f78b02
+Vanilla/ProudspireManor.json eb8e6cf6b46c4cb0
+Vanilla/SeverinManor.json 99ea524da586a37b
+Vanilla/VlindrelHall.json 49a483eb9fe894c2
+Vanilla/WindstadManor.json b188afbc517e8a73
+Vanilla/WindstadManorCellar.json 5c894975bf64c474

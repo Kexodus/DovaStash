@@ -25,6 +25,9 @@ namespace dova::game
 
 	// Case-insensitive plugin match. nullptr when the plugin is not loaded or the id does not exist.
 	[[nodiscard]] RE::TESForm*       LookupForm(const core::FormRef& a_ref);
+	// The runtime form id `a_ref` stands for, whether or not the form is in memory (an exterior cell that is
+	// not loaded). nullopt when the plugin is not loaded or the id is not addressable in it.
+	[[nodiscard]] std::optional<RE::FormID> FormIdOf(const core::FormRef& a_ref);
 	[[nodiscard]] RE::TESObjectREFR* LookupRef(const core::FormRef& a_ref);
 
 	// Names of every loaded plugin (full + light), in load order, original spelling.

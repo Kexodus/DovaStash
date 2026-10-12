@@ -32,7 +32,9 @@ namespace dova::ui
 		// `a_master` may be null (pressed the hotkey at nothing, or the master is not loaded/available).
 		virtual void OpenMasterMenu(home::Home& a_home, RE::TESObjectREFR* a_master) = 0;
 		virtual void OpenContainerMenu(home::Home& a_home, RE::TESObjectREFR* a_container) = 0;
-		// Home without a player layout. `a_container` may be null (then only template options are shown).
+		// Home without a player layout: "Restore your last setup (date)" first when Home::backup is set, then
+		// make the container the master, then the template. `a_container` may be null (then only the restore
+		// and template options are shown).
 		virtual void OpenSetupPrompt(home::Home& a_home, RE::TESObjectREFR* a_container) = 0;
 		// Turn a display on or off, pick its categories, or fill it now. The default is native message boxes
 		// (UI/DisplayMenu.cpp).
@@ -42,6 +44,8 @@ namespace dova::ui
 		virtual void Notify(std::string_view a_message) = 0;
 		// The current home or its layout may have changed outside the UI (cell change, learned items).
 		virtual void OnHomeChanged() {}
+		// The template list was scanned again (a template was saved): pages that list templates rebuild.
+		virtual void OnTemplatesChanged() {}
 		// True while this UI is on screen (status messages then go to it rather than the world UI).
 		[[nodiscard]] virtual bool IsActive() const { return false; }
 	};

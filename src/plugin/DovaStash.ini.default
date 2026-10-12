@@ -7,7 +7,9 @@
 ; Set 0 when you report a problem: it logs everything.
 iLogLevel = 2
 
-; true = when you enter a home that has a template, enable it automatically.
+; true = when you enter a home that has a template, enable it automatically (not while a saved setup
+; of your own can be restored there: Dova Stash keeps a copy of every setup in
+; Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups).
 ; false = show a one-time notification and wait for you to press the hotkey.
 bAutoEnableTemplates = false
 

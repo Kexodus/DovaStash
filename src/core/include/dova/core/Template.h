@@ -8,8 +8,23 @@
 // - A template is a candidate when its `cell` equals the requested cell. It is eligible when every
 //   plugin in `requires` is loaded (case-insensitive). The cell's own plugin is implied by the cell
 //   match, so it is not checked separately.
-// - Ranking: priority (desc), then semantic `version` (desc; unparseable versions rank lowest), then
-//   `source` path (case-insensitive asc) as a deterministic tie-break.
+// - Ranking: priority (desc), then the player's own exports (`source` under kUserTemplatePrefix) before
+//   the others, then semantic `version` (desc; unparseable versions rank lowest), then `source` path
+//   (case-insensitive asc) as a deterministic tie-break. The player's own saved setup is what they
+//   want back in their game, as their layout always wins over templates.
+// - ExportAsTemplate (player layout -> template) carries everything a template can hold: master, the
+//   home's extra cells, containers (categories, explicit forms, label, note, ignored, unknown keys), displays (kind, label,
+//   note, categories, items, only, set, ignored), keep rules, the top-level note and unknown keys, and entries
+//   that could not be parsed (kept verbatim, as in the layout). It deliberately drops `learned` (the
+//   player's own item-by-item habits: personal, and often hundreds of entries) and `basedOn`, and lists
+//   every plugin the result references in `requires` (ReferencedPlugins), so it passes ValidateTemplate
+//   and is only offered where its references can resolve. Display items and sets are soft references
+//   (TemplateDisplays.h): they never make a template depend on their plugins. With ExportOptions::learnedAsForms the learned
+//   destinations are kept instead, as explicit item bindings (`forms`) of the container each points at:
+//   the items then go to the same containers wherever the template is used (a personal backup). Skipped:
+//   items learned for the master or for an ignored container (the planner never uses those), and items
+//   some container already binds explicitly (that binding wins over learned, so nothing changes). A
+//   container the layout does not list gets a plain entry. Their plugins join `requires` like any form.
 // - ApplyTemplate copies the template, sets basedOn = "<source>@<version>" and drops any learned data
 //   carried by the template. When applied over an existing player layout, only the category bindings
 //   (and master, name, requires) come from the template; the player's data is merged in, never dropped:
@@ -19,8 +34,11 @@
 //       unknown keys kept), so learned destinations to them stay valid; a previous master that the
 //       template does not use is kept the same way;
 //     * displays in both: the template's entry, with the player's ignored flag (OR) and the player's
-//       kind/label/items/set where the template gives none; displays only in the player layout: kept;
+//       kind/label/note/categories/items (with their `only`)/set where the template gives none; displays
+//       only in the player layout: kept. (An item plaque's or case's items from a template are replaced by
+//       what its script is made for, in the plugin: TemplateDisplays.h.)
 //     * every learned entry whose container is in the merged layout (and is not the master);
+//     * the home's extra `cells` (HomeCells.h): the template's, then the player's (MergeHomeCells);
 //     * the player's keep block (replaces the template's), unparsed learned entries, unparsed
 //       container entries and unknown top-level keys.
 //   The plugin backs up the player file before applying (HomeRegistry::ApplyBestTemplate).
@@ -39,6 +57,12 @@
 
 namespace dova::core
 {
+	// Source prefix of the player's own exports (Data/SKSE/Plugins/DovaStash/Templates/User/).
+	inline constexpr std::string_view kUserTemplatePrefix = "Templates/User/";
+
+	// `a_source` is under kUserTemplatePrefix (case-insensitive, either slash).
+	[[nodiscard]] bool IsUserTemplate(std::string_view a_source);
+
 	struct TemplateCandidate
 	{
 		std::string source;  // "Templates/Vanilla/Breezehome.json" (forward slashes)
@@ -52,7 +76,8 @@ namespace dova::core
 		std::string_view a_sourcePrefix = "Templates/");
 
 	// Template-only lint (warnings only): player-only fields present, no master, form references to
-	// plugins that are not listed in `requires`.
+	// plugins that are not listed in `requires` (display items and sets are soft and not checked), and
+	// the display entry lint (ValidateDisplays, TemplateDisplays.h).
 	void ValidateTemplate(const Layout& a_template, std::string_view a_source, Diagnostics& a_diags);
 
 	// Warns about container patterns / keep patterns that match no known category (likely typos).
@@ -88,8 +113,29 @@ namespace dova::core
 	// Player layout created from a template. `a_existing` (optional) is the current player layout when re-applying.
 	[[nodiscard]] Layout ApplyTemplate(const TemplateCandidate& a_template, const Layout* a_existing = nullptr);
 
-	// Strips player-only data (learned, basedOn) so the layout can be shared as a template.
-	[[nodiscard]] Layout ExportAsTemplate(const Layout& a_layout);
+	// Every plugin the layout's form references point into: cell, cells, master, containers and their explicit
+	// forms, displays (not their items or set: soft references, TemplateDisplays.h), and FormRefs in keep
+	// (always/never entries, quota forms). Learned pairs are not included. First use first; unique
+	// case-insensitively.
+	[[nodiscard]] std::vector<std::string> ReferencedPlugins(const Layout& a_layout);
+
+	struct ExportOptions
+	{
+		// Keep the learned destinations as explicit item bindings (`forms`) of their containers.
+		bool learnedAsForms{ false };
+	};
+
+	// Player layout -> shareable template (see the header comment): drops learned (or, with
+	// `learnedAsForms`, turns it into `forms`) and basedOn, keeps everything else, and adds every plugin
+	// from ReferencedPlugins to `requires` (entries already there are kept, in their order, ahead of the
+	// added ones). Name, author and version are the layout's; the caller sets them. `a_learnedKept`
+	// (optional) receives how many learned items became item bindings.
+	[[nodiscard]] Layout ExportAsTemplate(const Layout& a_layout, const ExportOptions& a_options = {}, std::size_t* a_learnedKept = nullptr);
+
+	// File stem for an exported template named `a_name`: ASCII letters, digits, space, '-', '_' and '.'
+	// are kept, every other byte becomes '_'; leading/trailing spaces and dots are removed, at most 64
+	// characters, Windows device names get a trailing '_', and an empty result is "Template".
+	[[nodiscard]] std::string TemplateFileStem(std::string_view a_name);
 
 	// "<source>@<version>"
 	[[nodiscard]] std::string MakeBasedOn(std::string_view a_source, std::string_view a_version);

@@ -242,14 +242,17 @@ namespace dova::ui::panel
 
 		std::string reason;
 		auto*       home = home::HomeRegistry::Get().Current(&reason);
+		// Multi-cell homes (DESIGN §6.7): this cell can join the home the player just came from.
+		if (const auto offer = home::HomeRegistry::Get().OfferArea()) {
+			snap->addAreaTo = offer->homeName;
+			snap->addAreaCell = offer->cellId;
+			home = home::HomeRegistry::Get().Current(&reason);  // OfferArea may have loaded the cell
+		}
 		if (!home) {
 			snap->notHomeReason = reason.empty() ? "not a player home"s : reason;
 			publish();
 			return;
 		}
-
-		auto* player = game::Player();
-		auto* cell = player ? player->GetParentCell() : nullptr;
 
 		snap->inHome = true;
 		snap->cellId = home->cellId;
@@ -257,6 +260,17 @@ namespace dova::ui::panel
 		snap->homeName = home->name;
 		snap->enabled = home->layout.has_value();
 		snap->layoutBroken = home->layoutBroken;
+		if (home->MultiCell() || home->extra) {
+			for (const auto& area : home->areas) {
+				snap->areas.push_back(AreaRow{ area.cell, area.cell.ToString(), area.name, area.main, area.id == home->cellId });
+			}
+			if (const auto* here = home->extra ? home->HereArea() : nullptr) {
+				snap->hereArea = here->name;
+			}
+		}
+		for (const auto& excluded : home->areasExcluded) {
+			snap->areasExcluded.push_back(excluded.ToString());
+		}
 
 		const auto* layout = home->layout ? &*home->layout : nullptr;
 		std::map<core::FormRef, std::size_t> learnedPerContainer;
@@ -304,10 +318,18 @@ namespace dova::ui::panel
 					}
 				}
 			}
-			const auto verdict = ref ? game::CheckContainer(ref, cell) : game::Verdict::Reject("reference not found (plugin missing?)");
+			core::Reach reach = core::Reach::Here;
+			const auto  verdict = ref ? home::CheckHomeContainer(ref, *home, &reach) :
+			                            game::Verdict::Reject(home->MultiCell() ? "not in memory here (in another area and not persistent, or its plugin is missing)" :
+			                                                                      "reference not found (plugin missing?)");
 			row.available = verdict.ok;
 			row.reason = verdict.reason;
 			row.warning = verdict.warning;
+			if (home->MultiCell() && ref && reach != core::Reach::Here) {
+				const auto* area = home::AreaOf(*home, ref);
+				row.area = area ? area->name : std::string{};
+				row.remote = verdict.ok;
+			}
 			snap->containers.push_back(std::move(row));
 		};
 
@@ -386,6 +408,15 @@ namespace dova::ui::panel
 		}
 		for (const auto index : home->resolution.alternatives) {
 			addTemplate(index, false);
+		}
+
+		// Saved setups outside Data (a folder listing): on Full, or when the home changed; otherwise carried over.
+		if (a_refresh == Refresh::Full || !previous || previous->cellId != snap->cellId) {
+			for (auto& b : home::Store::Get().HomeBackups(home->cell)) {
+				snap->backups.push_back(BackupOption{ std::move(b.path), std::move(b.date), b.history });
+			}
+		} else {
+			snap->backups = previous->backups;
 		}
 
 		// Item counts per category (Retrieve). Only recomputed on Full; otherwise carried over.

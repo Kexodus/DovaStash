@@ -13,7 +13,7 @@ For the most useful log, set [b]iLogLevel = 1[/b] in [i]Data/SKSE/Plugins/DovaSt
 [*][b]The home[/b]: its name, and the mod it comes from if it isn't vanilla. Say whether you used a template or set it up by hand.
 [*][b]UI[/b]: UIExtensions lists, the SKSE Menu Framework panel, or message boxes. Mention QuickLoot IE and Skyrim Souls if you use them.
 [*][b]Steps[/b]: what you did, what you expected, and what happened instead.
-[*][b]For missing or misplaced items[/b]: the item's name, where it was before, and where you expected it to go. If you can, attach your layout file from [i]Data/SKSE/Plugins/DovaStash/Layouts/[/i] (MO2: the [b]overwrite[/b] folder).
+[*][b]For missing or misplaced items[/b]: the item's name, where it was before, and where you expected it to go. If you can, attach the home's setup file from [i]Data/SKSE/Plugins/DovaStash/Layouts/[/i] (MO2: the [b]overwrite[/b] folder; a copy is in [i]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/[/i]).
 [/list]
 
 [spoiler=Copy-paste template]
@@ -33,7 +33,8 @@ Log link:[/code]
 [b]Before posting, please check these[/b]
 [list]
 [*]An item that didn't move is usually a keep rule (equipped, favorited, quest, gold, lockpicks, torches), an item with no destination (it stays in the master), or a spare copy of an equipped item. See [i]Why didn't item X move?[/i] in the FAQ.
-[*]A [i]"not a player home"[/i] message means the cell is owned by someone else and isn't tagged as a player house.
+[*]A [i]"not a player home"[/i] message means the cell is owned by someone else and isn't tagged as a player house. Just outside a home (its grounds, its cellar) you can add the area to the home instead: walk out of the home and press the hotkey.
+[*]In a home with several areas, a chest in another area that shows [i]"only reachable in ..."[/i] in the panel is used only while you are in its own area (the game doesn't keep it in memory elsewhere). Say which area you were in when you report a missing move.
 [*][b]VR players:[/b] VR support is experimental, and any report helps, including "it works".
 [/list]
 

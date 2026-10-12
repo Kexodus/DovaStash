@@ -28,6 +28,12 @@ namespace dova::core
 			return a_item.type == ItemType::Armor && (HasKeyword(a_item, "ArmorShield") || (a_item.armorSlots & kSlotShield) != 0);
 		}
 
+		// "only" counts for racks and for mannequins without a chosen set (the set decides).
+		bool OnlyApplies(const DisplaySpot& a_spot)
+		{
+			return a_spot.only && (a_spot.kind == DisplayKind::Rack || (a_spot.kind == DisplayKind::Mannequin && !a_spot.chosen && a_spot.set.empty()));
+		}
+
 		double Score(const ItemInfo& a_item)
 		{
 			return static_cast<double>(a_item.value) + (HasKeyword(a_item, "DaedricArtifact") ? 1.0e7 : 0.0);
@@ -48,6 +54,8 @@ namespace dova::core
 				for (const auto& spot : a_spots) {
 					if (spot.kind == DisplayKind::Item || spot.kind == DisplayKind::Case) {
 						_reserved.insert(spot.items.begin(), spot.items.end());
+					} else if (OnlyApplies(spot)) {
+						_onlyFor.insert(spot.items.begin(), spot.items.end());  // kept for the racks / mannequins made for them
 					}
 				}
 			}
@@ -57,12 +65,17 @@ namespace dova::core
 				Pass(DisplayKind::Item, [&](std::size_t i) { FillItem(i); });
 				Pass(DisplayKind::Case, [&](std::size_t i) { FillCase(i); });
 				for (std::size_t i = 0; i < _spots.size(); ++i) {  // chosen sets first: their pieces wait for them
-					if (_spots[i].kind == DisplayKind::Mannequin && (_spots[i].chosen || !_spots[i].set.empty())) {
-						FillMannequinSet(i);
+					if (_spots[i].kind != DisplayKind::Mannequin) {
+						continue;
+					}
+					if (_spots[i].chosen || !_spots[i].set.empty()) {
+						FillMannequinSet(i, _spots[i].set);
+					} else if (_spots[i].only) {
+						FillMannequinSet(i, _spots[i].items);  // "only": its items are the set it wears
 					}
 				}
 				Pass(DisplayKind::Mannequin, [&](std::size_t i) {
-					if (!_spots[i].chosen && _spots[i].set.empty()) {
+					if (!_spots[i].chosen && _spots[i].set.empty() && !_spots[i].only) {
 						FillMannequin(i);
 					}
 				});
@@ -164,9 +177,17 @@ namespace dova::core
 				});
 			}
 
-			bool Free(std::size_t a_stock) const
+			// Not taken yet, not reserved for a plaque or case, and not kept for another display's "only" items.
+			bool Free(std::size_t a_stock, const DisplaySpot& a_spot) const
 			{
-				return _left[a_stock] > 0 && !_used.contains(_stocks[a_stock].item.form) && !_reserved.contains(_stocks[a_stock].item.form);
+				const auto& item = _stocks[a_stock].item;
+				if (_left[a_stock] <= 0 || _used.contains(item.form) || _reserved.contains(item.form)) {
+					return false;
+				}
+				if (OnlyApplies(a_spot)) {
+					return Preferred(a_spot, item);  // its own items, nothing else
+				}
+				return !_onlyFor.contains(item.form);
 			}
 
 			// Free armor this mannequin may wear (`a_only`: pieces of its chosen set), best first.
@@ -175,7 +196,7 @@ namespace dova::core
 				std::vector<std::size_t> out;
 				for (std::size_t s = 0; s < _stocks.size(); ++s) {
 					const auto& item = _stocks[s].item;
-					if (Free(s) && MannequinTakes(item) && Allowed(a_spot, s) && (!a_only || std::ranges::find(*a_only, item.form) != a_only->end())) {
+					if (Free(s, a_spot) && MannequinTakes(item) && Allowed(a_spot, s) && (!a_only || std::ranges::find(*a_only, item.form) != a_only->end())) {
 						out.push_back(s);
 					}
 				}
@@ -227,16 +248,16 @@ namespace dova::core
 				}
 			}
 
-			// A chosen set: only its pieces, on the slots it leaves free; nothing while it wears anything else
-			// (or what it wears is unknown).
-			void FillMannequinSet(std::size_t a_spot)
+			// A chosen set (or the items of an "only" mannequin): only its pieces, on the slots it leaves free;
+			// nothing while it wears anything else (or what it wears is unknown).
+			void FillMannequinSet(std::size_t a_spot, const std::vector<FormRef>& a_pieces)
 			{
 				const auto& spot = _spots[a_spot];
-				const auto  inSet = [&](const FormRef& a_form) { return std::ranges::find(spot.set, a_form) != spot.set.end(); };
+				const auto  inSet = [&](const FormRef& a_form) { return std::ranges::find(a_pieces, a_form) != a_pieces.end(); };
 				if ((spot.full && spot.holds.empty()) || !std::ranges::all_of(spot.holds, inSet)) {
 					return;
 				}
-				const auto              candidates = MannequinCandidates(spot, &spot.set);
+				const auto              candidates = MannequinCandidates(spot, &a_pieces);
 				std::vector<ArmorPiece> pieces;
 				std::vector<std::size_t> order;
 				for (std::size_t k = 0; k < candidates.size(); ++k) {
@@ -253,7 +274,7 @@ namespace dova::core
 				const auto&                spot = _spots[a_spot];
 				std::optional<std::size_t> best;
 				for (std::size_t s = 0; s < _stocks.size(); ++s) {
-					if (!Free(s) || !RackTakes(spot.rack, _stocks[s].item, spot.crossbows) || !Allowed(spot, s) ||
+					if (!Free(s, spot) || !RackTakes(spot.rack, _stocks[s].item, spot.crossbows) || !Allowed(spot, s) ||
 						std::ranges::find(spot.refuses, _stocks[s].item.form) != spot.refuses.end()) {
 						continue;
 					}
@@ -271,6 +292,7 @@ namespace dova::core
 			std::vector<std::int32_t>      _left;
 			std::set<FormRef>              _used;
 			std::set<FormRef>              _reserved;
+			std::set<FormRef>              _onlyFor;  // the items of racks and mannequins with "only"
 			std::vector<DisplayAssignment> _out;
 		};
 	}

@@ -21,8 +21,17 @@ No ESP is needed.
 - **Materials at the workbench:** at a home's forge, smelter, tanning rack, cooking pot, alchemy lab or
   enchanter, the materials stored in the home come to you, and what you don't use goes back afterwards.
   Never what you just crafted; modded recipes and materials work too.
-- **Templates:** shareable JSON layouts per home. 22 are included (vanilla, Hearthfire and Creation Club homes).
-  You can export your own from inside the game.
+- **Homes over several cells:** add the cellar or the grounds outside to a home (walk out of it, press the
+  hotkey: *Add this area*), so the forge outside brings what is stored inside and Deposit works in every area.
+  Existing setups and templates, cellar templates included, work exactly as before.
+- **Templates:** a ready-made setup per home, as shareable JSON. 22 are included (vanilla, Hearthfire and
+  Creation Club homes). Save your own from inside the game (hotkey menu → Save as template...), learned
+  items included, to share it or to get the setup back after a reset. A template can also pre-define the
+  home's racks and mannequins, down to the exact weapon or armor set, even from other mods: a missing mod's
+  items are skipped (one line in the log) and the rest of the template still works.
+- **Setups backed up outside Data:** every change to a home's setup is also copied to
+  `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups`, which MO2's overwrite cleanup never
+  touches. Enter a home whose setup is gone and the hotkey offers *Restore your last setup*.
 - **Never lose an item:** it preserves tempering, enchantments, names and stolen flags, and never touches
   quest, equipped or favorited items, or script tokens.
 - **Looks like your game, not like a mod:** in-world menus are UIExtensions lists, chests show their role
@@ -38,6 +47,7 @@ No ESP is needed.
 | [docs/BUILDING.md](docs/BUILDING.md) | Building and deploying |
 | [docs/TESTING.md](docs/TESTING.md) | In-game test script |
 | [tools/README.md](tools/README.md) | Template authoring with `esm_dump.py` |
+| [docs/EDITOR.md](docs/EDITOR.md) | Dova Stash Editor (in development): making templates outside the game |
 | [presskit/](presskit/) | Nexus Mods page copy and art (press kit) |
 | [CHANGELOG.md](CHANGELOG.md) | Changes per version |
 
@@ -47,6 +57,13 @@ git clone --recursive <this repo>
 cmake --preset plugin && cmake --build build/plugin --config Release --target DovaStash
 ```
 See [docs/BUILDING.md](docs/BUILDING.md) for full instructions. You need VS 2022 and vcpkg with `VCPKG_ROOT` set.
+
+## Dova Stash Editor (in development)
+A standalone program for making home templates without the game: pick the home's mod from your MO2 list
+(by name or Nexus mod id), and it finds the player homes in the mod's plugins, draws a floor plan of each
+cell with its containers, racks, mannequins, plaques and doors, and drafts a template. Run it as an MO2
+executable. Assigning categories and saving from the editor come next. See [docs/EDITOR.md](docs/EDITOR.md);
+build it with `cmake --preset editor && cmake --build --preset editor-release`.
 
 ## License
 GPL-3.0-or-later (see [LICENSE](LICENSE)), as required by CommonLibSSE-NG. The vendored SKSE Menu

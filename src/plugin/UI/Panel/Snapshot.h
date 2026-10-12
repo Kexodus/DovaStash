@@ -53,6 +53,20 @@ namespace dova::ui::panel
 		bool                     available{ false };
 		std::string              reason;   // why it is unavailable
 		std::string              warning;  // accepted with a warning (e.g. respawn flag in a never-reset cell)
+		// Multi-cell homes (DESIGN §6.7): the area it is in when that is not the player's ("" otherwise), and
+		// whether it is reached from here anyway (persistent, or its cell is loaded).
+		std::string              area;
+		bool                     remote{ false };
+	};
+
+	// One cell of a multi-cell home (Home::areas).
+	struct AreaRow
+	{
+		core::FormRef cell;
+		std::string   cellText;
+		std::string   name;
+		bool          main{ false };
+		bool          here{ false };  // the player is in it
 	};
 
 	struct LearnedRow
@@ -76,16 +90,33 @@ namespace dova::ui::panel
 		bool         applied{ false };  // the layout's basedOn points at this template
 	};
 
+	// A copy of this home's setup kept outside Data (Store::HomeBackups, DESIGN §6.6).
+	struct BackupOption
+	{
+		std::filesystem::path path;
+		std::string           date;  // "2026-10-12 14:03"
+		bool                  history{ false };
+	};
+
 	struct HomeSnapshot
 	{
 		std::uint64_t serial{ 0 };
 
 		bool        inHome{ false };
 		std::string notHomeReason;
+		// The player's cell can join the home they just came from (HomeRegistry::OfferArea): its name, and the
+		// cell id Controller::AddArea takes. Also set on the setup page of a cell with no setup.
+		std::optional<std::string> addAreaTo;
+		std::uint32_t              addAreaCell{ 0 };
 
 		std::uint32_t cellId{ 0 };
 		std::string   cellText;
 		std::string   homeName;
+		// Multi-cell homes: every cell in use (main first; more than one entry only for such a home), the area
+		// the player is in when it is not the main one, and listed cells that have a setup of their own.
+		std::vector<AreaRow>     areas;
+		std::string              hereArea;
+		std::vector<std::string> areasExcluded;
 
 		bool                       enabled{ false };  // has a player layout
 		bool                       layoutBroken{ false };
@@ -99,6 +130,9 @@ namespace dova::ui::panel
 		std::vector<LearnedRow>    learned;
 		std::vector<TemplateOption> templates;  // eligible templates for this cell, best first
 		std::vector<std::string>   layoutWarnings;  // ValidateLayoutCategories on the current layout
+		// Saved setups outside Data: the latest copy first, then history, newest first. Listed on a full
+		// refresh (and when the home changes); carried over otherwise.
+		std::vector<BackupOption> backups;
 
 		std::optional<core::KeepConfig> keep;  // the layout's keep block
 		std::string                     keepJson;  // serialized keep block ("" = none): change detection for the editor draft

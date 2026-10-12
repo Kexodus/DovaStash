@@ -73,10 +73,12 @@ namespace
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
 			dova::sort::crafting::Reset("loading a game");
+			dova::home::HomeRegistry::Get().ForgetVisits();
 			break;
 		case SKSE::MessagingInterface::kNewGame:
 			logger::info("kNewGame");
 			dova::sort::crafting::Reset("new game");
+			dova::home::HomeRegistry::Get().ForgetVisits();
 			dova::events::RegisterPlayerSinks();
 			break;
 		case SKSE::MessagingInterface::kPostLoadGame:

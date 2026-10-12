@@ -65,9 +65,11 @@ namespace dova::ui::panel
 			std::array<char, 128> addNever{};
 
 			bool                 exportInit{ false };
+			std::uint32_t        exportCell{ 0 };  // the home the fields were filled for
 			std::array<char, 96> exportName{};
 			std::array<char, 96> exportAuthor{};
 			std::array<char, 32> exportVersion{};
+			bool                 exportLearned{ true };  // learned items as fixed item bindings
 
 			const CategoryTree* choicesFor{ nullptr };
 			std::vector<Choice> choices;
@@ -310,6 +312,10 @@ namespace dova::ui::panel
 		void RenderHeader(const HomeSnapshot& a_snap)
 		{
 			Colored(kAccent, std::format(text::kHeaderHome, a_snap.homeName));
+			if (!a_snap.hereArea.empty()) {
+				ImGui::SameLine();
+				Text(std::format(text::kHereArea, a_snap.hereArea));
+			}
 			ImGui::SameLine();
 			Disabled(a_snap.cellText);
 			if (a_snap.enabled) {
@@ -355,17 +361,65 @@ namespace dova::ui::panel
 			}
 		}
 
+		// Saved setups outside Data (DESIGN §6.6): the latest copy, then the older ones in a tree. `a_confirm`:
+		// this home has a setup (or a broken file) that a restore replaces, so each asks first.
+		void RenderBackups(const HomeSnapshot& a_snap, bool a_confirm)
+		{
+			ImGui::SeparatorText(text::kBackupsHeader);
+			Tooltip(text::kBackupsTip);
+			if (a_snap.backups.empty()) {
+				Disabled(text::kNoBackups);
+				Tooltip(text::kBackupsTip);
+				return;
+			}
+			const auto cell = a_snap.cellId;
+			const auto offer = [&](std::size_t a_index, const std::string& a_label) {
+				const auto& backup = a_snap.backups[a_index];
+				const bool  go = a_confirm ? ConfirmButton(a_label, std::format("restore:{}", a_index), std::format(ui::kConfirmRestore, backup.date)) :
+				                             Button(a_label);
+				Tooltip(text::kBackupsTip);
+				if (go) {
+					Do([cell, path = backup.path]() { Controller::Get().RestoreBackup(cell, path); }, Refresh::Full);
+				}
+			};
+			std::size_t older = 0;
+			for (std::size_t i = 0; i < a_snap.backups.size(); ++i) {
+				if (!a_snap.backups[i].history) {
+					offer(i, a_confirm ? std::format(text::kRestoreLast, a_snap.backups[i].date) : std::format(ui::kRestoreLastSetup, a_snap.backups[i].date));
+				} else {
+					++older;
+				}
+			}
+			if (older > 0 && ImGui::TreeNodeEx(std::format(text::kOlderBackups, older).c_str(), 0)) {
+				for (std::size_t i = 0; i < a_snap.backups.size(); ++i) {
+					if (a_snap.backups[i].history) {
+						offer(i, std::format(text::kRestoreOlder, a_snap.backups[i].date));
+					}
+				}
+				ImGui::TreePop();
+			}
+		}
+
+		void RenderAddArea(const HomeSnapshot& a_snap);  // below, with the Actions tab's areas
+
 		void RenderSetup(const HomeSnapshot& a_snap)
 		{
 			const auto cell = a_snap.cellId;
 			if (a_snap.layoutBroken) {
-				ColoredWrapped(kRed, text::kSetupBroken);
+				ColoredWrapped(kRed, a_snap.backups.empty() ? text::kSetupBrokenNoBackup : text::kSetupBroken);
 				if (ConfirmButton(text::kResetHome, "reset", std::format(text::kConfirmReset, a_snap.homeName))) {
 					Do([cell]() { Controller::Get().ResetHome(cell); }, Refresh::Full);
+				}
+				if (!a_snap.backups.empty()) {
+					RenderBackups(a_snap, true);
 				}
 				return;
 			}
 			Wrapped(text::kSetupIntro);
+			RenderAddArea(a_snap);
+			if (!a_snap.backups.empty()) {
+				RenderBackups(a_snap, false);
+			}
 			const ContainerRow* focus = a_snap.focusRow && *a_snap.focusRow < a_snap.containers.size() ? &a_snap.containers[*a_snap.focusRow] : nullptr;
 			if (focus && !focus->master) {
 				if (focus->available) {
@@ -419,6 +473,53 @@ namespace dova::ui::panel
 			ImGui::PopID();
 		}
 
+		// Multi-cell homes (DESIGN §6.7): the cells this home spans, each extra one removable.
+		void RenderAreas(const HomeSnapshot& a_snap)
+		{
+			if (a_snap.areas.size() <= 1 && a_snap.areasExcluded.empty()) {
+				return;
+			}
+			ImGui::SeparatorText(text::kAreasHeader);
+			Tooltip(text::kAreasTip);
+			const auto cell = a_snap.cellId;
+			for (const auto& area : a_snap.areas) {
+				ImGui::PushID(area.cellText.c_str());
+				ImGui::AlignTextToFramePadding();
+				Text(area.name);
+				Tooltip(area.cellText);
+				if (area.main) {
+					ImGui::SameLine();
+					Disabled(text::kAreaMain);
+				}
+				if (area.here) {
+					ImGui::SameLine();
+					Colored(kGreen, text::kAreaHere);
+				}
+				if (!area.main && a_snap.enabled && !a_snap.layoutBroken) {
+					ImGui::SameLine();
+					if (ConfirmButton(text::kRemove, "area:" + area.cellText, std::format(ui::kConfirmRemoveArea, area.name, a_snap.homeName))) {
+						Do([cell, ref = area.cell]() { Controller::Get().RemoveArea(cell, ref); }, Refresh::Full);
+					}
+				}
+				ImGui::PopID();
+			}
+			for (const auto& excluded : a_snap.areasExcluded) {
+				ColoredWrapped(kGrey, std::format(text::kAreaExcluded, excluded));
+			}
+		}
+
+		// The player's cell can join the home they just came from (DESIGN §6.7).
+		void RenderAddArea(const HomeSnapshot& a_snap)
+		{
+			if (!a_snap.addAreaTo) {
+				return;
+			}
+			if (Button(std::format(ui::kAddArea, *a_snap.addAreaTo))) {
+				Do([cell = a_snap.addAreaCell]() { Controller::Get().AddArea(cell); }, Refresh::Full);
+			}
+			Tooltip(text::kAreasTip);
+		}
+
 		void RenderActions(const HomeSnapshot& a_snap)
 		{
 			const auto cell = a_snap.cellId;
@@ -459,10 +560,14 @@ namespace dova::ui::panel
 				RenderTemplateChoices(a_snap, true);
 			}
 
+			RenderAreas(a_snap);
+
 			ImGui::SeparatorText(text::kResetHeader);
 			if (ConfirmButton(text::kResetHome, "reset", std::format(text::kConfirmReset, a_snap.homeName))) {
 				Do([cell]() { Controller::Get().ResetHome(cell); }, Refresh::Full);
 			}
+
+			RenderBackups(a_snap, true);
 		}
 
 		// --- Containers tab -----------------------------------------------------------------------------
@@ -537,6 +642,12 @@ namespace dova::ui::panel
 			}
 			if (!a_row.note.empty()) {
 				Wrapped(a_row.note);
+			}
+			if (!a_row.area.empty()) {
+				Disabled(std::format(text::kInArea, a_row.area));
+				if (a_row.remote) {
+					Tooltip(text::kRemoteTip);
+				}
 			}
 			if (!a_row.available) {
 				ColoredWrapped(kRed, std::format(text::kUnavailable, a_row.reason));
@@ -681,6 +792,11 @@ namespace dova::ui::panel
 						Disabled(text::kNotManaged);
 					} else {
 						Colored(kGreen, text::kAvailable);
+					}
+					if (row.remote && !row.area.empty()) {
+						ImGui::SameLine();
+						Disabled("(" + row.area + ")");
+						Tooltip(text::kRemoteTip);
 					}
 					if (!row.warning.empty()) {
 						ImGui::SameLine();
@@ -958,6 +1074,7 @@ namespace dova::ui::panel
 			request.author = FromBuffer(g_state.exportAuthor);
 			request.version = FromBuffer(g_state.exportVersion);
 			request.overwrite = a_overwrite;
+			request.learnedAsForms = g_state.exportLearned;
 			PanelModel::Get().BeginExport();
 			Do([cell = a_snap.cellId, request]() {
 				const auto  result = Controller::Get().ExportTemplate(cell, request);
@@ -974,10 +1091,14 @@ namespace dova::ui::panel
 		void RenderTemplateExport(const HomeSnapshot& a_snap)
 		{
 			auto& st = g_state;
-			if (!st.exportInit) {
-				CopyTo(st.exportName, a_snap.layoutName.empty() ? a_snap.homeName : a_snap.layoutName);
-				CopyTo(st.exportAuthor, a_snap.layoutAuthor.empty() ? "Player"sv : std::string_view(a_snap.layoutAuthor));
-				CopyTo(st.exportVersion, a_snap.layoutVersion.empty() ? "1.0.0"sv : std::string_view(a_snap.layoutVersion));
+			if (!st.exportInit || st.exportCell != a_snap.cellId) {
+				// Same defaults as the hotkey's Save as template...: the home's name, the player character as
+				// author (empty field) and an automatic version (empty field). Reset in another home.
+				CopyTo(st.exportName, a_snap.homeName);
+				st.exportAuthor[0] = '\0';
+				st.exportVersion[0] = '\0';
+				st.exportLearned = true;
+				st.exportCell = a_snap.cellId;
 				st.exportInit = true;
 			}
 			Wrapped(text::kExportIntro);
@@ -985,10 +1106,12 @@ namespace dova::ui::panel
 			ImGui::SetNextItemWidth(320.0f);
 			ImGui::InputText(text::kExportName, st.exportName.data(), st.exportName.size());
 			ImGui::SetNextItemWidth(320.0f);
-			ImGui::InputText(text::kExportAuthor, st.exportAuthor.data(), st.exportAuthor.size());
+			ImGui::InputTextWithHint(text::kExportAuthor, text::kExportAuthorHint, st.exportAuthor.data(), st.exportAuthor.size());
 			ImGui::SetNextItemWidth(120.0f);
-			ImGui::InputText(text::kExportVersion, st.exportVersion.data(), st.exportVersion.size());
-			ColoredWrapped(kGrey, std::format(text::kExportFile, FromBuffer(st.exportName)));
+			ImGui::InputTextWithHint(text::kExportVersion, text::kExportVersionHint, st.exportVersion.data(), st.exportVersion.size());
+			ImGui::Checkbox(text::kExportLearned, &st.exportLearned);
+			Tooltip(text::kExportLearnedTip);
+			ColoredWrapped(kGrey, std::format(text::kExportFile, core::TemplateFileStem(FromBuffer(st.exportName))));
 
 			const auto state = PanelModel::Get().Export();
 			if (state.pending) {
@@ -1045,6 +1168,7 @@ namespace dova::ui::panel
 			Sync(*snap);
 			if (!snap->inHome) {
 				Wrapped(std::format(text::kNotInHome, snap->notHomeReason));
+				RenderAddArea(*snap);
 				RenderStatus();
 				return;
 			}
@@ -1280,7 +1404,7 @@ namespace dova::ui::panel
 			ImGui::Unindent();
 			ImGui::EndDisabled();
 			apply |= ImGui::Checkbox("Enable a home's template automatically on first visit", &v.templates.autoEnable);
-			Help("Homes with a ready-made layout are set up as soon as you walk in, instead of asking.", "[General] bAutoEnableTemplates");
+			Help("Homes with a ready-made setup (a template) are set up as soon as you walk in, instead of asking. Not while a saved setup of your own can be restored there.", "[General] bAutoEnableTemplates");
 
 			ImGui::SeparatorText("QuickLoot IE");
 			ImGui::BeginDisabled(!global->quickLootReady);
@@ -1454,7 +1578,7 @@ namespace dova::ui::panel
 			Text(std::format("Hotkey: {}", global->hotkeyName));
 			Text(std::format("QuickLoot IE: {}   UIExtensions: {}", global->quickLootReady ? "yes" : "no", global->uiExtensions ? "yes" : "no"));
 			ImGui::Spacing();
-			ColoredWrapped(kGrey, "Data: Data/SKSE/Plugins/DovaStash/ (Categories, Templates, Layouts). Log: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log");
+			ColoredWrapped(kGrey, "Data: Data/SKSE/Plugins/DovaStash/ (Categories, Templates, Layouts). Log: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log. Copies of your setups: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups");
 			ColoredWrapped(kGrey, "License: GPL-3.0-or-later. Uses the SKSE Menu Framework 3 API header (LGPL-2.1).");
 		}
 

@@ -59,6 +59,10 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Home/Store.cpp
 	Home/HomeRegistry.h
 	Home/HomeRegistry.cpp
+	Home/Areas.h
+	Home/Areas.cpp
+	Home/TemplateDisplays.h
+	Home/TemplateDisplays.cpp
 	Icons/IconService.h
 	Icons/IconService.cpp
 	Sort/SortEngine.h
@@ -98,6 +102,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/ArmorSetMenu.cpp
 	UI/Labels.h
 	UI/Labels.cpp
+	UI/SaveTemplate.h
+	UI/SaveTemplate.cpp
 	UI/Factory.cpp
 	UI/UIExtensions.h
 	UI/UIExtensions.cpp

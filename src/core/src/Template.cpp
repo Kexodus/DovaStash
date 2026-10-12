@@ -5,6 +5,7 @@
 #include <system_error>
 
 #include "JsonUtil.h"
+#include "dova/core/TemplateDisplays.h"
 #include "dova/core/Version.h"
 
 namespace dova::core
@@ -22,11 +23,31 @@ namespace dova::core
 			if (a_lhs.layout.priority != a_rhs.layout.priority) {
 				return a_lhs.layout.priority > a_rhs.layout.priority;
 			}
+			if (const bool lhsUser = IsUserTemplate(a_lhs.source); lhsUser != IsUserTemplate(a_rhs.source)) {
+				return lhsUser;
+			}
 			if (const auto c = CompareVersionStrings(a_lhs.layout.version, a_rhs.layout.version); c != 0) {
 				return c > 0;
 			}
 			return ICompare(a_lhs.source, a_rhs.source) < 0;
 		}
+	}
+
+	bool IsUserTemplate(std::string_view a_source)
+	{
+		if (a_source.size() <= kUserTemplatePrefix.size()) {
+			return false;
+		}
+		for (std::size_t i = 0; i < kUserTemplatePrefix.size(); ++i) {
+			const char c = a_source[i] == '\\' ? '/' : a_source[i];
+			const auto lower = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+			const char p = kUserTemplatePrefix[i];
+			const auto pLower = static_cast<char>(p >= 'A' && p <= 'Z' ? p - 'A' + 'a' : p);
+			if (lower != pLower) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	std::vector<TemplateCandidate> LoadTemplateDirectory(const std::filesystem::path& a_dir, Diagnostics& a_diags, std::string_view a_sourcePrefix)
@@ -83,6 +104,9 @@ namespace dova::core
 		if (a_template.cell) {
 			check(*a_template.cell, "cell");
 		}
+		for (const auto& c : a_template.cells) {
+			check(c.cell, "cells");
+		}
 		if (a_template.master) {
 			check(*a_template.master, "master");
 		}
@@ -90,14 +114,9 @@ namespace dova::core
 			check(c.ref, "container");
 		}
 		for (const auto& d : a_template.displays) {
-			check(d.ref, "display");
-			for (const auto& item : d.items) {
-				check(item, "display item");
-			}
-			if (d.set) {
-				check(*d.set, "display set");
-			}
+			check(d.ref, "display");  // its items and set are soft references: never needed in requires (TemplateDisplays.h)
 		}
+		ValidateDisplays(a_template, a_source, a_diags);
 	}
 
 	void ValidateLayoutCategories(const Layout& a_layout, const CategorySet& a_categories, std::string_view a_source, Diagnostics& a_diags)
@@ -249,7 +268,7 @@ namespace dova::core
 		}
 
 		// Displays: the template's entries win; the player's ignored flag, and kind, label, note, categories,
-		// items and set where the template gives none, are kept. Displays only the player layout names are kept as they are.
+		// items (with their "only") and set where the template gives none, are kept. Displays only the player layout names are kept as they are.
 		for (auto& d : layout.displays) {
 			const auto* old = a_existing->FindDisplay(d.ref);
 			if (!old) {
@@ -271,6 +290,7 @@ namespace dova::core
 			if (d.items.empty() && d.unparsedItems.empty()) {
 				d.items = old->items;
 				d.unparsedItems = old->unparsedItems;
+				d.only = old->only;  // "only" belongs to the items it limits the display to
 			}
 			if (!d.set) {
 				d.set = old->set;
@@ -290,6 +310,19 @@ namespace dova::core
 			}
 		}
 		layout.unparsedLearned = a_existing->unparsedLearned;
+
+		// The home's cells (DESIGN §6.7): the template's, plus the ones the player added (never dropped).
+		layout.cells = MergeHomeCells(layout.cells, a_existing->cells);
+		if (a_existing->unparsedCells.is_array()) {
+			if (!layout.unparsedCells.is_array()) {
+				layout.unparsedCells = nlohmann::json::array();
+			}
+			for (const auto& entry : a_existing->unparsedCells) {
+				if (std::ranges::find(layout.unparsedCells, entry) == layout.unparsedCells.end()) {
+					layout.unparsedCells.push_back(entry);
+				}
+			}
+		}
 
 		// The player's keep block replaces the template's.
 		if (a_existing->keep) {
@@ -321,12 +354,116 @@ namespace dova::core
 		return layout;
 	}
 
-	Layout ExportAsTemplate(const Layout& a_layout)
+	std::vector<std::string> ReferencedPlugins(const Layout& a_layout)
 	{
-		Layout out = a_layout;
+		std::vector<std::string> out;
+		const auto add = [&](const FormRef& a_ref) {
+			if (!a_ref.plugin.empty() && !PluginLoaded(a_ref.plugin, out)) {
+				out.push_back(a_ref.plugin);
+			}
+		};
+		if (a_layout.cell) {
+			add(*a_layout.cell);
+		}
+		for (const auto& c : a_layout.cells) {
+			add(c.cell);
+		}
+		if (a_layout.master) {
+			add(*a_layout.master);
+		}
+		for (const auto& c : a_layout.containers) {
+			add(c.ref);
+			for (const auto& f : c.forms) {
+				add(f);
+			}
+		}
+		for (const auto& d : a_layout.displays) {
+			add(d.ref);  // not its items or set: soft references, skipped where they don't exist (TemplateDisplays.h)
+		}
+		if (a_layout.keep) {
+			for (const auto* list : { &a_layout.keep->always, &a_layout.keep->never }) {
+				for (const auto& entry : *list) {
+					if (const auto sel = KeepSelector::Parse(entry); sel.kind == KeepSelector::Kind::Form) {
+						add(sel.form);
+					}
+				}
+			}
+			for (const auto& q : a_layout.keep->quotas) {
+				if (q.forms) {
+					for (const auto& f : *q.forms) {
+						add(f);
+					}
+				}
+			}
+		}
+		return out;
+	}
+
+	Layout ExportAsTemplate(const Layout& a_layout, const ExportOptions& a_options, std::size_t* a_learnedKept)
+	{
+		Layout      out = a_layout;
+		std::size_t kept = 0;
+		if (a_options.learnedAsForms) {
+			const auto boundExplicitly = [&](const FormRef& a_form) {
+				return std::ranges::any_of(out.containers, [&](const ContainerBinding& c) { return std::ranges::find(c.forms, a_form) != c.forms.end(); });
+			};
+			for (const auto& [form, container] : a_layout.learned) {
+				if (out.IsMaster(container) || boundExplicitly(form)) {
+					continue;
+				}
+				auto* binding = out.FindContainer(container);
+				if (binding && binding->ignored) {
+					continue;
+				}
+				if (!binding) {
+					ContainerBinding entry;
+					entry.ref = container;
+					out.containers.push_back(std::move(entry));
+					binding = &out.containers.back();
+				}
+				binding->forms.push_back(form);
+				++kept;
+			}
+		}
+		if (a_learnedKept) {
+			*a_learnedKept = kept;
+		}
 		out.learned.clear();
 		out.unparsedLearned = nlohmann::json::object();
 		out.basedOn.reset();
+		for (auto& plugin : ReferencedPlugins(out)) {
+			if (!PluginLoaded(plugin, out.requiredPlugins)) {
+				out.requiredPlugins.push_back(std::move(plugin));
+			}
+		}
 		return out;
+	}
+
+	std::string TemplateFileStem(std::string_view a_name)
+	{
+		std::string out;
+		for (const char c : a_name) {
+			const auto u = static_cast<unsigned char>(c);
+			const bool ok = (u >= '0' && u <= '9') || (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || c == ' ' || c == '-' || c == '_' || c == '.';
+			out += ok ? c : '_';
+		}
+		while (!out.empty() && (out.back() == ' ' || out.back() == '.')) {
+			out.pop_back();
+		}
+		while (!out.empty() && (out.front() == ' ' || out.front() == '.')) {
+			out.erase(out.begin());
+		}
+		if (out.size() > 64) {
+			out.resize(64);
+			while (!out.empty() && (out.back() == ' ' || out.back() == '.')) {
+				out.pop_back();
+			}
+		}
+		static constexpr std::string_view kReserved[]{ "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
+		if (std::ranges::any_of(kReserved, [&](std::string_view a_reserved) { return IEquals(a_reserved, out); })) {
+			out += '_';
+		}
+		return out.empty() ? std::string("Template") : out;
 	}
 }

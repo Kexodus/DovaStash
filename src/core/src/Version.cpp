@@ -150,4 +150,25 @@ namespace dova::core
 		}
 		return l ? std::strong_ordering::greater : std::strong_ordering::less;
 	}
+
+	std::string NextPatchVersion(std::string_view a_version)
+	{
+		auto v = SemVer::Parse(a_version);
+		if (!v) {
+			return "1.0.0";
+		}
+		v->prerelease.clear();
+		constexpr std::uint32_t kMaxPart = 999'999'999;  // SemVer::Parse reads at most 9 digits per part
+		if (v->patch < kMaxPart) {
+			++v->patch;
+		} else if (v->minor < kMaxPart) {
+			++v->minor;
+			v->patch = 0;
+		} else if (v->major < kMaxPart) {
+			++v->major;
+			v->minor = 0;
+			v->patch = 0;
+		}
+		return v->ToString();
+	}
 }

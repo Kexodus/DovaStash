@@ -32,4 +32,8 @@ namespace dova::core
 
 	// Orders raw version strings: invalid < valid; two invalid strings compare equal.
 	[[nodiscard]] std::strong_ordering CompareVersionStrings(std::string_view a_lhs, std::string_view a_rhs);
+
+	// The version a re-saved template gets: "1.2.3" -> "1.2.4", "1.2" -> "1.2.1", "1.2.3-beta" -> "1.2.4"
+	// (pre-release and build dropped, always higher than the input). Unparseable or empty -> "1.0.0".
+	[[nodiscard]] std::string NextPatchVersion(std::string_view a_version);
 }

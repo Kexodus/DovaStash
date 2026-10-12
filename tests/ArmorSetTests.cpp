@@ -384,10 +384,11 @@ TEST_CASE("Templates and armor sets", "[armorsets][template]")
 	b.set = Mod("Valkyrie.esp", 0x810);
 	tmpl.displays = { a, b };
 
-	// A set from a plugin the template does not require is reported.
+	// A set is a soft reference (TemplateDisplays.h): its plugin need not be required, and is not reported.
 	Diagnostics diags;
 	ValidateTemplate(tmpl, "T.json", diags);
-	CHECK(std::ranges::any_of(diags.Items(), [](const Diagnostic& d) { return d.message.find("Valkyrie.esp") != std::string::npos; }));
+	CHECK(std::ranges::none_of(diags.Items(), [](const Diagnostic& d) { return d.message.find("Valkyrie.esp") != std::string::npos; }));
+	CHECK(ReferencedPlugins(tmpl) == std::vector<std::string>{ "Skyrim.esm" });
 
 	// Applying it keeps the player's set where the template names none; the template's wins otherwise.
 	Layout player;

@@ -9,7 +9,8 @@
 // category's icon from the player's SkyUI icon SWFs (Icons/IconService: the same icons as the overlay
 // and QuickLoot), containers their container icon, and the Dova Stash logo sits above every list.
 //
-//   master list:     Deposit, Sort all, Retrieve..., Browse..., template, Advanced..., Reset...
+//   master list:     Deposit, Sort all, Retrieve..., Browse..., template, Save as template..., Advanced...,
+//                    Reset...
 //   container list:  Categories..., Open, Rename..., Learned items..., Clear categories, Ignore,
 //                    Remove..., Make master, Advanced...
 //   categories:      list of category groups -> list of that group's categories ([x] toggles)

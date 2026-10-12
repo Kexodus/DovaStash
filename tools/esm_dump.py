@@ -594,6 +594,9 @@ def decode_cell(lo: LoadOrder, rec: Record, world) -> dict:
         fl = data[0] | ((data[1] << 8) if len(data) > 1 else 0)
         d["flags"] = flags_list(fl, CELL_FLAGS)
         d["interior"] = bool(fl & 1)
+    xclc = rec.get("XCLC")
+    if world and xclc and len(xclc) >= 8:
+        d["grid"] = list(struct.unpack_from("<ii", xclc, 0))  # exterior cell: its grid square in the worldspace
     xown = rec.get("XOWN")
     d["owner"] = lo.describe(pl.resolve(struct.unpack_from("<I", xown)[0]), ["FACT", "NPC_"]) if xown else None
     xlcn = rec.get("XLCN")
@@ -911,6 +914,10 @@ def cmd_cell(lo: LoadOrder, args):
         rows.append(d)
     rows.sort(key=lambda r: (r["baseType"] != "CONT", r.get("baseName") or "", r["ref"]))
     out["containers"] = [r for r in rows if r["baseType"] == "CONT"]
+    # Multi-cell homes (DESIGN 6.7): from the home's other cells, only persistent references can be reached.
+    for r in out["containers"]:
+        r["reachableFromOtherCells"] = r["persistent"]
+    out["persistentCount"] = sum(1 for r in out["containers"] if r["persistent"])
     # Fronts: activators whose default linked ref (XLKR, no keyword) is a container in this cell open that
     # container (shelves and racks in front of a hidden chest). Dova Stash binds the container behind them.
     by_ref = {r["ref"]: r for r in out["containers"]}
@@ -1098,10 +1105,11 @@ ENUMS = {
 }
 MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms", "formLists", "plugins",
               "weaponTypes", "armorTypes", "bookTeaches", "alchemy", "soulGem", "enchanted", "ammo"}
-LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "master", "containers", "displays",
+CELLS_KEYS = {"cell", "label", "note"}
+LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "cells", "master", "containers", "displays",
                "keep", "learned", "basedOn"}
 CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
-DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "set", "ignored"}
+DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "only", "set", "ignored"}
 DISPLAY_KINDS = {"rack", "mannequin", "item", "case"}
 
 
@@ -1190,6 +1198,30 @@ def check_layout(lo, doc, errors, warnings, category_ids):
         warnings.append(f"required plugins not in the load order, refs not verified: {missing_plugins}")
     refs = []
     cell_key = _check_ref_syntax(doc.get("cell", ""), "cell", errors)
+    # More cells of a multi-cell home (DESIGN 6.7): strings or {"cell", "label", "note"}.
+    extra_cells = []
+    cells_val = doc.get("cells", [])
+    for i, entry in enumerate(cells_val if isinstance(cells_val, list) else [cells_val]):
+        where = f"cells[{i}]"
+        if isinstance(entry, dict):
+            for k in entry:
+                if k not in CELLS_KEYS:
+                    warnings.append(f"{where}: unknown key {k!r}")
+            text = entry.get("cell")
+        else:
+            text = entry
+        if not isinstance(text, str):
+            errors.append(f"{where}: expected a cell form ref or an object with 'cell'")
+            continue
+        ck = _check_ref_syntax(text, where, errors)
+        if not ck:
+            continue
+        if cell_key and kl(ck) == kl(cell_key):
+            warnings.append(f"{where}: {fmt_ref(ck)} is the home's main cell (ignored)")
+        elif any(kl(ck) == kl(e) for e in extra_cells):
+            warnings.append(f"{where}: duplicate cell {fmt_ref(ck)}")
+        else:
+            extra_cells.append(ck)
     master = doc.get("master")
     mk = _check_ref_syntax(master, "master", errors) if master else None
     if mk:
@@ -1220,7 +1252,11 @@ def check_layout(lo, doc, errors, warnings, category_ids):
                 if not _pattern_known(cat, category_ids):
                     errors.append(f"{where}: unknown category {cat!r}")
         refs.append((where, key, c))
-    display_refs = []
+    # Displays (DESIGN 8.4 "Displays in templates"): the display refs need their plugins in 'requires'; the items
+    # and sets of racks and mannequins are soft references (skipped in games without their plugin), never required.
+    display_refs, soft_refs, display_entries = [], [], []
+    storage = {kl(mk)} if mk else set()
+    storage |= {kl(r[1]) for r in refs if r[0] != "master" and not r[2].get("ignored")}
     for i, d in enumerate(doc.get("displays", [])):
         where = f"displays[{i}]"
         if not isinstance(d, dict):
@@ -1231,40 +1267,94 @@ def check_layout(lo, doc, errors, warnings, category_ids):
                 warnings.append(f"{where}: unknown key {k!r}")
         if "kind" in d and str(d["kind"]).lower() not in DISPLAY_KINDS:
             errors.append(f"{where}: kind {d['kind']!r} is not one of {sorted(DISPLAY_KINDS)}")
+        if "only" in d and not isinstance(d["only"], bool):
+            errors.append(f"{where}: 'only' must be true or false")
         for cat in _as_list(d.get("categories", [])):
             if category_ids is not None and not _pattern_known(cat, category_ids):
                 errors.append(f"{where}: unknown category {cat!r}")
         key = _check_ref_syntax(d.get("ref", ""), where, errors)
         if key:
             display_refs.append((where, key))
+            display_entries.append((where, key, d))
+            if kl(key) in storage:
+                warnings.append(f"{where}: {fmt_ref(key)} is also the master or a container in use: it is storage, never filled as a display")
         for j, item in enumerate(_as_list(d.get("items", []))):
             ik = _check_ref_syntax(item, f"{where}.items[{j}]", errors)
             if ik:
-                display_refs.append((f"{where}.items[{j}]", ik))
+                soft_refs.append((f"{where}.items[{j}]", ik))
+        if d.get("only") is True and not d.get("items"):
+            warnings.append(f"{where}: 'only' without 'items' does nothing")
+        elif d.get("only") is True and "set" in d:
+            warnings.append(f"{where}: 'only' is ignored next to 'set' (the set decides what the mannequin wears)")
         if "set" in d:
-            if "kind" in d and str(d["kind"]).lower() != "mannequin":
-                warnings.append(f"{where}: 'set' is only used by mannequins")
             sk = _check_ref_syntax(d["set"], f"{where}.set", errors)
             if sk:
-                display_refs.append((f"{where}.set", sk))
-    for k in [cell_key] + [r[1] for r in refs] + [r[1] for r in display_refs]:
+                soft_refs.append((f"{where}.set", sk))
+    for k in [cell_key] + extra_cells + [r[1] for r in refs] + [r[1] for r in display_refs]:
         if k and k[0].lower() not in requires:
             errors.append(f"plugin {k[0]} is referenced but not listed in 'requires'")
-    info = {}
+    optional = sorted({k[0] for _w, k in soft_refs if k[0].lower() not in requires}, key=str.lower)
+    if optional:
+        info_optional = {"optionalPlugins": optional}  # display items/sets: fine without them (skipped, one info log line)
+    else:
+        info_optional = {}
+    player_layout = "learned" in doc or "basedOn" in doc
+
+    def kind_warnings(script_kinds):
+        # The kind the scripts give a display wins over the entry's 'kind' (as in the DLL).
+        for where, key, d in display_entries:
+            kind = script_kinds.get(kl(key)) or (str(d["kind"]).lower() if "kind" in d else None)
+            if kind is None:
+                continue
+            if "set" in d and kind != "mannequin":
+                warnings.append(f"{where}: 'set' is only used by mannequins (this is a {kind})")
+            if kind in ("item", "case"):
+                if d.get("categories"):
+                    warnings.append(f"{where}: 'categories' are only used by racks and mannequins (this is a {kind})")
+                if d.get("only") is True:
+                    warnings.append(f"{where}: 'only' is for racks and mannequins; an item plaque or case always takes just what it is made for")
+                if d.get("items") and kl(key) in script_kinds and not player_layout:
+                    warnings.append(f"{where}: an {kind} display takes what its script is made for; a template's 'items' are not used")
+
+    info = dict(info_optional)
     if not cell_key or missing_plugins:
+        kind_warnings({})
         return info
     crec, _world = lo.cell_record(cell_key)
     if crec is None:
         errors.append(f"cell {doc['cell']} not found")
+        kind_warnings({})
         return info
     info["cellEditorId"] = crec.edid()
     info["cellName"] = crec.plugin.lstring(crec.get("FULL"))
     cell_refs = lo.cell_refs(cell_key)
+    # A multi-cell home: its references may be in any of its cells. Which cell each is in decides whether the
+    # other cells reach it (only persistent references, DESIGN 6.7).
+    ref_cell = {k: cell_key for k in cell_refs}
+    home_cells = [cell_key]
+    for ck in extra_cells:
+        if ck[0].lower() not in loaded:
+            continue
+        xrec, _xworld = lo.cell_record(ck)
+        if xrec is None:
+            errors.append(f"cells: cell {fmt_ref(ck)} not found")
+            continue
+        home_cells.append(ck)
+        for k, v in lo.cell_refs(ck).items():
+            cell_refs.setdefault(k, v)
+            ref_cell.setdefault(k, ck)
+    if len(home_cells) > 1:
+        info["cellsChecked"] = len(home_cells)
+        info["onlyReachableInTheirCell"] = []
+    where_text = f"cell {doc['cell']}" if len(home_cells) == 1 else "any of the home's cells"
     for where, key, entry in refs:
         hit = cell_refs.get(kl(key))
         if hit is None:
-            errors.append(f"{where}: {fmt_ref(key)} is not a reference in cell {doc['cell']}")
+            errors.append(f"{where}: {fmt_ref(key)} is not a reference in {where_text}")
             continue
+        if len(home_cells) > 1 and not (hit[0].flags & REC_FLAG_PERSISTENT) and (where == "master" or not entry.get("ignored")):
+            crec2, _w = lo.cell_record(ref_cell[kl(key)])
+            info["onlyReachableInTheirCell"].append(f"{where} {fmt_ref(key)} ({crec2.edid() if crec2 else fmt_ref(ref_cell[kl(key)])})")
         d = decode_ref(lo, hit[0], ["CONT"], cell_refs)
         if d is None:
             errors.append(f"{where}: {fmt_ref(key)} is not a container (base is not a CONT)")
@@ -1284,16 +1374,22 @@ def check_layout(lo, doc, errors, warnings, category_ids):
             warnings.append(f"master {fmt_ref(key)} starts disabled (the game enables it later, e.g. when built)")
     info["containersChecked"] = len(refs)
     if doc.get("displays"):
-        actor_refs = lo.cell_refs(cell_key, ("REFR", "ACHR"))
+        actor_refs = {}
+        for hc in home_cells:
+            actor_refs.update(lo.cell_refs(hc, ("REFR", "ACHR")))
         for where, key in display_refs:
+            if kl(key) not in actor_refs:
+                errors.append(f"{where}: {fmt_ref(key)} is not a reference in {where_text}")
+        for where, key in soft_refs:
+            if key[0].lower() not in loaded:
+                continue  # optional: skipped in games without that plugin (optionalPlugins)
             if where.endswith(".set"):
                 if lo.lookup(key, ["ARMO"]) is None:
                     errors.append(f"{where}: {fmt_ref(key)} is not an armor piece (ARMO)")
-            elif ".items[" in where:
-                if lo.lookup(key, DISPLAY_ITEM_TYPES) is None:
-                    errors.append(f"{where}: {fmt_ref(key)} is not an item ({', '.join(DISPLAY_ITEM_TYPES)})")
-            elif kl(key) not in actor_refs:
-                errors.append(f"{where}: {fmt_ref(key)} is not a reference in cell {doc['cell']}")
+            elif lo.lookup(key, DISPLAY_ITEM_TYPES) is None:
+                errors.append(f"{where}: {fmt_ref(key)} is not an item ({', '.join(DISPLAY_ITEM_TYPES)})")
+        script_kinds = {kl(parse_ref(d["ref"])): d["kind"] for hc in home_cells for d in find_displays(lo, hc)}
+        kind_warnings(script_kinds)
         info["displaysChecked"] = len(doc["displays"])
     return info
 

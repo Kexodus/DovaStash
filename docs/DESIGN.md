@@ -36,7 +36,10 @@ Design principles, in priority order:
 ### Non-goals (v1)
 
 - Cross-home/central storage (planned for v2, see §12; the data model is designed for it).
-- Moving items to or from containers in unloaded cells.
+- Moving items to or from non-persistent containers in unloaded cells. A home that spans several cells
+  (§6.7) reaches its containers in another cell only while that cell is loaded or when the reference is
+  persistent; anything else is skipped, never touched.
+- A whole worldspace (a town, a hold) as a home: only the exterior cells a layout lists belong to it.
 - Managing NPC/follower inventories (except possibly crafting-supply pulls in a later milestone).
 
 ---
@@ -82,7 +85,8 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 
 1. Player enters Breezehome (or any home with a template).
 2. Dova Stash finds a matching template and shows a one-time notification:
-   *"Dova Stash: Breezehome layout available (by &lt;author&gt;). Press [Hotkey] at any container to enable."*
+   *"Dova Stash: Breezehome setup available (by &lt;author&gt;). Press [Hotkey] at any container to enable."*
+   (In-game text says *setup* for what the files and this document call a layout, §10.3.)
    Auto-enable on first entry is a config option, off by default.
 3. Player presses the hotkey: **Deposit** runs and loot flows into the right containers.
 
@@ -95,7 +99,7 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
    - **Retrieve…**: by category, or everything
    - **Containers**: highlight managed containers
    - **Keep rules**
-   - **Export as template**
+   - **Save as template…** (§6.5)
    - **Reset**
 3. Look at any other container and press the hotkey to open its binding menu: assign categories, set
    it as ignored, rename it, or promote it to master.
@@ -157,7 +161,10 @@ live `Home`/`Layout` or settings:
   `std::atomic<std::shared_ptr>`) after every change. Display code reads only that copy.
 - `Settings` is an atomically swapped `shared_ptr<const Values>`; getters return copies.
 - The UIExtensions bridge keeps its one pending menu behind a mutex, and runs callbacks unlocked.
-- Category and template data never change after `kDataLoaded` and are shared freely.
+- Category data never changes after `kDataLoaded` and is shared freely. Template data is read only
+  from SKSE tasks (Controller, `HomeRegistry`, the panel's snapshot builder), never from the UI
+  thread: saving a template rescans the list (`Store::ReloadTemplates`, which replaces it) and
+  re-resolves the current home in the same task (§6.5).
 
 ---
 
@@ -173,8 +180,17 @@ Categories/
 Templates/                    community/shipped layouts — read-only from the mod's perspective
   Vanilla/Breezehome.json
   <AnyAuthor>/<AnyName>.json  file names are free-form; identity is inside the file
+  User/<Name>.json            the player's own saved templates ("Save as template", §6.5) — written by the mod
 Layouts/                      player-owned layouts — written by the mod
-  Skyrim.esm_000165A7.json    one file per home cell
+  Skyrim.esm_000165A7.json    one file per home, named after its (main) cell (§6.7)
+```
+
+Outside Data, next to the log, the mod keeps a copy of every layout (§6.6):
+
+```
+Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/    (VR: My Games/Skyrim VR)
+  Skyrim.esm_000165A7.json                         the latest copy of that home's layout
+  Skyrim.esm_000165A7.json.20261012-140312.bak     history: the copy from an earlier session (newest 5)
 ```
 
 ### 6.1 Identity: how we refer to forms across load orders
@@ -193,13 +209,20 @@ runtime via `TESDataHandler::LookupForm(localID, plugin)`.
 On entering an eligible cell:
 
 1. `Layouts/<cell>.json` exists → use it (the player's own setup always wins).
+   Without one, a copy of the player's layout outside Data (§6.6) is offered first: the setup prompt
+   starts with *Restore your last setup*, and no template is enabled automatically while it exists.
+   Without one either, a player layout that lists the cell in `cells` makes it part of that home (§6.7):
+   that layout is used, and the cell's own templates are not offered.
 2. Otherwise, use every template in `Templates/**` whose `cell` matches:
    - With one match, offer it.
-   - With several, pick the one with the highest `priority`, then the newest `version`. The UI lists the
-     alternatives.
+   - With several, pick the one with the highest `priority`, then the player's own saved templates
+     (`Templates/User/`, §6.5) before the others, then the newest `version`. The UI lists the
+     alternatives. A template is offered when its `cell` matches and every plugin in `requires` is
+     loaded; player exports follow the same rules.
 3. Applying a template **copies** it into `Layouts/`, with a `"basedOn"` back-reference. Later edits
    never touch the template, and updating a template pack never clobbers player tweaks. A
-   "Re-apply template" action exists.
+   "Re-apply template" action exists (the hotkey menu says *Re-apply* for the template the layout's
+   `basedOn` names, *Use template* for any other).
 
 ### 6.3 Layout / template schema (v1)
 
@@ -221,7 +244,8 @@ On entering an eligible cell:
   ],
   "displays": [                        // optional: the displays this home fills (§8.4)
     {"ref": "Skyrim.esm|0x000EEEEE", "label": "Bow rack", "categories": ["weapons.bows"]},
-    {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]},
+    {"ref": "Skyrim.esm|0x000EEEF0", "label": "Sword rack", "items": ["MyArmory.esp|0x00000D62"], "only": true},  // only this sword; skipped without MyArmory.esp
+    {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]},  // what its script is made for
     {"ref": "Skyrim.esm|0x000EEEEF", "label": "Mannequin", "set": "Skyrim.esm|0x00013961"}  // wears the Ebony set
   ],
   "keep": {
@@ -241,9 +265,15 @@ On entering an eligible cell:
 displays) is free text for people reading the file. Dova Stash never acts on a note; the panel shows a
 container's note under its name, so that is where a template says why it ignores a container.
 
-`set` (mannequins, §8.4) names the armor set the mannequin wears by any one of its pieces (an ARMO form;
-Dova Stash writes the set's first body piece). Without it the mannequin picks a set itself ("Auto"). It is
-an optional field of schema 1: an older DLL keeps it as an unknown key.
+A display entry has one shape in layouts and templates (§8.4, *Displays in templates*): `ref`, then the
+optional `kind`, `label`, `categories` (racks, mannequins), `items`, `only` (racks, mannequins), `set`
+(mannequins), `ignored` and `note`, written in that order. `set` names the armor set the mannequin wears by
+any one of its pieces (an ARMO form; Dova Stash writes the set's first body piece). Without it the mannequin
+picks a set itself ("Auto"). `only` makes a rack or mannequin take nothing but its `items`. A rack's or
+mannequin's items and a set are soft references: one from a plugin that is not loaded is skipped (a template's
+get one info line in the log), and their plugins never belong in `requires`. An item plaque's or case's
+`items` are what its own script is made for, never a template's choice. `set` and `only` are optional fields
+of schema 1: an older DLL keeps them as unknown keys.
 
 Files are written to be read by people: tabs, one line per container (fields lined up in columns), short
 lists on one line, anything longer than 200 columns spread over lines (`detail::Dump`). The shipped
@@ -258,6 +288,191 @@ In v2 an endpoint can also be `{"remote": "central"}`, so v1 files remain valid.
 Layouts are global (cross-playthrough), as in Stash Organizer. v1 needs **no SKSE co-save**. The only
 per-save state we might add later is "dismissed template notifications", which can also live in
 JSON keyed by character name and ID.
+
+### 6.5 Saving a layout as a template
+
+A player layout can be turned into a template from the game, to bring the setup back after a reset or a
+lost `Layouts/` folder, or to share it. Every UI offers it, and all of them go through one code path
+(`Controller::ExportTemplate`):
+- the hotkey master menu (UIExtensions list and message boxes): **Save as template…** asks for a name in
+  UIExtensions' text box, pre-filled with the home's name (without UIExtensions the home's name is used);
+- the panel's **Template** tab: name, author and version fields (author and version may stay empty).
+
+What is written:
+- `Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json` (under MO2: the overwrite folder). The file
+  name keeps ASCII letters, digits, space, `-`, `_` and `.`; anything else becomes `_`
+  (`core::TemplateFileStem`).
+- `core::ExportAsTemplate` copies the layout and drops `basedOn`. Everything a template can hold is kept:
+  master, containers (categories, explicit `forms`, label, note, ignored, unknown keys), displays (kind,
+  label, note, categories, items, `only`, `set`, ignored), keep rules, the top-level note, unknown keys and
+  unparsed entries. Containers that only learned items made known stay listed, without categories.
+- **Learned items** (`core::ExportOptions::learnedAsForms`): a template has no `learned`, so each learned
+  item becomes an explicit item binding instead, in the `forms` of the container it points at (a plain
+  entry is added for a container the layout does not list). The items then go to the same containers for
+  anyone who uses the template, which is what a personal backup wants. Skipped: items learned for the
+  master or for an ignored container (the planner never uses those), and items some container already
+  binds explicitly (that binding already wins, §7). On by default everywhere: the hotkey's **Save as
+  template…** always keeps them (HUD: *saved as template "Whitepeak Tower" (incl. 12 learned items)*); the
+  panel has a checkbox, *Keep learned items (as fixed item bindings)*, ticked, with a tooltip saying that
+  the items will go to the same containers for anyone using the template. Unticked, `learned` is dropped
+  (item-by-item habits, often hundreds of entries: personal for a shared template). Unparsed learned
+  pairs are always dropped.
+- `requires` gets every plugin the template references (`core::ReferencedPlugins`: cell, master,
+  containers and their forms, learned items kept as forms included, displays, keep forms; not the displays'
+  items or sets, which are soft references, §8.4), so it passes the same lint as shipped templates (`ValidateTemplate`, plus the category
+  check); warnings are shown in the panel and counted on the HUD.
+- `cell` is the home being edited; `author` defaults to the player character's name (else "Player");
+  `version` defaults to 1.0.0.
+- A file of that name already there: the hotkey asks first (Yes/No naming the file, its version and the
+  version it becomes, and whether it belongs to another home); the panel shows **Overwrite**/**Cancel**.
+  Replacing copies the old file to a timestamped `.bak` first (as layouts, newest 5 kept), and an
+  automatic version is the old file's version with the patch number raised (`core::NextPatchVersion`).
+
+Available at once: after writing, the templates are rescanned (`Store::ReloadTemplates`) and the home is
+resolved again (`HomeRegistry::RefreshTemplates`), so **Use template** / **Re-apply template** and the
+panel offer it without a restart. The player's own templates rank first among equal priorities (§6.2),
+so after a **Reset home**, **Use template** brings the saved setup back (learned items as item bindings,
+unless the panel's box was unticked).
+If the layout still names forms of a plugin that is no longer loaded (kept, §6.1), the template requires
+that plugin and is not offered in this game; the result says so. The player layout itself is not
+changed. HUD: *Dova Stash: saved as template "&lt;name&gt;"* (plus *incl. N learned items* and the warning
+count when there are any).
+
+### 6.6 Home backups outside Data
+
+Under MO2 every file the game writes below `Data` lands in MO2's `overwrite` folder, and cleaning that
+folder deletes the player's layouts together with their `.bak` files (it happened with a Whitepeak Tower
+setup). Documents is not virtualised by MO2, so `Store` keeps a copy there, in the folder of the log
+(`SKSE::log::log_directory()`: `Documents/My Games/Skyrim Special Edition/SKSE`, `Skyrim VR` and the GOG
+folder picked the same way) under `DovaStash/Backups/`.
+
+- **Writing.** `Store::SavePlayerLayout` is the one place layouts are written; after it (also when the
+  write under Data failed) the layout is queued for `Backups/<plugin>_<cell>.json`. One writer thread,
+  started on demand, writes the queue (newest layout per file wins; temp file + rename, `core::SaveLayoutFile`),
+  so a save never waits on Documents. The first write of a session for a home, and the first after a
+  **Reset home**, first moves the existing copy to history (`<file>.json.<YYYYMMDD-HHMMSS>.bak`, the newest 5
+  kept, the same naming and pruning as layout backups; a copy keeps the time its setup was saved). A
+  failed backup never fails the save: it is warned once in the log, then logged at debug. Without a
+  Documents folder there are no copies (logged once).
+- **Existing setups.** At game start (`Store::Load`) every `Layouts/*.json` without a copy is copied
+  there, so setups made before this feature are protected at once. An existing copy is never replaced.
+- **Offering it.** On entering a home without a layout file, `HomeRegistry` looks for the latest copy
+  (`Home::backup`, one file check; again after a reset or a restore). If there is one:
+  - a one-time HUD line per session (instead of the template notice): *Dova Stash: a saved setup for
+    &lt;home&gt; can be restored (press &lt;key&gt;)*, and `bAutoEnableTemplates` does not enable a template;
+  - the setup prompt (hotkey at a container, or at nothing in such a home) starts with *Restore your last
+    setup (2026-10-12 14:03)*, in the UIExtensions list and the message boxes;
+  - the panel's setup page lists it as a button; on an enabled home the **Actions** tab has **Saved
+    setups**: *Restore last setup (date)...* and, in a tree, *Older copies (N)* with each history copy.
+    Both ask first (*Restore the setup saved &lt;date&gt;? This home's current setup is backed up first
+    (.bak); no items are moved.*). A broken layout file can be replaced the same way.
+- **Restoring** (`Controller::RestoreBackup` → `HomeRegistry::RestoreBackup`). Only a file from
+  `Store::HomeBackups` for this home is accepted. It is loaded with the layout loader first: a copy that
+  does not parse is never used (HUD: *that saved setup is broken (see DovaStash.log)*; the file stays).
+  Unsaved changes are written, the current layout file (if any, broken or not) is copied to a timestamped
+  `.bak`, then the copy becomes the layout and is saved (`cell` is always the home's). HUD: *Dova Stash:
+  &lt;home&gt; restored*.
+- A copy is not tied to an MO2 profile: another profile without a layout for that home is offered it too.
+
+### 6.7 Homes that span several cells
+
+A home can be more than one cell: the main hall plus a cellar behind a load door, an upper floor, or the
+exterior cells outside it where the forge, smelter, tanning rack or garden stand (Hearthfire homes have
+their smithing area outside, the supplies inside). Core rules in `core/HomeCells.h` (unit-tested), the game
+side in `home::Areas` (`Home/Areas.*`), `HomeRegistry` and `Store`.
+
+**Schema** (additive and optional; still `dovastash-layout-1`). Next to `cell`, a layout or template may list
+more cells of the same home:
+
+```jsonc
+"cell": "HearthFires.esm|0x00002FEC",           // the main cell: the home's identity and its layout file
+"cells": [                                      // optional: more cells that belong to this home
+  "HearthFires.esm|0x00004849",                 // a cell by form ref (here the cellar)
+  {"cell": "Skyrim.esm|0x00009BF7", "label": "Grounds", "note": "forge, smelter, tanning rack"}
+],
+```
+
+- An entry is a CELL form ref, as a string or as `{"cell", "label", "note"}` (unknown keys kept). Interior
+  and exterior cells alike: an exterior cell is its own CELL record in the worldspace (`esm_dump.py cells`
+  finds it, `esm_dump.py cell` shows its `grid`), so a whole worldspace is never a home, only the cells
+  listed. The player's cell is compared by form id, so an exterior cell need not be in memory to be
+  recognised.
+- Containers, displays and stations keep being listed by reference in `containers`/`displays`: a reference
+  says which cell it is in. `master` may be in any of the home's cells.
+- A file without `cells` loads, saves and resolves exactly as before (no key is written;
+  `tests/HomeCellsTests.cpp` checks every shipped template against the state before this section).
+- Malformed entries are errors kept verbatim (`unparsedCells`); the main cell listed again and duplicates
+  are warnings. Templates list the plugins of their cells in `requires` (`ReferencedPlugins`,
+  `ValidateTemplate`). Applying a template over a layout keeps the player's extra cells next to the
+  template's (`MergeHomeCells`); **Save as template** keeps them.
+
+**Which home a cell belongs to** (`core::ResolveCellMembership`, `Store::MembershipOf`):
+1. A cell with a layout file of its own (also a broken one) is its own home: the player's setup wins.
+2. Otherwise a player layout that lists it in `cells` makes it part of that home (several: the first by
+   main-cell form ref, the others logged once).
+3. Otherwise it is its own home, and templates resolve by `cell` as before (§6.2).
+
+Templates' `cells` take effect once the template is applied (copied into the player layout), never by
+themselves. So the shipped `*Cellar.json` templates (Lakeview, Windstad, Heljarchen, Tundra Homestead) keep
+working unchanged: a cellar with its own setup stays its own home, and a home whose layout lists a cellar
+that has a setup of its own leaves that cellar out (panel: *... has a setup of its own, so it is not part of
+this home*). No merged main+cellar templates ship yet: the two masters and the overlapping categories need
+tuning in game, and a merged template would replace what **Use template** offers players whose homes already
+work (TESTING §3.9 tests the multi-cell paths in Lakeview Manor).
+
+`Store` keeps an index of every player layout's `cells` (built at game start from `Layouts/*.json`, kept
+current by every layout load, save and reset). The `Home` loaded for an extra cell is that layout's home
+(`Home::cell` is the main cell and decides the file; `Home::extra` is set; `Home::cellId` stays the player's
+cell, so menus captured in one cell stay valid there, as before).
+
+**Eligibility.** The main cell is checked as in §9. An extra cell needs only to be nobody else's (not owned by
+an NPC or a faction the player is not in, unless it is a player house); exterior cells included, as the
+layout lists them on purpose. Containers anywhere keep every check of §9, against their own cell.
+
+**What works across a loading screen** (`core::JudgeReach`, `home::CheckHomeContainer`). An operation run in
+one cell can use a container of the home in:
+- the player's cell: as always (a home with one cell takes exactly the old code path);
+- another cell of the home that is loaded right now (attached: the neighbouring exterior cells of the loaded
+  grid);
+- another cell that is not loaded, only when the reference is **persistent**. Persistent references stay in
+  memory with their cell unloaded and the save keeps the changes made to them; `RemoveItem` and the inventory
+  reads the `ItemMover` uses work on `InventoryChanges`, without 3D (`GetInventoryChanges` initialises a
+  container never opened). A non-persistent reference of an unloaded cell is not in memory, or is about to be
+  dropped with its cell: never touched. It counts as unavailable from there (debug log; panel: *unavailable:
+  only reachable in &lt;area&gt; (not a persistent reference)*), so the planner falls back as for unbuilt
+  furniture: the next container for the category, then the master, else the item stays where it is.
+- Exterior persistent references whose cell is not loaded sit in their worldspace's persistent cell: they are
+  matched to an area by worldspace and grid position, once that exterior cell has been in memory this session
+  (until then they count as out of reach).
+- Displays are filled only in the player's cell (they need their 3D and their cell's scripts).
+
+Hearthfire furniture containers are mostly persistent (their scripts point at them): Lakeview Manor's master
+and main hall chests, cupboards, wardrobes, safes and end tables are; sacks, satchels, barrels and strong boxes
+are not. `esm_dump.py cell` prints `reachableFromOtherCells` per container, and `check` lists the bound
+containers of a multi-cell template that are `onlyReachableInTheirCell`.
+
+**In practice:**
+- *Deposit, Sort all, Retrieve* in any cell of the home use the containers of all its cells that are
+  reachable from there (the master too).
+- *Materials at the workbench* (§8.5): a forge, smelter or tanning rack outside brings the materials stored in
+  the persistent containers inside, and puts what is left back there when the menu closes.
+- *Learn*, *Browse* and the container menus work on reachable containers (opening a remote container's menu
+  is activation from afar; unverified in game).
+
+**Adding and removing an area.** Walk from the home into the next cell (out of its door, into the next
+exterior cell) and press the hotkey: a cell that belongs to no home, has no setup of its own and is nobody
+else's is offered to the home just left (`HomeRegistry::OfferArea`; forgotten when a game is loaded). In a
+cell that is no home a message box asks *Dova Stash: add this area to Lakeview Manor?* (*Add this area to
+Lakeview Manor* / *Cancel*); in a cell that could be a home of its own the setup prompt adds *Add this area to
+Lakeview Manor* (UIExtensions list and message boxes); the panel shows the same button. In an extra cell the
+master menu has *Remove this area from Lakeview Manor...* (asks first; its containers stay in the layout, out
+of reach), and the panel's **Actions** tab lists the **Areas** with a *Remove* button for each extra one. HUD:
+*Dova Stash: this area is now part of Lakeview Manor* / *Dova Stash: Grounds is no longer part of Lakeview
+Manor*. No items are moved by either.
+
+**Feedback.** The log names the home's areas and, per container, its area and whether the other areas reach it
+(debug, once per load of the home). The panel's header says *in Grounds* in an extra area; container rows in
+another area show it (*In Cellar*, and *(Cellar)* next to *available* when used from here).
 
 ---
 
@@ -465,16 +680,70 @@ Furniture and harvestables (chopping blocks list firewood and axes) are never di
 layout uses for storage is not a case. `esm_dump.py cell` lists the displays it can see in the plugin files.
 
 **Layouts and templates** (`displays`, §6.3) list the displays in use, by `ref`. `categories` (patterns, as
-for containers) limits what a rack or mannequin takes; without it, anything that fits. `items` replaces what an
-item plaque or case is made for, or names preferred items for a rack or mannequin. When an item plaque or
-case is turned on (the hotkey, a template, or an entry without `items` found on arrival), Dova Stash writes
-the items its script is made for into `items`, so the entry shows, and keeps, exactly what goes on it; edit
-the list to change that. `set` (mannequins) is the armor set it wears, named by any of its pieces (see
-*Mannequins*). An entry for a display
-the scripts do not reveal needs `kind` (racks still need their `WRackTrigger` linked ref, mannequins must be
-actors, cases containers). `ignored` turns a listed display off. Applying a template merges the entries like
-containers (the player's `ignored` wins; the player's `kind`, `label`, `categories`, `items` and `set` stay
-where the template gives none).
+for containers) limits what a rack or mannequin takes; without it, anything that fits. `items` names preferred
+items for a rack or mannequin (`only`: nothing else goes on it), or what an item plaque or case is made for.
+When an item plaque or case is turned on (the hotkey, a template, or an entry without `items` found on
+arrival), Dova Stash writes the items its script is made for into `items`, so the entry shows, and keeps,
+exactly what goes on it; in a player layout, edit the list to change that. `set` (mannequins) is the armor set
+it wears, named by any of its pieces (see *Mannequins*). An entry for a display the scripts do not reveal needs
+`kind` (racks still need their `WRackTrigger` linked ref, mannequins must be actors, cases containers).
+`ignored` turns a listed display off. Applying a template merges the entries like containers (the player's
+`ignored` wins; the player's `kind`, `label`, `note`, `categories`, `items` (with their `only`) and `set` stay
+where the template gives none; displays only the player lists stay as they are).
+
+**Displays in templates** (`core/TemplateDisplays.h`, unit-tested; `home::RecordDisplayItems`). A template can
+pre-define a home's displays completely: which racks, mannequins, item plaques and cases are used, and for
+racks and mannequins what goes on them. One entry shape, the same in layouts and templates, written in this
+order (one line per entry, fields lined up, like containers):
+
+| Field | Kinds | Meaning |
+|---|---|---|
+| `ref` | all | The display reference (rack activator, mannequin actor, plaque, case). Required |
+| `kind` | all | `rack`, `mannequin`, `item`, `case`; only needed for a display the scripts do not reveal |
+| `label`, `note` | all | The name players see; free text for people reading the file |
+| `categories` | rack, mannequin | Category patterns it takes |
+| `items` | all | Rack, mannequin: preferred items, chosen by the file. Item plaque, case: what its script is made for |
+| `only` | rack, mannequin | `true`: nothing but its `items` goes on it, and no other display takes them |
+| `set` | mannequin | The armor set it wears, by any one of its pieces |
+| `ignored` | all | Listed but never filled |
+
+```jsonc
+"displays": [
+  {"ref": "MyHome.esp|0x00000810", "label": "Bow rack",          "categories": ["weapons.bows"]},
+  {"ref": "MyHome.esp|0x00000811", "label": "Sword rack",        "items": ["MyArmory.esp|0x00000D62", "Skyrim.esm|0x0002ACD2"], "only": true},
+  {"ref": "MyHome.esp|0x00000812", "label": "Mannequin (left)",  "set": "MyArmor.esp|0x00000D70"},
+  {"ref": "MyHome.esp|0x00000813", "label": "Mannequin (right)", "categories": ["armor.light"]},
+  {"ref": "MyHome.esp|0x00000814", "label": "Mask wall"}
+]
+```
+
+- **Soft references, only for what a template chose.** A rack's or mannequin's `items` and a mannequin's `set`
+  may name forms of mods the player may not have. One from a plugin that is not loaded (or a form its plugin
+  does not have) is skipped and the rest of the template works: the other items, the other displays, the
+  containers. Such plugins never go in `requires` (`ReferencedPlugins` leaves display items and sets out,
+  `ValidateTemplate` does not ask for them, *Save as template* does not add them); listing one there makes the
+  whole template depend on it. On arrival in the home (and after applying the template) the log gets one
+  info line per display, once per session, for the template's choices that don't exist:
+  `Template Whitepeak Tower: Sword rack: 1 item doesn't exist in this load order (MyArmory.esp|0x00000D62);
+  skipped`. Not a warning, not repeated every sort. Only what the template chose and the layout entry still
+  names counts (a set the player picked in game, items the player added, and ignored displays are not
+  reported). The references stay in the template and the layout (§6.1). A display left with nothing it may
+  take (an `only` rack none of whose items exist, a mannequin whose set does not) waits, as a chosen set does
+  (*Mannequins*), and the line says so (`...; skipped, nothing else goes on it until it does`).
+- **Never for displays whose items the game or the home mod defines.** An item plaque or a case is made for
+  what its own script names (dragon priest masks, claws, Elder Scrolls, "only for this item" displays). A
+  template turns it on and names it, but never decides its items: for a display whose script Dova Stash reads,
+  the template's `items` are not used; the copy applying the template made in the layout is replaced with the
+  script's items (`core::ItemsCopiedFromTemplate`, logged at debug). Its items are never reported missing, and
+  `only`, `categories` and `set` mean nothing for it (the lint says so). A player's own edit of a plaque's
+  `items` in their layout keeps working as before. Only for a display declared with `kind` whose script Dova
+  Stash cannot read are the entry's `items` what it is made for.
+- **Lint** (`core::ValidateDisplays`, run by `ValidateTemplate` and mirrored by `esm_dump.py check`, warnings
+  only): `set` on a rack, plaque or case; `categories` or `only` on a plaque or case; `only` without `items`, or
+  next to `set` (the set decides); a display that is also the master or a container in use (it is storage, never
+  filled as a display).
+- Existing layouts and templates load and behave exactly as before (all fields optional; `only` is new and
+  only written when set; `tests/ShippedTemplateTests.cpp` pins the shipped templates).
 
 **What goes where** (`core::PlanDisplays`, unit-tested):
 - Candidates are what Deposit would move from the player (never kept, worn, favorited or quest items) and
@@ -482,20 +751,21 @@ where the template gives none).
 - One copy of each base form on display in the whole home. Forms already shown (loose weapons and armor in
   the cell, mannequin outfits, case contents) are not put up again.
 - Items an item plaque or a case is made for are reserved for it: racks and mannequins never take them
-  (a dragon priest mask waits for its plaque).
+  (a dragon priest mask waits for its plaque). So are the `items` of a rack or mannequin with `only`
+  (`DisplaySpot::only`): it takes nothing else, and no other rack or mannequin takes them.
 - A rack or mannequin with categories only takes items whose categories (every category the item matches,
   `CategorySet::MatchAll`, as containers use) match one of its patterns.
 - Item plaques swap the item for a model and recreate it when it is taken back, so they only get copies
   without extra data (`ItemInfo::customized`: tempered, renamed, enchanted by the player, poisoned). Their
   scripts remove "one of this item", so a plaque is also skipped while the player carries any such copy, or a
   worn or favorited one, that the script could take instead. Racks, mannequins and cases keep the very copy.
-- Order: item plaques, cases, mannequins with a chosen set, the other mannequins, shield racks, dagger racks,
+- Order: item plaques, cases, mannequins with a chosen set or `only`, the other mannequins, shield racks, dagger racks,
   racks without daggers or bows, large display cases, racks for any weapon. Each takes the best remaining
   item: preferred items first, then Daedric artifacts, then the highest value; the player's copy before a
   stored one.
 - A mannequin gets one set (*Mannequins*), one piece per slot (head, hair, body, hands, forearms, feet,
   calves, circlet). Shields and jewelry other than circlets stay for other displays. A mannequin wearing
-  anything is left alone, except one with a chosen set that wears only pieces of it.
+  anything is left alone, except one with a chosen set (or `only`) that wears only pieces of it (of its items).
 - A rack takes what its script takes (`core::RackTakes`, by the same keywords as the node): crossbows only
   where the trigger has a crossbow node (`DisplaySpot::crossbows`), and never a form its script refuses there
   (`DisplaySpot::refuses`, filled by the plugin from the script and the trigger's nodes, see the table).
@@ -516,7 +786,8 @@ mannequin* is all it takes; more control is one menu entry away, and the full li
   body piece in FormRef order.
 - *Auto* (no `set`): among the armor that may go up, the set with a body piece covering the most slot groups
   (head, body, hands, feet) wins, then the highest total value; the body piece first, then the rest, pieces
-  of the body piece's armor type first. Preferred `items`, when any are here, are the only set. Auto groups
+  of the body piece's armor type first. Preferred `items`, when any are here, are the only set; with `only`,
+  the mannequin wears nothing but its `items`, filled like a chosen set as they arrive. Auto groups
   only what is here (without the tempering hint), so it can differ from the index for unusual mods.
 - *A chosen set* (`set`): *Armor set... (Auto)* in the display menu lists `Auto` and the sets the player
   has (carried, stored in the home, or on this mannequin), most complete first: `[x] Ebony (4/4)` (slot
@@ -541,7 +812,7 @@ rack whose activator stays enabled (one without `WeaponRackActivateSCRIPT`'s `Pl
 trigger did not disable it) gets nothing: the weapon goes into the player's inventory, the HUD line says so,
 and Deposit and Sort all leave the rack alone for the session. A plaque that hands an item back (it was full)
 is activated once more; one that takes nothing within 3 s gets its item back where it came from and Deposit
-and Sort all leave it alone for the session. *Fill now* on such a display tries again. Filling stops if the player leaves the cell (a weapon dropped for a rack and not up yet goes into
+and Sort all leave it alone for the session. *Fill now* on such a display tries again. In a home that spans several cells (§6.7) only the displays in the player's cell are filled (stock may still come from the reachable containers of its other cells). Filling stops if the player leaves the cell (a weapon dropped for a rack and not up yet goes into
 the player's inventory). The player gets one line at the end (`put 12 items on display`); the log has
 a summary at info (`Displays in Whitepeak Tower: 77 rack (77 empty), 6 mannequin (6 empty), 50 item (50
 empty); 41 items to put up`), the plan and each placement at debug.
@@ -573,7 +844,9 @@ list of ours:
   every piece of stored gear).
 - **From where:** the master and every non-ignored container of the layout that passes the safety checks
   (§9), whole stacks, through the `ItemMover` (so the moves are logged, never learned, and never sorted on
-  arrival). Unavailable and ignored containers are never touched.
+  arrival). Unavailable and ignored containers are never touched. In a home that spans several cells (§6.7)
+  this includes the containers of its other cells that can be reached from the station's cell (persistent,
+  or loaded), so a forge outside brings what is stored inside, and the rest goes back there.
 
 **The ledger.** What really left each container is measured (counts before and after the pull, at most what
 was planned) and recorded per base form and *stack key*: `""` for plain copies, otherwise the extra data that
@@ -618,7 +891,11 @@ A cell can host a Dova Stash layout when **all** of the following hold:
   and modded homes. Parent locations are not consulted: a mod tagging a whole town or hold must not open
   every cell below it.
 
-Per-container checks when binding:
+The other cells of a home that spans several cells (§6.7) only need to be nobody else's (unowned, the
+player's, or a player house), exterior cells included: the layout lists each of them on purpose.
+
+Per-container checks when binding (in a multi-cell home, against the container's own cell; containers in
+another cell that is not loaded also need a persistent reference, §6.7):
 
 - Reject containers whose base `TESObjectCONT` has the **`kRespawn`** flag, unless the cell's encounter zone
   is flagged *never resets*. Being a player house is not enough. Rejected containers show a clear
@@ -649,9 +926,9 @@ struct IStashUI {
   `AddWindow` for the contextual stash panel and `SetSection`/`AddSectionItem("Dova Stash/...")` for a
   global settings page, a template browser and an *Armor sets* page (every armor set in the load order,
   searchable, assignable to a mannequin of the current home, §8.4 *Mannequins*). This is the rich editor:
-  category trees, multi-select binding, keep-rule quotas, and template export.
+  category trees, multi-select binding, keep-rule quotas, and template export (§6.5).
 - **MessageBoxUI:** native `RE::MessageBoxData` chains with pagination. It covers every *essential* action
-  (enable, bind categories, deposit, retrieve, keep defaults). Advanced editing on VR is done by editing
+  (enable, restore a saved setup, bind categories, deposit, retrieve, keep defaults, save as template). Advanced editing on VR is done by editing
   JSON or by using a flat-screen session.
 
 Header: [QTR-Modding/SKSE-Menu-Framework-3-API](https://github.com/QTR-Modding/SKSE-Menu-Framework-3-API).
@@ -703,6 +980,12 @@ Scaleform UI they already own.
   without these names gets the plain-text lists, where choosing any entry closes the menu.
 - QuickLoot IE: only its public MIT API header.
 - No colours, fonts, sizes, HTML or skin-specific features in any text we hand to these menus.
+
+**Wording.** Players never need the word *layout*: in-game text (HUD lines, hotkey lists, message boxes,
+the panel, INI comments) says *setup* ("Breezehome setup enabled", "Custom setup (not from a template)",
+"this home's setup file is broken (see DovaStash.log)", "Your setup is backed up"), and explicit `forms`
+are *fixed item bindings*. *Layout* stays in code, the JSON schema (`dovastash-layout-1`), file and
+folder names (`Layouts/`), the log, and the documentation for template authors.
 
 **List menus.**
 - **Header.** Every list starts with a plain-ASCII header naming the menu: `-- Whitepeak Tower --`
@@ -794,7 +1077,8 @@ shows the word "Master".
 ## 12. Road to central storage (v2 preview)
 
 - Introduce `DovaStash.esl` (ESL-flagged) holding one persistent storage container in a holding cell.
-  Persistence is required because non-persistent refs in unloaded cells are not in memory.
+  Persistence is required because non-persistent refs in unloaded cells are not in memory. Multi-cell
+  homes (§6.7) already move items to and from persistent containers in unloaded cells the same way.
 - Layout endpoints gain `{"remote": "central"}`. Homes become *access points*, as in Stash Organizer v3.
 - Deposit from any enabled home routes overflow or selected categories to central storage. Retrieve can
   pull from central storage anywhere a home is enabled.
@@ -851,7 +1135,7 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
 | 2  | VR input gesture (sneak+activate hook) is untested by us                            | Ship as experimental; recruit a VR tester |
 | 3  | `RemoveItem` HUD spam / sounds during large deposits                                | Test in M1; suppress or batch notifications if needed |
 | 4  | Interaction with QuickLoot IE / other container-UI mods                             | Our hotkey is independent of activation; test the learn path with QuickLoot transfers |
-| 5  | Multi-cell homes (e.g. Hearthfire homes + cellar)                                   | v1: one layout per cell. v2 central storage bridges them |
+| 5  | Multi-cell homes (Hearthfire homes + cellar, a forge outside)                       | §6.7: optional `cells` list; a cell with its own setup stays its own home; other cells reached only when loaded or through persistent references. To verify in game: remote `RemoveItem`/activation, exterior persistent refs while their cell is unloaded |
 | 6  | Template trust: templates are data only (no code), but bad IDs could bind wrong refs | Validate that the ref's base form is a `CONT` and lives in the declared cell; reject otherwise |
 | 7  | JSON library: nlohmann-json (ubiquitous) vs glaze (fast, compile-time)              | nlohmann-json for readability; layouts are small |
 | 8  | Mod name collisions on Nexus                                                        | Check before release |

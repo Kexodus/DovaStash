@@ -41,6 +41,10 @@ namespace dova
 		void MakeMaster(RE::FormID a_cellId, const core::FormRef& a_container);
 		void UseTemplate(RE::FormID a_cellId);
 		void ResetHome(RE::FormID a_cellId);
+		// Brings back a copy of this home's setup kept outside Data (DESIGN §6.6): `a_backup` is one of
+		// Store::HomeBackups (anything else is refused); empty means the latest copy. The current setup file,
+		// if any, is backed up first. A copy that does not load is never used (the HUD says so).
+		void RestoreBackup(RE::FormID a_cellId, std::filesystem::path a_backup = {});
 		void ToggleCategory(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_pattern);
 		void ClearCategories(RE::FormID a_cellId, const core::FormRef& a_container);
 		void SetIgnored(RE::FormID a_cellId, const core::FormRef& a_container, bool a_ignored);
@@ -59,6 +63,11 @@ namespace dova
 		// Opens the container's real ContainerMenu (SkyUI and the player's icon mods draw it), from
 		// anywhere in the home.
 		void Browse(RE::FormID a_cellId, const core::FormRef& a_container);
+		// Multi-cell homes (DESIGN §6.7). Adds the player's cell (`a_cellId`) to the home they just came from
+		// (HomeRegistry::OfferArea, checked again here); no items are moved.
+		void AddArea(RE::FormID a_cellId);
+		// Takes an extra cell out of the home's layout (its containers stay listed, out of reach); not the main cell.
+		void RemoveArea(RE::FormID a_cellId, const core::FormRef& a_area);
 
 		// --- editor actions (M4 panel; main thread, validate a_cellId like the actions above) ---------
 		// Applies a specific eligible template for this cell (by TemplateCandidate::source).
@@ -76,9 +85,12 @@ namespace dova
 		struct ExportRequest
 		{
 			std::string name;
-			std::string author;
-			std::string version;
+			std::string author;   // empty: the player character's name ("Player" if it has none)
+			std::string version;  // empty: 1.0.0, or the replaced file's version with the patch bumped
 			bool        overwrite{ false };
+			// Learned destinations become fixed item bindings (core::ExportOptions::learnedAsForms), so the
+			// items go to the same containers for anyone using the template. On in every UI by default.
+			bool learnedAsForms{ true };
 		};
 		struct ExportResult
 		{
@@ -89,12 +101,22 @@ namespace dova
 				Failed
 			};
 			Status                   status{ Status::Failed };
+			std::string              name;      // the template's name (trimmed)
 			std::string              path;      // Data-relative path of the template file
+			std::string              source;    // "Templates/User/<stem>.json"
+			std::string              version;   // written, or (Exists) the version it would get
+			std::string              existingVersion;           // Exists: the file's version ("" if unreadable)
+			bool                     existingOtherHome{ false };  // Exists: the file is a template for another home
+			std::size_t              learnedKept{ 0 };  // Ok: learned items written as item bindings
 			std::string              message;   // one line for the UI
-			std::vector<std::string> warnings;  // template lint (ValidateTemplate / categories)
+			std::vector<std::string> warnings;  // template lint (ValidateTemplate / categories), plugins not loaded
 		};
-		// Writes this home's layout as a shareable template to
-		// Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json (core::ExportAsTemplate).
+		// "Save as template" (hotkey menus and the panel's Template tab share this): writes this home's
+		// layout as a shareable template to Data/SKSE/Plugins/DovaStash/Templates/User/<stem>.json
+		// (core::ExportAsTemplate: learned destinations as item bindings or dropped, see learnedAsForms;
+		// requires = every referenced plugin). A file
+		// that is replaced is backed up first (timestamped .bak). The templates are then scanned again and
+		// the home re-resolved, so "Use template" offers it at once. Notifies the HUD on success.
 		[[nodiscard]] ExportResult ExportTemplate(RE::FormID a_cellId, const ExportRequest& a_request);
 
 		[[nodiscard]] static std::string HotkeyName();
@@ -115,6 +137,8 @@ namespace dova
 
 		// The hotkey aimed at a display (game::DisplayAt): opens its menu and returns true.
 		bool OpenDisplayMenu(home::Home& a_home, RE::TESObjectREFR* a_target);
+		// The hotkey in a cell that is no home but can join the home the player came from: asks (message box).
+		void OpenAreaPrompt(const home::HomeRegistry::AreaOffer& a_offer);
 		// Binding for `a_container`, created (as a plain managed container) if needed.
 		core::ContainerBinding* EnsureBinding(home::Home& a_home, const core::FormRef& a_container);
 		// Container ref by FormRef if it is currently usable in this home; notifies the reason otherwise.
@@ -129,6 +153,8 @@ namespace dova
 
 		// Saves the layout and lets UI surfaces that show it (QuickLoot info bar) refresh.
 		bool SaveLayout(home::Home& a_home);
+		// Scans the templates again, re-resolves the current home and tells the UIs (after an export).
+		void ReloadTemplates();
 		void EnsureUI();
 
 		ui::StashUIs _ui;

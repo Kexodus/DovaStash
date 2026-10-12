@@ -7,10 +7,13 @@
 #include "Game/ItemAdapter.h"
 #include "Game/ItemMover.h"
 #include "Home/Store.h"
+#include "Home/TemplateDisplays.h"
 #include "Input/InputHandler.h"
 #include "Integrations/QuickLoot.h"
 #include "Log.h"
 #include "Settings.h"
+#include "UI/Labels.h"
+#include "UI/MessageBox.h"
 
 #include <thread>
 
@@ -62,34 +65,11 @@ namespace dova
 		}
 
 		// Writes what each used item plaque and display case is made for (its script's items) into its layout
-		// entry when the entry names none, so the layout shows and keeps exactly what goes on it (DESIGN
-		// §8.4). Entries whose display is not loaded or not recognised are left as they are. True if any changed.
+		// entry, so the layout shows and keeps exactly what goes on it, and reports the template's display items
+		// that don't exist in this load order (DESIGN §8.4; home::RecordDisplayItems). True if any changed.
 		bool RecordDisplayItems(core::Layout& a_layout)
 		{
-			bool changed = false;
-			for (auto& b : a_layout.displays) {
-				if (b.ignored || !b.items.empty() || !b.unparsedItems.empty()) {
-					continue;
-				}
-				auto*      ref = game::LookupRef(b.ref);
-				const auto found = ref ? game::InspectDisplay(ref) : std::nullopt;
-				if (!found || (found->kind != core::DisplayKind::Item && found->kind != core::DisplayKind::Case)) {
-					continue;
-				}
-				std::vector<core::FormRef> items;
-				for (const auto* item : found->items) {
-					if (auto r = game::ToFormRef(item); r && std::ranges::find(items, *r) == items.end()) {
-						items.push_back(std::move(*r));
-					}
-				}
-				if (items.empty()) {
-					continue;
-				}
-				logger::debug("Display {}: made for {} item(s); written to its layout entry", game::Describe(ref), items.size());
-				b.items = std::move(items);
-				changed = true;
-			}
-			return changed;
+			return home::RecordDisplayItems(a_layout);
 		}
 
 		std::string Trim(std::string_view a_text)
@@ -139,86 +119,52 @@ namespace dova
 			}
 		}
 
-		// File stem for an exported template: ASCII letters, digits, space, '-', '_', '.'; everything
-		// else becomes '_' (std::filesystem::path(std::string) is ANSI on Windows, so stay ASCII).
-		std::string TemplateFileStem(std::string_view a_name)
+		// Text that can go into a JSON file: nlohmann::json refuses to write invalid UTF-8 (a name typed in
+		// a legacy code page), which would fail the whole export.
+		bool IsValidUtf8(std::string_view a_text)
 		{
-			std::string out;
-			for (const char c : a_name) {
-				const auto u = static_cast<unsigned char>(c);
-				const bool ok = (u >= '0' && u <= '9') || (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || c == ' ' || c == '-' || c == '_' || c == '.';
-				out += ok ? c : '_';
-			}
-			while (!out.empty() && (out.back() == ' ' || out.back() == '.')) {
-				out.pop_back();
-			}
-			while (!out.empty() && (out.front() == ' ' || out.front() == '.')) {
-				out.erase(out.begin());
-			}
-			if (out.size() > 64) {
-				out.resize(64);
-			}
-			static constexpr std::array kReserved{ "CON"sv, "PRN"sv, "AUX"sv, "NUL"sv, "COM1"sv, "COM2"sv, "COM3"sv, "COM4"sv, "COM5"sv, "COM6"sv,
-				"COM7"sv, "COM8"sv, "COM9"sv, "LPT1"sv, "LPT2"sv, "LPT3"sv, "LPT4"sv, "LPT5"sv, "LPT6"sv, "LPT7"sv, "LPT8"sv, "LPT9"sv };
-			if (std::ranges::any_of(kReserved, [&](std::string_view r) { return core::IEquals(r, out); })) {
-				out += '_';
-			}
-			return out.empty() ? "Template"s : out;
-		}
-
-		// Plugins a template must list in "requires": every plugin its form references point into.
-		void AddReferencedPlugins(const core::Layout& a_layout, std::vector<std::string>& a_requires)
-		{
-			auto add = [&](const std::string& a_plugin) {
-				if (!a_plugin.empty() && std::ranges::none_of(a_requires, [&](const std::string& p) { return core::IEquals(p, a_plugin); })) {
-					a_requires.push_back(a_plugin);
+			for (std::size_t i = 0; i < a_text.size();) {
+				const auto  c = static_cast<unsigned char>(a_text[i]);
+				std::size_t n = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 0;
+				if (n == 0 || (n == 2 && c < 0xC2) || i + n > a_text.size()) {
+					return false;
 				}
-			};
-			if (a_layout.cell) {
-				add(a_layout.cell->plugin);
-			}
-			if (a_layout.master) {
-				add(a_layout.master->plugin);
-			}
-			for (const auto& c : a_layout.containers) {
-				add(c.ref.plugin);
-				for (const auto& f : c.forms) {
-					add(f.plugin);
-				}
-			}
-			if (a_layout.keep) {
-				for (const auto* list : { &a_layout.keep->always, &a_layout.keep->never }) {
-					for (const auto& entry : *list) {
-						if (const auto sel = core::KeepSelector::Parse(entry); sel.kind == core::KeepSelector::Kind::Form) {
-							add(sel.form.plugin);
-						}
+				for (std::size_t k = 1; k < n; ++k) {
+					if ((static_cast<unsigned char>(a_text[i + k]) & 0xC0) != 0x80) {
+						return false;
 					}
 				}
-				for (const auto& q : a_layout.keep->quotas) {
-					if (q.forms) {
-						for (const auto& f : *q.forms) {
-							add(f.plugin);
-						}
-					}
-				}
+				i += n;
 			}
+			return true;
 		}
 
-		// Bindings of `a_layout` that fail the safety checks right now (logged).
-		int CountUnavailable(const core::Layout& a_layout, RE::TESObjectCELL* a_cell)
+		// The player character's name, the default author of an exported template.
+		std::string PlayerName()
 		{
-			int  unavailable = 0;
-			auto check = [&](const core::FormRef& a_ref) {
-				const auto verdict = game::CheckContainer(game::LookupRef(a_ref), a_cell);
+			auto*       player = game::Player();
+			const char* name = player ? player->GetName() : nullptr;
+			std::string text = name ? Trim(name) : std::string{};
+			return !text.empty() && IsValidUtf8(text) ? text : "Player"s;
+		}
+
+		// Bindings of the home's layout that fail the safety checks right now, or are out of reach from the
+		// player's area of a multi-cell home (logged).
+		int CountUnavailable(const home::Home& a_home)
+		{
+			const auto& layout = *a_home.layout;
+			int         unavailable = 0;
+			auto        check = [&](const core::FormRef& a_ref) {
+				const auto verdict = home::CheckHomeContainer(game::LookupRef(a_ref), a_home);
 				if (!verdict.ok) {
 					++unavailable;
 					logger::warn("Template container {} unavailable: {}", a_ref.ToString(), verdict.reason);
 				}
 			};
-			if (a_layout.master) {
-				check(*a_layout.master);
+			if (layout.master) {
+				check(*layout.master);
 			}
-			for (const auto& c : a_layout.containers) {
+			for (const auto& c : layout.containers) {
 				if (!c.ignored) {  // ignored bindings (e.g. respawning barrels a template marks off-limits) never hold items
 					check(c.ref);
 				}
@@ -313,6 +259,11 @@ namespace dova
 		std::string reason;
 		auto*       home = Registry().Current(&reason);
 		if (!home) {
+			// Just outside a home (its door, the next exterior cell): this area can become part of it (DESIGN §6.7).
+			if (const auto offer = Registry().OfferArea()) {
+				OpenAreaPrompt(*offer);
+				return;
+			}
 			Notify(std::format("Dova Stash: not a player home ({})", reason));
 			return;
 		}
@@ -355,7 +306,7 @@ namespace dova
 				}
 			}
 			if (home->layoutBroken) {
-				Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+				Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 				return;
 			}
 			if (!home->layout) {
@@ -372,7 +323,7 @@ namespace dova
 			RE::TESObjectREFR* master = nullptr;
 			if (home->layout->master) {
 				master = game::LookupRef(*home->layout->master);
-				if (master && !game::CheckContainer(master, cell).ok) {
+				if (master && !home::CheckHomeContainer(master, *home).ok) {  // in another area of the home: when reachable
 					master = nullptr;
 				}
 			}
@@ -380,14 +331,71 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return;
 		}
-		if (home->BestTemplate()) {
+		if (home->BestTemplate() || home->backup || Registry().OfferArea()) {
 			UI().OpenSetupPrompt(*home, nullptr);
 			return;
 		}
 		Notify(std::format("Dova Stash: look at a container and press {} to set up {}", HotkeyName(), home->name));
+	}
+
+	void Controller::OpenAreaPrompt(const home::HomeRegistry::AreaOffer& a_offer)
+	{
+		logger::debug("Hotkey -> add {} to {}?", a_offer.cell.ToString(), a_offer.homeName);
+		const auto cellId = a_offer.cellId;
+		ui::ShowMessageBox(std::format(ui::kConfirmAddArea, a_offer.homeName), { std::format(ui::kAddArea, a_offer.homeName), "Cancel" },
+			[this, cellId](std::size_t a_button) {
+				if (a_button == 0) {
+					AddArea(cellId);
+				}
+			});
+	}
+
+	void Controller::AddArea(RE::FormID a_cellId)
+	{
+		const auto offer = Registry().OfferArea();
+		if (!offer || offer->cellId != a_cellId) {
+			Notify("Dova Stash: this area can't be added now");
+			return;
+		}
+		if (!Registry().AddArea(*offer)) {
+			Notify("Dova Stash: could not add this area (see log)");
+			return;
+		}
+		integrations::quickloot::Refresh();
+		UI().OnHomeChanged();
+		if (&Editor() != &UI()) {
+			Editor().OnHomeChanged();
+		}
+		Notify(std::format("Dova Stash: this area is now part of {}", offer->homeName));
+	}
+
+	void Controller::RemoveArea(RE::FormID a_cellId, const core::FormRef& a_area)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home) {
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			return;
+		}
+		const auto area = std::ranges::find(home->areas, a_area, &home::Area::cell);
+		const auto areaName = area != home->areas.end() ? area->name : a_area.ToString();
+		const auto homeName = home->name;
+		if (!Registry().RemoveArea(*home, a_area)) {
+			Notify("Dova Stash: could not remove that area (see log)");
+			return;
+		}
+		// `home` may be loaded again from here on (the player's cell may have left the home): not used below.
+		integrations::quickloot::Refresh();
+		UI().OnHomeChanged();
+		if (&Editor() != &UI()) {
+			Editor().OnHomeChanged();
+		}
+		Notify(std::format("Dova Stash: {} is no longer part of {}", areaName, homeName));
 	}
 
 	bool Controller::OpenDisplayMenu(home::Home& a_home, RE::TESObjectREFR* a_target)
@@ -406,7 +414,7 @@ namespace dova
 			}
 		}
 		if (a_home.layoutBroken) {
-			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return true;
 		}
 		if (!a_home.layout) {
@@ -443,6 +451,14 @@ namespace dova
 		if (!home || home->layout || home->layoutBroken) {
 			return;
 		}
+		if (home->backup) {
+			// The player's own setup comes first: no template is enabled automatically while it can be restored.
+			if (Registry().MarkNotified(home->cellId)) {
+				logger::debug("{}: no setup file, a backup from {} can be restored", home->name, home->backup->date);
+				Notify(std::format("Dova Stash: a saved setup for {} can be restored (press {})", home->name, HotkeyName()));
+			}
+			return;
+		}
 		const auto* best = home->BestTemplate();
 		if (!best || !Registry().MarkNotified(home->cellId)) {
 			return;
@@ -455,11 +471,11 @@ namespace dova
 				if (RecordDisplayItems(*home->layout)) {
 					SaveLayout(*home);
 				}
-				Notify(std::format("Dova Stash: {} layout enabled (by {})", name, author));
+				Notify(std::format("Dova Stash: {} setup enabled (by {})", name, author));
 			}
 			return;
 		}
-		Notify(std::format("Dova Stash: {} layout available (by {}). Press {} at any container to enable.", name, author, HotkeyName()));
+		Notify(std::format("Dova Stash: {} setup available (by {}). Press {} at any container to enable.", name, author, HotkeyName()));
 	}
 
 	void Controller::OnContainerMenuOpened(RE::FormID a_target)
@@ -604,8 +620,7 @@ namespace dova
 		}
 		auto* containerForm = RE::TESForm::LookupByID(a_container);
 		auto* ref = containerForm ? containerForm->AsReference() : nullptr;
-		auto* cell = PlayerCell();
-		const auto verdict = game::CheckContainer(ref, cell);
+		const auto verdict = home::CheckHomeContainer(ref, *home);  // also a reachable one in another area (opened from Browse)
 		if (!verdict.ok) {
 			logger::debug("Learn: {:08X} not usable ({})", a_container, verdict.reason);
 			return;
@@ -709,7 +724,7 @@ namespace dova
 	RE::TESObjectREFR* Controller::UsableContainer(home::Home& a_home, const core::FormRef& a_container)
 	{
 		auto*      ref = game::LookupRef(a_container);
-		const auto verdict = game::CheckContainer(ref, PlayerCell());
+		const auto verdict = home::CheckHomeContainer(ref, a_home);
 		if (!verdict.ok) {
 			Notify(std::format("Dova Stash: can't use this container ({})", verdict.reason));
 			return nullptr;
@@ -746,7 +761,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return;
 		}
 		auto* ref = UsableContainer(*home, a_container);
@@ -769,7 +784,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return;
 		}
 		const auto name = home->BestTemplate()->layout.name;
@@ -782,26 +797,10 @@ namespace dova
 		}
 
 		// Report bindings that fail the safety checks right now (disabled Hearthfire furniture, etc.).
-		int   unavailable = 0;
-		auto* cell = PlayerCell();
-		auto  check = [&](const core::FormRef& a_ref) {
-			const auto verdict = game::CheckContainer(game::LookupRef(a_ref), cell);
-			if (!verdict.ok) {
-				++unavailable;
-				logger::warn("Template container {} unavailable: {}", a_ref.ToString(), verdict.reason);
-			}
-		};
-		if (home->layout->master) {
-			check(*home->layout->master);
-		}
-		for (const auto& c : home->layout->containers) {
-			if (!c.ignored) {  // ignored bindings never hold items
-				check(c.ref);
-			}
-		}
+		const auto unavailable = CountUnavailable(*home);
 		Notify(unavailable == 0 ?
-						std::format("Dova Stash: {} layout enabled", name) :
-						std::format("Dova Stash: {} layout enabled ({} containers unavailable for now)", name, unavailable));
+						std::format("Dova Stash: {} setup enabled", name) :
+						std::format("Dova Stash: {} setup enabled ({} containers unavailable for now)", name, unavailable));
 	}
 
 	void Controller::ResetHome(RE::FormID a_cellId)
@@ -811,9 +810,42 @@ namespace dova
 			return;
 		}
 		if (Registry().Reset(*home)) {
-			Notify(std::format("Dova Stash: {} reset (layout backed up)", home->name));
+			Notify(std::format("Dova Stash: {} reset (setup backed up)", home->name));
 		} else {
 			Notify("Dova Stash: reset failed (see log)");
+		}
+	}
+
+	void Controller::RestoreBackup(RE::FormID a_cellId, std::filesystem::path a_backup)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home) {
+			return;
+		}
+		// Only a copy Dova Stash keeps for this home (the panel passes a path back from its snapshot).
+		const auto backups = home::Store::Get().HomeBackups(home->cell);
+		const auto it = a_backup.empty() ? std::ranges::find_if(backups, [](const home::Store::HomeBackup& b) { return !b.history; }) :
+		                                   std::ranges::find(backups, a_backup, &home::Store::HomeBackup::path);
+		if (it == backups.end()) {
+			logger::warn("Restore: no backup {} for {}", a_backup.empty() ? "(latest)"s : home::Store::PathText(a_backup), home->name);
+			Notify(std::format("Dova Stash: no saved setup for {}", home->name));
+			return;
+		}
+		switch (Registry().RestoreBackup(*home, it->path)) {
+		case home::HomeRegistry::RestoreResult::Restored:
+			integrations::quickloot::Refresh();
+			UI().OnHomeChanged();
+			if (&Editor() != &UI()) {
+				Editor().OnHomeChanged();
+			}
+			Notify(std::format("Dova Stash: {} restored", home->name));
+			break;
+		case home::HomeRegistry::RestoreResult::Broken:
+			Notify("Dova Stash: that saved setup is broken (see DovaStash.log)");
+			break;
+		default:
+			Notify("Dova Stash: could not restore the setup (see log)");
+			break;
 		}
 	}
 
@@ -883,7 +915,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return;
 		}
 		auto& layout = *home->layout;
@@ -922,7 +954,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return;
 		}
 		auto*      ref = game::LookupRef(a_display);
@@ -1015,7 +1047,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return;
 		}
 		// Only templates the resolver found eligible for this cell (cell match + requirements met).
@@ -1038,11 +1070,11 @@ namespace dova
 		if (RecordDisplayItems(*home->layout)) {
 			SaveLayout(*home);
 		}
-		const auto unavailable = CountUnavailable(*home->layout, PlayerCell());
+		const auto unavailable = CountUnavailable(*home);
 		const auto name = chosen->layout.name;
 		Notify(unavailable == 0 ?
-						std::format("Dova Stash: {} layout enabled", name) :
-						std::format("Dova Stash: {} layout enabled ({} containers unavailable for now)", name, unavailable));
+						std::format("Dova Stash: {} setup enabled", name) :
+						std::format("Dova Stash: {} setup enabled ({} containers unavailable for now)", name, unavailable));
 	}
 
 	void Controller::SetLabel(RE::FormID a_cellId, const core::FormRef& a_container, std::string a_label)
@@ -1125,7 +1157,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's layout file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
 			return;
 		}
 		if (!a_keep) {
@@ -1167,6 +1199,18 @@ namespace dova
 		Notify("Dova Stash: default keep rules saved (all homes)");
 	}
 
+	void Controller::ReloadTemplates()
+	{
+		home::Store::Get().ReloadTemplates();
+		Registry().RefreshTemplates();
+		UI().OnTemplatesChanged();
+		UI().OnHomeChanged();
+		if (&Editor() != &UI()) {
+			Editor().OnTemplatesChanged();
+			Editor().OnHomeChanged();
+		}
+	}
+
 	Controller::ExportResult Controller::ExportTemplate(RE::FormID a_cellId, const ExportRequest& a_request)
 	{
 		ExportResult result;
@@ -1175,34 +1219,69 @@ namespace dova
 			result.message = "You are no longer in that home, or it is not set up.";
 			return result;
 		}
-		const auto name = Trim(a_request.name);
-		if (name.empty()) {
+		result.name = Trim(a_request.name);
+		if (result.name.empty()) {
 			result.message = "Enter a template name.";
 			return result;
 		}
-		auto version = Trim(a_request.version);
-		if (version.empty()) {
-			version = "1.0.0";
+		if (!IsValidUtf8(result.name)) {
+			result.message = "The name has characters that can't be saved; use another one.";
+			return result;
+		}
+		auto author = Trim(a_request.author);
+		if (author.empty() || !IsValidUtf8(author)) {
+			author = PlayerName();
 		}
 
-		const auto stem = TemplateFileStem(name);
-		const auto source = std::format("Templates/User/{}.json", stem);
+		const auto stem = core::TemplateFileStem(result.name);
+		result.source = std::format("{}{}.json", core::kUserTemplatePrefix, stem);
 		const auto path = std::filesystem::path{ home::Store::kRoot } / "Templates" / "User" / (stem + ".json");
 		result.path = path.generic_string();
 
+		// A file of that name: read its version (the new one is one patch higher) and whose home it is.
 		std::error_code ec;
-		if (!a_request.overwrite && std::filesystem::exists(path, ec)) {
+		const bool      exists = std::filesystem::exists(path, ec);
+		if (ec) {
+			logger::error("Template export: cannot check {}: {}", result.path, ec.message());
+			result.message = std::format("Could not check {} (see log).", result.path);
+			return result;
+		}
+		std::optional<core::Layout> existing;
+		if (exists) {
+			core::Diagnostics ignored;  // an unreadable file is still replaced (after its backup)
+			try {
+				existing = core::LoadLayoutFile(path, result.source, ignored);
+			} catch (const std::exception& e) {
+				logger::warn("Template export: cannot read {}: {}", result.path, e.what());
+			}
+			if (existing) {
+				result.existingVersion = existing->version;
+				result.existingOtherHome = existing->cell && *existing->cell != home->cell;
+			}
+		}
+		result.version = Trim(a_request.version);
+		if (result.version.empty()) {
+			result.version = existing ? core::NextPatchVersion(existing->version) : "1.0.0"s;
+		}
+		if (exists && !a_request.overwrite) {
 			result.status = ExportResult::Status::Exists;
-			result.message = std::format("{} already exists.", result.path);
+			result.message = std::format("{} already exists{}{}. Overwrite saves v{} and backs up the old file.", result.path,
+				result.existingVersion.empty() ? ""s : std::format(" (v{})", result.existingVersion),
+				result.existingOtherHome ? ", for another home"s : ""s, result.version);
+			logger::debug("Template export: {} exists, asking before replacing it", result.path);
+			return result;
+		}
+		if (exists && !home::Store::BackupFile(path, "Template export")) {
+			result.message = std::format("Could not back up {}; nothing was written (see log).", result.path);
 			return result;
 		}
 
-		auto tpl = core::ExportAsTemplate(*home->layout);
-		tpl.name = name;
-		tpl.author = Trim(a_request.author);
-		tpl.version = version;
-		tpl.cell = home->cell;
-		AddReferencedPlugins(tpl, tpl.requiredPlugins);
+		auto layout = *home->layout;
+		layout.cell = home->cell;  // the cell being edited decides the home, as for saving
+		auto tpl = core::ExportAsTemplate(layout, { .learnedAsForms = a_request.learnedAsForms }, &result.learnedKept);
+		tpl.name = result.name;
+		tpl.author = author;
+		tpl.version = result.version;
 
 		bool ok = false;
 		try {
@@ -1217,16 +1296,51 @@ namespace dova
 		}
 
 		core::Diagnostics diags;
-		core::ValidateTemplate(tpl, source, diags);
-		core::ValidateLayoutCategories(tpl, home::Store::Get().Categories(), source, diags);
+		core::ValidateTemplate(tpl, result.source, diags);
+		core::ValidateLayoutCategories(tpl, home::Store::Get().Categories(), result.source, diags);
 		home::Store::LogDiagnostics(diags, "Template export");
 		for (const auto& d : diags.Items()) {
 			result.warnings.push_back(d.ToString());
 		}
-		logger::info("Exported {} as template {} v{} to {}", home->name, tpl.name, tpl.version, result.path);
+		logger::info("Exported {} as template \"{}\" v{} by {} to {} ({} container(s), {} display(s), {} learned item(s) {}, requires {})", home->name, tpl.name,
+			tpl.version, tpl.author, result.path, tpl.containers.size(), tpl.displays.size(),
+			a_request.learnedAsForms ? result.learnedKept : layout.learned.size(), a_request.learnedAsForms ? "kept as item bindings" : "left out",
+			tpl.requiredPlugins.size());
+
+		// Offered right away: scan the templates again and resolve this home against them.
+		ReloadTemplates();
+		home = Registry().CurrentIf(a_cellId);
+		const auto templates = home::Store::Get().Templates();
+		const auto offered = [&](std::size_t a_index) { return a_index < templates.size() && core::IEquals(templates[a_index].source, result.source); };
+		const bool here = home && ((home->resolution.chosen && offered(*home->resolution.chosen)) || std::ranges::any_of(home->resolution.alternatives, offered));
+		const auto missing = core::MissingRequirements(tpl, game::LoadedPlugins());
+		std::string missingText;
+		for (const auto& p : missing) {
+			missingText += missingText.empty() ? p : ", " + p;
+		}
+		if (!missing.empty()) {
+			// The layout still names forms of a plugin that is gone (kept, never deleted): the template
+			// requires it, so it is offered where that plugin is loaded, not in this game.
+			result.warnings.push_back(std::format("Not offered in this game: it requires {} (not loaded).", missingText));
+			logger::warn("Template export: {} requires {}, which is not loaded; it is not offered in this game", result.source, missingText);
+		}
+
 		result.status = ExportResult::Status::Ok;
-		result.message = std::format("Exported to {}. It is offered from the next game start.", result.path);
-		Notify(std::format("Dova Stash: exported template \"{}\"", tpl.name));
+		result.message = here ? std::format("Saved to {}. This home offers it now.", result.path) : std::format("Saved to {}.", result.path);
+		if (result.learnedKept > 0) {
+			result.message += std::format(" {} learned item{} kept as fixed item bindings.", result.learnedKept, result.learnedKept == 1 ? "" : "s");
+		}
+		logger::debug("Template export: {} is {}offered in {}", result.source, here ? "" : "not ", home ? home->name : "(left the home)"s);
+		const auto  warnings = result.warnings.size();
+		std::string extras;
+		if (result.learnedKept > 0) {
+			extras = std::format("incl. {} learned item{}", result.learnedKept, result.learnedKept == 1 ? "" : "s");
+		}
+		if (warnings > 0) {
+			extras += std::format("{}{} warning{}, see log", extras.empty() ? "" : ", ", warnings, warnings == 1 ? "" : "s");
+		}
+		Notify(extras.empty() ? std::format("Dova Stash: saved as template \"{}\"", tpl.name) :
+		                        std::format("Dova Stash: saved as template \"{}\" ({})", tpl.name, extras));
 		return result;
 	}
 }

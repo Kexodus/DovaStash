@@ -59,6 +59,14 @@ namespace dova::ui
 		}
 	}
 
+	void MenuFrameworkUI::OnTemplatesChanged()
+	{
+		// The Templates and Diagnostics pages read the global snapshot; the home's template choices come
+		// with the next home rebuild.
+		panel::PanelModel::Get().BuildGlobal();
+		panel::PanelModel::Get().RequestRefresh(panel::Refresh::Light);
+	}
+
 	bool MenuFrameworkUI::IsActive() const
 	{
 		return panel::PanelModel::Get().RecentlyRendered();

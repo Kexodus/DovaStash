@@ -69,17 +69,31 @@ Each container entry:
   lists are filled: copy the refs you want into the template's `displays`. In game an item plaque
   also needs a "placed" flag in its script and a case an `OnItemAdded` event; these are rarely visible
   in the plugin, so the list can be a little longer than what the game fills. Template `displays` entries
-  are checked by `check` (ref in the cell, kind, items are items).
+  are checked by `check` (ref in the cell, kind, items are items, fields the display's kind doesn't use).
 - `openedBy`: activators in front of this container that open it (a food shelf, a wine rack, a bookshelf
   trigger). Bind the container; Dova Stash shows it on the activator in game.
 - `baseScripts` / `refScripts`: attached Papyrus scripts. `PlayerBookShelfContainerScript` is a bookshelf
   that only displays books and gives everything else back. Leave those out or mark them `"ignored": true`.
 - `position` / `rotationZDeg`: in-game coordinates. Use them to work out which room a container is in.
 - `persistent`, `deleted`, `lockLevel`, `owner`.
+- `reachableFromOtherCells` (the same as `persistent`; header: `persistentCount`): in a home that spans several
+  cells (DESIGN §6.7), a container is used from the home's other cells only when it is persistent; others
+  only while the player is in their own cell. Good masters and supply chests for a forge outside are
+  persistent.
 
-Exterior cells also include the worldspace's persistent references that lie inside the cell's grid square.
+Exterior cells also include the worldspace's persistent references that lie inside the cell's grid square,
+and the header has the cell's `grid` (its square in the worldspace).
 
 ## Writing a template (workflow)
+
+The quickest start is the game itself: set the home up, then choose **Save as template...** in the hotkey
+menu (or the panel's Template tab). Dova Stash writes `Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json`
+(MO2: `overwrite`) with `cell`, `requires` and everything filled in (DESIGN §6.5). Learned items become
+`forms` (fixed item bindings) of the containers they were learned for, so they go to the same containers
+for everyone; for a template you share, untick *Keep learned items* in the panel's Template tab, or delete
+those `forms` by hand. Polish the labels and notes by hand and run `check` (step 5) before you share it.
+(In game the player layout of a home is called its *setup*; the files are the same `dovastash-layout-1`
+format.) To write one from scratch:
 
 1. `python -I esm_dump.py cells Breezehome` gives you the cell ref.
 2. `python -I esm_dump.py cell WhiterunBreezehome --with FURN > breezehome.json` gives you every container
@@ -89,16 +103,34 @@ Exterior cells also include the worldspace's persistent references that lie insi
    `weapons.*` are allowed). Mark dangerous containers with `"ignored": true` and a `"note"` that explains
    why; keep `"label"` for the short name players see. List the racks, mannequins and item plaques that
    should be filled in `displays` (the `cell` output's `displays` has their refs); players turn the others
-   on with the hotkey. `categories` limits what a rack or mannequin takes, like a container's; `set` gives a
-   mannequin one armor set, named by any of its pieces (`check` makes sure it is an ARMO). An entry can
-   also change a display's items or name one Dova Stash can't recognise (DESIGN §8.4). Plaques and cases
-   get their own `items` written in game when they are turned on, so leaving them out is fine.
-4. List every plugin the template references in `requires`, including the plugin that owns the cell.
+   on with the hotkey. Each entry has the same fields, in this order: `ref`, `kind` (only for a display
+   Dova Stash can't recognise), `label`, `categories` (what a rack or mannequin takes, like a container's),
+   `items` (what a rack or mannequin gets first), `only` (`true`: nothing but its `items`, which no other
+   display takes), `set` (a mannequin's armor set, named by any of its pieces; `check` makes sure it is an
+   ARMO), `ignored`, `note` (DESIGN §8.4, *Displays in templates*). Items and sets may come from other mods:
+   where a mod is missing they are skipped with one info line in `DovaStash.log`, and the rest of the
+   template works. Plaques and cases always take what their own script is made for: list them without
+   `items` (a template's `items` for them are not used; Dova Stash writes the script's items in game).
+   A home that spans several cells (a cellar, the exterior cells with the forge outside) lists the other
+   cells in `cells`, next to `cell`: `"cells": ["HearthFires.esm|0x00004849", {"cell": "Skyrim.esm|0x00009BF7",
+   "label": "Grounds"}]` (`cells BYOHHouse1` finds them; an exterior cell is a cell like any other). Its
+   containers and displays may then be in any of those cells. A cell that has a template of its own (the
+   shipped `*Cellar.json`) stays its own home for players who use that template.
+4. List every plugin the template references in `requires`, including the plugin that owns the cell (and the
+   plugins of the `cells`). Leave
+   out the plugins that only display items and sets come from (listing one makes the whole template need it).
 5. `python -I esm_dump.py check path\to\MyHome.json --categories path\to\Categories\00_Default.json`
+   - With `cells`, refs may be in any of the home's cells; the result lists the bound containers that are
+     `onlyReachableInTheirCell` (not persistent), and `cellsChecked`. Bad `cells` entries are errors, the main
+     cell listed again or a duplicate a warning.
    - It fails on refs that are not containers in the declared cell, respawning bound containers, duplicate refs,
      unknown categories, display entries that point at nothing in the cell, and plugins that are missing
-     from `requires`.
-   - It warns about bookshelves, containers that disappear on upgrade, and a master that starts disabled.
+     from `requires`. Display items and sets from plugins that are not loaded are listed in
+     `optionalPlugins` instead (they are optional); from a loaded plugin they must exist.
+   - It warns about bookshelves, containers that disappear on upgrade, and a master that starts disabled,
+     and about display fields the display's kind doesn't use (`set` on a rack; `categories`, `only` or, in a
+     template, `items` on a plaque or case), `only` without `items` or next to `set`, and a display that is
+     also the master or a container in use.
    - `//` and `/* */` comments are allowed, as in game.
 
 Plugin names in form refs use the plugin's own file name, for example `ccBGSSSE001-Fish.esm` as written in

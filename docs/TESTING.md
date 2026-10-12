@@ -18,7 +18,10 @@ QuickLoot IE, SKSE Menu Framework, KID.
 3. Open the log while you play:
    `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log`.
 4. Player layouts are written to `Data/SKSE/Plugins/DovaStash/Layouts/`. Under MO2 they appear in
-   the **overwrite** folder. Delete `Skyrim.esm_000165A8.json` there to start Breezehome from scratch.
+   the **overwrite** folder. Delete `Skyrim.esm_000165A8.json` there to start Breezehome from scratch,
+   and also its copies in `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/`
+   (`Skyrim.esm_000165A8.json*`): otherwise the home offers *Restore your last setup* (§3.6a) instead of
+   the template notice, and the setup prompt lists it first. "A clean Breezehome" below means both.
 
 The default hotkey is **K** (`iHotkey = 37`).
 
@@ -32,6 +35,7 @@ FormUtil: <n> full + <m> light plugins loaded
 Categories: 37 loaded (0 errors, 0 warnings)
 Templates: 22 loaded (0 errors, <w> warnings)
 Keep defaults: built-in (no Data/SKSE/Plugins/DovaStash/Settings.json)
+Home backup: copies go to C:/Users/<you>/Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups
 UI: native message boxes                      (with SKSE Menu Framework: "SKSE Menu Framework: stash window and
                                               "Dova Stash" section registered" + "UI: SKSE Menu Framework panel")
 Events: container-changed and cell-loaded sinks registered
@@ -49,7 +53,7 @@ a `requires` plugin that isn't loaded.
 
 | # | Steps | Expected |
 |---|---|---|
-| 1.1 | `coc WhiterunBreezehome` | Log: `Cell Breezehome (Skyrim.esm\|0x000165A8): template available` and `template: Breezehome v1.0.0 by Dova Stash ...`. One HUD line: *Dova Stash: Breezehome layout available (by Dova Stash). Press K at any container to enable.* |
+| 1.1 | `coc WhiterunBreezehome` | Log: `Cell Breezehome (Skyrim.esm\|0x000165A8): template available` and `template: Breezehome v1.0.0 by Dova Stash ...`. One HUD line: *Dova Stash: Breezehome setup available (by Dova Stash). Press K at any container to enable.* |
 | 1.2 | Leave and re-enter Breezehome in the same session | No second notification. |
 | 1.3 | `coc WhiterunBanneredMare` and press K at nothing | HUD: *Dova Stash: not a player home (owned by ...)*. No menu opens. |
 | 1.4 | `coc BleakFallsBarrow01` (an unowned interior, so the cell passes). Look at a barrel or an urn and press K | HUD: *can't use Barrel (this container respawns its contents (items would be lost))*. No menu opens. |
@@ -105,7 +109,9 @@ Write down the inventory list, including names, *(Fine)* suffixes, enchantments 
 ### 2.3 Deposit (everything goes to the master: no categories bound yet)
 
 1. In Breezehome, press K at nothing. The master menu shows these buttons: *Deposit*, *Sort all*,
-   *Retrieve...*, *Use template "Breezehome"*, *Reset home...*, *Cancel*.
+   *Retrieve...*, *Browse containers...*, *Use template "Breezehome"*, *More...*, *Cancel* (message
+   boxes; *More...* has *Save as template...* and *Reset home...*). The UIExtensions list shows them
+   all in one list (§6.2.1).
 2. Choose **Deposit**.
 3. HUD (one line, no per-item spam): *Dova Stash: deposited N items into 1 container*.
 4. The log shows `Deposit in Breezehome (Skyrim.esm|0x000165A8)` and
@@ -225,20 +231,81 @@ copies next to a special copy stay where they are (`Move skipped: ... left in ..
    book's group reads *[ ] Books... (1 learned)* and, inside it, *[ ] Books (1 learned)*.
 3. Container menu on another chest → **Make master**. The old master becomes unmanaged and the new
    one is the master. The old master's items are not moved.
-4. Master menu → **Reset home...** → *Yes*. HUD: *Breezehome reset (layout backed up)*. The layout
+4. Master menu → **Reset home...** → *Yes*. HUD: *Breezehome reset (setup backed up)*. The layout
    file is renamed to `<file>.json.<YYYYMMDD-HHMMSS>.bak`; only the newest 5 backups are kept.
    **No items are moved.**
 
 ### 3.6 Templates (zero-touch preview of M3)
 
 1. After a reset, press K at any container and choose **Use template "Breezehome"**.
-   HUD: *Breezehome layout enabled*. The layout file has `"basedOn": "Templates/Vanilla/Breezehome.json@1.0.0"`.
+   HUD: *Breezehome setup enabled*. The layout file has `"basedOn": "Templates/Vanilla/Breezehome.json@1.0.0"`.
 2. Deposit. Loot is spread over the bound containers.
-3. Master menu → **Re-apply template** → *Yes*. A timestamped `.bak` copy of the layout is written first.
+3. Master menu → **Re-apply template** → *Yes* (the label says Re-apply only for the template the
+   layout is based on; another template reads **Use template**). A timestamped `.bak` copy of the
+   layout is written first.
    Category bindings come from the template; learned destinations, keep rules, ignored containers,
    explicit forms and containers you added yourself (now without categories) are kept.
 4. Set `bAutoEnableTemplates = true`, start a new session and enter Honeyside (`coc RiftenHoneyside`).
-   HUD: *Honeyside layout enabled (by ...)*.
+   HUD: *Honeyside setup enabled (by ...)*.
+5. **Save as template (hotkey).** In Breezehome with a setup of your own (master, a few containers with
+   categories, one ignored container, a rack with categories, a mannequin with an armor set, a keep
+   rule, some learned items): master menu → **Save as template...**. The text box shows *Breezehome*;
+   type *My Breezehome* and confirm. HUD: *Dova Stash: saved as template "My Breezehome" (incl. N learned
+   items)*. The file `Templates/User/My Breezehome.json` (MO2: `overwrite/SKSE/Plugins/DovaStash/`) has
+   your character's name as `author`, `"version": "1.0.0"`, the Breezehome `cell`, no `learned` and no
+   `basedOn`, the master, containers, displays (with `set`) and `keep`; each learned item is in the
+   `forms` of the container it was learned for (none for the master or an ignored container), and
+   `requires` lists every plugin the refs and those items point into. Log: *Exported Breezehome as
+   template "My Breezehome" v1.0.0 ... N learned item(s) kept as item bindings ...*, then
+   *Templates: N loaded* and the home's template line.
+6. **Offered right away.** Press K again (no restart): the master menu now has
+   **Use template "My Breezehome"** (the player's own templates rank before the shipped one). The
+   panel's **Actions → Template** lists it as *(recommended)*, and **Dova Stash → Templates** lists it.
+7. **Same name again.** **Save as template...** → *My Breezehome* → a box asks *Replace the template
+   "My Breezehome"? Templates/User/My Breezehome.json (v1.0.0) is saved as v1.0.1; the old file is
+   backed up.* **No** writes nothing (check the file time). **Yes** writes v1.0.1 and leaves
+   `My Breezehome.json.<YYYYMMDD-HHMMSS>.bak` next to it. Save a different home under the same name: the
+   box adds *It is the template of another home.*
+8. **Round trip.** Master menu → **Reset home...** → *Yes*, then press K at a container →
+   **Use template "My Breezehome"**. The layout file has the same master, categories, ignored
+   containers, displays, mannequin set and keep rules as before, an empty `learned`, the learned items
+   as `forms` of their containers, and `"basedOn": "Templates/User/My Breezehome.json@1.0.1"`. Deposit
+   sorts as before, learned items included. (Exported from the panel with *Keep learned items* unticked,
+   the template has no such `forms`, and learned-only items go to the master until you teach them again.)
+9. Esc in the text box saves nothing (debug log: *Save as template: cancelled*). With `iMode = 1`
+   (message boxes) the master menu offers the same entry; without UIExtensions it saves under the
+   home's name directly.
+
+### 3.6a Setups backed up outside Data (DESIGN §6.6)
+
+The folder is `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/` (VR: `Skyrim VR`), next
+to `DovaStash.log`; MO2 never puts it in `overwrite`.
+
+1. **Startup.** Start the game with existing layouts. Log: *Home backup: copies go to ...*, and (first
+   time only) *Home backup: N setup file(s) that had no copy yet copied to ...*. Each
+   `Layouts/<file>.json` now has a `Backups/<file>.json` with the same content and file time.
+2. **Every save.** In Breezehome, bind a category (or teach an item and close the container). Debug log:
+   *Home backup: wrote .../Backups/Skyrim.esm_000165A8.json*; the file matches the layout. The first save
+   of the session first logs *Home backup: Skyrim.esm_000165A8.json backed up to ...json.<stamp>.bak*
+   (history; never more than 5). No hitch when closing the container.
+3. **Lost setup (the MO2 case).** Quit, delete `overwrite/SKSE/Plugins/DovaStash/` in MO2 (or just the
+   home's file in `Layouts/`), start the game and enter Breezehome. Log: *a backup of its layout can be
+   restored: ... (date)*. HUD once: *Dova Stash: a saved setup for Breezehome can be restored (press K)*
+   (not the template notice; with `bAutoEnableTemplates = true` no template is turned on).
+4. Press K at a container (or at nothing). The setup list starts with *Restore your last setup
+   (2026-10-12 14:03)* (the copy's time), then *Make ... the master container*, *Use template ...*,
+   *Advanced...*. Choose it. HUD: *Dova Stash: Breezehome restored*; the layout file is back with the
+   same master, categories, learned items and displays; Deposit sorts as before. Same with `iMode = 1`
+   (message boxes, *Restore your last setup (...)* first).
+5. **Reset keeps it.** Master menu → **Reset home...** → *Yes*. The layout goes to a `.bak` as before;
+   the copy in `Backups/` stays, and the hotkey offers *Restore your last setup* again. Set the home up
+   anew (Make master): the copy from before the reset moves to history first (log line as in 2).
+6. **Broken copy.** Break `Backups/Skyrim.esm_000165A8.json` (delete a brace) and delete the layout file.
+   Choosing *Restore your last setup* gives *Dova Stash: that saved setup is broken (see DovaStash.log)*;
+   the log says *could not be parsed; it is not used*. Nothing is written; the home stays not set up.
+7. **No Documents access** (make `Backups` read-only): saving still works; the log warns once
+   (*Home backup: could not write ...*), then only at debug.
+8. Panel: see 5.2 step 8.
 
 ### 3.7 Displays (DESIGN §8.4)
 
@@ -334,6 +401,31 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    weapons, the game asks for an equipped weapon at a rack Dova Stash filled, a weapon comes back off a rack
    by itself, *Fill now* says *nothing ... fits* for a display that just took an item, a mannequin loses
    armor it was already wearing, or a mannequin with a chosen set gets a piece of another set. Send the log.
+12. **Displays pre-defined by a template** (DESIGN §8.4, *Displays in templates*). Copy the shipped
+   `Templates/Vanilla/Breezehome.json` to `Templates/User/Breezehome displays.json`, set `"priority": 1` and add
+   (`NotInstalled.esp` must not exist):
+   ```json
+   "displays": [
+     {"ref": "Skyrim.esm|0x00102A41", "label": "Sword rack",  "items": ["NotInstalled.esp|0x00000D62", "Skyrim.esm|0x0002ACD2"], "only": true},
+     {"ref": "Skyrim.esm|0x00102A42", "label": "Modded rack", "items": ["NotInstalled.esp|0x00000D63"], "only": true},
+     {"ref": "Skyrim.esm|0x00102A9E", "label": "Bow plaque",  "categories": ["weapons.bows"]}
+   ]
+   ```
+   Start the game, Reset home in Breezehome, then **Use template**. **Expected:** the template is offered (no
+   `not offered: missing NotInstalled.esp` line); the log has, once each at info,
+   `Template Breezehome: Sword rack: 1 item doesn't exist in this load order (NotInstalled.esp|0x00000D62); skipped`
+   and `Template Breezehome: Modded rack: 1 item doesn't exist in this load order (NotInstalled.esp|0x00000D63);
+   skipped, nothing else goes on it until it does`; no warning or error. Carry Dawnbreaker
+   (`player.additem 0002ACD2 1`), a Daedric Sword (`player.additem 000139B9 1`) and a Hunting Bow
+   (`player.additem 00013985 1`), Deposit. **Expected:** Dawnbreaker on the sword rack, the bow on the plaque,
+   the modded rack empty, the Daedric Sword stored. Leave and come back, Deposit again: the two lines are not
+   logged again. The layout file still lists both `NotInstalled.esp` items.
+13. **Plaques keep their own items.** In Whitepeak Tower, save a template (Save as template...) with a mask
+   plaque in use, then edit that file: give the plaque `"items": ["Skyrim.esm|0x0001397E", "NotInstalled.esp|0x00000D64"]` (an Iron Dagger and a missing item).
+   Reset home, Use template. **Expected:** the layout entry's `items` is the plaque's own mask again (debug:
+   `Display ...: made for 1 item(s) by its script; the template's list (2) is not used`), no `doesn't exist`
+   line for it, and Deposit puts the mask (never the dagger) on it. `esm_dump.py check` on that file warns that a
+   template's `items` for the plaque are not used.
 
 ### 3.8 Materials at the workbench (DESIGN §8.5)
 
@@ -373,11 +465,62 @@ master and a chest. `iLogLevel = 0`.
    or the forge's list misses recipes for materials that came (then the menu built its list before the pull:
    send the log).
 
+### 3.9 Homes that span several cells (DESIGN §6.7)
+
+Lakeview Manor with the main hall built and its smithing area outside (anvil, smelter, tanning rack, grindstone,
+workbench in the exterior cell `Skyrim.esm|0x00009BF7`, `BYOHHouse1Exterior`; the garden in `0x00009BD6`).
+`coc BYOHHouse1Falkreath`, apply the *Lakeview Manor* template (or make the main hall chest the master),
+`iLogLevel = 0`. Lakeview's chests, cupboards, wardrobes, safes and end tables are persistent; its sacks,
+satchels, barrels and strong boxes are not (`esm_dump.py cell "HearthFires.esm|0x00002FEC"`,
+`reachableFromOtherCells`).
+
+1. **Single cell unchanged.** Before adding anything, play 3.1–3.4 in Breezehome and in Lakeview: same
+   results and log lines as before this feature (no `area` lines, no `Multi-cell homes:` line at startup).
+2. **Add the grounds.** Deposit some iron ingots, leather strips, ore and leather (they go to the main hall
+   chest (east) and the display wardrobe). Walk out of the front door and press the hotkey at nothing.
+   **Expected:** a message box *Dova Stash: add this area to Lakeview Manor?* with *Add this area to Lakeview
+   Manor* / *Cancel*; choosing it: HUD *Dova Stash: this area is now part of Lakeview Manor*; the layout file
+   `Layouts/HearthFires.esm_00002FEC.json` now has `"cells": ["Skyrim.esm|0x00009BF7"]` right after `cell`; the
+   log has `Add area: ...` and, on the next hotkey, `Cell ...: part of Lakeview Manor` with the areas and, per
+   container, `reachable from every area (persistent)` or `reachable only in Lakeview Manor (not persistent)`.
+   Pressing the hotkey again opens the master menu (UIExtensions list or message boxes) with *Remove this area
+   from Lakeview Manor...*.
+3. **Forge outside, supplies inside.** Sit at the outside anvil. **Expected:** *Dova Stash: N materials at hand*;
+   the ingots and strips came from the main hall containers (log: `brought ... from Chest [HearthFires.esm|...]`).
+   Craft an iron dagger, leave: *put N back*, and inside, the unused ingots and strips are back in the same
+   containers. Smelter and tanning rack the same.
+4. **Deposit / Retrieve outside.** Outside, hotkey → Deposit: items go into the persistent containers inside
+   (log lines name them), anything bound to a sack or satchel stays with you or goes to the master
+   (`Container ... unavailable: only reachable in Lakeview Manor (not a persistent reference)` at debug, no
+   warning). Retrieve → Ingots: they come from inside. Browse containers → a main hall chest: its container menu
+   opens (unverified: report if it closes at once or shows nothing).
+5. **Panel.** Outside, open the panel: header *Lakeview Manor in BYOHHouse1Exterior* (or the label you gave the
+   entry); Actions → **Areas** lists *Lakeview Manor (main)* and the grounds *(you are here)* with *Remove*;
+   Containers: rows inside show *(Lakeview Manor)* next to *available*, sacks show *unavailable: only reachable
+   in Lakeview Manor (not a persistent reference)*.
+6. **Cellar with its own setup.** `coc BYOHHouse1FalkreathBasement` with the *Lakeview Manor Cellar* template
+   enabled: the cellar stays its own home (header *Lakeview Manor, Cellar*, its own master). Add
+   `"HearthFires.esm|0x00004849"` to the main hall's `cells` by hand: the cellar still stays its own home, and the
+   main hall's panel says *HearthFires.esm|0x00004849 is listed but has a setup of its own, so it is not part
+   of this home*. **Reset home** in the cellar: on the next hotkey there it is part of Lakeview Manor.
+7. **Remove.** Outside, master menu → *Remove this area from Lakeview Manor...* → Yes: HUD *Dova Stash: ... is no
+   longer part of Lakeview Manor*; the hotkey there says *not a player home (exterior cell not owned by you)* or
+   offers the area again right after coming out of the door. `cells` is gone from the file (no empty list).
+8. **Persistent exterior container.** Add the grounds again, bind the outside chest `HearthFires.esm|0x00003068`
+   to *Building materials* (from the panel, outside), go inside, Deposit lumber. **Expected:** it goes to the
+   outside chest while you are inside (it is persistent). If it does not (log: `container is not in this home`),
+   the exterior cell's grid was not known: report it with the log.
+9. **Loading a game** outside right after leaving the house: no area is offered until you come out of a home
+   again.
+10. **Fail if** an item disappears, a move touches a non-persistent container in another cell, a display in
+   another cell is filled, a single-cell home behaves differently from before, or a file without `cells` gains
+   one.
+
 ## 4. Robustness
 
 | # | Steps | Expected |
 |---|---|---|
-| 4.1 | Corrupt the layout JSON by hand (delete a brace) and re-enter the home | Log: `Layout ... could not be parsed; leaving it untouched`. The hotkey gives *this home's layout file is broken*. The file is never overwritten. **Reset home** moves it to a timestamped `.bak`. Same if `"containers"` is not an array or `"learned"` is not an object. |
+| 4.1 | Corrupt the layout JSON by hand (delete a brace) and re-enter the home | Log: `Layout ... could not be parsed; leaving it untouched`. The hotkey gives *this home's setup file is broken (see DovaStash.log)*. The file is never overwritten. **Reset home** moves it to a timestamped `.bak`. Same if `"containers"` is not an array or `"learned"` is not an object. |
 | 4.2 | Change the load order (move a plugin up or down) and reload | Bindings still resolve, because FormRefs are local ids. |
 | 4.3 | Disable a plugin a template binding refers to | Log: `Container <ref> unavailable: reference not found (plugin missing?)`. Items for it stay in the master. The JSON entry is kept. |
 | 4.4 | Large inventory: `player.additem` about 200 different items, then Deposit | One HUD line. No hitch over about 0.5 s; if there is one, report it, because chunking across frames is a TODO. |
@@ -400,15 +543,16 @@ Requires **SKSE Menu Framework** (QTR-Modding, v3) in the load order, on SE or A
 
 ### 5.1 Opening the stash window (contextual)
 
-Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overwrite`.
+Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overwrite` and its copies in
+`Documents/.../SKSE/DovaStash/Backups/` (§0).
 
 1. In Breezehome, look at the chest near the alchemy lab and press **K**. The window **Dova Stash**
    opens and the game pauses. The header shows *Breezehome* and its cell id. The body shows
    *This home is not set up yet.*, a **Make Chest the master** button, and *Templates for this home*,
    which lists *Breezehome v1.0.0 by Dova Stash (recommended)* with a **Use** button.
 2. Click **Make Chest the master**. The view switches to the tabs (Actions, Containers, Learned,
-   Keep rules, Template). The header now shows *Layout: Breezehome v1.0.0 by Player*,
-   *Custom layout (not based on a template)* and *Master: Chest*. The status line at the bottom reads
+   Keep rules, Template). The header now shows *Setup: Breezehome v1.0.0 by Player*,
+   *Custom setup (not from a template)* and *Master: Chest*. The status line at the bottom reads
    *Dova Stash: Chest is now the master container*.
 3. Close the window with the title-bar **X**, the **Close** button, or Esc. The game unpauses, and the
    HUD shows any queued notifications.
@@ -438,7 +582,14 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    `Templates/Test/` with another name and `priority: -1`), it is listed under the first with its own
    **Use** button, and applying it works the same way.
 7. **Reset home...** → **Yes**. The layout is backed up to `.json.bak` and the window returns to the
-   setup view. No items are moved.
+   setup view. No items are moved. The setup view shows *Saved setups* with a **Restore your last setup
+   (date)** button (no question: there is nothing to replace); it brings the setup back.
+8. **Saved setups** (below Reset; hover for where the copies are): **Restore last setup (date)...** →
+   *Restore the setup saved (date)? This home's current setup is backed up first (.bak); no items are
+   moved.* **No** changes nothing; **Yes**: status *Dova Stash: Breezehome restored*, and `Layouts/` has a
+   new timestamped `.bak` of the setup that was there. *Older copies (N)* lists the history copies (one per
+   earlier session, newest first), each with **Restore the setup from (date)...**. With a broken layout
+   file (4.1) the setup view offers the same buttons next to **Reset home...**.
 
 ### 5.3 Containers tab
 
@@ -499,20 +650,31 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 
 ### 5.6 Template tab (export)
 
-1. Fields default to the layout name, author (*Player*) and version (*1.0.0*). Set the name to
-   *My Breezehome* and the author to your name, then click **Export**.
-2. The status reads *Exported to Data/SKSE/Plugins/DovaStash/Templates/User/My Breezehome.json*. Under
-   MO2 the file is in `overwrite/SKSE/Plugins/DovaStash/Templates/User/`. It has no `learned` and no
-   `basedOn`, `"cell"` is the Breezehome cell, and `"requires"` lists every plugin the refs point
-   into (at least `Skyrim.esm`). Any template lint (for example *no "master" container*) is listed in
-   yellow.
-3. Click **Export** again with the same name. *... already exists.* appears with **Overwrite** and
-   **Cancel**. **Cancel** writes nothing (check the file timestamp). **Overwrite** replaces the file.
-4. A name with `/:*?` characters is written with `_` in their place. An empty name gives
-   *Enter a template name.*
-5. Restart the game. **Dova Stash → Templates** lists *My Breezehome*, and in Breezehome the
-   **Actions → Template** section lists it as an alternative (if its priority and version rank lower
-   than the shipped one).
+1. The name defaults to the home's name; author and version are empty (hints *your character's name*
+   and *automatic*); **Keep learned items (as fixed item bindings)** is ticked (hover: the items go to
+   the same containers for anyone using the template). Set the name to *My Breezehome*, then click
+   **Export**.
+2. The status reads *Saved to Data/SKSE/Plugins/DovaStash/Templates/User/My Breezehome.json. This home
+   offers it now. N learned items kept as fixed item bindings.* and the HUD/status line *Dova Stash:
+   saved as template "My Breezehome" (incl. N learned items)*. Under MO2
+   the file is in `overwrite/SKSE/Plugins/DovaStash/Templates/User/`. It has your character's name as
+   author, version 1.0.0, no `learned` (its items are `forms` of their containers) and no `basedOn`,
+   `"cell"` is the Breezehome cell, and
+   `"requires"` lists every plugin the refs point into (at least `Skyrim.esm`, and the plugins of
+   display refs, plaque items and mannequin sets). Any template lint (for example *no "master"
+   container*) is listed in yellow.
+3. Click **Export** again with the same name. *... already exists (v1.0.0). Overwrite saves v1.0.1 and
+   backs up the old file.* appears with **Overwrite** and **Cancel**. **Cancel** writes nothing (check
+   the file timestamp). **Overwrite** writes v1.0.1 and a timestamped `.bak` of the old file. A version
+   typed into the field is used as it is.
+4. A name with `/:*?` characters is written with `_` in their place (the grey line shows the file
+   name). An empty name gives *Enter a template name.*
+4b. Untick **Keep learned items** and export under another name: no `forms` from learned items, and the
+   HUD has no *incl. ... learned items*. The box is ticked again in another home.
+5. No restart: **Dova Stash → Templates** lists *My Breezehome*, and in Breezehome the
+   **Actions → Template** section lists it as *(recommended)* (the player's own templates rank before
+   the shipped ones of the same priority). The hotkey's **Save as template...** (§3.6) writes the same
+   file.
 
 ### 5.7 Global pages (SKSE Menu Framework menu → Dova Stash)
 
@@ -521,7 +683,7 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 | 5.7.1 | **Current home** | The same panel as the window, for the current cell. Actions work from here too. |
 | 5.7.2 | **Settings** | Hotkey *K (scan code 37)*, gamepad *disabled*, and the INI booleans, log level and UI mode, all read-only, with the note to edit `DovaStash.ini` and restart. |
 | 5.7.3 | **Templates** | Every loaded template with name and version, author, home name (hover: cell FormRef), requires (green *ok*, or red *missing: ...* when a required plugin is not loaded) and an issue count (hover: the warnings). Templates for DLC or CC homes you don't have show *missing*. |
-| 5.7.4 | **Diagnostics** | Category, template and Settings.json load problems, matching the `[warning]`/`[error]` lines in the log (each listed once), plus *Current home layout* warnings, such as a container pattern that matches no category. Break a category file on purpose (`"formTypes": ["XXXX"]`) and restart: the error is listed in red. |
+| 5.7.4 | **Diagnostics** | Category, template and Settings.json load problems, matching the `[warning]`/`[error]` lines in the log (each listed once), plus *This home's setup* warnings, such as a container pattern that matches no category. Break a category file on purpose (`"formTypes": ["XXXX"]`) and restart: the error is listed in red. |
 | 5.7.5 | **About** | Version, runtime, Menu Framework version, category and template counts. |
 
 ### 5.8 Threading and robustness
@@ -551,7 +713,7 @@ skin in MO2). Dova Stash must work the same with both.
 
 | # | Steps | Expected |
 |---|---|---|
-| 6.2.1 | In an enabled home, press K at nothing | A top-down list headed `-- <home name> --`: Deposit, Sort all, Retrieve..., Browse containers..., template entry, Advanced..., Reset home... It is drawn by your UIExtensions list menu skin. |
+| 6.2.1 | In an enabled home, press K at nothing | A top-down list headed `-- <home name> --`: Deposit, Sort all, Retrieve..., Browse containers..., template entry, Save as template..., Advanced..., Reset home... It is drawn by your UIExtensions list menu skin. |
 | 6.2.2 | Press K at a managed container | A list headed `-- <container name> --`: Categories... (with a summary), Open \<name\>, Clear categories, Ignore, Remove..., Make master, Advanced... |
 | 6.2.3 | Categories... -> pick a group -> toggle two categories | The menu stays open: each toggle flips its `[x]` in place, with the selection and scroll position where they were and no close/reopen flash. Debug log: `entry N chosen, list instance M stays open`, then `updated in place`. **< Back** returns to the groups, which show `[x]` / `[~]` / `[ ]`. Esc also goes back. |
 | 6.2.4 | Retrieve... -> a group -> a category | The items move to you. Counts match what was stored. |
@@ -623,5 +785,6 @@ skin in MO2). Dova Stash must work the same with both.
 ## 7. What to send back
 
 - `DovaStash.log` from the session, at `iLogLevel = 1`.
-- The layout file(s) from MO2 `overwrite/SKSE/Plugins/DovaStash/Layouts/`.
+- The layout file(s) from MO2 `overwrite/SKSE/Plugins/DovaStash/Layouts/` (for a restore problem, also
+  the home's files in `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/`).
 - Each failed step: the table row number, what you saw, and what was in the inventory or container before and after.

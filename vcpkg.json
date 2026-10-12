@@ -12,6 +12,14 @@
 			"description": "Engine-independent unit tests",
 			"dependencies": [ "catch2" ]
 		},
+		"editor": {
+			"description": "Dova Stash Editor, the standalone template editor (Dear ImGui on Direct3D 11)",
+			"dependencies": [
+				{ "name": "imgui", "features": [ "dx11-binding", "win32-binding" ] },
+				"lz4",
+				"zlib"
+			]
+		},
 		"plugin": {
 			"description": "SKSE plugin (CommonLibSSE-NG and its dependencies)",
 			"dependencies": [

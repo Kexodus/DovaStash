@@ -8,7 +8,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-01-features.png[/img][/center]
 
-[b]Dova Stash[/b] puts your loot away for you: weapons to the armory, ingredients to the alchemy corner, everything else to the master chest. Popular homes come with ready-made layouts. Anywhere else, pick a master chest and put each item away once. Dova Stash remembers where it goes.
+[b]Dova Stash[/b] puts your loot away for you: weapons to the armory, ingredients to the alchemy corner, everything else to the master chest. Popular homes come with ready-made setups. Anywhere else, pick a master chest and put each item away once. Dova Stash remembers where it goes.
 
 [list]
 [*][b]Any home.[/b] Vanilla, Hearthfire, Creation Club or mod-added. There's no whitelist: a home qualifies when you own it, it's a player house, or nobody owns it.
@@ -18,7 +18,9 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor. Your best weapons go up on the racks, and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down.
 [*][b]Dresses your mannequins.[/b] Each one wears your best matching armor set, or the set you pick from a searchable list of every set in your load order, modded sets included.
 [*][b]Materials at the workbench.[/b] At a home's forge, smelter, tanning rack, cooking pot, alchemy lab or enchanter, the materials stored in the home come to you, and what you don't use goes back when you're done. What you just made stays with you. Modded recipes and materials work too.
-[*][b]22 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and Creation Club homes. Export your own from the game.
+[*][b]Homes over several areas.[/b] Add the cellar or the grounds outside to a home: walk out of it and press [b]K[/b]. The forge outside then brings what is stored inside, and Deposit works in every area. Your existing setups don't change.
+[*][b]22 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and Creation Club homes. Save your own from the hotkey menu, learned items included, to share or to restore after a reset.
+[*][b]Your setups are backed up.[/b] Every change is also copied outside the Data folder, where cleaning MO2's overwrite folder can't reach it. Walk into a home whose setup is gone and press [b]K[/b]: [b]Restore your last setup[/b] brings it back.
 [*][b]Never loses an item.[/b] Enchantments, tempering, custom names, stolen flags and souls survive every move. Equipped, favorited and quest items stay with you. Containers that empty themselves when the area resets are refused.
 [*][b]Your UI, not ours.[/b] In-world menus are UIExtensions lists (any skin), with the game's message boxes as the fallback. Settings and the full editor live in SKSE Menu Framework.
 [*][b]QuickLoot IE support.[/b] A container's categories show as your own SkyUI icons, and items that belong elsewhere read "Iron Sword > Weapon Rack".
@@ -33,10 +35,11 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 
 [b]Setting up a home[/b]
 [list]
-[*][b]Homes with a template:[/b] walk in and you're told a layout is available. Press [b]K[/b] at any container to turn it on.
+[*][b]Homes with a template:[/b] walk in and you're told a setup is available. Press [b]K[/b] at any container to turn it on.
 [*][b]Any other home:[/b] look at a large chest that is always there, press [b]K[/b] and make it the [b]master[/b].
 [*]Then press [b]K[/b] at each other container and pick its [b]Categories...[/b], or skip that and put items away by hand once. Either way, the container becomes their home.
 [*]Mark anything you never want used (display cases, bookshelves) as [b]Ignore[/b]: it stays out for good. [b]Remove[/b] just forgets a container you set up by mistake.
+[*]Forge outside, chests inside? Walk out of the door and press [b]K[/b]: [b]Add this area to Lakeview Manor[/b]. Chests in another area are used when the game keeps them in memory (most Hearthfire chests, wardrobes and safes); sacks and barrels only from their own area.
 [/list]
 
 [b]Day to day[/b]
@@ -63,7 +66,7 @@ Homes with a template need no setup. Set [font=Courier New]bAutoEnableTemplates=
 [*][b]Vanilla and DLC:[/b] Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall, Severin Manor, and Lakeview Manor, Heljarchen Hall and Windstad Manor with their cellars.
 [*][b]Creation Club:[/b] Bloodchill Manor, Gallows Hall, Goldenhills Plantation, Hendraheim, Myrwatch and its gallery, Nchuanthumz, Shadowfoot Sanctum, Tundra Homestead and its cellar. Each is offered only if you own that content.
 [/list]
-Applying a template copies it into your own layout, so your edits are never overwritten. Re-applying replaces only the master and the category bindings, and writes a backup first.
+Applying a template copies it into your own setup, so your edits are never overwritten. Re-applying replaces only the master and the category bindings, and writes a backup first.
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-04-requirements.png[/img][/center]
 
@@ -80,9 +83,9 @@ Not required: PapyrusUtil, KID, or any patch.
 
 [b]New install:[/b] install with your mod manager and launch through SKSE. There is no ESP, ESL or ESM, so it takes no load order slot.
 
-[b]MO2:[/b] your home layouts are written to [font=Courier New]SKSE/Plugins/DovaStash/Layouts/[/font], which MO2 puts in [b]overwrite[/b]. Move them into their own mod once your homes are set up.
+[b]MO2:[/b] your home setups are written to [font=Courier New]SKSE/Plugins/DovaStash/Layouts/[/font], which MO2 puts in [b]overwrite[/b]. Move them into their own mod once your homes are set up. A copy of each is also kept in [font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/[/font], which MO2 doesn't touch, so cleaning overwrite doesn't lose them: the hotkey offers [b]Restore your last setup[/b].
 
-[b]Updating:[/b] install over the old version. Your layouts are separate files and are kept.
+[b]Updating:[/b] install over the old version. Your setups are separate files and are kept.
 
 [b]Uninstalling:[/b] remove it any time, mid-playthrough too. Your items stay in the containers they were sorted into.
 
@@ -101,7 +104,7 @@ Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right
 [*]Log detail
 [*]Keep rules for every home
 [/list]
-[*][b]This home:[/b] actions, containers and their categories, learned items, this home's keep rules, and template export.
+[*][b]This home:[/b] actions, containers and their categories, learned items, this home's keep rules, saving the home as a template, and restoring a saved copy of its setup.
 [/list]
 [b]Keep rules[/b] decide what Deposit leaves in your inventory: equipped, favorited and quest items, gold, lockpicks and torches by default.
 
@@ -119,14 +122,14 @@ No Menu Framework? Every option is in [font=Courier New]Data/SKSE/Plugins/DovaSt
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-08-template-authoring.png[/img][/center]
 
-A template is a small JSON file that says which container in a home holds which categories. Set a home up in game and press [b]Export[/b] on the panel's Template tab, or use [font=Courier New]tools/esm_dump.py[/font] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] to find the containers and validate your file. The [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]template guide[/url] walks through it. Good templates for popular homes may be bundled, with credit.
+A template is a small JSON file that says which container in a home holds which categories, and which racks and mannequins are filled with what, down to one weapon or armor set, even from other mods (a player without that mod still gets the rest of the template). Set a home up in game and choose [b]Save as template...[/b] in the hotkey menu (or the panel's Template tab), or use [font=Courier New]tools/esm_dump.py[/font] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] to find the containers and validate your file. The [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]template guide[/url] walks through it. Good templates for popular homes may be bundled, with credit.
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-09-faq.png[/img][/center]
 
 [list]
 [*][b]Why didn't an item move?[/b] A keep rule kept it. Or it has no destination yet and waits in the master. Or a tempered or enchanted copy of it stays behind, and the plain copies stay with it rather than risk moving the wrong one.
-[*][b]Where are my homes saved?[/b] [font=Courier New]Data/SKSE/Plugins/DovaStash/Layouts/[/font], one file per home, outside your save. A home you set up once works for every character.
-[*][b]Can I share my setup?[/b] Yes: [b]Export[/b] in the editor's Template tab writes a shareable template without your personal learned items.
+[*][b]Where are my homes saved?[/b] [font=Courier New]Data/SKSE/Plugins/DovaStash/Layouts/[/font], one file per home, outside your save, with a copy in [font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/[/font] (plus the copies from your last 5 sessions). A home you set up once works for every character.
+[*][b]Can I share or back up my setup?[/b] Yes: [b]Save as template...[/b] in the hotkey menu writes a template, with your learned items as fixed item bindings (untick [b]Keep learned items[/b] in the panel's Template tab to share one without them). The home offers it at once, so after a reset [b]Use template[/b] brings the setup back. Setups are also backed up by themselves (see above).
 [/list]
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-12-changelog.png[/img][/center]

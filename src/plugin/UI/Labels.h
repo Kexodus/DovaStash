@@ -9,6 +9,15 @@ namespace dova::ui
 {
 	// The confirmation under "Remove <container> from Dova Stash?" (every UI surface says the same).
 	inline constexpr auto kRemoveExplained = "Its categories and learned items are forgotten; what's inside stays. Put items in by hand later and it is learned again; to keep it out for good, use Ignore.";
+	// Home backups outside Data (DESIGN §6.6). The setup prompt's first entry ("{}": the copy's date) and the
+	// confirmations, the same on every UI surface.
+	inline constexpr std::string_view kRestoreLastSetup = "Restore your last setup ({})";
+	inline constexpr std::string_view kConfirmRestore = "Restore the setup saved {}? This home's current setup is backed up first (.bak); no items are moved.";
+	// Multi-cell homes (DESIGN §6.7), the same on every UI surface ("{}": the home's name; the area's name).
+	inline constexpr std::string_view kAddArea = "Add this area to {}";
+	inline constexpr std::string_view kConfirmAddArea = "Dova Stash: add this area to {}?\nIts containers and crafting stations then work with the rest of the home. No items are moved.";
+	inline constexpr std::string_view kRemoveArea = "Remove this area from {}...";
+	inline constexpr std::string_view kConfirmRemoveArea = "Remove {} from {}?\nIts containers stay in the setup but are no longer used. No items are moved.";
 
 	// Category display name ("Swords"), falling back to the capitalized id.
 	[[nodiscard]] std::string CategoryName(std::string_view a_id);

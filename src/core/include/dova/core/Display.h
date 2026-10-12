@@ -29,6 +29,10 @@
 // - A mannequin with a chosen set (DisplaySpot::set, the layout's `set`) takes only pieces of it, and
 //   goes before the others. It takes more while it wears nothing else and has free slots (`holds`,
 //   `worn`), so a set fills up as the pieces arrive.
+// - A rack or mannequin with `only` (DisplaySpot::only) takes nothing but its `items`, and those are kept
+//   for it like a plaque's: no other rack or mannequin takes them. Such a mannequin is filled like one with
+//   a chosen set made of its items (unless it has a chosen set, which decides). With none of its items
+//   here (or in the load order) it gets nothing: it waits for them, as a chosen set does.
 
 #include <cstdint>
 #include <optional>
@@ -71,6 +75,8 @@ namespace dova::core
 		std::vector<FormRef>     set;  // Mannequin: the pieces of its chosen set (empty: it picks a set itself)
 		std::uint32_t            worn{ 0 };  // Mannequin with a set: slots taken by what it wears (`holds`)
 		bool                     chosen{ false };  // Mannequin: it has a chosen set (even one with no known pieces)
+		bool                     only{ false };  // Rack/Mannequin: takes nothing but its `items` (the layout's "only"), which
+		                                         // are kept for it; with no `items` left it gets nothing
 	};
 
 	// A stack that may go on display: `available` copies of `item`, held by `from`.

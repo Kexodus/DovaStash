@@ -1,5 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+
 #include "TestHelpers.h"
 
 using namespace dova::core;
@@ -279,4 +281,262 @@ TEST_CASE("Template and category validation lint", "[templates]")
 	Diagnostics catDiags;
 	ValidateLayoutCategories(layout, set, "t.json", catDiags);
 	CHECK(catDiags.WarningCount() == 2);  // wepons.swords, misc.junk
+}
+
+namespace
+{
+	// A player layout using every part of the schema (DESIGN §6.3).
+	Layout FullPlayerLayout()
+	{
+		Layout layout;
+		layout.name = "Whitepeak Tower";
+		layout.note = "My tower";
+		layout.author = "Player";
+		layout.version = "1.0.0";
+		layout.cell = F("Tower.esp|0x801");
+		layout.master = F("Tower.esp|0x802");
+		layout.containers.push_back({ .ref = F("Tower.esp|0x803"), .label = "Armory", .note = "by the forge", .categories = { "weapons.*", "armor.heavy" },
+			.forms = { Sk(0x1397E), F("Mod.esp|0x900") } });
+		layout.containers.back().extra["color"] = "red";  // unknown key, kept
+		layout.containers.push_back({ .ref = F("Tower.esp|0x804"), .label = "Satchel", .categories = { "alchemy.potions" } });
+		layout.containers.push_back({ .ref = F("Tower.esp|0x805"), .label = "Barrel", .note = "Respawns", .ignored = true });
+		layout.containers.push_back({ .ref = F("Tower.esp|0x806"), .label = "Keepsakes" });  // added by Learn: no categories
+		layout.displays.push_back({ .ref = F("Tower.esp|0x810"), .label = "Bow rack", .note = "upstairs", .categories = { "weapons.bows" } });
+		layout.displays.push_back({ .ref = F("Displays.esp|0x811"), .kind = DisplayKind::Item, .label = "Mask wall", .items = { Sk(0x61CD6) } });
+		layout.displays.push_back({ .ref = F("Tower.esp|0x812"), .label = "Mannequin", .set = F("Armor.esp|0x813") });
+		layout.displays.push_back({ .ref = F("Tower.esp|0x814"), .label = "Shield plaque", .ignored = true });
+		layout.displays.back().extra["future"] = 1;
+		layout.keep = KeepConfig{ .inherit = false,
+			.always = { "equipped", "Mod.esp|0x901" },
+			.never = { "misc.clutter" },
+			.quotas = { QuotaRule{ .category = "ammo.arrows", .quota = 50 }, QuotaRule{ .forms = std::vector<FormRef>{ F("Other.esp|0x902") }, .quota = 2 } } };
+		layout.learned.emplace(Sk(0x12EB7), F("Tower.esp|0x806"));
+		layout.learned.emplace(F("Mod.esp|0x903"), F("Tower.esp|0x803"));
+		layout.basedOn = "Templates/Someone/Tower.json@0.9.0";
+		layout.extra["custom"] = nlohmann::json{ { "a", 1 } };
+		return layout;
+	}
+}
+
+TEST_CASE("ReferencedPlugins lists every plugin a layout points into", "[templates][export]")
+{
+	// First use first: cell, master, containers and their forms, displays, keep forms. Not the displays' items
+	// or set (Armor.esp): soft references, skipped where they don't exist (TemplateDisplays.h).
+	CHECK(ReferencedPlugins(FullPlayerLayout()) == std::vector<std::string>{ "Tower.esp", "Skyrim.esm", "Mod.esp", "Displays.esp", "Other.esp" });
+
+	// Case-insensitively unique; learned pairs are not looked at.
+	Layout mixedCase;
+	mixedCase.cell = F("skyrim.esm|0x165A7");
+	mixedCase.master = Sk(0xAAAAA);
+	mixedCase.learned.emplace(F("Learned.esp|0x1"), Sk(0xAAAAA));
+	CHECK(ReferencedPlugins(mixedCase) == std::vector<std::string>{ "skyrim.esm" });
+}
+
+TEST_CASE("Exporting a layout and applying it to an empty home gives the same setup back", "[templates][export]")
+{
+	const auto layout = FullPlayerLayout();
+	auto       tpl = ExportAsTemplate(layout);
+	tpl.name = "My Tower";
+	tpl.author = "Dovahkiin";
+	tpl.version = "1.0.0";
+
+	// Player-only data is dropped; requires lists every referenced plugin, so the template validates.
+	CHECK(tpl.learned.empty());
+	CHECK_FALSE(tpl.basedOn.has_value());
+	CHECK(tpl.requiredPlugins == std::vector<std::string>{ "Tower.esp", "Skyrim.esm", "Mod.esp", "Displays.esp", "Other.esp" });
+	Diagnostics lint;
+	ValidateTemplate(tpl, "Templates/User/My Tower.json", lint);
+	INFO((lint.Empty() ? std::string() : lint.Items().front().ToString()));
+	CHECK(lint.Empty());
+	Diagnostics catLint;
+	ValidateLayoutCategories(tpl, CompileCategories(kStandardCategories), "Templates/User/My Tower.json", catLint);
+	CHECK(catLint.Empty());
+
+	// Written where the plugin writes player exports, and loaded the way the plugin loads templates.
+	TempDir dir;
+	REQUIRE(SaveLayoutFile(dir.Path() / "User" / "My Tower.json", tpl));
+	Diagnostics loadDiags;
+	const auto  templates = LoadTemplateDirectory(dir.Path(), loadDiags);
+	INFO((loadDiags.Empty() ? std::string() : loadDiags.Items().front().ToString()));
+	CHECK_FALSE(loadDiags.HasErrors());
+	CHECK(loadDiags.WarningCount() == 3);  // only the three unknown keys ("preserved"); no template lint
+	REQUIRE(templates.size() == 1);
+	CHECK(templates[0].source == "Templates/User/My Tower.json");
+	CHECK(IsUserTemplate(templates[0].source));
+
+	// The resolver offers it for its cell when its plugins are loaded, and names what is missing otherwise.
+	const std::vector<std::string> loaded{ "Skyrim.esm", "Tower.esp", "Mod.esp", "Displays.esp", "Armor.esp", "Other.esp" };
+	const auto                     res = ResolveLayout(nullptr, templates, *layout.cell, loaded);
+	CHECK(res.kind == LayoutResolution::Kind::Template);
+	CHECK(res.chosen == 0u);
+	const std::vector<std::string> withoutOther{ "Skyrim.esm", "Tower.esp", "Mod.esp", "Displays.esp" };  // the mannequin's Armor.esp set is soft
+	const auto                     rejected = ResolveLayout(nullptr, templates, *layout.cell, withoutOther);
+	REQUIRE(rejected.rejected.size() == 1);
+	CHECK(rejected.rejected[0].missingPlugins == std::vector<std::string>{ "Other.esp" });
+
+	// Reset home, then use the template: everything but the learned destinations comes back.
+	const auto applied = ApplyTemplate(templates[0]);
+	Layout     expected = layout;
+	expected.learned.clear();
+	expected.basedOn = "Templates/User/My Tower.json@1.0.0";
+	expected.name = "My Tower";
+	expected.author = "Dovahkiin";
+	expected.requiredPlugins = tpl.requiredPlugins;
+	CHECK(SerializeLayout(applied) == SerializeLayout(expected));
+	REQUIRE(applied.keep);
+	CHECK(applied.keep->inherit == false);
+	REQUIRE(applied.FindDisplay(F("Tower.esp|0x812")));
+	CHECK(applied.FindDisplay(F("Tower.esp|0x812"))->set == F("Armor.esp|0x813"));
+	REQUIRE(applied.FindDisplay(F("Displays.esp|0x811")));
+	CHECK(applied.FindDisplay(F("Displays.esp|0x811"))->kind == DisplayKind::Item);
+	REQUIRE(applied.FindContainer(F("Tower.esp|0x805")));
+	CHECK(applied.FindContainer(F("Tower.esp|0x805"))->ignored);
+	CHECK(applied.FindContainer(F("Tower.esp|0x806")) != nullptr);  // the learned-only container stays known
+
+	// Re-applying it over the layout it came from changes nothing but the identity (learned kept).
+	const auto reapplied = ApplyTemplate(templates[0], &layout);
+	expected.learned = layout.learned;
+	CHECK(SerializeLayout(reapplied) == SerializeLayout(expected));
+}
+
+TEST_CASE("Exporting keeps requires entries and unparsed data", "[templates][export]")
+{
+	Layout layout;
+	layout.cell = kCell;
+	layout.master = Sk(0xAAAAA);
+	layout.requiredPlugins = { "Update.esm", "SKYRIM.ESM" };
+	layout.containers.push_back({ .ref = Sk(0xB), .unparsedForms = { "bad|ref" } });
+	layout.unparsedContainers.push_back("just a string");
+	layout.unparsedLearned["broken"] = "x";
+
+	const auto tpl = ExportAsTemplate(layout);
+	CHECK(tpl.requiredPlugins == std::vector<std::string>{ "Update.esm", "SKYRIM.ESM" });  // Skyrim.esm is already listed
+	REQUIRE(tpl.containers.size() == 1);
+	CHECK(tpl.containers[0].unparsedForms == std::vector<std::string>{ "bad|ref" });
+	CHECK(tpl.unparsedContainers.size() == 1);
+	CHECK(tpl.unparsedLearned.empty());
+}
+
+TEST_CASE("Exporting can keep learned items as item bindings", "[templates][export]")
+{
+	auto layout = FullPlayerLayout();
+	// FullPlayerLayout learned: Skyrim.esm|0x12EB7 -> Keepsakes (0x806), Mod.esp|0x903 -> Armory (0x803).
+	layout.learned.emplace(F("Loot.esp|0x1"), F("Tower.esp|0x806"));    // a second item for Keepsakes
+	layout.learned.emplace(F("Loot.esp|0x2"), F("Tower.esp|0x802"));    // the master: never used for learned items
+	layout.learned.emplace(F("Loot.esp|0x3"), F("Tower.esp|0x805"));    // the ignored barrel: never used either
+	layout.learned.emplace(F("Mod.esp|0x900"), F("Tower.esp|0x804"));   // Armory already binds it explicitly: that wins
+	layout.learned.emplace(F("Loose.esp|0x4"), F("Tower.esp|0x807"));   // a container the layout does not list
+	layout.unparsedLearned["bad"] = "pair";
+
+	SECTION("off by default: learned destinations are dropped")
+	{
+		std::size_t kept = 99;
+		const auto  tpl = ExportAsTemplate(layout, {}, &kept);
+		CHECK(kept == 0);
+		CHECK(tpl.learned.empty());
+		CHECK(tpl.FindContainer(F("Tower.esp|0x806"))->forms.empty());
+		CHECK(tpl.FindContainer(F("Tower.esp|0x807")) == nullptr);
+		CHECK(std::ranges::find(tpl.requiredPlugins, "Loot.esp") == tpl.requiredPlugins.end());
+	}
+
+	SECTION("on: each learned item becomes a binding of its container")
+	{
+		std::size_t kept = 0;
+		auto        tpl = ExportAsTemplate(layout, { .learnedAsForms = true }, &kept);
+		CHECK(kept == 4);  // 0x12EB7, Loot 0x1 (Keepsakes), Mod 0x903 (Armory), Loose 0x4 (new entry)
+		CHECK(tpl.learned.empty());
+		CHECK(tpl.unparsedLearned.empty());
+		CHECK_FALSE(tpl.basedOn.has_value());
+
+		// Added in learned order (FormRef order: plugin, then id).
+		REQUIRE(tpl.FindContainer(F("Tower.esp|0x806")));
+		CHECK(tpl.FindContainer(F("Tower.esp|0x806"))->forms == std::vector<FormRef>{ F("Loot.esp|0x1"), Sk(0x12EB7) });
+		REQUIRE(tpl.FindContainer(F("Tower.esp|0x803")));
+		CHECK(tpl.FindContainer(F("Tower.esp|0x803"))->forms == std::vector<FormRef>{ Sk(0x1397E), F("Mod.esp|0x900"), F("Mod.esp|0x903") });
+		CHECK(tpl.FindContainer(F("Tower.esp|0x803"))->categories == std::vector<std::string>{ "weapons.*", "armor.heavy" });
+		CHECK(tpl.FindContainer(F("Tower.esp|0x804"))->forms.empty());  // Mod 0x900 stays with the Armory
+		CHECK(tpl.FindContainer(F("Tower.esp|0x805"))->forms.empty());  // ignored
+		CHECK(tpl.FindContainer(F("Tower.esp|0x802")) == nullptr);      // the master gets no entry
+		REQUIRE(tpl.FindContainer(F("Tower.esp|0x807")));
+		CHECK(tpl.FindContainer(F("Tower.esp|0x807"))->forms == std::vector<FormRef>{ F("Loose.esp|0x4") });
+		CHECK(tpl.FindContainer(F("Tower.esp|0x807"))->categories.empty());
+
+		// requires gains the plugins of the bound items, so the template still passes the lint.
+		CHECK(tpl.requiredPlugins == std::vector<std::string>{ "Tower.esp", "Skyrim.esm", "Mod.esp", "Loot.esp", "Loose.esp", "Displays.esp", "Other.esp" });
+		Diagnostics lint;
+		ValidateTemplate(tpl, "Templates/User/Mine.json", lint);
+		CHECK(lint.Empty());
+
+		// Round trip: written, loaded as a template and applied to an empty home, the items are bindings.
+		tpl.name = "Mine";
+		tpl.author = "Dovahkiin";
+		tpl.version = "1.0.0";
+		TempDir dir;
+		REQUIRE(SaveLayoutFile(dir.Path() / "User" / "Mine.json", tpl));
+		Diagnostics loadDiags;
+		const auto  templates = LoadTemplateDirectory(dir.Path(), loadDiags);
+		CHECK_FALSE(loadDiags.HasErrors());
+		REQUIRE(templates.size() == 1);
+		const auto applied = ApplyTemplate(templates[0]);
+		CHECK(applied.learned.empty());
+		REQUIRE(applied.FindContainer(F("Tower.esp|0x806")));
+		CHECK(applied.FindContainer(F("Tower.esp|0x806"))->forms == std::vector<FormRef>{ F("Loot.esp|0x1"), Sk(0x12EB7) });
+		REQUIRE(applied.FindContainer(F("Tower.esp|0x807")));
+		CHECK(applied.FindContainer(F("Tower.esp|0x807"))->forms == std::vector<FormRef>{ F("Loose.esp|0x4") });
+		CHECK(applied.requiredPlugins == tpl.requiredPlugins);
+	}
+
+	SECTION("a learned item that is bound explicitly elsewhere is not counted twice")
+	{
+		Layout small;
+		small.cell = kCell;
+		small.master = Sk(0xAAAAA);
+		small.containers.push_back({ .ref = Sk(0xB), .forms = { Sk(0x100) } });
+		small.learned.emplace(Sk(0x100), Sk(0xB));  // same container: a duplicate
+		small.learned.emplace(Sk(0x101), Sk(0xB));
+		std::size_t kept = 0;
+		const auto  tpl = ExportAsTemplate(small, { .learnedAsForms = true }, &kept);
+		CHECK(kept == 1);
+		CHECK(tpl.containers[0].forms == std::vector<FormRef>{ Sk(0x100), Sk(0x101) });
+		CHECK(tpl.requiredPlugins == std::vector<std::string>{ "Skyrim.esm" });
+	}
+}
+
+TEST_CASE("The player's own exports rank first at equal priority", "[templates][export]")
+{
+	CHECK(IsUserTemplate("Templates/User/Mine.json"));
+	CHECK(IsUserTemplate("templates\\user\\Mine.json"));
+	CHECK_FALSE(IsUserTemplate("Templates/Users/Mine.json"));
+	CHECK_FALSE(IsUserTemplate("Templates/User/"));
+	CHECK_FALSE(IsUserTemplate("Templates/Vanilla/Breezehome.json"));
+
+	const std::vector<TemplateCandidate> templates{
+		T("Templates/CreationClub/Home.json", 0, "2.0.0"),
+		T("Templates/User/Mine.json", 0, "1.0.0"),
+		T("Templates/User/Older.json", 0, "0.9.0"),
+		T("Templates/Replacer/Home.json", 1, "1.0.0"),
+	};
+	const auto res = ResolveLayout(nullptr, templates, kCell, kLoaded);
+	CHECK(res.chosen == 3u);  // a higher priority still wins
+	CHECK(res.alternatives == std::vector<std::size_t>{ 1, 2, 0 });
+}
+
+TEST_CASE("Template file stems and re-save versions", "[templates][export]")
+{
+	CHECK(TemplateFileStem("Whitepeak Tower") == "Whitepeak Tower");
+	CHECK(TemplateFileStem("My/Home: v2?") == "My_Home_ v2_");
+	CHECK(TemplateFileStem("  .Home.  ") == "Home");
+	CHECK(TemplateFileStem("") == "Template");
+	CHECK(TemplateFileStem("...") == "Template");
+	CHECK(TemplateFileStem("con") == "con_");
+	CHECK(TemplateFileStem("Tour d'\xC3\xA9t\xC3\xA9") == "Tour d___t__");  // every non-ASCII byte becomes '_'
+	CHECK(TemplateFileStem(std::string(80, 'a')).size() == 64);
+
+	CHECK(NextPatchVersion("1.0.0") == "1.0.1");
+	CHECK(NextPatchVersion("1.2") == "1.2.1");
+	CHECK(NextPatchVersion("v2.3.9") == "2.3.10");
+	CHECK(NextPatchVersion("1.2.3-beta+5") == "1.2.4");
+	CHECK(NextPatchVersion("") == "1.0.0");
+	CHECK(NextPatchVersion("first") == "1.0.0");
+	CHECK(std::is_gt(CompareVersionStrings(NextPatchVersion("1.0.0-rc.1"), "1.0.0-rc.1")));
 }

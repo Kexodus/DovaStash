@@ -96,24 +96,27 @@ namespace dova::sort::crafting
 			return out;
 		}
 
-		// The home's master and non-ignored containers that pass the safety checks right now (DESIGN §9).
-		std::vector<cc::Stored> SnapshotStored(const core::Layout& a_layout, RE::TESObjectCELL* a_cell, game::StackTable& a_table)
+		// The home's master and non-ignored containers that pass the safety checks right now (DESIGN §9). In a
+		// multi-cell home also those of its other cells that can be reached from here (DESIGN §6.7: loaded, or
+		// persistent), so a forge outside brings what is stored inside.
+		std::vector<cc::Stored> SnapshotStored(const home::Home& a_home, game::StackTable& a_table)
 		{
 			std::vector<cc::Stored> out;
+			const auto&             layout = *a_home.layout;
 			auto add = [&](const core::FormRef& a_ref) {
 				if (std::ranges::any_of(out, [&](const cc::Stored& s) { return s.container == a_ref; })) {
 					return;
 				}
 				auto* ref = game::LookupRef(a_ref);
-				if (!ref || !game::CheckContainer(ref, a_cell).ok) {
+				if (!ref || !home::CheckHomeContainer(ref, a_home).ok) {
 					return;
 				}
 				out.push_back(cc::Stored{ a_ref, Stacks(ref, a_table) });
 			};
-			if (a_layout.master) {
-				add(*a_layout.master);
+			if (layout.master) {
+				add(*layout.master);
 			}
-			for (const auto& c : a_layout.containers) {
+			for (const auto& c : layout.containers) {
 				if (!c.ignored) {
 					add(c.ref);
 				}
@@ -121,14 +124,15 @@ namespace dova::sort::crafting
 			return out;
 		}
 
-		game::EndpointResolver Resolver(RE::TESObjectREFR* a_player, RE::TESObjectCELL* a_cell)
+		// Only used within the task that built it (the home outlives it).
+		game::EndpointResolver Resolver(RE::TESObjectREFR* a_player, const home::Home& a_home)
 		{
-			return [a_player, a_cell](const core::ContainerRef& a_end) -> RE::TESObjectREFR* {
+			return [a_player, place = &a_home](const core::ContainerRef& a_end) -> RE::TESObjectREFR* {
 				if (a_end.IsPlayer()) {
 					return a_player;
 				}
 				auto* ref = game::LookupRef(a_end.Ref());
-				return ref && game::CheckContainer(ref, a_cell).ok ? ref : nullptr;
+				return ref && home::CheckHomeContainer(ref, *place).ok ? ref : nullptr;
 			};
 		}
 
@@ -203,7 +207,7 @@ namespace dova::sort::crafting
 			}
 
 			game::StackTable table;
-			const auto       storedBefore = SnapshotStored(*home->layout, cell, table);
+			const auto       storedBefore = SnapshotStored(*home, table);
 			const auto       playerBefore = cc::CountStacks(Stacks(player, table));
 			const auto       pulls = cc::PlanPull(request, storedBefore);
 			logger::debug("Crafting supply: {} ({}, {} materials in its recipes): {} stacks to bring", game::Describe(a_station), a_trigger,
@@ -226,11 +230,11 @@ namespace dova::sort::crafting
 				g_open = true;
 			}
 			g_pulling = true;
-			const auto report = game::ItemMover::Execute(moves, table, Resolver(player, cell));
+			const auto report = game::ItemMover::Execute(moves, table, Resolver(player, *home));
 			g_pulling = false;
 
 			game::StackTable afterTable;
-			const auto       storedAfter = SnapshotStored(*home->layout, cell, afterTable);
+			const auto       storedAfter = SnapshotStored(*home, afterTable);
 			auto             ledger = cc::MakeLedger(pulls, storedBefore, storedAfter, playerBefore);
 			if (ledger.Empty()) {
 				StopCounting();
@@ -267,7 +271,8 @@ namespace dova::sort::crafting
 
 			auto* player = game::Player();
 			auto* cell = player ? player->GetParentCell() : nullptr;
-			if (!cell || cell->GetFormID() != session.cellId) {
+			auto* place = cell && cell->GetFormID() == session.cellId ? home::HomeRegistry::Get().CurrentIf(session.cellId) : nullptr;
+			if (!place || !place->layout) {
 				logger::info("Crafting supply: left the home before getting up from {}; the {} brought stay with you",
 					session.stationName, Plural(session.ledger.Total(), "item"));
 				return;
@@ -292,7 +297,7 @@ namespace dova::sort::crafting
 			const auto moves = cc::ReturnMoves(plan.back, playerStacks);
 			game::MoveReport report;
 			if (!moves.empty()) {
-				report = game::ItemMover::Execute(moves, table, Resolver(player, cell));
+				report = game::ItemMover::Execute(moves, table, Resolver(player, *place));
 				RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
 			}
 			logger::info("Crafting supply ({}): put {} of the {} brought to {} back", a_why, report.items, plan.pulled, session.stationName);

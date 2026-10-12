@@ -9,7 +9,8 @@
 // - Output is indented with tabs and kept compact so people can read it: a short list or an entry without
 //   nested objects stays on one line (one line per container), and the fields of such lines are lined up
 //   in columns (detail::Dump). Fixed key order: $schema, name, note, author, version, priority, requires,
-//   cell, master, containers, displays, keep, learned, basedOn, then any unknown keys (sorted).
+//   cell, cells, master, containers, displays, keep, learned, basedOn, then any unknown keys (sorted).
+//   `cells` (more cells of a multi-cell home, HomeCells.h) is only written when the layout lists any.
 //   name/author/version/priority are always written; optional parts only when set.
 // - `note` (top level, containers, displays) is free text for people reading the file; Dova Stash never
 //   uses it (the panel shows a container's note).
@@ -38,6 +39,7 @@
 #include "dova/core/Diagnostics.h"
 #include "dova/core/DisplayKind.h"
 #include "dova/core/FormRef.h"
+#include "dova/core/HomeCells.h"
 
 namespace dova::core
 {
@@ -105,6 +107,9 @@ namespace dova::core
 	// list theirs. `categories` limits what a rack or mannequin takes, like a container's. Dova Stash
 	// recognises vanilla racks, mannequins, item plaques and scripted display cases by their scripts; an
 	// entry can change their items, or name a display it cannot recognise (with `kind`).
+	// One shape in layouts and templates (TemplateDisplays.h has the rules for templates): the items of a rack
+	// or mannequin are chosen by the file (soft: one that does not exist in the load order is skipped); the
+	// items of an item plaque or a case are what its own script is made for (a template never decides them).
 	struct DisplayBinding
 	{
 		FormRef                    ref;  // rack activator, plaque, mannequin actor or case container (REFR/ACHR)
@@ -114,6 +119,7 @@ namespace dova::core
 		std::vector<std::string>   categories;  // Rack/Mannequin: patterns it takes (empty: anything that fits)
 		std::vector<FormRef>       items;  // Item/Case: what it is made for. Rack/Mannequin: preferred items
 		std::vector<std::string>   unparsedItems;  // malformed "items" entries, written back verbatim
+		bool                       only{ false };  // Rack/Mannequin with items: takes nothing but them ("only": true; optional)
 		std::optional<FormRef>     set;  // Mannequin: any piece of the armor set it wears (ArmorSets.h); nullopt: it picks a set
 		bool                       ignored{ false };  // never fill it
 		nlohmann::json             extra = nlohmann::json::object();
@@ -128,6 +134,7 @@ namespace dova::core
 		std::int32_t                  priority{ 0 };
 		std::vector<std::string>      requiredPlugins;  // JSON "requires": plugin file names
 		std::optional<FormRef>        cell;
+		std::vector<HomeCell>         cells;  // more cells of the same home (DESIGN §6.7); optional
 		std::optional<FormRef>        master;
 		std::vector<ContainerBinding> containers;
 		std::vector<DisplayBinding>   displays;
@@ -139,6 +146,7 @@ namespace dova::core
 		nlohmann::json unparsedContainers = nlohmann::json::array();   // entries we could not parse
 		nlohmann::json unparsedDisplays = nlohmann::json::array();     // display entries we could not parse
 		nlohmann::json unparsedLearned = nlohmann::json::object();     // pairs we could not parse
+		nlohmann::json unparsedCells = nlohmann::json::array();        // "cells" entries we could not parse
 
 		[[nodiscard]] const ContainerBinding* FindContainer(const FormRef& a_ref) const;
 		[[nodiscard]] ContainerBinding*       FindContainer(const FormRef& a_ref);

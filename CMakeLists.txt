@@ -18,6 +18,7 @@ endif()
 
 option(DOVASTASH_BUILD_PLUGIN "Build the SKSE plugin DLL (requires CommonLibSSE-NG)" ON)
 option(DOVASTASH_BUILD_TESTS "Build the engine-independent unit tests" ON)
+option(DOVASTASH_BUILD_EDITOR "Build Dova Stash Editor, the standalone template editor (docs/EDITOR.md)" OFF)
 
 # Engine-independent logic: no CommonLib, no game headers. Unit-testable.
 add_subdirectory(src/core)
@@ -30,4 +31,9 @@ endif()
 # SKSE plugin: CommonLib adapters, events, input, UI.
 if(DOVASTASH_BUILD_PLUGIN)
 	add_subdirectory(src/plugin)
+endif()
+
+# Standalone template editor (Win32 + Dear ImGui), links dova_core. Preset `editor`.
+if(DOVASTASH_BUILD_EDITOR)
+	add_subdirectory(editor)
 endif()
