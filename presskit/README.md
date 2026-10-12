@@ -90,7 +90,8 @@ hard black box. `frame()` in `render.py` sets this up; any page renders as a car
   <img src="nexus/icon-templates-256.png" width="96"> <img src="nexus/icon-learns-256.png" width="96">
   <img src="nexus/icon-safe-256.png" width="96"> <img src="nexus/icon-menu-256.png" width="96">
   <img src="nexus/icon-vr-256.png" width="96"> <img src="nexus/icon-export-256.png" width="96">
-  <img src="nexus/icon-hotkey-256.png" width="96">
+  <img src="nexus/icon-hotkey-256.png" width="96"> <img src="nexus/icon-displays-256.png" width="96">
+  <img src="nexus/icon-mannequin-256.png" width="96"> <img src="nexus/icon-workbench-256.png" width="96">
 </p>
 
 ## Logo files

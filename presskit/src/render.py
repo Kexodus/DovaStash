@@ -64,7 +64,8 @@ SECTIONS = [
     "changelog",
     "support",
 ]
-ICONS = ["any_home", "auto_sort", "templates", "learns", "safe", "menu", "vr", "export", "hotkey"]
+ICONS = ["any_home", "auto_sort", "templates", "learns", "safe", "menu", "vr", "export", "hotkey",
+         "displays", "mannequin", "workbench"]
 
 
 def frame(w):

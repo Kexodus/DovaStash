@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- weapon rack with a sword and an axe on its pegs: fills your displays -->
+<rect x="64" y="40" width="128" height="176"/>
+<path class="k" d="M84 108 H96 V124 H84 Z M160 108 H172 V124 H160 Z"/>
+<path class="k" d="M28 100 L44 92 H172 V108 H44 Z"/>
+<path class="k" d="M172 80 H180 V120 H172 Z"/>
+<path class="k" d="M180 96 H212 V104 H180 Z M212 92 H220 V108 H212 Z"/>
+<path class="k" d="M84 176 H96 V192 H84 Z M160 176 H172 V192 H160 Z"/>
+<path class="k" d="M40 172 H228 V180 H40 Z"/>
+<path class="k" d="M60 172 V160 L32 140 V212 L60 192 V180 Z"/>
+</svg>

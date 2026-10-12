@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- mannequin wearing a cuirass: dresses your mannequins -->
+<circle cx="128" cy="56" r="18"/>
+<path d="M120 74 V84 M136 74 V84"/>
+<path d="M84 84 H172 L196 100 V132 L180 140 L172 120 V176 H84 V120 L76 140 L60 132 V100 Z"/>
+<path d="M108 84 L128 104 L148 84 M128 104 V176 M84 148 H172"/>
+<path d="M128 176 V208 M96 216 H160 M112 208 H144"/>
+</svg>

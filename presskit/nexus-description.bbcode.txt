@@ -15,7 +15,9 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]A master container as your inbox.[/b] [b]Deposit[/b] sends everything you aren't keeping to where it belongs. Items you drop into the master are sorted out of it right away.
 [*][b]37 keyword-driven categories.[/b] Weapons by type, armor by weight class, potions, ingredients, books, soul gems, ores, gems and more, defined in JSON. Items that KID gives vendor keywords sort without a patch.
 [*][b]Learns as you go.[/b] Put an item into a container by hand once and that container becomes its home.
-[*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor. Your best weapons go up on the racks, a matching armor set on each mannequin, and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down.
+[*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor. Your best weapons go up on the racks, and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down.
+[*][b]Dresses your mannequins.[/b] Each one wears your best matching armor set, or the set you pick from a searchable list of every set in your load order, modded sets included.
+[*][b]Materials at the workbench.[/b] At a home's forge, smelter, tanning rack, cooking pot, alchemy lab or enchanter, the materials stored in the home come to you, and what you don't use goes back when you're done. What you just made stays with you. Modded recipes and materials work too.
 [*][b]22 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and Creation Club homes. Export your own from the game.
 [*][b]Never loses an item.[/b] Enchantments, tempering, custom names, stolen flags and souls survive every move. Equipped, favorited and quest items stay with you. Containers that empty themselves when the area resets are refused.
 [*][b]Your UI, not ours.[/b] In-world menus are UIExtensions lists (any skin), with the game's message boxes as the fallback. Settings and the full editor live in SKSE Menu Framework.
@@ -34,7 +36,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]Homes with a template:[/b] walk in and you're told a layout is available. Press [b]K[/b] at any container to turn it on.
 [*][b]Any other home:[/b] look at a large chest that is always there, press [b]K[/b] and make it the [b]master[/b].
 [*]Then press [b]K[/b] at each other container and pick its [b]Categories...[/b], or skip that and put items away by hand once. Either way, the container becomes their home.
-[*]Mark anything you never want used (display cases, bookshelves) as [b]Ignore[/b].
+[*]Mark anything you never want used (display cases, bookshelves) as [b]Ignore[/b]: it stays out for good. [b]Remove[/b] just forgets a container you set up by mistake.
 [/list]
 
 [b]Day to day[/b]
@@ -47,7 +49,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 
 [b]What you see in game[/b]
 [list]
-[*]The activate prompt names a container's role: "Chest (Weapons, Armor)".
+[*]The activate prompt names a container's role: "Chest (Weapons, Armor)", or what it has learned: "End Table (Books, learned)".
 [*]With QuickLoot IE, the master reads "Master", other containers show their category icons, and a [b]Stash[/b] button shows your hotkey.
 [*][i]Optional:[/i] floating category icons above the containers around you. Off by default, not on VR.
 [*]You can rename any container, and restore its original name later.

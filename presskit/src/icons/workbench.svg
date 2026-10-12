@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>*{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:10;vector-effect:non-scaling-stroke}.k{fill:#000}</style>
+<!-- ingots come down onto an anvil: materials at the workbench -->
+<path d="M96 40 H160 L168 56 H88 Z"/>
+<path d="M128 72 V100 M118 90 L128 100 L138 90"/>
+<path d="M36 116 H212 V140 H180 L164 160 V184 H188 V204 H68 V184 H92 V160 L76 140 H64 Z"/>
+</svg>

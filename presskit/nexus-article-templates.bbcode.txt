@@ -91,7 +91,7 @@ Deposit puts the player's best gear on weapon racks, shield and dagger displays,
 [list]
 [*][b]ref[/b]: the rack's activator, the plaque, the mannequin (the actor, not the trigger in front of it) or the display case. Dova Stash recognises the game's own racks and mannequins and most home mods' plaques by their scripts.
 [*][b]categories[/b]: what a rack or mannequin takes, with the same ids as containers. Without it, anything that fits.
-[*][b]items[/b]: what a plaque or display case is made for, or the items a rack or mannequin should get first.
+[*][b]items[/b]: what a plaque or display case is made for, or the items a rack or mannequin should get first. For a plaque or case, Dova Stash fills this in from the home's own script when it is turned on, so it only ever gets its own item; you rarely need to write it.
 [*][b]kind[/b]: only for a display Dova Stash doesn't recognise by itself: [font=Courier New]rack[/font], [font=Courier New]mannequin[/font], [font=Courier New]item[/font] (a plaque for one item) or [font=Courier New]case[/font].
 [*][b]ignored[/b]: listed but not used. Players can still turn it on.
 [/list]
