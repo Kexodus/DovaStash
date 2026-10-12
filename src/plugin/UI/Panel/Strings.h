@@ -67,7 +67,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kTemplateApplied = "(in use)";
 	inline constexpr auto             kUseTemplate = "Use";
 	inline constexpr auto             kReapplyTemplate = "Re-apply";
-	inline constexpr std::string_view kConfirmTemplate = "Use the category bindings of the template \"{}\"? Your learned destinations, keep rules and ignored containers are kept; category bindings are replaced by the template's. A backup is saved; no items are moved.";
+	inline constexpr std::string_view kConfirmTemplate = "Use the template \"{}\"? Your learned destinations, keep rules and ignored containers are kept; the master and category bindings are replaced by the template's. A backup is saved; no items are moved.";
 	inline constexpr auto             kResetHeader = "Reset";
 	inline constexpr auto             kResetHome = "Reset home...";
 	inline constexpr std::string_view kConfirmReset = "Reset Dova Stash for {}? The layout file is backed up (.bak); no items are moved.";

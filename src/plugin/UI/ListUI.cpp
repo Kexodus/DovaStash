@@ -188,7 +188,7 @@ namespace dova::ui
 			const bool basedOnTemplate = a_home.layout && a_home.layout->basedOn.has_value();
 			const auto name = best->layout.name;
 			items.push_back({ basedOnTemplate ? std::format("Re-apply template \"{}\"", name) : std::format("Use template \"{}\"", name), [cellId, name]() {
-								 Confirm(std::format("Use the category bindings of the template \"{}\"?\nYour learned destinations, keep rules and ignored containers are kept; category bindings are replaced by the template's. A backup is saved; no items are moved.", name),
+								 Confirm(std::format("Use the template \"{}\"?\nYour learned destinations, keep rules and ignored containers are kept; the master and category bindings are replaced by the template's. A backup is saved; no items are moved.", name),
 									 [cellId]() { Controller::Get().UseTemplate(cellId); });
 							 } });
 		}
