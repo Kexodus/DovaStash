@@ -21,7 +21,7 @@ namespace dova::editor::esp
 			MakeSig("INGR"), MakeSig("KEYM"), MakeSig("KYWD"), MakeSig("LCTN"), MakeSig("LIGH"), MakeSig("LVLC"), MakeSig("LVLN"),
 			MakeSig("MISC"), MakeSig("MSTT"), MakeSig("NPC_"), MakeSig("SCRL"), MakeSig("SLGM"), MakeSig("SOUN"), MakeSig("STAT"),
 			MakeSig("TACT"), MakeSig("TREE"), MakeSig("TXST"), MakeSig("WEAP"), MakeSig("WRLD"), MakeSig("SPEL"), MakeSig("HAZD"),
-			MakeSig("ARTO"), MakeSig("MOVS"), MakeSig("GRAS"), MakeSig("ASPC")
+			MakeSig("ARTO"), MakeSig("MOVS"), MakeSig("GRAS"), MakeSig("ASPC"), MakeSig("LTEX")
 		};
 
 		constexpr Sig kCELL = MakeSig("CELL");
@@ -396,6 +396,28 @@ namespace dova::editor::esp
 			out.push_back(refs.at(k));
 		}
 		return out;
+	}
+
+	std::optional<RecordRef> LoadOrder::CellLandRecord(const FormKey& a_cell)
+	{
+		std::optional<RecordRef> found;
+		auto                     noDescend = [](const GroupHeader&) { return false; };
+		for (std::uint32_t i = 0; i < _plugins.size(); ++i) {
+			const auto& dir = Directory(i);
+			const auto  it = dir.children.find(a_cell);
+			if (it == dir.children.end()) {
+				continue;
+			}
+			for (const auto& g : it->second) {
+				auto onRecord = [&](const RecordHeader& r) {
+					if (r.type == MakeSig("LAND")) {
+						found = RecordRef{ i, r.type, r.flags, r.rawId, r.offset };
+					}
+				};
+				_plugins[i].plugin->Walk(g.offset + 24, g.offset + g.size, noDescend, onRecord);
+			}
+		}
+		return found;
 	}
 
 	FormKeyMap<FormKey> LoadOrder::FindCellsOfRefs(const FormKeySet& a_refs)

@@ -51,5 +51,11 @@ int wmain(int argc, wchar_t** argv)
 		std::fflush(stderr);
 		return rc;
 	}
-	return dova::editor::ui::RunGui(parsed.workspace, parsed.mod, parsed.cell, parsed.screenshot);
+	dova::editor::ui::GuiOptions gui;
+	gui.mod = parsed.mod;
+	gui.cell = parsed.cell;
+	gui.screenshot = parsed.screenshot;
+	gui.tab = parsed.tab;
+	gui.select = parsed.select;
+	return dova::editor::ui::RunGui(parsed.workspace, gui);
 }

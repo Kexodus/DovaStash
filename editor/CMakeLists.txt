@@ -8,7 +8,7 @@ file(GLOB_RECURSE DOVA_EDITOR_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_
 
 add_executable(DovaStashEditor WIN32 ${DOVA_EDITOR_SOURCES})
 target_include_directories(DovaStashEditor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(DovaStashEditor PRIVATE dova::core imgui::imgui ZLIB::ZLIB lz4::lz4 d3d11 dxgi d3dcompiler)
+target_link_libraries(DovaStashEditor PRIVATE dova::core imgui::imgui ZLIB::ZLIB lz4::lz4 d3d11 dxgi d3dcompiler windowscodecs)
 target_compile_definitions(DovaStashEditor PRIVATE UNICODE _UNICODE)
 target_compile_features(DovaStashEditor PRIVATE cxx_std_23)
 if(MSVC)

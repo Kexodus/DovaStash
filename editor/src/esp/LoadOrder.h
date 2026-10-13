@@ -113,6 +113,9 @@ namespace dova::editor::esp
 		// references whose position lies inside the cell's grid square (where the game stores them).
 		[[nodiscard]] std::vector<RecordRef> CellRefRecords(const FormKey& a_cell);
 
+		// The winning LAND record of an exterior cell (terrain heights, normals, colors, textures).
+		[[nodiscard]] std::optional<RecordRef> CellLandRecord(const FormKey& a_cell);
+
 		// For each wanted reference, the cell it is placed in (worldspace persistent cell for persistent
 		// exterior references). Walks every loaded plugin's cell groups once.
 		[[nodiscard]] FormKeyMap<FormKey> FindCellsOfRefs(const FormKeySet& a_refs);

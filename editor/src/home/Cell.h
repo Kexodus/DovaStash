@@ -27,6 +27,7 @@ namespace dova::editor::home
 		std::string  editorId;
 		std::string  baseEditorId;
 		std::string  baseName;
+		std::string  model;  // base record's model (MODL; armor: its world model), as written: "clutter\chest01.nif"
 
 		std::array<float, 3>        position{};
 		std::array<float, 3>        rotation{};  // radians, as stored
@@ -62,6 +63,15 @@ namespace dova::editor::home
 		bool                        destinationInterior{ false };
 	};
 
+	// Exterior terrain (LAND): 33 x 33 points 128 units apart over the cell's 4096-unit square, south-west first.
+	struct CellLand
+	{
+		std::array<float, 33 * 33>          heights{};  // absolute Z
+		std::vector<std::array<float, 3>>   normals;    // 33 * 33 or empty
+		std::vector<std::uint32_t>          colors;     // 33 * 33 RGBA8 or empty
+		std::array<std::string, 4>          textures;   // base texture per quadrant (SW, SE, NW, NE): diffuse path, empty: default
+	};
+
 	struct CellInfo
 	{
 		esp::FormKey                key;
@@ -80,6 +90,8 @@ namespace dova::editor::home
 		std::vector<std::string>    locationKeywords;
 		std::string                 encounterZone;
 		bool                        neverResets{ false };
+
+		std::optional<CellLand> land;  // exterior cells with a LAND record
 
 		std::vector<PlacedRef> refs;   // deleted references left out
 		std::vector<DoorLink>  doors;  // filled when LoadCellOptions::resolveDoors

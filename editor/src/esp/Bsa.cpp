@@ -14,19 +14,36 @@ namespace dova::editor::esp
 {
 	namespace
 	{
-		std::string Key(std::string_view a_key)
-		{
-			std::string k = core::ToLower(a_key);
-			std::ranges::replace(k, '/', '\\');
-			return k;
-		}
-
 		template <class T>
 		bool Get(std::ifstream& a_in, T& a_out)
 		{
 			return static_cast<bool>(a_in.read(reinterpret_cast<char*>(&a_out), sizeof(T)));
 		}
 	}
+
+	std::string Bsa::NormalizeKey(std::string_view a_key)
+	{
+		std::string k = core::ToLower(a_key);
+		std::ranges::replace(k, '/', '\\');
+		return k;
+	}
+
+	namespace
+	{
+		std::uint64_t Key(std::string_view a_key) { return Bsa::HashKey(Bsa::NormalizeKey(a_key)); }
+	}
+
+	std::uint64_t Bsa::HashKey(std::string_view a_normalized) noexcept
+	{
+		std::uint64_t h = 0xcbf29ce484222325ull;  // FNV-1a
+		for (const char c : a_normalized) {
+			h ^= static_cast<unsigned char>(c);
+			h *= 0x100000001b3ull;
+		}
+		return h;
+	}
+
+	bool Bsa::Contains(std::string_view a_key) const { return _files.contains(Key(a_key)); }
 
 	std::unique_ptr<Bsa> Bsa::Open(const std::filesystem::path& a_path)
 	{

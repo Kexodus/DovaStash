@@ -14,6 +14,7 @@
 #include <imgui_impl_win32.h>
 
 #include "Util.h"
+#include "render/Image.h"
 #include "ui/App.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -88,7 +89,7 @@ namespace dova::editor::ui
 			}
 		}
 
-		// Reads back the frame just rendered (before Present) and writes a 32-bit BMP.
+		// Reads back the frame just rendered (before Present) and writes it (PNG, or BMP for .bmp).
 		bool SaveBackBuffer(const std::filesystem::path& a_path)
 		{
 			ID3D11Texture2D* back = nullptr;
@@ -96,56 +97,10 @@ namespace dova::editor::ui
 			if (!back) {
 				return false;
 			}
-			D3D11_TEXTURE2D_DESC desc{};
-			back->GetDesc(&desc);
-			desc.Usage = D3D11_USAGE_STAGING;
-			desc.BindFlags = 0;
-			desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-			desc.MiscFlags = 0;
-			ID3D11Texture2D* staging = nullptr;
-			g_device->CreateTexture2D(&desc, nullptr, &staging);
-			bool ok = false;
-			if (staging) {
-				g_context->CopyResource(staging, back);
-				D3D11_MAPPED_SUBRESOURCE m{};
-				if (SUCCEEDED(g_context->Map(staging, 0, D3D11_MAP_READ, 0, &m))) {
-					const UINT        w = desc.Width, h = desc.Height;
-					std::vector<char> pixels(static_cast<std::size_t>(w) * h * 4);
-					for (UINT y = 0; y < h; ++y) {
-						const auto* src = static_cast<const unsigned char*>(m.pData) + static_cast<std::size_t>(h - 1 - y) * m.RowPitch;
-						char*       dst = pixels.data() + static_cast<std::size_t>(y) * w * 4;
-						for (UINT x = 0; x < w; ++x) {  // RGBA -> BGRA
-							dst[x * 4 + 0] = static_cast<char>(src[x * 4 + 2]);
-							dst[x * 4 + 1] = static_cast<char>(src[x * 4 + 1]);
-							dst[x * 4 + 2] = static_cast<char>(src[x * 4 + 0]);
-							dst[x * 4 + 3] = static_cast<char>(255);
-						}
-					}
-					g_context->Unmap(staging, 0);
-					BITMAPFILEHEADER fh{};
-					BITMAPINFOHEADER ih{};
-					ih.biSize = sizeof(ih);
-					ih.biWidth = static_cast<LONG>(w);
-					ih.biHeight = static_cast<LONG>(h);
-					ih.biPlanes = 1;
-					ih.biBitCount = 32;
-					ih.biCompression = BI_RGB;
-					fh.bfType = 0x4D42;
-					fh.bfOffBits = sizeof(fh) + sizeof(ih);
-					fh.bfSize = fh.bfOffBits + static_cast<DWORD>(pixels.size());
-					FILE* f = nullptr;
-					if (_wfopen_s(&f, a_path.c_str(), L"wb") == 0 && f) {
-						std::fwrite(&fh, sizeof(fh), 1, f);
-						std::fwrite(&ih, sizeof(ih), 1, f);
-						std::fwrite(pixels.data(), 1, pixels.size(), f);
-						std::fclose(f);
-						ok = true;
-					}
-				}
-				staging->Release();
-			}
+			unsigned   w = 0, h = 0;
+			const auto pixels = render::ReadTexture(g_device, g_context, back, w, h);
 			back->Release();
-			return ok;
+			return !pixels.empty() && render::SaveImage(a_path, w, h, pixels);
 		}
 
 		LRESULT WINAPI WndProc(HWND a_hwnd, UINT a_msg, WPARAM a_wparam, LPARAM a_lparam)
@@ -176,9 +131,9 @@ namespace dova::editor::ui
 		}
 	}
 
-	int RunGui(const WorkspaceOptions& a_options, std::optional<std::string> a_mod, std::optional<std::string> a_cell,
-		std::optional<std::string> a_screenshot)
+	int RunGui(const WorkspaceOptions& a_options, const GuiOptions& a_gui)
 	{
+		const auto& a_screenshot = a_gui.screenshot;
 		ImGui_ImplWin32_EnableDpiAwareness();
 		const float scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
 
@@ -212,7 +167,7 @@ namespace dova::editor::ui
 		ImGui_ImplDX11_Init(g_device, g_context);
 
 		{
-			EditorApp app(a_options, std::move(a_mod), std::move(a_cell));
+			EditorApp app(a_options, a_gui, g_device, g_context);
 			bool      done = false;
 			int       idleFrames = 0;
 			while (!done) {

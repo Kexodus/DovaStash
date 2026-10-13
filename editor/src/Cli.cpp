@@ -7,7 +7,17 @@
 
 #include "Util.h"
 #include "dova/core/Layout.h"
+#include <cstdlib>
+#include <numbers>
+
+#include <d3d11.h>
+#include <wrl/client.h>
+
+#include "data/Assets.h"
 #include "home/Cell.h"
+#include "render/Image.h"
+#include "render/Nif.h"
+#include "render/Scene.h"
 
 namespace dova::editor
 {
@@ -225,6 +235,186 @@ namespace dova::editor
 		}
 	}
 
+	namespace
+	{
+		using Microsoft::WRL::ComPtr;
+
+		int NifInfo(const Workspace& a_ws, const Args& a_args)
+		{
+			render::SetNifMatrixColumns(a_args.nifColumns);
+			Assets      assets(a_ws.Files().Roots(), Assets::ArchiveList(a_ws));
+			const auto  path = Assets::NormalizeMesh(*a_args.nifInfo);
+			std::string source;
+			const auto  start = Clock::now();
+			const auto  data = assets.Read(path, &source);
+			if (!data) {
+				Err(std::format("error: {} not found in {} loose roots and {} archives\n", path, assets.LooseRootCount(), assets.ArchiveCount()));
+				return 1;
+			}
+			Out(std::format("{} from {} ({} bytes, {} ms)\n", path, source, data->size(), Ms(start)));
+			Out(render::DescribeNif(*data));
+			return 0;
+		}
+
+		std::vector<float> Numbers(std::string_view a_text)
+		{
+			std::vector<float> out;
+			std::string        cur;
+			for (const char c : std::string(a_text) + ",") {
+				if (c == ',' || c == 'x' || c == 'X' || c == ' ') {
+					if (!cur.empty()) {
+						out.push_back(std::strtof(cur.c_str(), nullptr));
+						cur.clear();
+					}
+				} else {
+					cur.push_back(c);
+				}
+			}
+			return out;
+		}
+
+		// --render-cell: the 3D view without a window (docs/EDITOR.md, M2). Loads the cell like --cell, draws it
+		// off-screen and saves --screenshot (PNG, or BMP for .bmp).
+		int RenderCell(const Workspace& a_ws, const Args& a_args)
+		{
+			if (!a_args.screenshot) {
+				Err("error: --render-cell needs --screenshot <file.png>\n");
+				return 2;
+			}
+			std::string error;
+			auto        plugins = SelectedPlugins(a_ws, a_args, error);
+			if (!error.empty()) {
+				Err("error: " + error + "\n");
+				return 2;
+			}
+			if (plugins.empty()) {
+				plugins = { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" };
+			}
+			const auto               start = Clock::now();
+			std::vector<std::string> errors;
+			auto                     lo = std::make_unique<esp::LoadOrder>(a_ws.Files(), a_ws.Language());
+			for (const auto& p : plugins) {
+				lo->AddWithMasters(p, errors);
+			}
+			for (const auto& e : errors) {
+				Err("warning: " + e + "\n");
+			}
+			std::optional<esp::FormKey> key = lo->ParseFormRef(*a_args.renderCell);
+			if (!key) {
+				key = lo->FindCellByEditorId(*a_args.renderCell);
+			}
+			const auto cell = key ? home::LoadCell(*lo, *key) : std::nullopt;
+			if (!cell) {
+				Err("error: cell \"" + *a_args.renderCell + "\" not found in " + std::to_string(lo->PluginCount()) + " loaded plugins\n");
+				return 1;
+			}
+			const auto cellMs = Ms(start);
+
+			ComPtr<ID3D11Device>        device;
+			ComPtr<ID3D11DeviceContext> context;
+			const D3D_FEATURE_LEVEL     levels[] = { D3D_FEATURE_LEVEL_11_0 };
+			HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, levels, 1, D3D11_SDK_VERSION, &device, nullptr, &context);
+			bool    warp = false;
+			if (FAILED(hr)) {
+				hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, levels, 1, D3D11_SDK_VERSION, &device, nullptr, &context);
+				warp = true;
+			}
+			if (FAILED(hr)) {
+				Err("error: no Direct3D 11 device\n");
+				return 1;
+			}
+
+			auto assets = std::make_shared<Assets>(a_ws.Files().Roots(), Assets::ArchiveList(a_ws));
+			auto desc = render::BuildSceneDesc(*cell);
+			render::Scene scene(device.Get(), assets, std::move(desc));
+			const auto    loadStart = Clock::now();
+			scene.Start();
+			scene.Wait();
+			const auto loadMs = Ms(loadStart);
+
+			render::RenderTarget target;
+			if (!target.Resize(device.Get(), a_args.width, a_args.height)) {
+				Err("error: cannot create a render target\n");
+				return 1;
+			}
+			const float aspect = static_cast<float>(a_args.width) / static_cast<float>(a_args.height);
+			render::ViewOptions options;
+			options.showDisabled = !a_args.noDisabled;
+			options.showMarkers = a_args.markers;
+			if (a_args.heightCut) {
+				const auto v = Numbers(*a_args.heightCut);
+				if (v.size() >= 2) {
+					options.heightCut = true;
+					options.zLo = v[0];
+					options.zHi = v[1];
+				}
+			}
+			render::Camera cam = scene.OverviewCamera(aspect);
+			if (a_args.select) {
+				const auto ref = lo->ParseFormRef(*a_args.select);
+				for (std::size_t i = 0; ref && i < cell->refs.size(); ++i) {
+					if (cell->refs[i].key == *ref) {
+						options.selected = static_cast<int>(i);
+					}
+				}
+				if (options.selected < 0) {
+					Err("warning: --select " + *a_args.select + " is not a reference of the cell\n");
+				}
+			}
+			if (a_args.camera) {
+				const auto v = Numbers(*a_args.camera);
+				if (v.size() >= 5) {
+					cam.position = { v[0], v[1], v[2] };
+					cam.yaw = v[3] * std::numbers::pi_v<float> / 180.0f;
+					cam.pitch = v[4] * std::numbers::pi_v<float> / 180.0f;
+				} else {
+					Err("warning: --camera wants x,y,z,yaw,pitch\n");
+				}
+			} else if (a_args.frame && options.selected >= 0) {
+				cam = scene.FrameCamera(cam, options.selected, aspect, options);
+			}
+			const auto renderStart = Clock::now();
+			scene.Render(context.Get(), target, cam, options);
+			unsigned   w = 0, h = 0;
+			const auto pixels = render::ReadTexture(device.Get(), context.Get(), target.Resolved(), w, h);
+			const auto renderMs = Ms(renderStart);
+			if (pixels.empty() || !render::SaveImage(PathFromUtf8(*a_args.screenshot), w, h, pixels)) {
+				Err("error: cannot save " + *a_args.screenshot + "\n");
+				return 1;
+			}
+
+			const auto progress = scene.Progress();
+			std::size_t shown = 0;
+			for (const auto& r : scene.Desc().refs) {
+				shown += r.model.empty() ? 0 : 1;
+			}
+			Out(std::format("{} {} \"{}\": {} references, {} drawn ({} with a mesh, {} boxes), {} terrain cells\n", lo->Format(cell->key), cell->editorId,
+				cell->name, cell->refs.size(), scene.Desc().refs.size(), shown, scene.Desc().refs.size() - shown, scene.Desc().terrain.size()));
+			Out(std::format("meshes: {} unique, {} missing or unreadable; textures: {} loaded, {} missing; {} archives, {} loose roots{}\n",
+				progress.modelsTotal, progress.missingModels, progress.texturesTotal - progress.missingTextures, progress.missingTextures,
+				assets->ArchiveCount(), assets->LooseRootCount(), warp ? "; WARP software device" : ""));
+			Out(std::format("camera {:.0f},{:.0f},{:.0f} yaw {:.1f} pitch {:.1f}; {} draw calls\n", cam.position.x, cam.position.y, cam.position.z,
+				cam.yaw * 180.0f / std::numbers::pi_v<float>, cam.pitch * 180.0f / std::numbers::pi_v<float>, scene.DrawCalls()));
+			Out(std::format("time: cell {} ms, meshes and textures {} ms, render {} ms -> {}\n", cellMs, loadMs, renderMs, *a_args.screenshot));
+			if (a_args.verbose) {
+				for (const auto& r : scene.Desc().refs) {
+					const auto& p = cell->refs[static_cast<std::size_t>(r.index)];
+					if (r.model.empty() || std::ranges::any_of(r.model, [](char c) { return static_cast<unsigned char>(c) >= 0x80 || c < 0x20; })) {
+						Out(std::format("  box: {} {} {} \"{}\" model \"{}\"\n", lo->Format(p.key), esp::SigToString(p.baseType), p.baseEditorId, p.baseName, p.model));
+					}
+				}
+			}
+			const auto problems = scene.Problems();
+			for (std::size_t i = 0; i < problems.size() && i < 40; ++i) {
+				Out("  " + problems[i] + "\n");
+			}
+			if (problems.size() > 40) {
+				Out(std::format("  ... {} more\n", problems.size() - 40));
+			}
+			return 0;
+		}
+	}
+
 	std::string Usage()
 	{
 		return "Dova Stash Editor (in development): make Dova Stash home templates outside the game.\n"
@@ -296,6 +486,38 @@ namespace dova::editor
 				a.draft = true;
 			} else if (s == "--gui") {
 				a.gui = true;
+			} else if (s == "--nif-info") {
+				a.nifInfo = value();
+			} else if (s == "--render-cell") {
+				a.renderCell = value();
+			} else if (s == "--size") {
+				if (auto v = value()) {
+					const auto n = Numbers(*v);
+					if (n.size() >= 2 && n[0] >= 16 && n[1] >= 16) {
+						a.width = static_cast<unsigned>(n[0]);
+						a.height = static_cast<unsigned>(n[1]);
+					} else {
+						a.errors.push_back("--size wants WIDTHxHEIGHT");
+					}
+				}
+			} else if (s == "--camera") {
+				a.camera = value();
+			} else if (s == "--select") {
+				a.select = value();
+			} else if (s == "--frame") {
+				a.frame = true;
+			} else if (s == "--height") {
+				a.heightCut = value();
+			} else if (s == "--no-disabled") {
+				a.noDisabled = true;
+			} else if (s == "--tab") {
+				a.tab = value();
+			} else if (s == "--verbose") {
+				a.verbose = true;
+			} else if (s == "--markers") {
+				a.markers = true;
+			} else if (s == "--nif-columns") {
+				a.nifColumns = true;
 			} else if (s == "--screenshot") {
 				a.screenshot = value();
 			} else {
@@ -323,6 +545,12 @@ namespace dova::editor
 		if (!ws.Open(a_args.workspace, error)) {
 			Err("error: " + error + "\n");
 			return 2;
+		}
+		if (a_args.nifInfo) {
+			return NifInfo(ws, a_args);
+		}
+		if (a_args.renderCell) {
+			return RenderCell(ws, a_args);
 		}
 		if (a_args.listMods) {
 			return ListMods(ws, a_args);

@@ -118,6 +118,77 @@ namespace dova::editor::home
 			return found;
 		}
 
+		std::string LandTexture(esp::LoadOrder& a_lo, const FormKey& a_ltex)
+		{
+			const auto* ltex = a_lo.Find(a_ltex, MakeSig("LTEX"));
+			if (!ltex) {
+				return {};
+			}
+			const auto ls = a_lo.Read(*ltex);
+			const auto tnam = ls.Get(MakeSig("TNAM"));
+			if (!tnam || tnam->size() < 4) {
+				return {};
+			}
+			const auto* txst = a_lo.Find(a_lo.Resolve(ltex->plugin, esp::Read<std::uint32_t>(*tnam, 0)), MakeSig("TXST"));
+			if (!txst) {
+				return {};
+			}
+			const auto ts = a_lo.Read(*txst);
+			const auto tx00 = ts.Get(MakeSig("TX00"));
+			return tx00 ? esp::ZString(*tx00) : std::string{};
+		}
+
+		std::optional<CellLand> LoadLand(esp::LoadOrder& a_lo, const FormKey& a_cell)
+		{
+			const auto rec = a_lo.CellLandRecord(a_cell);
+			if (!rec) {
+				return std::nullopt;
+			}
+			const auto subs = a_lo.Read(*rec);
+			const auto vhgt = subs.Get(MakeSig("VHGT"));
+			const auto* cell = a_lo.FindCell(a_cell);
+			if (!vhgt || vhgt->size() < 4 + 33 * 33 || !cell) {
+				return std::nullopt;
+			}
+			CellLand land;
+			float     row = esp::Read<float>(*vhgt, 0);
+			for (std::size_t y = 0; y < 33; ++y) {
+				row += static_cast<float>(static_cast<std::int8_t>((*vhgt)[4 + y * 33]));
+				float col = row;
+				land.heights[y * 33] = col * 8.0f;
+				for (std::size_t x = 1; x < 33; ++x) {
+					col += static_cast<float>(static_cast<std::int8_t>((*vhgt)[4 + y * 33 + x]));
+					land.heights[y * 33 + x] = col * 8.0f;
+				}
+			}
+			if (const auto vnml = subs.Get(MakeSig("VNML")); vnml && vnml->size() >= 33 * 33 * 3) {
+				land.normals.resize(33 * 33);
+				for (std::size_t i = 0; i < 33 * 33; ++i) {
+					for (std::size_t k = 0; k < 3; ++k) {
+						land.normals[i][k] = static_cast<float>(static_cast<std::int8_t>((*vnml)[i * 3 + k])) / 127.0f;
+					}
+				}
+			}
+			if (const auto vclr = subs.Get(MakeSig("VCLR")); vclr && vclr->size() >= 33 * 33 * 3) {
+				land.colors.resize(33 * 33);
+				for (std::size_t i = 0; i < 33 * 33; ++i) {
+					land.colors[i] = static_cast<std::uint32_t>((*vclr)[i * 3]) | (static_cast<std::uint32_t>((*vclr)[i * 3 + 1]) << 8) |
+					                 (static_cast<std::uint32_t>((*vclr)[i * 3 + 2]) << 16) | 0xFF000000u;
+				}
+			}
+			for (const auto& btxt : subs.GetAll(MakeSig("BTXT"))) {
+				if (btxt.size() < 8) {
+					continue;
+				}
+				const auto quadrant = static_cast<std::uint8_t>(btxt[4]);
+				const auto raw = esp::Read<std::uint32_t>(btxt, 0);
+				if (quadrant < 4 && raw != 0) {
+					land.textures[quadrant] = LandTexture(a_lo, a_lo.Resolve(rec->plugin, raw));
+				}
+			}
+			return land;
+		}
+
 		bool HasScript(const PlacedRef& a_ref, std::string_view a_name)
 		{
 			return std::ranges::any_of(a_ref.scripts, [&](const std::string& s) { return core::IEquals(s, a_name); });
@@ -194,6 +265,10 @@ namespace dova::editor::home
 			}
 		}
 
+		if (!info.interior) {
+			info.land = LoadLand(a_lo, a_cell);
+		}
+
 		std::vector<std::pair<std::size_t, FormKey>> fronts;  // ref index -> linked ref (keyword-less XLKR)
 		for (const auto& rec : a_lo.CellRefRecords(a_cell)) {
 			if (rec.flags & esp::kRecDeleted) {
@@ -240,6 +315,14 @@ namespace dova::editor::home
 				const auto bs = a_lo.Read(*base);
 				r.baseEditorId = a_lo.EditorId(bs);
 				r.baseName = a_lo.FullName(*base, bs);
+				// Armor: MODL links the armature; the world model is MOD2 (male) or MOD4 (female).
+				const bool armor = base->type == MakeSig("ARMO");
+				for (const auto sig : armor ? std::initializer_list<Sig>{ MakeSig("MOD2"), MakeSig("MOD4") } : std::initializer_list<Sig>{ MakeSig("MODL") }) {
+					if (const auto modl = bs.Get(sig); modl && modl->size() > 1) {
+						r.model = esp::ZString(*modl);
+						break;
+					}
+				}
 				if (const auto obnd = bs.Get(MakeSig("OBND")); obnd && obnd->size() >= 12) {
 					for (std::size_t i = 0; i < 6; ++i) {
 						r.bounds[i] = esp::Read<std::int16_t>(*obnd, i * 2);
