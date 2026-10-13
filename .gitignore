@@ -6,3 +6,6 @@
 CMakeUserPresets.json
 *.user
 __pycache__/
+
+# Claude Code (an editor agent keeps a worktree in .claude/worktrees/)
+.claude/

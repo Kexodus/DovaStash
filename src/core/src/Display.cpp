@@ -28,15 +28,21 @@ namespace dova::core
 			return a_item.type == ItemType::Armor && (HasKeyword(a_item, "ArmorShield") || (a_item.armorSlots & kSlotShield) != 0);
 		}
 
-		// "only" counts for racks and for mannequins without a chosen set (the set decides).
+		// "only" counts for racks, bookshelves and mannequins without a chosen set (the set decides).
 		bool OnlyApplies(const DisplaySpot& a_spot)
 		{
-			return a_spot.only && (a_spot.kind == DisplayKind::Rack || (a_spot.kind == DisplayKind::Mannequin && !a_spot.chosen && a_spot.set.empty()));
+			return a_spot.only && (a_spot.kind == DisplayKind::Rack || a_spot.kind == DisplayKind::Bookshelf ||
+									  (a_spot.kind == DisplayKind::Mannequin && !a_spot.chosen && a_spot.set.empty()));
 		}
 
+		// Daedric artifacts first, then (books) skill books, then spell tomes, then value.
 		double Score(const ItemInfo& a_item)
 		{
-			return static_cast<double>(a_item.value) + (HasKeyword(a_item, "DaedricArtifact") ? 1.0e7 : 0.0);
+			double tier = 0.0;
+			if (a_item.type == ItemType::Book && a_item.bookTeaches) {
+				tier = *a_item.bookTeaches == BookTeaches::Skill ? 2.0e6 : *a_item.bookTeaches == BookTeaches::Spell ? 1.0e6 : 0.0;
+			}
+			return static_cast<double>(a_item.value) + tier + (HasKeyword(a_item, "DaedricArtifact") ? 1.0e7 : 0.0);
 		}
 
 		class Planner
@@ -86,6 +92,7 @@ namespace dova::core
 						}
 					}
 				}
+				FillBookshelves();
 				return std::move(_out);
 			}
 
@@ -287,12 +294,58 @@ namespace dova::core
 				}
 			}
 
+			// A bookshelf's candidates, best first: books it may show (`a_preferredOnly`: only its own `items`).
+			// Without categories, no notes or letters unless it prefers them.
+			std::vector<std::size_t> ShelfCandidates(const DisplaySpot& a_spot, bool a_preferredOnly) const
+			{
+				std::vector<std::size_t> out;
+				for (std::size_t s = 0; s < _stocks.size(); ++s) {
+					const auto& item = _stocks[s].item;
+					if (!Free(s, a_spot) || !BookshelfTakes(item) || !Allowed(a_spot, s)) {
+						continue;
+					}
+					const bool preferred = Preferred(a_spot, item);
+					if (a_preferredOnly ? !preferred : (!preferred && a_spot.categories.empty() && item.bookIsNote)) {
+						continue;
+					}
+					out.push_back(s);
+				}
+				std::ranges::stable_sort(out, [&](std::size_t a_lhs, std::size_t a_rhs) { return Better(a_spot, a_lhs, a_rhs); });
+				return out;
+			}
+
+			// Bookshelves, up to their room: every shelf takes its own preferred books first (so a shelf filled
+			// earlier never takes another's), then the best of what is left.
+			void FillBookshelves()
+			{
+				std::vector<std::pair<std::size_t, std::int32_t>> shelves;  // spot, room left
+				for (std::size_t i = 0; i < _spots.size(); ++i) {
+					if (_spots[i].kind == DisplayKind::Bookshelf && !_spots[i].full && _spots[i].room > 0) {
+						shelves.emplace_back(i, _spots[i].room);
+					}
+				}
+				for (const bool preferredOnly : { true, false }) {
+					for (auto& [i, left] : shelves) {
+						const auto& spot = _spots[i];
+						for (const auto s : ShelfCandidates(spot, preferredOnly)) {
+							if (left <= 0) {
+								break;
+							}
+							if (Free(s, spot)) {  // another copy of the same book may have gone up just now
+								Take(i, s);
+								--left;
+							}
+						}
+					}
+				}
+			}
+
 			std::span<const DisplaySpot>   _spots;
 			std::span<const DisplayStock>  _stocks;
 			std::vector<std::int32_t>      _left;
 			std::set<FormRef>              _used;
 			std::set<FormRef>              _reserved;
-			std::set<FormRef>              _onlyFor;  // the items of racks and mannequins with "only"
+			std::set<FormRef>              _onlyFor;  // the items of racks, mannequins and bookshelves with "only"
 			std::vector<DisplayAssignment> _out;
 		};
 	}
@@ -308,6 +361,8 @@ namespace dova::core
 			return "item";
 		case DisplayKind::Case:
 			return "case";
+		case DisplayKind::Bookshelf:
+			return "bookshelf";
 		default:
 			return "?";
 		}
@@ -315,7 +370,7 @@ namespace dova::core
 
 	std::optional<DisplayKind> ParseDisplayKind(std::string_view a_text)
 	{
-		for (const auto kind : { DisplayKind::Rack, DisplayKind::Mannequin, DisplayKind::Item, DisplayKind::Case }) {
+		for (const auto kind : { DisplayKind::Rack, DisplayKind::Mannequin, DisplayKind::Item, DisplayKind::Case, DisplayKind::Bookshelf }) {
 			if (IEquals(a_text, DisplayKindName(kind))) {
 				return kind;
 			}
@@ -405,6 +460,26 @@ namespace dova::core
 	bool MannequinTakes(const ItemInfo& a_item)
 	{
 		return a_item.type == ItemType::Armor && !IsShield(a_item) && (a_item.armorSlots & kMannequinSlots) != 0;
+	}
+
+	bool BookshelfTakes(const ItemInfo& a_item)
+	{
+		return a_item.type == ItemType::Book && !a_item.elderScroll && !a_item.customized;
+	}
+
+	std::int32_t BookshelfRoom(const BookshelfState& a_state)
+	{
+		const auto cap = a_state.markers >= 0 ? std::min(a_state.capacity, a_state.markers) : a_state.capacity;
+		if (cap <= 0) {
+			return 0;
+		}
+		std::int32_t empty = 0;
+		for (std::int32_t i = 0; i < cap; ++i) {
+			if (static_cast<std::size_t>(i) >= a_state.slots.size() || !a_state.slots[static_cast<std::size_t>(i)]) {
+				++empty;
+			}
+		}
+		return std::max(0, std::min({ a_state.capacity - a_state.counted, empty, cap - a_state.inside }));
 	}
 
 	std::vector<DisplayAssignment> PlanDisplays(std::span<const DisplaySpot> a_spots, std::span<const DisplayStock> a_stocks, const std::set<FormRef>& a_shown)

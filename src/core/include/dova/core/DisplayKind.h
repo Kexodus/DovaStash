@@ -13,7 +13,8 @@ namespace dova::core
 		Rack,       // vanilla weapon rack, shield plaque or dagger display (WeaponRackActivateSCRIPT)
 		Mannequin,  // an actor that wears the armor put into its inventory (MannequinActivatorSCRIPT)
 		Item,       // a plaque made for one item: activating it with the item takes it and shows a model
-		Case        // a scripted container that shows models of the items it is made for
+		Case,       // a scripted container that shows models of the items it is made for
+		Bookshelf   // a container whose script shows the books put in on its book markers (PlayerBookShelfContainerScript)
 	};
 
 	// Which items a vanilla rack takes (WeaponRackActivateSCRIPT.RackType; Patch14COARacks counts as 3).
@@ -27,6 +28,6 @@ namespace dova::core
 		                    // its script turns away are refused by the plugin (they need the staff's 3D)
 	};
 
-	[[nodiscard]] std::string_view           DisplayKindName(DisplayKind a_kind) noexcept;  // "rack", "mannequin", "item", "case"
+	[[nodiscard]] std::string_view           DisplayKindName(DisplayKind a_kind) noexcept;  // "rack", "mannequin", "item", "case", "bookshelf"
 	[[nodiscard]] std::optional<DisplayKind> ParseDisplayKind(std::string_view a_text);      // case-insensitive
 }

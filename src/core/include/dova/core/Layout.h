@@ -105,22 +105,22 @@ namespace dova::core
 
 	// A display the layout uses (DESIGN §8.4): only listed displays that are not ignored are filled. The
 	// player turns one on with the hotkey (an entry is added) and off again (it stays, ignored); templates
-	// list theirs. `categories` limits what a rack or mannequin takes, like a container's. Dova Stash
-	// recognises vanilla racks, mannequins, item plaques and scripted display cases by their scripts; an
+	// list theirs. `categories` limits what a rack, mannequin or bookshelf takes, like a container's. Dova Stash
+	// recognises vanilla racks, mannequins, item plaques, scripted display cases and bookshelves by their scripts; an
 	// entry can change their items, or name a display it cannot recognise (with `kind`).
-	// One shape in layouts and templates (TemplateDisplays.h has the rules for templates): the items of a rack
-	// or mannequin are chosen by the file (soft: one that does not exist in the load order is skipped); the
+	// One shape in layouts and templates (TemplateDisplays.h has the rules for templates): the items of a rack,
+	// mannequin or bookshelf are chosen by the file (soft: one that does not exist in the load order is skipped); the
 	// items of an item plaque or a case are what its own script is made for (a template never decides them).
 	struct DisplayBinding
 	{
-		FormRef                    ref;  // rack activator, plaque, mannequin actor or case container (REFR/ACHR)
+		FormRef                    ref;  // rack activator, plaque, mannequin actor, case or bookshelf container (REFR/ACHR)
 		std::optional<DisplayKind> kind;
 		std::string                label;
 		std::string                note;
-		std::vector<std::string>   categories;  // Rack/Mannequin: patterns it takes (empty: anything that fits)
-		std::vector<FormRef>       items;  // Item/Case: what it is made for. Rack/Mannequin: preferred items
+		std::vector<std::string>   categories;  // Rack/Mannequin/Bookshelf: patterns it takes (empty: anything that fits)
+		std::vector<FormRef>       items;  // Item/Case: what it is made for. Rack/Mannequin/Bookshelf: preferred items
 		std::vector<std::string>   unparsedItems;  // malformed "items" entries, written back verbatim
-		bool                       only{ false };  // Rack/Mannequin with items: takes nothing but them ("only": true; optional)
+		bool                       only{ false };  // Rack/Mannequin/Bookshelf with items: takes nothing but them ("only": true; optional)
 		std::optional<FormRef>     set;  // Mannequin: any piece of the armor set it wears (ArmorSets.h); nullopt: it picks a set
 		bool                       ignored{ false };  // never fill it
 		nlohmann::json             extra = nlohmann::json::object();

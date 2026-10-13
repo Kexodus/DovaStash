@@ -215,8 +215,8 @@ TEST_CASE("Display lint: fields that do nothing for the kind, only without items
 	CHECK_FALSE(diags.HasErrors());
 	CHECK(diags.WarningCount() == 7);
 	CHECK(CountContaining(diags, "\"set\" is only used by mannequins") == 1);
-	CHECK(CountContaining(diags, "\"categories\" are only used by racks and mannequins") == 1);
-	CHECK(CountContaining(diags, "\"only\" is for racks and mannequins") == 1);
+	CHECK(CountContaining(diags, "\"categories\" are only used by racks, mannequins and bookshelves") == 1);
+	CHECK(CountContaining(diags, "\"only\" is for racks, mannequins and bookshelves") == 1);
 	CHECK(CountContaining(diags, "\"only\" without \"items\"") == 1);
 	CHECK(CountContaining(diags, "\"only\" is ignored next to \"set\"") == 1);
 	CHECK(CountContaining(diags, "also listed as a container") == 1);

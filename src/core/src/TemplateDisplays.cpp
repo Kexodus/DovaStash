@@ -16,7 +16,7 @@ namespace dova::core
 
 	bool ItemsChosenByFile(std::optional<DisplayKind> a_kind) noexcept
 	{
-		return !a_kind || *a_kind == DisplayKind::Rack || *a_kind == DisplayKind::Mannequin;
+		return !a_kind || *a_kind == DisplayKind::Rack || *a_kind == DisplayKind::Mannequin || *a_kind == DisplayKind::Bookshelf;
 	}
 
 	void ValidateDisplays(const Layout& a_layout, std::string_view a_source, Diagnostics& a_diags)
@@ -28,11 +28,11 @@ namespace dova::core
 				a_diags.Warn(source, where + ": \"set\" is only used by mannequins (ignored)");
 			}
 			if (!d.categories.empty() && !ItemsChosenByFile(d.kind)) {
-				a_diags.Warn(source, where + ": \"categories\" are only used by racks and mannequins (ignored)");
+				a_diags.Warn(source, where + ": \"categories\" are only used by racks, mannequins and bookshelves (ignored)");
 			}
 			if (d.only) {
 				if (!ItemsChosenByFile(d.kind)) {
-					a_diags.Warn(source, where + ": \"only\" is for racks and mannequins; an item plaque or case always takes just what it is made for");
+					a_diags.Warn(source, where + ": \"only\" is for racks, mannequins and bookshelves; an item plaque or case always takes just what it is made for");
 				} else if (d.items.empty()) {
 					a_diags.Warn(source, where + ": \"only\" without \"items\" does nothing");
 				} else if (d.set) {

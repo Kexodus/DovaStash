@@ -6,8 +6,8 @@
 // Decisions:
 // - A display entry has the same fields everywhere: ref, kind, label, categories, items, only, set, ignored,
 //   note (written in that order; see Layout.h). Every field but `ref` is optional, and each applies to
-//   some kinds only: `categories` and `only` to racks and mannequins, `set` to mannequins, `items` to all.
-// - Racks and mannequins: `items` are chosen by the file (preferred items; with `only`, the only ones). An
+//   some kinds only: `categories` and `only` to racks, mannequins and bookshelves, `set` to mannequins, `items` to all.
+// - Racks, mannequins and bookshelves: `items` are chosen by the file (preferred items; with `only`, the only ones). An
 //   item from a plugin that is not loaded, or a form that is not in its plugin, is a soft reference: it is
 //   skipped and the rest of the template works. A mannequin's `set` is soft the same way (the mannequin
 //   then waits for it, as with a set chosen in game, ArmorSets.h), and so does an `only` display none of
@@ -43,7 +43,7 @@
 
 namespace dova::core
 {
-	// Whether an entry's `items` are chosen by the file (racks, mannequins) rather than defined by the display's
+	// Whether an entry's `items` are chosen by the file (racks, mannequins, bookshelves) rather than defined by the display's
 	// own script (item plaques, cases). nullopt (kind unknown) counts as chosen.
 	[[nodiscard]] bool ItemsChosenByFile(std::optional<DisplayKind> a_kind) noexcept;
 
