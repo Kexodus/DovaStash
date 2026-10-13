@@ -20,6 +20,7 @@
 #include "Util.h"
 #include "dova/core/Template.h"
 #include "dova/core/Version.h"
+#include "home/TemplateFile.h"
 #include "ui/App.h"
 
 namespace fs = std::filesystem;
@@ -30,9 +31,7 @@ namespace dova::editor::ui
 	{
 		std::string GameName(const home::PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
 
-		const char* const kTemplatesDir = "SKSE\\Plugins\\DovaStash\\Templates";
 		const char* const kCategoriesDir = "SKSE\\Plugins\\DovaStash\\Categories";
-		const char* const kTemplatesMod = "Dova Stash Templates";
 	}
 
 	void EditorApp::LoadCategories()
@@ -174,6 +173,21 @@ namespace dova::editor::ui
 		auto&       layout = a_cell.layout;
 		bool        changed = false;
 		ImGui::PushID(a_index);
+		if ((r.IsContainer() || r.display) && !CellInHome(a_cell)) {
+			ImGui::SeparatorText("In the template");
+			ImGui::TextWrapped("This cell is not part of the home \"%s\".", layout.name.c_str());
+			if (ImGui::Button("Add this cell to the home")) {
+				core::HomeCell hc;
+				hc.cell = a_cell.lo->ToFormRef(a_cell.info.key);
+				hc.label = a_cell.info.name;
+				layout.cells.push_back(std::move(hc));
+				a_cell.dirty = true;
+				Revalidate(a_cell);
+			}
+			ImGui::SetItemTooltip("Lists the cell in the template's `cells` (DESIGN 6.7): its containers and displays can then be used.");
+			ImGui::PopID();
+			return;
+		}
 		if (r.IsContainer()) {
 			ImGui::SeparatorText("In the template");
 			const bool master = layout.IsMaster(ref);
@@ -295,7 +309,7 @@ namespace dova::editor::ui
 				ImGui::TextWrapped("Leads to %s", door.destinationLabel.c_str());
 				ImGui::BeginDisabled(!door.destinationCell || _job.valid());
 				if (ImGui::Button("Open that cell")) {
-					OpenCellAsync(a_cell.lo, *door.destinationCell);
+					OpenCellAsync(a_cell.lo, *door.destinationCell, true, true);
 				}
 				ImGui::EndDisabled();
 			}
@@ -309,60 +323,36 @@ namespace dova::editor::ui
 
 	fs::path EditorApp::TemplatePath(const OpenCell& a_cell) const
 	{
-		const auto author = core::TemplateFileStem(a_cell.layout.author.empty() ? std::string("Unknown") : a_cell.layout.author);
-		const auto file = core::TemplateFileStem(a_cell.layout.name) + ".json";
-		fs::path   base;
+		fs::path base;
 		if (_ws && _ws->Instance()) {
-			base = _ws->Instance()->modsDir / PathFromUtf8(kTemplatesMod);
+			base = _ws->Instance()->modsDir / PathFromUtf8(home::kTemplatesMod);
 		} else if (_ws) {
 			base = _ws->DataDir();
 		}
-		return base / PathFromUtf8(kTemplatesDir) / PathFromUtf8(author) / PathFromUtf8(file);
+		return home::TemplatePath(base, a_cell.layout);
 	}
 
 	void EditorApp::SaveTemplate(OpenCell& a_cell, bool a_overwrite)
 	{
-		const auto      path = TemplatePath(a_cell);
 		std::error_code ec;
-		if (fs::exists(path, ec) && !a_overwrite) {
+		if (fs::exists(TemplatePath(a_cell), ec) && !a_overwrite) {
 			_confirmOverwrite = true;
 			return;
 		}
 		_confirmOverwrite = false;
-		core::Layout out = a_cell.layout;
-		out.requiredPlugins = core::ReferencedPlugins(out);
-		if (fs::exists(path, ec)) {
-			// As the DLL does: back up the old file, raise its version.
-			core::Diagnostics diags;
-			if (const auto old = core::LoadLayoutFile(path, "old", diags)) {
-				if (core::CompareVersionStrings(out.version, old->version) != std::strong_ordering::greater) {
-					out.version = core::NextPatchVersion(old->version);
-				}
-			}
-			const auto stamp = std::format("{:%Y%m%d-%H%M%S}", std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now()));
-			fs::copy_file(path, fs::path(path.native() + L"." + Widen(stamp) + L".bak"), fs::copy_options::overwrite_existing, ec);
-		}
-		if (_ws && _ws->Instance()) {
-			const auto mod = _ws->Instance()->modsDir / PathFromUtf8(kTemplatesMod);
-			if (!fs::exists(mod / L"meta.ini", ec)) {
-				fs::create_directories(mod, ec);
-				std::ofstream meta(mod / L"meta.ini", std::ios::binary);
-				meta << "[General]\r\nmodid=0\r\nversion=1.0.0\r\ncomments=Templates made with Dova Stash Editor\r\n";
-			}
-		}
-		fs::create_directories(path.parent_path(), ec);
-		if (core::SaveLayoutFile(path, out)) {
-			a_cell.layout.version = out.version;
-			a_cell.layout.requiredPlugins = out.requiredPlugins;
+		const bool mod = _ws && _ws->Instance();
+		const auto base = mod ? _ws->Instance()->modsDir / PathFromUtf8(home::kTemplatesMod) : (_ws ? _ws->DataDir() : fs::path{});
+		const auto r = home::SaveTemplateFile(base, a_cell.layout, mod);
+		if (r.ok) {
 			a_cell.dirty = false;
-			a_cell.savedPath = PathToUtf8(path);
-			a_cell.saveMessage = std::format("Saved version {} to {}", out.version, a_cell.savedPath);
-			if (_ws && _ws->Instance()) {
-				a_cell.saveMessage += std::format(" (in MO2: refresh with F5 and enable the \"{}\" mod)", kTemplatesMod);
+			a_cell.savedPath = PathToUtf8(r.path);
+			a_cell.saveMessage = std::format("Saved version {} to {}{}", r.version, a_cell.savedPath, r.replaced ? " (the old file is kept as .bak)" : "");
+			if (mod) {
+				a_cell.saveMessage += std::format(". In MO2: refresh with F5 and enable the \"{}\" mod", home::kTemplatesMod);
 			}
 			Revalidate(a_cell);
 		} else {
-			a_cell.saveMessage = "Could not write " + PathToUtf8(path);
+			a_cell.saveMessage = r.error;
 		}
 	}
 
@@ -411,6 +401,66 @@ namespace dova::editor::ui
 			ImGui::TextDisabled("%zu categories from %s", _categories.size(), _categorySource.c_str());
 		}
 
+		ImGui::SeparatorText("Cells");
+		{
+			const auto openRef = a_cell.lo->ToFormRef(a_cell.info.key);
+			ImGui::Text("Main: %s", t.cell ? t.cell->ToString().c_str() : "-");
+			if (t.cell && *t.cell == openRef) {
+				ImGui::SameLine();
+				ImGui::TextDisabled("(open)");
+			}
+			int remove = -1;
+			for (std::size_t i = 0; i < t.cells.size(); ++i) {
+				auto& c = t.cells[i];
+				ImGui::PushID(static_cast<int>(i));
+				ImGui::Text("%s", c.cell.ToString().c_str());
+				ImGui::SameLine();
+				ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
+				changed |= ImGui::InputTextWithHint("##label", "label (what players see)", &c.label);
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Remove")) {
+					remove = static_cast<int>(i);
+				}
+				if (c.cell == openRef) {
+					ImGui::SameLine();
+					ImGui::TextDisabled("(open)");
+				}
+				ImGui::PopID();
+			}
+			if (remove >= 0) {
+				t.cells.erase(t.cells.begin() + remove);
+				changed = true;
+			}
+			if (t.cells.empty()) {
+				ImGui::TextDisabled("One cell. A cellar or the grounds outside join from the Doors tab (\"In the home\").");
+			}
+			if (CellInHome(a_cell) && !(t.cell && *t.cell == openRef)) {
+				if (ImGui::Button("List this cell's containers")) {
+					// The draft's container entries for this cell (labels, respawning and upgrade containers ignored).
+					core::Diagnostics diags;
+					const auto        draft = home::DraftTemplate(*a_cell.lo, a_cell.info, diags);
+					auto              entries = draft.containers;
+					if (draft.master) {
+						core::ContainerBinding m;
+						m.ref = *draft.master;
+						for (const auto& p : a_cell.info.refs) {
+							if (a_cell.lo->ToFormRef(p.key) == m.ref) {
+								m.label = GameName(p);
+							}
+						}
+						entries.push_back(std::move(m));
+					}
+					for (auto& e : entries) {
+						if (!t.FindContainer(e.ref) && !t.IsMaster(e.ref)) {
+							t.containers.push_back(std::move(e));
+						}
+					}
+					changed = true;
+				}
+				ImGui::SetItemTooltip("Adds every container of the open cell that the template does not list yet.");
+			}
+		}
+
 		ImGui::SeparatorText("Problems");
 		if (a_cell.diagnostics.empty()) {
 			ImGui::TextColored(ImVec4(0.5f, 0.85f, 0.5f, 1.0f), "None: the template passes the same checks as the DLL's.");
@@ -423,7 +473,7 @@ namespace dova::editor::ui
 		const auto path = PathToUtf8(TemplatePath(a_cell));
 		ImGui::TextWrapped("Saves to %s", path.c_str());
 		if (_ws && _ws->Instance()) {
-			ImGui::TextDisabled("A mod of its own (\"%s\"), never MO2's overwrite folder: clearing overwrite cannot delete it.", kTemplatesMod);
+			ImGui::TextDisabled("A mod of its own (\"%s\"), never MO2's overwrite folder: clearing overwrite cannot delete it.", home::kTemplatesMod);
 		}
 		if (_confirmOverwrite) {
 			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "That file exists. Overwrite it (the old one is kept as .bak, the version goes up)?");

@@ -21,6 +21,8 @@ namespace dova::editor
 		bool                       exteriors{ false };
 		std::optional<std::string> cell;  // EditorID or "Plugin.esm|0x..."
 		bool                       draft{ false };
+		std::optional<std::string> saveTo;  // --draft: save the draft into this folder (as the window saves)
+		std::optional<std::string> author;
 		bool                       gui{ false };  // open the window even with --mod/--cell (they preselect)
 		std::optional<std::string> screenshot;  // --gui: save the window once loading is done, then exit; --render-cell: the image
 		std::optional<std::string> nifInfo;     // --nif-info <meshes\...nif>: dump a mesh as the 3D view reads it

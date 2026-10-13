@@ -90,6 +90,7 @@ $exe = 'build\editor\editor\Release\DovaStashEditor.exe'
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --mod 92177 --homes           # player homes in a mod's plugins
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --cell WhiterunBreezehome     # containers, displays, doors
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --cell WhiterunBreezehome --draft > Breezehome.json
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --cell WhiterunBreezehome --draft --save-to C:\Temp\Templates --author Me  # as the window saves
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --mod 92177 --cell bcr58WhiteTower --screenshot shot.png
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --mod 92177 --cell bcr58WhiteTower --tab template --screenshot tpl.png
 

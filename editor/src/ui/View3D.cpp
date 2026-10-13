@@ -255,7 +255,7 @@ namespace dova::editor::ui
 			const auto& ref = a_cell.info.refs[static_cast<std::size_t>(_hoveredRef)];
 			for (const auto& d : a_cell.info.doors) {
 				if (d.door == ref.key && d.destinationCell && !_job.valid()) {
-					OpenCellAsync(a_cell.lo, *d.destinationCell);
+					OpenCellAsync(a_cell.lo, *d.destinationCell, true, true);
 					break;
 				}
 			}

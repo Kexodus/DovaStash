@@ -85,7 +85,12 @@ namespace dova::editor::ui
 
 		void SelectMod(int a_index);  // -1: the game's Data folder
 		void Scan();
-		void OpenCellAsync(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell, bool a_remember = true);
+		// `a_keepTemplate`: the template being made follows (another cell of the same home: a door, Back);
+		// otherwise the cell starts a new draft (a home picked from the list).
+		void OpenCellAsync(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell, bool a_remember = true, bool a_keepTemplate = false);
+		void RequestNewHome(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell);  // asks first when the template has unsaved changes
+		void DrawDiscardPopup();
+		[[nodiscard]] bool CellInHome(const OpenCell& a_cell) const;  // the open cell is the template's main cell or one of its `cells`
 		void StartScene();
 
 		void DrawTopBar();
@@ -178,5 +183,6 @@ namespace dova::editor::ui
 		std::string                     _templateAuthor;
 		int                             _saveTarget{ 0 };  // index into the save targets
 		bool                            _confirmOverwrite{ false };
+		std::optional<std::pair<std::shared_ptr<esp::LoadOrder>, esp::FormKey>> _pendingNewHome;  // waiting for "discard changes?"
 	};
 }

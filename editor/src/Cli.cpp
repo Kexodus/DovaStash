@@ -16,6 +16,7 @@
 
 #include "data/Assets.h"
 #include "home/Cell.h"
+#include "home/TemplateFile.h"
 #include "render/Image.h"
 #include "render/Nif.h"
 #include "render/Scene.h"
@@ -170,9 +171,22 @@ namespace dova::editor
 			}
 			if (a_args.draft) {
 				core::Diagnostics diags;
-				const auto        layout = home::DraftTemplate(*lo, *cell, diags);
+				auto              layout = home::DraftTemplate(*lo, *cell, diags);
 				for (const auto& d : diags.Items()) {
 					Err(d.ToString() + "\n");
+				}
+				if (a_args.saveTo) {
+					// The window's Save template, into a folder of your choice (a mod folder or a Data folder).
+					if (a_args.author) {
+						layout.author = *a_args.author;
+					}
+					const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), layout, false);
+					if (!r.ok) {
+						Err("error: " + r.error + "\n");
+						return 1;
+					}
+					Out(std::format("saved version {} to {}{}\n", r.version, PathToUtf8(r.path), r.replaced ? " (old file kept as " + PathToUtf8(r.backup.filename()) + ")" : ""));
+					return 0;
 				}
 				Out(core::SerializeLayout(layout));
 				return 0;
@@ -500,12 +514,14 @@ namespace dova::editor
 		       "  --cell <cell>         containers, displays and doors of a cell (EditorID or \"Plugin.esm|0x...\");\n"
 		       "                        loads --mod/--plugin with its masters, else the base game\n"
 		       "  --cell <cell> --draft print a draft template for the cell (dovastash-layout-1)\n"
+		       "                        (--save-to <folder> [--author <name>]: save it as the window does, into\n"
+		       "                        <folder>/SKSE/Plugins/DovaStash/Templates/<author>/<name>.json, with backup)\n"
 		       "  --render-cell <cell> --screenshot <out.png>\n"
 		       "                        draw the cell in 3D without a window (loads like --cell); options:\n"
 		       "                        --size WxH, --camera x,y,z,yaw,pitch (degrees), --select <ref> [--frame],\n"
 		       "                        --height lo,hi, --no-disabled, --markers, --no-neighbours (exteriors),\n"
 		       "                        --pick x,y (what a click there selects), --verbose (boxes, bounds check, frame time)\n"
-		       "  --nif-info <mesh>     how the 3D view reads a mesh (\"clutter\\\\chest01.nif\" or a file on disk)\n"
+		       "  --nif-info <mesh>     how the 3D view reads a mesh (\"clutter\\chest01.nif\" or a file on disk)\n"
 		       "\n"
 		       "Window:\n"
 		       "  --gui                 open the window even with --mod/--cell (they preselect)\n"
@@ -590,6 +606,10 @@ namespace dova::editor
 				a.noDisabled = true;
 			} else if (s == "--tab") {
 				a.tab = value();
+			} else if (s == "--save-to") {
+				a.saveTo = value();
+			} else if (s == "--author") {
+				a.author = value();
 			} else if (s == "--pick") {
 				if (auto v = value()) {
 					a.picks.push_back(*v);

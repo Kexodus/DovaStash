@@ -155,12 +155,34 @@ namespace dova::editor::ui
 		}
 		_pendingSelect = a_gui.select;
 		OpenWorkspace();
+		bool opened = false;
 		if (_ws && a_gui.mod) {
 			std::snprintf(_modFilter, sizeof(_modFilter), "%s", a_gui.mod->c_str());
 			if (const auto found = _ws->FindMods(*a_gui.mod); !found.empty()) {
 				_pendingCell = a_gui.cell;
 				SelectMod(static_cast<int>(found.front() - _ws->Mods().data()));
+				opened = true;
 			}
+		}
+		if (_ws && a_gui.cell && !opened) {
+			// --cell without a mod: the base game and its DLCs, as the --cell command loads it.
+			const Workspace* ws = _ws.get();
+			const auto       wanted = *a_gui.cell;
+			StartJob("Opening cell...", [this, ws, wanted]() -> std::function<void()> {
+				auto                     lo = std::make_shared<esp::LoadOrder>(ws->Files(), ws->Language());
+				std::vector<std::string> errors;
+				for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
+					lo->AddWithMasters(p, errors);
+				}
+				auto key = lo->ParseFormRef(wanted);
+				if (!key) {
+					key = lo->FindCellByEditorId(wanted);
+				}
+				if (!key) {
+					return [wanted] { ::MessageBoxA(nullptr, ("Cell not found in the base game: " + wanted).c_str(), "Dova Stash Editor", MB_ICONWARNING); };
+				}
+				return [this, lo, k = *key]() { OpenCellAsync(lo, k, false); };
+			});
 		}
 	}
 
@@ -297,12 +319,50 @@ namespace dova::editor::ui
 		});
 	}
 
-	void EditorApp::OpenCellAsync(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell, bool a_remember)
+	void EditorApp::RequestNewHome(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell)
+	{
+		if (_cell && _cell->dirty) {
+			_pendingNewHome = std::pair{ std::move(a_lo), a_cell };
+			return;
+		}
+		OpenCellAsync(std::move(a_lo), a_cell);
+	}
+
+	void EditorApp::DrawDiscardPopup()
+	{
+		if (_pendingNewHome && !ImGui::IsPopupOpen("Unsaved template")) {
+			ImGui::OpenPopup("Unsaved template");
+		}
+		if (ImGui::BeginPopupModal("Unsaved template", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+			ImGui::TextUnformatted("The template has changes that are not saved. Open the other home and drop them?");
+			if (ImGui::Button("Drop the changes")) {
+				auto [lo, key] = *std::exchange(_pendingNewHome, std::nullopt);
+				_history.clear();
+				OpenCellAsync(lo, key, false);
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Keep editing")) {
+				_pendingNewHome.reset();
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+	}
+
+	bool EditorApp::CellInHome(const OpenCell& a_cell) const
+	{
+		const auto ref = a_cell.lo->ToFormRef(a_cell.info.key);
+		return (a_cell.layout.cell && *a_cell.layout.cell == ref) ||
+		       std::ranges::any_of(a_cell.layout.cells, [&](const core::HomeCell& c) { return c.cell == ref; });
+	}
+
+	void EditorApp::OpenCellAsync(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell, bool a_remember, bool a_keepTemplate)
 	{
 		if (a_remember && _cell && !(_cell->info.key == a_cell && _cell->lo == a_lo)) {
 			_history.emplace_back(_cell->lo, _cell->info.key);
 		}
-		StartJob("Opening cell...", [this, a_lo, a_cell]() -> std::function<void()> {
+		StartJob("Opening cell...", [this, a_lo, a_cell, a_keepTemplate]() -> std::function<void()> {
 			const auto start = Clock::now();
 			auto       cell = home::LoadCell(*a_lo, a_cell);
 			if (!cell) {
@@ -322,9 +382,16 @@ namespace dova::editor::ui
 			core::Diagnostics diags;
 			oc->layout = home::DraftTemplate(*a_lo, oc->info, diags);
 			oc->ms = Ms(start);
-			return [this, oc]() {
+			return [this, oc, a_keepTemplate]() {
+				std::unique_ptr<OpenCell> previous = std::move(_cell);
 				_cell = std::make_unique<OpenCell>(std::move(*oc));
-				if (!_templateAuthor.empty()) {
+				if (a_keepTemplate && previous && previous->lo == _cell->lo) {
+					// Same home: the template being made comes along.
+					_cell->layout = std::move(previous->layout);
+					_cell->dirty = previous->dirty;
+					_cell->savedPath = std::move(previous->savedPath);
+					_cell->saveMessage = std::move(previous->saveMessage);
+				} else if (!_templateAuthor.empty()) {
 					_cell->layout.author = _templateAuthor;
 				}
 				Revalidate(*_cell);
@@ -369,6 +436,7 @@ namespace dova::editor::ui
 		ImGui::Begin("Dova Stash Editor", nullptr,
 			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
 		DrawTopBar();
+		DrawDiscardPopup();
 		ImGui::Separator();
 		if (_cell && _listsHidden) {
 			ImGui::BeginChild("cell");
@@ -574,7 +642,7 @@ namespace dova::editor::ui
 						const bool selected = _cell && _cell->info.key == h.cell && _cell->lo == scan.lo;
 						ImGui::BeginDisabled(busy);
 						if (ImGui::Selectable(label.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns) && scan.lo) {
-							OpenCellAsync(scan.lo, h.cell);
+							RequestNewHome(scan.lo, h.cell);
 						}
 						ImGui::EndDisabled();
 						if (!h.Likely()) {
@@ -627,7 +695,7 @@ namespace dova::editor::ui
 			if (ImGui::SmallButton("< Back")) {
 				auto [lo, key] = _history.back();
 				_history.pop_back();
-				OpenCellAsync(lo, key, false);
+				OpenCellAsync(lo, key, false, true);
 			}
 			ImGui::EndDisabled();
 			ImGui::SetItemTooltip("Back to the cell opened before (%zu)", _history.size());
@@ -1112,20 +1180,58 @@ namespace dova::editor::ui
 			ImGui::TextDisabled("No doors to other cells.");
 			return;
 		}
-		ImGui::TextWrapped("Doors lead to the home's other cells (a cellar, a cave) and to the exterior around it.");
+		ImGui::TextWrapped("Doors lead to the home's other cells (a cellar, a cave) and to the exterior around it. Open one to see it "
+		                   "(the template comes along; Back returns). Tick \"In the home\" to make it part of this home: its containers "
+		                   "and displays can then be used, and the template lists it in `cells` (DESIGN 6.7).");
 		const bool busy = _job.valid();
+		auto&      layout = a_cell.layout;
+		// One line per place a door leads to (a Hearthfire home has a door per building stage).
+		std::vector<std::size_t> shown;
+		std::vector<int>         count(a_cell.info.doors.size(), 0);
 		for (std::size_t i = 0; i < a_cell.info.doors.size(); ++i) {
+			const auto& d = a_cell.info.doors[i];
+			const auto  same = std::ranges::find_if(shown, [&](std::size_t j) {
+                const auto& o = a_cell.info.doors[j];
+                return d.destinationCell ? o.destinationCell == d.destinationCell : (!o.destinationCell && o.destinationLabel == d.destinationLabel);
+			});
+			if (same == shown.end()) {
+				shown.push_back(i);
+				count[i] = 1;
+			} else {
+				++count[*same];
+			}
+		}
+		for (const auto i : shown) {
 			const auto& d = a_cell.info.doors[i];
 			ImGui::PushID(static_cast<int>(i));
 			ImGui::BeginDisabled(busy || !d.destinationCell);
 			if (ImGui::SmallButton("Open")) {
-				OpenCellAsync(a_cell.lo, *d.destinationCell);
+				OpenCellAsync(a_cell.lo, *d.destinationCell, true, true);
 			}
 			ImGui::EndDisabled();
 			ImGui::SameLine();
+			if (d.destinationCell) {
+				const auto ref = a_cell.lo->ToFormRef(*d.destinationCell);
+				const bool main = layout.cell && *layout.cell == ref;
+				bool       in = main || std::ranges::any_of(layout.cells, [&](const core::HomeCell& c) { return c.cell == ref; });
+				ImGui::BeginDisabled(main);
+				if (ImGui::Checkbox("In the home", &in)) {
+					if (in) {
+						core::HomeCell hc;
+						hc.cell = ref;
+						layout.cells.push_back(std::move(hc));
+					} else {
+						std::erase_if(layout.cells, [&](const core::HomeCell& c) { return c.cell == ref; });
+					}
+					a_cell.dirty = true;
+					Revalidate(a_cell);
+				}
+				ImGui::EndDisabled();
+				ImGui::SameLine();
+			}
 			ImGui::Text("%s %s", d.destinationInterior ? "interior" : "exterior", d.destinationLabel.c_str());
 			ImGui::SameLine();
-			ImGui::TextDisabled("%s", a_cell.doorText[i].c_str());
+			ImGui::TextDisabled("%s%s", a_cell.doorText[i].c_str(), count[i] > 1 ? std::format("  ({} doors)", count[i]).c_str() : "");
 			ImGui::PopID();
 		}
 	}

@@ -131,6 +131,14 @@ each a `label` (what players see; they can rename it in game). **Decided: a mult
 file per home** (`cell` + `cells`, DESIGN §6.7), never one file per cell; the shipped `*Cellar.json` files stay
 as they are for players who use them, and the DLL keeps loading either shape.
 
+Built: the Doors tab lists each place the home's doors lead to once (a Hearthfire home has a door per building
+stage) with *Open* and *In the home*. Opening a door's cell (the tab, a double click on the door in 3D, the
+details pane) takes the template along, and *Back* returns; picking another home from the list starts a new
+draft (after asking when there are unsaved changes). In a cell that is not part of the home the details pane
+offers *Add this cell to the home*; the Template tab lists the cells with their labels and can list all
+containers of the open cell at once (the draft's rules: respawning, scripted and upgrade-removed containers
+ignored).
+
 ---
 
 ## 4. Architecture
@@ -336,7 +344,8 @@ the user's own game and mod files at run time and never ships or extracts Bethes
 6. **Headless mode** keeps the editor testable and scriptable (`--list-mods`, `--homes`, `--cell`,
    `--draft`). `--render-cell <cell> --screenshot out.png` draws the 3D view off-screen (`--camera`, `--select`
    `--frame`, `--height`, `--pick x,y` prints what a click there selects, `--verbose` lists the boxes, the bounds
-   check and the frame time); `--nif-info` dumps how a mesh is read; `--gui --tab <tab> --select <ref>
+   check and the frame time); `--cell <cell> --draft --save-to <folder> [--author <name>]` saves the draft through
+   the same code as the Template tab (`home/TemplateFile`: backup, version raised); `--nif-info` dumps how a mesh is read; `--gui --tab <tab> --select <ref>
    --screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit).
 
 ---
@@ -382,7 +391,7 @@ Taken with the user after M0; the sections above are written to match.
 State against these: the 3D view (decision 1) is built (§4.5); saving goes into the "Dova Stash Templates" mod
 (decision 3: created with a `meta.ini` when missing, an existing file backed up and its version raised); the
 whole-load-order loader and its toggle (decision 4) are still M1 work: the editor loads the home plugin with its
-masters. A home over several cells (decision 5) is not yet saved from the editor (the Doors tab opens the cells).
+masters. A home over several cells (decision 5) is saved as one file with `cells` (§3.3).
 
 ---
 
