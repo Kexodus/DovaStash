@@ -805,10 +805,11 @@ namespace dova::editor::ui
 			} else {
 				ImGui::Text("Save to %s?", PathToUtf8(path).c_str());
 			}
-			for (const auto* t : templates) {
+			const auto existing = _homes->templates.ForCell(_homes->lo->ToFormRef(h.cell));  // fresh: a save reloads the index
+			for (const auto* t : existing) {
 				ImGui::TextColored(kInfo, "This home already has a template: %s (%s).", t->source.c_str(), t->origin.c_str());
 			}
-			if (!templates.empty()) {
+			if (!existing.empty()) {
 				ImGui::TextDisabled("That file is not touched; in game the template with the higher priority, then the newer version, is offered first.");
 			}
 			if (ImGui::Button("Save")) {
