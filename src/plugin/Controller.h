@@ -59,6 +59,10 @@ namespace dova
 		// Racks and mannequins: the categories they take, like a container's (none: anything that fits).
 		void ToggleDisplayCategory(RE::FormID a_cellId, const core::FormRef& a_display, const std::string& a_pattern);
 		void FillDisplay(RE::FormID a_cellId, const core::FormRef& a_display);
+		// The panel's "Use all racks" (Displays page): adds the displays that are not in the layout yet, as
+		// SetDisplayUsed does, with one save and one line. Ones the layout lists (used, or turned off) stay as
+		// they are; a case the layout uses for storage is skipped. Nothing is moved.
+		void UseDisplays(RE::FormID a_cellId, const std::vector<core::FormRef>& a_displays);
 		// Shows a display's menu again (after its category picker).
 		void ReopenDisplayMenu(RE::FormID a_cellId, const core::FormRef& a_display);
 		// Opens the container's real ContainerMenu (SkyUI and the player's icon mods draw it), from

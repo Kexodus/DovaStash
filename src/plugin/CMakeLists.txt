@@ -96,6 +96,12 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/Panel/ArmorSetsModel.cpp
 	UI/Panel/ArmorSetsPage.h
 	UI/Panel/ArmorSetsPage.cpp
+	UI/Panel/DisplaysModel.h
+	UI/Panel/DisplaysModel.cpp
+	UI/Panel/DisplaysPage.h
+	UI/Panel/DisplaysPage.cpp
+	UI/Panel/EditorInfo.h
+	UI/Panel/EditorInfo.cpp
 	UI/DisplayMenu.h
 	UI/DisplayMenu.cpp
 	UI/ArmorSetMenu.h
