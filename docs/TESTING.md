@@ -436,6 +436,25 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    column, e.g. `1/4`); hovering a set lists its pieces, `(have)` on yours. Pick a mannequin, select a set
    you have no piece of (e.g. Dragonplate), *Assign*: the mannequin's row reads `: Dragonplate`, Deposit
    puts nothing on it; add a Dragonplate piece, Deposit: it goes on. *Auto* returns it to Auto.
+8e. Displays page (SKSE Menu Framework → Dova Stash → *Displays*), in the home of the steps above.
+   **Expected:** one row per rack, mannequin, plaque and case of the cell (the log has one `Displays page: N
+   display(s) in 1 loaded cell(s)` debug line when the page first opens, and again only after **Refresh** or a
+   cell change, never every few seconds): name, kind (*Rack*, *Mannequin*, *Plaque*, *Display case*), status
+   (green *used*, *not used*, *ignored* for one you stopped using), what it takes (*Bows*, *any weapon*, *set:
+   Ebony*, a plaque's mask) and what it holds (a mannequin's pieces, *full* / *empty* for racks, the plaque's
+   item once placed). The kind, status and contents filters, the search box (try `mask`, `ebony`, `bows`) and
+   the sort combo narrow and order the list; *N of M* follows. Select an unused rack: **Use** → its status
+   reads *used* within a second and the hotkey at it offers *Stop using this rack*. *Categories (any weapon)*:
+   tick *Bows*, the hotkey picker shows `[x] Bows`; tick *All Weapons*, *Bows* reads *(via a wider choice)*.
+   **Fill now** on an empty used rack puts a weapon up (greyed with a reason on a full one). **Stop using**:
+   *ignored*, the weapon stays. On a mannequin, *Armor set (Auto)*: the list shows the sets you have, most
+   complete first; search `dragonplate`, pick it: *set: Dragonplate*; **Auto** returns it. Under *Use all*,
+   *Use all 12 racks...* asks first (*... 1 ignored stay off.*); Yes: HUD *12 displays used now*, the ignored
+   rack stays *ignored*, nothing is moved until Deposit. In a home with areas (§3.9), the *Area*
+   column names each display's area; displays in the other loaded area show, with **Fill now** greyed
+   (*Only displays in the area you are in are filled.*); a used display in an unloaded area reads *used (not
+   loaded)*. A display case used as a storage container is not listed. Outside a home: *Go to one of your
+   homes to see its displays.*
 9. Settings → turn off *Put gear on the home's displays*, Deposit: no `Displays in` line, everything is stored.
 10. If a rack ever does not take a weapon, the log has `<rack> did not take <item>` and the HUD says the item
    is in your inventory; Deposit and Sort all skip that rack for the session, *Fill now* tries it again. Send
@@ -763,7 +782,8 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 | 5.7.2 | **Settings** | Hotkey *K (scan code 37)*, gamepad *disabled*, and the INI booleans, log level and UI mode, all read-only, with the note to edit `DovaStash.ini` and restart. |
 | 5.7.3 | **Templates** | Every loaded template with name and version, author, home name (hover: cell FormRef), requires (green *ok*, or red *missing: ...* when a required plugin is not loaded) and an issue count (hover: the warnings). Templates for DLC or CC homes you don't have show *missing*. |
 | 5.7.4 | **Diagnostics** | Category, template and Settings.json load problems, matching the `[warning]`/`[error]` lines in the log (each listed once), plus *This home's setup* warnings, such as a container pattern that matches no category. Break a category file on purpose (`"formTypes": ["XXXX"]`) and restart: the error is listed in red. |
-| 5.7.5 | **About** | Version, runtime, Menu Framework version, category and template counts. |
+| 5.7.5 | **About** | Version, runtime, Menu Framework version, category and template counts. *Dova Stash Editor: installed at ...\Tools\DovaStashEditor.exe* when the build deployed the editor next to the plugin (under MO2 the path may read as the game's `Data\Tools\...`); rename the exe and restart: *Dova Stash Editor: not installed*. |
+| 5.7.6 | **Displays** | See §3.7 Displays, step 8e. |
 
 ### 5.8 Threading and robustness
 
