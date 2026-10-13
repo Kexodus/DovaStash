@@ -1194,6 +1194,24 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		std::vector<std::size_t> ghosts;  // see-through boxes: things invisible in game
 		const XMFLOAT4        noHighlight{ 0, 0, 0, 0 };
 		const XMFLOAT4        white{ 1, 1, 1, 1 };
+		auto tintOf = [&](int a_index) -> std::uint32_t {
+			return a_index >= 0 && static_cast<std::size_t>(a_index) < a_options.tint.size() ? a_options.tint[static_cast<std::size_t>(a_index)] : 0u;
+		};
+		auto isMulti = [&](int a_index) { return a_index >= 0 && std::ranges::find(a_options.multi, a_index) != a_options.multi.end(); };
+		// Selection first, then hover, then the overlay colour (added light, so the texture stays readable).
+		auto highlightOf = [&](int a_index) -> XMFLOAT4 {
+			if (a_index == a_options.selected || isMulti(a_index)) {
+				return { 0.30f, 0.22f, 0.02f, 0.0f };
+			}
+			if (a_index == a_options.hovered) {
+				return { 0.12f, 0.12f, 0.14f, 0.0f };
+			}
+			if (const auto t = tintOf(a_index)) {
+				const auto c = ColorF(t);
+				return { c.x * 0.45f, c.y * 0.45f, c.z * 0.45f, 0.0f };
+			}
+			return noHighlight;
+		};
 
 		a_ctx->OMSetBlendState(s.opaque.Get(), nullptr, 0xFFFFFFFF);
 		a_ctx->OMSetDepthStencilState(s.depthWrite.Get(), 0);
@@ -1242,12 +1260,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			if (dist > radius && radius * pixelScale / dist < 0.75f && ref.index != a_options.selected) {
 				continue;  // smaller than a pixel
 			}
-			XMFLOAT4 highlight = noHighlight;
-			if (ref.index == a_options.selected) {
-				highlight = { 0.30f, 0.22f, 0.02f, 0.0f };
-			} else if (ref.index == a_options.hovered) {
-				highlight = { 0.12f, 0.12f, 0.14f, 0.0f };
-			}
+			const XMFLOAT4 highlight = highlightOf(ref.index);
 			if (box) {
 				if (ref.ghost || model.invisible) {
 					if (GhostShown(ref)) {
@@ -1280,23 +1293,15 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			const auto& ref = _desc.refs[d.instance];
 			a_ctx->OMSetBlendState(s.Blend(_device.Get(), d.sub->src, d.sub->dst), nullptr, 0xFFFFFFFF);
 			a_ctx->RSSetState(a_options.wireframe ? s.wire.Get() : (d.sub->twoSided ? s.cullNone.Get() : s.cullBack.Get()));
-			XMFLOAT4 highlight = noHighlight;
-			if (ref.index == a_options.selected) {
-				highlight = { 0.30f, 0.22f, 0.02f, 0.0f };
-			}
-			draw(*d.model, *d.sub, _instances[d.instance].world, white, highlight, false);
+			draw(*d.model, *d.sub, _instances[d.instance].world, white, highlightOf(ref.index), false);
 		}
 		a_ctx->OMSetBlendState(s.Blend(_device.Get(), 6, 7), nullptr, 0xFFFFFFFF);
 		a_ctx->RSSetState(s.cullBack.Get());
 		for (const auto i : ghosts) {
 			const auto& ref = _desc.refs[i];
-			const auto  c = ColorF(ref.color);
-			XMFLOAT4    highlight = noHighlight;
-			if (ref.index == a_options.selected) {
-				highlight = { 0.30f, 0.22f, 0.02f, 0.0f };
-			} else if (ref.index == a_options.hovered) {
-				highlight = { 0.12f, 0.12f, 0.14f, 0.0f };
-			}
+			const auto  t = tintOf(ref.index);
+			const auto  c = ColorF(t ? t : ref.color);
+			XMFLOAT4    highlight = highlightOf(ref.index);
 			// A faint fill for small things (a hidden chest, a rack trigger); trigger volumes the size of a room
 			// only get their outline.
 			const float extent = std::max({ ref.bounds[3] - ref.bounds[0], ref.bounds[4] - ref.bounds[1], ref.bounds[5] - ref.bounds[2] }) * ref.scale;
@@ -1328,10 +1333,12 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			if (!RefShown(ref, a_options)) {
 				continue;
 			}
-			if (ref.index == a_options.selected) {
+			if (ref.index == a_options.selected || isMulti(ref.index)) {
 				addBox(i, Rgba(255, 230, 120), lines);
 			} else if (ref.index == a_options.hovered) {
 				addBox(i, Rgba(220, 220, 220, 200), lines);
+			} else if (const auto t = tintOf(ref.index)) {
+				addBox(i, (t & 0x00FFFFFF) | 0xE0000000, lines);
 			} else if ((a_options.showMarkers && ref.selectable) || ((ref.ghost || _models[_instances[i].model]->invisible) && GhostShown(ref))) {
 				addBox(i, (ref.color & 0x00FFFFFF) | 0xC0000000, occluded);
 			}

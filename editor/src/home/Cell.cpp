@@ -363,6 +363,11 @@ namespace dova::editor::home
 			if (const auto xscl = subs.Get(MakeSig("XSCL")); xscl && xscl->size() >= 4) {
 				r.scale = esp::Read<float>(*xscl, 0);
 			}
+			if (const auto xown = subs.Get(MakeSig("XOWN")); xown && xown->size() >= 4) {
+				const auto owner = a_lo.Resolve(rec.plugin, esp::Read<std::uint32_t>(*xown, 0));
+				const bool skyrim = core::IEquals(a_lo.FileName(owner.file), "Skyrim.esm");
+				r.ownedByOther = !(skyrim && (owner.id == 0x7 || owner.id == 0xDB1));  // Player, PlayerFaction
+			}
 			if (const auto xesp = subs.Get(MakeSig("XESP")); xesp && xesp->size() >= 4) {
 				r.enableParent = a_lo.Resolve(rec.plugin, esp::Read<std::uint32_t>(*xesp, 0));
 				r.enableOpposite = xesp->size() >= 8 && (esp::Read<std::uint32_t>(*xesp, 4) & 1) != 0;
@@ -398,6 +403,9 @@ namespace dova::editor::home
 						r.bounds[i] = esp::Read<std::int16_t>(*obnd, i * 2);
 					}
 					r.hasBounds = true;
+				}
+				if (const auto kwda = bs.Get(MakeSig("KWDA"))) {
+					r.keywords = a_lo.KeywordIds(base->plugin, *kwda);
 				}
 				if (base->type == kCONT) {
 					if (const auto cd = bs.Get(MakeSig("DATA")); cd && !cd->empty()) {
@@ -534,6 +542,65 @@ namespace dova::editor::home
 		return out;
 	}
 
+	HomeCandidate ScoreHome(const CellInfo& a_cell, bool a_overridesOther)
+	{
+		HomeCandidate h;
+		h.cell = a_cell.key;
+		h.editorId = a_cell.editorId;
+		h.name = a_cell.name;
+		h.interior = a_cell.interior;
+		h.overridesOther = a_overridesOther;
+		h.references = static_cast<int>(a_cell.refs.size());
+		for (const auto& r : a_cell.refs) {
+			if (r.IsContainer()) {
+				++h.containers;
+				h.respawning += r.respawns ? 1 : 0;
+			}
+			if (r.display) {
+				switch (*r.display) {
+				case core::DisplayKind::Rack:
+					++h.racks;
+					break;
+				case core::DisplayKind::Mannequin:
+					++h.mannequins;
+					break;
+				default:
+					++h.plaques;
+					break;
+				}
+			}
+		}
+		h.playerHouseKeyword = std::ranges::any_of(a_cell.locationKeywords, [](const std::string& k) { return core::IEquals(k, "LocTypePlayerHouse"); });
+		h.ownedByPlayer = a_cell.ownedByPlayer;
+		h.neverResets = a_cell.neverResets;
+		if (h.playerHouseKeyword) {
+			h.score += 4;
+			h.reasons.push_back("LocTypePlayerHouse");
+		}
+		if (h.ownedByPlayer) {
+			h.score += 3;
+			h.reasons.push_back("owned by the player");
+		}
+		if (h.neverResets) {
+			h.score += 1;
+			h.reasons.push_back("never resets");
+		}
+		const int usable = h.containers - h.respawning;
+		if (usable >= 1) {
+			h.score += usable >= 5 ? 2 : 1;
+			h.reasons.push_back(std::to_string(usable) + " usable containers");
+		}
+		if (h.racks + h.mannequins + h.plaques > 0) {
+			h.score += 1;
+			h.reasons.push_back("displays");
+		}
+		if (h.mannequins > 0 && h.respawning == 0) {
+			h.score += 2;
+			h.reasons.push_back("mannequins, nothing respawns");
+		}
+		return h;
+	}
+
 	std::vector<HomeCandidate> FindHomes(esp::LoadOrder& a_lo, std::uint32_t a_plugin, bool a_exteriors)
 	{
 		std::vector<HomeCandidate> out;
@@ -546,60 +613,7 @@ namespace dova::editor::home
 			if (!cell || (!cell->interior && !a_exteriors)) {
 				continue;
 			}
-			HomeCandidate h;
-			h.cell = c.key;
-			h.editorId = cell->editorId;
-			h.name = cell->name;
-			h.interior = cell->interior;
-			h.overridesOther = c.key.file != self;
-			h.references = static_cast<int>(cell->refs.size());
-			for (const auto& r : cell->refs) {
-				if (r.IsContainer()) {
-					++h.containers;
-					h.respawning += r.respawns ? 1 : 0;
-				}
-				if (r.display) {
-					switch (*r.display) {
-					case core::DisplayKind::Rack:
-						++h.racks;
-						break;
-					case core::DisplayKind::Mannequin:
-						++h.mannequins;
-						break;
-					default:
-						++h.plaques;
-						break;
-					}
-				}
-			}
-			h.playerHouseKeyword = std::ranges::any_of(cell->locationKeywords, [](const std::string& k) { return core::IEquals(k, "LocTypePlayerHouse"); });
-			h.ownedByPlayer = cell->ownedByPlayer;
-			h.neverResets = cell->neverResets;
-			if (h.playerHouseKeyword) {
-				h.score += 4;
-				h.reasons.push_back("LocTypePlayerHouse");
-			}
-			if (h.ownedByPlayer) {
-				h.score += 3;
-				h.reasons.push_back("owned by the player");
-			}
-			if (h.neverResets) {
-				h.score += 1;
-				h.reasons.push_back("never resets");
-			}
-			const int usable = h.containers - h.respawning;
-			if (usable >= 1) {
-				h.score += usable >= 5 ? 2 : 1;
-				h.reasons.push_back(std::to_string(usable) + " usable containers");
-			}
-			if (h.racks + h.mannequins + h.plaques > 0) {
-				h.score += 1;
-				h.reasons.push_back("displays");
-			}
-			if (h.mannequins > 0 && h.respawning == 0) {
-				h.score += 2;
-				h.reasons.push_back("mannequins, nothing respawns");
-			}
+			auto h = ScoreHome(*cell, c.key.file != self);
 			if (h.containers > 0 || h.score >= 2) {
 				out.push_back(std::move(h));
 			}
@@ -610,51 +624,4 @@ namespace dova::editor::home
 		return out;
 	}
 
-	core::Layout DraftTemplate(esp::LoadOrder& a_lo, const CellInfo& a_cell, core::Diagnostics& a_diags)
-	{
-		core::Layout t;
-		t.name = a_cell.name.empty() ? a_cell.editorId : a_cell.name;
-		t.author = "";
-		t.version = "1.0.0";
-		t.cell = a_lo.ToFormRef(a_cell.key);
-
-		std::vector<const PlacedRef*> containers;
-		for (const auto& r : a_cell.refs) {
-			if (r.IsContainer()) {
-				containers.push_back(&r);
-			}
-		}
-		std::ranges::sort(containers, [&](const PlacedRef* a, const PlacedRef* b) { return a_lo.ToFormRef(a->key) < a_lo.ToFormRef(b->key); });
-
-		const PlacedRef* master = nullptr;
-		for (const auto* r : containers) {
-			core::ContainerBinding b;
-			b.ref = a_lo.ToFormRef(r->key);
-			b.label = r->baseName.empty() ? r->baseEditorId : r->baseName;
-			if (r->respawns) {
-				b.ignored = true;
-				b.note = "Respawns: what you store here can disappear.";
-			} else if (core::IEquals(r->baseEditorId, "PlayerBookShelfContainer") || HasScript(*r, "PlayerBookShelfContainerScript")) {
-				b.ignored = true;
-				b.note = "Scripted bookshelf: it only holds books and hands everything else back.";
-			} else if (r->enableOpposite && !HasScript(*r, "BYOHDivertItemScript")) {
-				b.ignored = true;
-				b.note = "Goes away with a house upgrade: anything inside would be lost.";
-			} else if (!r->initiallyDisabled && !r->enableParent) {
-				const bool chest = IContains(r->baseEditorId, "chest") || IContains(r->baseName, "chest");
-				if (!master || (chest && !(IContains(master->baseEditorId, "chest") || IContains(master->baseName, "chest")))) {
-					master = r;
-				}
-			}
-			t.containers.push_back(std::move(b));
-		}
-		if (master) {
-			t.master = a_lo.ToFormRef(master->key);
-			std::erase_if(t.containers, [&](const core::ContainerBinding& b) { return b.ref == *t.master; });
-		}
-		t.note = "Draft from Dova Stash Editor: give the containers their categories (see Categories/00_Default.json); ignored ones are never used.";
-		t.requiredPlugins = core::ReferencedPlugins(t);
-		core::ValidateTemplate(t, "draft", a_diags);
-		return t;
-	}
 }

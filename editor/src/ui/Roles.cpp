@@ -20,6 +20,7 @@
 #include "Util.h"
 #include "dova/core/Template.h"
 #include "dova/core/Version.h"
+#include "home/DovaData.h"
 #include "home/TemplateFile.h"
 #include "ui/App.h"
 
@@ -31,7 +32,6 @@ namespace dova::editor::ui
 	{
 		std::string GameName(const home::PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
 
-		const char* const kCategoriesDir = "SKSE\\Plugins\\DovaStash\\Categories";
 	}
 
 	void EditorApp::LoadCategories()
@@ -40,55 +40,13 @@ namespace dova::editor::ui
 			return;
 		}
 		_categoriesLoaded = true;
-		// Every Categories/*.json of the merged Data folder (a later root wins a file name), in name order, as the DLL loads them.
-		std::map<std::string, fs::path> files;
-		std::error_code                 ec;
-		auto                            addDir = [&](const fs::path& a_root) {
-            const auto dir = a_root / PathFromUtf8(kCategoriesDir);
-            if (!fs::is_directory(dir, ec)) {
-                return;
-            }
-            for (const auto& e : fs::directory_iterator(dir, ec)) {
-                if (e.is_regular_file(ec) && IEndsWith(PathToUtf8(e.path().filename()), ".json")) {
-                    files[core::ToLower(PathToUtf8(e.path().filename()))] = e.path();
-                    _categorySource = PathToUtf8(dir);
-                }
-            }
-		};
-		for (const auto& root : _ws->Files().Roots()) {
-			addDir(root);
-		}
-		// Dova Stash itself not enabled in this profile: the folder the editor ships in, else the mod named
-		// "Dova Stash" (enabled or not), else any mod that has the default set.
-		if (files.empty()) {
-			wchar_t exe[MAX_PATH]{};
-			if (::GetModuleFileNameW(nullptr, exe, MAX_PATH) > 0) {
-				addDir(fs::path(exe).parent_path());
-			}
-		}
-		if (files.empty() && _ws->Instance()) {
-			for (const auto& m : _ws->Mods()) {
-				if (core::IEquals(m.name, "Dova Stash")) {
-					addDir(m.dir);
-				}
-			}
-			for (const auto& m : _ws->Mods()) {
-				if (files.empty() && fs::exists(m.dir / PathFromUtf8(kCategoriesDir) / L"00_Default.json", ec)) {
-					addDir(m.dir);
-				}
-			}
-		}
-		core::Diagnostics                     diags;
-		std::vector<std::vector<core::CategoryDef>> parsed;
-		for (const auto& [name, path] : files) {
-			if (const auto text = ReadTextFile(path)) {
-				parsed.push_back(core::ParseCategoryText(*text, name, diags));
-			}
-		}
-		_categories = core::MergeCategoryFiles(parsed, diags);
-		if (!_categories.empty()) {
-			_categorySet = core::CategorySet::Compile(_categories, [](const core::FormRef&) { return std::vector<core::FormRef>{}; }, diags);
-		}
+		auto data = home::LoadCategories(*_ws);
+		_categories = std::move(data.defs);
+		_categorySet = std::move(data.set);
+		_categorySource = std::move(data.source);
+		auto rules = home::LoadDraftRules(*_ws);
+		_draftRules = std::move(rules.rules);
+		_draftRulesSource = std::move(rules.source);
 	}
 
 	void EditorApp::Revalidate(OpenCell& a_cell)
@@ -107,14 +65,16 @@ namespace dova::editor::ui
 		a_cell.json = core::SerializeLayout(a_cell.layout);
 	}
 
-	bool EditorApp::CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns)
+	bool EditorApp::CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title)
 	{
 		bool changed = false;
 		ImGui::PushID(a_id);
-		ImGui::TextDisabled("Categories");
-		if (a_patterns.empty()) {
-			ImGui::SameLine();
-			ImGui::TextDisabled("(none)");
+		if (a_title) {
+			ImGui::TextDisabled("Categories");
+			if (a_patterns.empty()) {
+				ImGui::SameLine();
+				ImGui::TextDisabled("(none)");
+			}
 		}
 		for (std::size_t i = 0; i < a_patterns.size(); ++i) {
 			ImGui::PushID(static_cast<int>(i));
@@ -354,6 +314,15 @@ namespace dova::editor::ui
 				a_cell.saveMessage += std::format(". In MO2: refresh with F5 and enable the \"{}\" mod", home::kTemplatesMod);
 			}
 			Revalidate(a_cell);
+			if (a_cell.layout.cell) {
+				_state.Advance(a_cell.layout.cell->ToString(), a_cell.layout.name, HomeStage::Saved, a_cell.savedPath);
+			}
+			if (_homes && _ws) {
+				_homes->templates = home::LoadTemplateIndex(*_ws);
+				if (_cellDraft >= 0 && static_cast<std::size_t>(_cellDraft) < _homes->entries.size() && _homes->entries[static_cast<std::size_t>(_cellDraft)].draft) {
+					_homes->entries[static_cast<std::size_t>(_cellDraft)].draft->layout = a_cell.layout;
+				}
+			}
 		} else {
 			a_cell.saveMessage = r.error;
 		}

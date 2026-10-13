@@ -57,5 +57,10 @@ int wmain(int argc, wchar_t** argv)
 	gui.screenshot = parsed.screenshot;
 	gui.tab = parsed.tab;
 	gui.select = parsed.select;
+	gui.drafts = parsed.drafts;
+	gui.home = parsed.only;
+	gui.colours = parsed.colours;
+	gui.paint = parsed.paint;
+	gui.multi = parsed.multi;
 	return dova::editor::ui::RunGui(parsed.workspace, gui);
 }

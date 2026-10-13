@@ -82,7 +82,9 @@ cmake --build --preset editor-release        # or editor-debug
 ```
 
 Output: `build/editor/editor/Release/DovaStashEditor.exe` (not deployed by the build). Without arguments it
-opens the window; commands print to the console instead:
+opens the window (the start page); commands print to the console instead. The window remembers the instance, the
+author and each home's to-do stage in `%LOCALAPPDATA%\DovaStashEditor\state.json`; set `DOVASTASH_EDITOR_STATE` to
+another file for test runs and screenshots:
 
 ```powershell
 $exe = 'build\editor\editor\Release\DovaStashEditor.exe'
@@ -93,6 +95,17 @@ $exe = 'build\editor\editor\Release\DovaStashEditor.exe'
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --cell WhiterunBreezehome --draft --save-to C:\Temp\Templates --author Me  # as the window saves
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --mod 92177 --cell bcr58WhiteTower --screenshot shot.png
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --mod 92177 --cell bcr58WhiteTower --tab template --screenshot tpl.png
+
+# Bulk drafts and where items go (docs/EDITOR.md §3.4, §3.5): the whole active load order
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all                                  # every home: status, master + reason, suggestions
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all --only Aldamar --verbose         # one home, every reason
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all --compare --base-game            # accuracy against the shipped templates
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all --save-to C:\Temp\Drafts --author Me   # save the drafts of homes without a template
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --preview WhiterunBreezehome --sample haul   # per container: what it would receive
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --screenshot start.png                 # the start page
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --drafts --only Breezehome --screenshot drafts.png
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --cell WhiterunBreezehome --tab preview --screenshot preview.png
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --cell WhiterunBreezehome --tab 3d --colours fill --screenshot fill.png
 
 # The 3D view without a window (docs/EDITOR.md §4.5): an overview, a framed selection, a camera of your own
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --mod 92177 --render-cell bcr58WhiteTower --screenshot wt.png

@@ -98,6 +98,13 @@ namespace dova::editor::esp
 		// encounter zones, factions, form lists, NPCs, items). `a_type` 0 = any indexed type.
 		[[nodiscard]] const RecordRef* Find(const FormKey& a_key, Sig a_type = 0);
 
+		// Every winning record of an indexed type (`a_type` 0: all), in no particular order.
+		void ForEachRecord(Sig a_type, const std::function<void(const FormKey&, const RecordRef&)>& a_fn);
+
+		// EditorIDs of the keywords in a KWDA subrecord of a record of `a_plugin` (cached per keyword).
+		[[nodiscard]] std::vector<std::string> KeywordIds(std::uint32_t a_plugin, std::span<const std::byte> a_kwda);
+		[[nodiscard]] const std::string&       KeywordId(const FormKey& a_keyword);
+
 		[[nodiscard]] Subrecords  Read(const RecordRef& a_rec) const;
 		[[nodiscard]] std::string EditorId(const Subrecords& a_subs) const;
 		[[nodiscard]] std::string FullName(const RecordRef& a_rec, const Subrecords& a_subs);
@@ -157,6 +164,7 @@ namespace dova::editor::esp
 		std::unordered_map<std::string, std::uint32_t>         _fileIds;  // lower-case name -> id
 		bool                                                   _indexBuilt{ false };
 		FormKeyMap<RecordRef>                                  _index;
+		FormKeyMap<std::string>                                _keywordIds;
 		std::unordered_map<std::wstring, std::unique_ptr<Bsa>> _bsas;
 	};
 }

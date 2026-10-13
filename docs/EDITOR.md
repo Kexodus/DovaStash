@@ -5,8 +5,9 @@
 > save. Everything a template can say (DESIGN §6.3), in one window.
 
 Status: **M0 built; M2 (3D view) first slice built: textured 3D view with select mode, role editor and saving (part of
-M1)** · Code: `editor/` · Executable: `DovaStashEditor.exe` · Build: preset `editor` (docs/BUILDING.md) · Try it:
-§9 *How to test the editor yourself*
+M1); M1.5 built: bulk drafts with smart suggestions (§3.4) and the "where items go" preview (§3.5); start page, paint
+mode, multi-select and undo (§3.6, §3.7)** · Code: `editor/` · Executable: `DovaStashEditor.exe` · Build: preset
+`editor` (docs/BUILDING.md) · Try it: §9 *How to test the editor yourself*
 
 ---
 
@@ -92,7 +93,7 @@ worth sharing: open the saved setup, rename the labels, add notes, drop the lear
 | `requires` | Computed (`core::ReferencedPlugins`), never typed |
 | `cell` | The home's main cell (chosen in step 3) |
 | `cells` (multi-cell homes, DESIGN §6.7, `core::HomeCells`) | Cells joined from the Doors tab or the home list, with `label` and `note` |
-| `master` | *Make master* on a container; the draft suggests the first always-present, non-respawning chest |
+| `master` | *Make master* on a container; the draft suggests one with its reason (§3.4: the largest usable chest near the entrance) |
 | `containers[]`: `label`, `note`, `categories`, `forms`, `ignored` | Details pane: label (default: the game name), note, category picker (tree from the loaded `Categories/*.json`, wildcards `weapons.*`), fixed item bindings (item search over the load order), *Ignore* with a reason note |
 | `displays[]`: `kind`, `label`, `note`, `categories`, `items`, `set`, `ignored` | Details pane on a rack, mannequin, plaque, case or bookshelf: *Use this display*, categories (weapon categories for racks, armor for mannequins, books for bookshelves), `items` prefilled from the plaque's script, `set` from the armor-set index (`core::BuildArmorSets` over the load order's ARMO, as the in-game *Armor sets* page) |
 | `keep` (`inherit`, `always`, `never`, `quotas`) | Keep rules tab, the same vocabulary as the panel's keep-rule editor |
@@ -102,11 +103,10 @@ worth sharing: open the saved setup, rename the labels, add notes, drop the lear
 Crafting stations need nothing in a template today (DESIGN §8.5 finds them at runtime). The plan shows
 them so the author sees which room is the forge; if templates ever name stations, they get a role here.
 
-**Preview: what goes where.** The editor can build `core::ItemInfo` for every item record in the load order
-(keywords, weapon and armor types, book teaches, alchemy flags, soul gem, enchantment) and run the same
-category engine and planner the DLL runs (`CategorySet::MatchAll`, `SortPlanner`). Selecting a chest then
-shows "would receive 312 items: Iron Sword, ..." and unbound categories ("Soul gems go to the master").
-This is the one feature only a tool with the whole load order can offer. Planned for M1.5.
+**Preview: what goes where** (built, §3.5). The editor builds `core::ItemInfo` for every item record in the load
+order (keywords, weapon and armor types, book teaches, alchemy flags, soul gem, enchantment) and runs the same
+category engine and planner the DLL runs. Selecting a chest shows "would receive 312 items: Iron Sword, ..." and
+what falls to the master. This is the one feature only a tool with the whole load order can offer.
 
 ### 3.2 Finding the home (implemented)
 
@@ -139,6 +139,107 @@ offers *Add this cell to the home*; the Template tab lists the cells with their 
 containers of the open cell at once (the draft's rules: respawning, scripted and upgrade-removed containers
 ignored).
 
+### 3.4 Bulk drafts and smart suggestions (built)
+
+**Draft all homes** (top bar, start page, Ctrl+D, `--drafts`) lists every player home of the **active load order**
+(`Workspace::OpenLoadOrder`: the profile's plugins in `loadorder.txt` order with the base masters) with its template
+status and a draft for each. `home::FindAllHomes` reads every interior cell once (the 302 plugins of the test profile
+in about a second), keeps the likely homes (§3.2), and resolves all their load doors in one pass: interior cells whose
+doors lead to each other and are homes too are **one home** (a hall and its cellar), and storage behind a home's door
+that nothing respawns in and nobody owns joins it (the main cell is the one whose name is not "cellar", "basement",
+"cave"..., then the best score). Status per home: *none*, *shipped* (Dova Stash's or another mod's), *yours*
+(`Templates/User`, the "Dova Stash Templates" mod, overwrite), from every `Templates/**.json` of the merged Data folder
+(`home::LoadTemplateIndex`).
+
+**The suggestions are core code** (`core::SuggestDraft`, `DraftSuggest.h`, unit-tested in `tests/DraftSuggestTests.cpp`)
+over plain facts the editor extracts (`home::BuildDraftObjects`): containers, displays, load doors, loose items (each
+classified by the real category engine through `esp::ReadItem`) and furniture, with positions and bounds. The rules are
+**data**: `DefaultDraftRulesText()` (schema `dovastash-draftrules-1`), overridden by a
+`Data/SKSE/Plugins/DovaStash/DraftRules.json` when there is one (same fields; unknown keys warned, broken rules skipped).
+
+- **Ignored** containers, first matching `ignore` rule, with the note the template writes: respawns, goes away with a
+  house upgrade (unless it diverts its items, `BYOHDivertItemScript`), owned by someone else (`XOWN` on the reference),
+  scripted bookshelves, display cases.
+- **Master**: among usable containers (not ignored, present from the start, no script beyond `harmlessScripts`,
+  nobody's, in the main cell when it has one): size against the largest (weight 2), a chest-like name (+1, a sack's or
+  satchel's -1), closeness to a load door (+1 within 1500 units, the front door counts more), closeness to the middle
+  (+0.5), and -1.5 when its name says what it holds ("Soul Gems", "Firewood"). The reason is shown ("Chest: the largest
+  of 12 usable containers (64 x 30 x 41 units), named like a chest, 3.0 m from the door to Whiterun; ...") with the
+  runners-up.
+- **Categories per container**, each with a confidence and the reason: its **name** (`names` rules: "Alchemy Satchel",
+  "FoodBarrel01", "Weapon Chest"; EditorIDs are split into words, plurals match; a container named exactly like a
+  **category** of the loaded set or like an **item** of the load order gets that category), **stations** near it
+  (forge and smelter: ores and ingots; tanning rack: hides; alchemy lab: ingredients, potions, poisons; enchanter: soul
+  gems; cooking pot and oven: food; bookshelves: books; weapon racks and mannequins: weapons and armor; weaker with
+  distance, another floor counts double), and **items placed on or next to it** (by their category; clutter says
+  nothing). Evidence for the same category adds up. Each category goes to **one** container: one named for exactly that
+  category first, then the strongest; it is accepted at 50%, the others keep it as a rejected alternative ("Potion
+  Basket has it with 93%"). A **fill** pass then gives each usual group nobody took (weapons, armor, clothes, jewelry,
+  alchemy, food, books, soul gems and scrolls, ammunition, crafting materials, building materials, clutter, keys) to
+  the free container with the strongest weaker hint (a dresser for clothes, an end table for books), so a draft covers
+  a home the way the shipped templates do; groups nothing hints at stay with the master.
+- **Displays**: every rack, mannequin, plaque and case is listed (plaques and cases with the items their script is
+  made for, shield and dagger racks with their category).
+- The draft is validated with core (`ValidateTemplate`, `ValidateLayoutCategories`), shown under *Checks*.
+
+**Review**: the home's master with its reason, then per container its suggestions as checkboxes (green: the name says
+so, yellow: a station or items nearby, orange: a hint), the reason in the tooltip; *Accept all*, *Reject the weak
+ones*, *Draft again*; for a home that has a template, how many categories the draft sends to the same container
+(details in the tooltip). *Open in the editor* (Enter) opens the home with the draft in the role editor (changes come
+back to the drafts view); *Save template* (Ctrl+S) writes it like the Template tab, into the "Dova Stash Templates"
+mod, and asks first when the file exists (backup, version raised) or the home already has a template; *Save N
+drafts...* saves the opened drafts of homes without a template after one confirmation listing new and replaced files.
+Headless: `--draft-all [--only <text>] [--compare] [--save-to <folder>] [--base-game]` (§5.6).
+
+**Accuracy** (`--draft-all --compare --base-game`: the game's own plugins, the homes as the shipped templates were
+written for them; 17 shipped templates). Masters: 10 of 17 the same. Of 245 template containers with categories, 23
+get the same set and 16 an overlapping one; 251 of 255 ignored containers agree. Per category (which container it ends
+up in, the planner's rule), 84 of 629 agree (13%): the shipped templates spread every category over generic furniture
+(Breezehome's dressers, end tables and sacks) by the author's taste, where names and stations say little; Breezehome
+itself: master, dining room cupboard (food) and bedroom night table (jewelry, gems) the same, alchemy went to the chest
+next to the bookshelf rather than the one by the alchemy lab. Homes whose containers are **named** for their contents
+(most modded homes: "Soul Gems", "Ingots", "Potion Crate") come out nearly complete. The numbers are a starting
+point for tuning `DraftRules.json`.
+
+### 3.5 Where items go (built)
+
+The **Where items go** tab of a cell runs Dova Stash's own planner (`core::PreviewWhereItemsGo`: explicit item
+bindings, categories best-first through `SortPlanner::ResolveDestination`, the master; and `PlanDisplays` for the
+displays the template uses, as Deposit fills them first) over a **sample**: *Typical haul* (a handful of each kind of
+loot, base game items first: 112 stacks, 266 items), *One category* (every item of the load order in a pattern), or
+*Every item in the load order* (one of each; `esp::BuildItemCatalog` reads the 12,763 playable items of the test
+profile in about 30 ms). It shows per container what it would receive (counts per category, the items in a tooltip),
+the containers that receive nothing (and why: no categories, or nothing of the sample in them), what falls to the
+master, what goes on displays, and stacks with nowhere to go (no master). It re-runs by itself when the template
+changes. **Colours** (both the 3D view and the plan, with a legend): *by fill* (receives nothing, a few, many, master)
+or *by category* (each container in its first category's colour, one hue per group). Selecting a container shows its
+predicted items in the details pane. Headless: `--preview <cell> [--sample haul|all|<pattern>] [--draft]`.
+
+### 3.6 Start page and to-do list (built)
+
+Without `--mod`/`--cell` the editor opens on a **start page**: the setup (the instance is found from MO2, else the one
+remembered, else asked once with a folder box), "N player homes found, M have templates" (a progress bar while the
+load order is read), three big actions (*Open a home*: the mod list; *Draft all homes*; *Open a template...*: a shipped
+or downloaded template or a layout saved in game, opened on its home in the role editor), and **your homes in
+progress**: each home's stage, *drafted* (a draft was opened) -> *reviewed* (a suggestion accepted or rejected, or the
+template edited) -> *validated* (reviewed and no problems) -> *saved*, with where it was saved. The stages, the
+instance and the author name persist in `%LOCALAPPDATA%\DovaStashEditor\state.json` (`DOVASTASH_EDITOR_STATE` points
+tests elsewhere); a click on a home continues with it in the drafts view.
+
+### 3.7 Editing helpers (built)
+
+- **Paint mode** (P, or *Paint* in the 3D and plan toolbars): pick a category, then click containers (and racks,
+  mannequins) to give it to them; a second click takes it away. The master, respawning and ignored containers say why
+  they are not painted. Turning it on switches the colours to *by category*, so you see what you paint.
+- **Multi-select**: Ctrl+click adds or removes a reference (3D, plan, tables), a box drag in select mode selects the
+  containers and displays inside (Ctrl adds). The details pane then edits them together: the categories any of them
+  has (with how many, a click takes one away from all), *Give all of them* a category, *Clear their categories*,
+  *Ignore all* / *Use all*, a note for all. Esc clears the selection.
+- **Undo/redo** for every change to the template (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, and the *Undo*/*Redo* buttons; a
+  text field is one step once it loses focus; 200 steps, kept while the template moves between the home's cells).
+- **Unsaved changes**: the top bar says "* unsaved changes" (the open template or reviewed drafts), the cell header
+  "(template not saved)", the Template tab has its star; closing the window then asks first.
+
 ---
 
 ## 4. Architecture
@@ -147,7 +248,8 @@ ignored).
 editor/src/
   main.cpp            wmain: command line (headless) or window
   Cli.*               --list-mods, --homes, --cell [--draft], --render-cell, --nif-info, --gui [--tab --select --screenshot]
-  Workspace.*         MO2 instance + profile + mods + merged Data view; opens a plugin with its masters
+  CliDrafts.cpp       --draft-all [--compare --save-to --base-game], --preview <cell> [--sample]
+  Workspace.*         MO2 instance + profile + mods + merged Data view; opens a plugin with its masters, or the whole load order
   mo2/Instance.*      ModOrganizer.ini, profiles, modlist.txt, meta.ini (Nexus id), plugins per mod, VFS detection
   data/DataFiles.*    MO2-style file resolution (later root wins)
   data/Assets.*       meshes and textures: loose files (lazy per-directory index over the mod folders), then archives
@@ -155,7 +257,12 @@ editor/src/
   esp/LoadOrder.*     form keys, record index, localized strings, cell directory, cell references, LAND
   esp/Bsa.*           BSA v104/v105 reader (hashed file table; strings, meshes, textures; LZ4 frames / zlib)
   esp/Vmad.*          Papyrus script properties (rack types, plaque items)
-  home/Cell.*         cell facts, placed references (+ model paths), terrain, displays, doors, home finder, draft
+  esp/Items.*         every item record as core::ItemInfo (the DLL's ItemAdapter, read from the plugins)
+  home/Cell.*         cell facts, placed references (+ model paths, keywords, owner), terrain, displays, doors, home finder
+  home/Drafts.*       every home of the load order (grouped by doors), draft objects, drafts (core::SuggestDraft), comparison
+  home/DovaData.*     the player's categories, templates (with their status) and draft rules
+  home/Preview.*      sample inventories and display spots for core::PreviewWhereItemsGo
+  home/TemplateFile.* saving a template (backup, version raised)
   render/Nif.*        NIF reader: node tree, BSTriShape (+ SE subclasses, skin partitions), NiTriShape/NiTriStrips
   render/Dds.*        DDS -> Direct3D 11 texture (BC1-BC7, uncompressed, legacy 24-bit, luminance)
   render/Scene.*      the 3D scene: async loading, renderer, camera, picking, framing
@@ -164,7 +271,14 @@ editor/src/
   ui/App.*            the editor window (mods, homes, cell: tabs, tables, details pane, Back)
   ui/View3D.cpp       the 3D view tab: camera input, picking, overlays
   ui/Roles.cpp        role editor (details pane) and the Template tab (header, problems, save)
+  ui/Drafts.cpp       the start page and the "Draft all homes" view (review, save)
+  ui/Preview.cpp      the "Where items go" tab, container colours and legend
+  ui/Edit.cpp         undo/redo, multi-select and the bulk editor, paint mode, shortcuts
+  ui/State.*          what is remembered between runs (instance, author, each home's to-do stage)
 ```
+
+Core additions for the editor (engine-independent, unit-tested, usable by the DLL later): `DraftSuggest.h` (the draft
+heuristics and their rules file) and `Preview.h` (where items go, over the planner and the displays planner).
 
 Core (`dova::core`) is linked unchanged: FormRef, Layout/Template schema and serialization, validation,
 categories, armor sets, display kinds. The editor never duplicates a rule core already has.
@@ -206,9 +320,10 @@ plugins back to mods and Nexus ids.
 **Which plugins are loaded.** **Decided: the whole load order by default** (all active plugins in
 `loadorder.txt` order: the home as the player sees it, with the patches that move or remove references, Lux,
 USSEP), and a toggle *Home plugin + masters only* for the home as its mod ships it (deterministic, fast:
-Whitepeak Tower with its 5 masters in under 0.1 s; all of `Skyrim.esm`'s cells in 0.3 s). The M0 scaffold can
-only do the second (`Workspace::OpenPlugin`); M1 adds the whole-load-order loader and makes it the default,
-with a mark on references a later plugin edits.
+Whitepeak Tower with its 5 masters in under 0.1 s; all of `Skyrim.esm`'s cells in 0.3 s). The whole-load-order
+loader exists (`Workspace::OpenLoadOrder`: 302 plugins, every interior cell read in about a second) and is what the
+start page, the drafts view and `--draft-all`/`--preview` use; the mod list still opens a home plugin with its masters
+(`Workspace::OpenPlugin`). Left for M1: the toggle in the mod list and a mark on references a later plugin edits.
 
 Archives (M2, implemented in `data/Assets`): the base game archives from `Skyrim.ini`'s `sResourceArchiveList`
 and `sResourceArchiveList2` (the profile's own INI when it has one, else Documents, else the default list),
@@ -349,6 +464,12 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    check and the frame time); `--cell <cell> --draft --save-to <folder> [--author <name>]` saves the draft through
    the same code as the Template tab (`home/TemplateFile`: backup, version raised); `--nif-info` dumps how a mesh is read; `--gui --tab <tab> --select <ref>
    --screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit).
+   `--draft-all` drafts every home of the active load order and prints the master with its reason and each container's
+   accepted and rejected suggestions (`--verbose`: every reason); `--compare` measures the drafts against the existing
+   templates (§3.4); `--save-to <folder> [--author <name>]` saves the drafts of homes without a template
+   (`--include-templated`: all); `--base-game` reads only the game's own plugins. `--preview <cell> [--sample haul|all|<pattern>]
+   [--draft]` prints where items go per container. Window smoke tests: `--gui` alone (start page), `--gui --drafts
+   --only <home>`, `--gui --cell <cell> --tab preview`, `--colours fill|category`, `--paint <category>`, `--multi <ref>`.
 
 ---
 
@@ -372,7 +493,7 @@ the user's own game and mod files at run time and never ships or extracts Bethes
 |---|---|---|
 | **M0** (done) | Scaffold: MO2 instance and mods with Nexus ids, plugin reader, home finder, cell facts, displays, door links, 2D plan with select mode, tables, draft template, headless commands, preset `editor` | done |
 | **M1** (partly built) | The template editor on the plan: roles in the details pane (master, categories with the category tree, label, note, ignored, fixed items; displays with categories, items, armor set), open existing templates and layouts, keep rules tab, validation panel (core + ported `check`), save into the "Dova Stash Templates" mod with backup and version, multi-cell homes from the door graph as one file per home, automatic floors, undo/redo, whole-load-order loader as the default with the *home plugin + masters only* toggle, golden tests | 3-4 weeks |
-| **M1.5** | What goes where: `ItemInfo` from item records, category engine and planner preview per container; armor-set index for mannequins | 1-2 weeks |
+| **M1.5** (built) | What goes where: `ItemInfo` from item records, category engine and planner preview per container (§3.5); bulk drafts with smart suggestions (§3.4); start page, paint mode, multi-select, undo (§3.6, §3.7). Left: armor-set index for mannequins in the preview (a chosen `set`), tuning the draft rules against more homes | done |
 | **M2** (first slice built) | 3D view: archives + loose files, NIF meshes, DDS textures, D3D11 renderer, free-fly and orbit camera, ray picking, selection shared with the plan, terrain and surroundings for exteriors. Built: all of it (own readers instead of nifly/DirectXTex, §4.5), plus the role editor and saving from M1. Left: instancing (not needed so far), normal maps / specular, LOD meshes for far exteriors, water planes, alternate textures (MODS), heads for mannequins, joining a door's cell to the home (`cells`) from the 3D view | 1-2 weeks left |
 | **M3** (optional) | Live link with the running game (crosshair pick, send template to game); MO2 right-click tool plugin | 1-2 weeks |
 
@@ -392,8 +513,8 @@ Taken with the user after M0; the sections above are written to match.
 
 State against these: the 3D view (decision 1) is built (§4.5); saving goes into the "Dova Stash Templates" mod
 (decision 3: created with a `meta.ini` when missing, an existing file backed up and its version raised); the
-whole-load-order loader and its toggle (decision 4) are still M1 work: the editor loads the home plugin with its
-masters. A home over several cells (decision 5) is saved as one file with `cells` (§3.3).
+whole-load-order loader (decision 4) is built and used by the start page and the drafts view (§3.4); the mod list
+still loads the home plugin with its masters, and its toggle is M1 work. A home over several cells (decision 5) is saved as one file with `cells` (§3.3).
 
 ---
 
@@ -431,13 +552,19 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
 | 3D view | left click / double click | select (what select mode allows) / on a door: open the cell behind it |
 | 3D view | F / Home / S | frame the selection / overview / select mode on or off |
 | Floor plan | wheel, right or middle drag, left click | zoom, pan, select (select mode off: left drag pans) |
-| Tables | click / double click | select / select and look at it in the 3D view |
-| Cell header | *< Hide lists*, *< Back* | give the cell the whole window / return to the cell opened before |
+| 3D view, plan | Ctrl + click / left drag (select mode) | add to or remove from the selection / box select (Ctrl: add); Esc clears |
+| 3D view, plan | P / C / V | paint mode on or off / colours by category / colours by fill (the preview) |
+| Tables | click / Ctrl + click / double click | select / add to the selection / select and look at it in the 3D view |
+| Cell header | *< Hide lists*, *< Back*, *Undo*, *Redo* | give the cell the whole window / return to the cell opened before / undo, redo |
+| Anywhere in a home | Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) / Ctrl+S | undo / redo / save the template (the Template tab shows the result and asks before overwriting) |
+| Where items go | R | run the preview again (it re-runs by itself when the template changes) |
+| Everywhere | Ctrl+D / Ctrl+O | the drafts view / open a template file |
+| Drafts view | Up/Down, Enter, Ctrl+S, F5 | previous/next home, open it in the editor, save its template, rescan the load order |
 
 **A 2-minute test**
 
-1. Start the editor from MO2. In *1. Home mod* type `92177` (Whitepeak Tower), click the mod; in *2. Player homes*
-   click *Whitepeak Tower*. The lists fold away and the *3D view* tab shows the tower from above while meshes
+1. Start the editor from MO2. The start page counts the homes of your load order. Press *Open a home*; in *1. Home
+   mod* type `92177` (Whitepeak Tower), click the mod; in *2. Player homes* click *Whitepeak Tower*. The lists fold away and the *3D view* tab shows the tower from above while meshes
    load (progress in the toolbar).
 2. Hold the right mouse button and fly in with W; let go and roll the wheel. Tick *Height* and narrow the range to
    see one floor. Press Home to get the overview back.
@@ -452,6 +579,15 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
    and enable the new mod. Saving again asks first, keeps a `.bak` and raises the version.
 6. *Doors* tab: *Open* the exterior (*Tamriel (-9, -2)*): the tower on its rock with the terrain and the cells
    around it. *< Back* returns to the interior.
+7. *Where items go* tab: the typical haul against your template: which chest gets what, which get nothing, what
+   falls to the master. Tick *by fill (V)* and go back to the *3D view*: the chests are coloured (grey: nothing,
+   green: a few, orange: many, magenta: the master). Click one: the details pane lists its items.
+8. Press P (paint), pick `alchemy.ingredients`, click two satchels: they turn green (*by category*). Ctrl+Z takes
+   it back, Ctrl+Y redoes it. Drag a box over a row of chests: the details pane edits them together.
+9. *Draft all homes* (Ctrl+D): every home of the load order with its status. Pick one without a template: its
+   master with the reason, each container's suggested categories (hover for why). Untick one, tick another, press
+   *Open in the editor* to finish it in 3D, or *Save template*.
+10. Back on *Start*: the homes you drafted, reviewed and saved are listed with their stage, also after a restart.
 
 Without the game or MO2 running anything, `--render-cell` shows the same view as an image:
 `DovaStashEditor.exe --mo2 "E:\modding\Kexodus Skyrim" --mod 92177 --render-cell bcr58WhiteTower --screenshot wt.png`.
