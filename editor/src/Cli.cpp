@@ -16,6 +16,7 @@
 
 #include "data/Assets.h"
 #include "home/Cell.h"
+#include "home/DovaData.h"
 #include "home/TemplateFile.h"
 #include "render/Image.h"
 #include "render/Nif.h"
@@ -171,7 +172,9 @@ namespace dova::editor
 			}
 			if (a_args.draft) {
 				core::Diagnostics diags;
-				auto              layout = home::DraftTemplate(*lo, *cell, diags);
+				const auto        categories = home::LoadCategories(a_ws);
+				const auto        rules = home::LoadDraftRules(a_ws);
+				auto              layout = home::DraftTemplate(*lo, *cell, diags, categories.set ? &*categories.set : nullptr, &rules.rules);
 				for (const auto& d : diags.Items()) {
 					Err(d.ToString() + "\n");
 				}
@@ -523,9 +526,20 @@ namespace dova::editor
 		       "                        --height lo,hi, --no-disabled, --markers, --light <factor>, --no-neighbours (exteriors),\n"
 		       "                        --pick x,y (what a click there selects), --verbose (boxes, bounds check, frame time)\n"
 		       "  --nif-info <mesh>     how the 3D view reads a mesh (\"clutter\\chest01.nif\" or a file on disk)\n"
+		       "  --draft-all           every player home of the active load order with its template status and a\n"
+		       "                        draft (master, categories with confidence and reason, ignored containers);\n"
+		       "                        --only <text>: homes whose name, EditorID or plugin contains it;\n"
+		       "                        --compare: drafts against the existing templates (how many agree);\n"
+		       "                        --save-to <folder> [--author <name>]: save the drafts of homes without a\n"
+		       "                        template (--include-templated: all), as the window saves (backup, version);\n"
+		       "                        --base-game: only the game's own plugins (homes as shipped templates see them)\n"
+		       "  --preview <cell>      where items go: run Dova Stash's planner over a sample (--sample haul, all or\n"
+		       "                        a category pattern such as \"alchemy.*\") against the cell's template, or its\n"
+		       "                        draft with --draft; loads the active load order\n"
 		       "\n"
 		       "Window:\n"
 		       "  --gui                 open the window even with --mod/--cell (they preselect)\n"
+		       "  --drafts              open the \"Draft all homes\" view\n"
 		       "  --tab <name>          3d, plan, containers, displays, doors or template\n"
 		       "  --select <ref>        select a reference once the cell is open\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
@@ -579,6 +593,25 @@ namespace dova::editor
 				a.cell = value();
 			} else if (s == "--draft") {
 				a.draft = true;
+				a.useDraft = true;
+			} else if (s == "--draft-all") {
+				a.draftAll = true;
+			} else if (s == "--compare") {
+				a.compare = true;
+			} else if (s == "--only") {
+				a.only = value();
+			} else if (s == "--include-templated") {
+				a.includeTemplated = true;
+			} else if (s == "--preview") {
+				a.preview = value();
+			} else if (s == "--sample") {
+				if (auto v = value()) {
+					a.sample = *v;
+				}
+			} else if (s == "--drafts") {
+				a.drafts = true;
+			} else if (s == "--base-game") {
+				a.baseGame = true;
 			} else if (s == "--gui") {
 				a.gui = true;
 			} else if (s == "--nif-info") {
@@ -666,6 +699,12 @@ namespace dova::editor
 		}
 		if (a_args.homes) {
 			return Homes(ws, a_args);
+		}
+		if (a_args.draftAll) {
+			return DraftAllCommand(ws, a_args);
+		}
+		if (a_args.preview) {
+			return PreviewCommand(ws, a_args);
 		}
 		if (a_args.cell) {
 			return Cell(ws, a_args);

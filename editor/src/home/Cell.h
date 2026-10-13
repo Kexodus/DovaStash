@@ -12,7 +12,9 @@
 #include <string>
 #include <vector>
 
+#include "dova/core/Category.h"
 #include "dova/core/DisplayKind.h"
+#include "dova/core/DraftSuggest.h"
 #include "dova/core/Layout.h"
 #include "esp/LoadOrder.h"
 
@@ -46,6 +48,8 @@ namespace dova::editor::home
 		std::optional<std::array<float, 3>> teleportPosition;  // XTEL: where the player arrives on the other side
 		std::optional<esp::FormKey> opens;         // ACTI front: the container it opens (XLKR without keyword)
 		std::vector<std::string>    scripts;       // base + reference scripts
+		std::vector<std::string>    keywords;      // base record's keyword EditorIDs (furniture, containers, items, activators)
+		bool                        ownedByOther{ false };  // XOWN on the reference: an NPC or a faction other than the player's
 
 		std::optional<core::DisplayKind> display;
 		std::optional<core::RackType>    rackType;
@@ -136,12 +140,16 @@ namespace dova::editor::home
 	// Every interior cell of the plugin (exteriors too with `a_exteriors`) that has containers or home
 	// evidence, best first. Heuristics as in docs/EDITOR.md §3.2.
 	[[nodiscard]] std::vector<HomeCandidate> FindHomes(esp::LoadOrder& a_lo, std::uint32_t a_plugin, bool a_exteriors);
+	// The evidence and score for one loaded cell (FindHomes' rules).
+	[[nodiscard]] HomeCandidate ScoreHome(const CellInfo& a_cell, bool a_overridesOther);
 
-	// A starting template for the cell: every container listed with its game name as label, respawning
-	// containers, scripted bookshelves and containers an upgrade removes ignored with a note, a master
-	// suggestion, `requires` filled. Categories are left for the author. Validation goes through
+	// A starting template for the cell (home/Drafts.cpp): every container listed with its game name as label,
+	// respawning, scripted, owned and upgrade-removed containers ignored with a note, the master and categories
+	// suggested by core::SuggestDraft (names, stations, loose items; `a_categories` classifies the loose items and
+	// drops patterns it does not know), the displays listed, `requires` filled. Validation goes through
 	// core::ValidateTemplate (diagnostics in `a_diags`).
-	[[nodiscard]] core::Layout DraftTemplate(esp::LoadOrder& a_lo, const CellInfo& a_cell, core::Diagnostics& a_diags);
+	[[nodiscard]] core::Layout DraftTemplate(esp::LoadOrder& a_lo, const CellInfo& a_cell, core::Diagnostics& a_diags,
+		const core::CategorySet* a_categories = nullptr, const core::DraftRules* a_rules = nullptr);
 
 	[[nodiscard]] std::string DisplayLabel(const PlacedRef& a_ref);  // "rack (Any)", "mannequin", "item (3)"
 }

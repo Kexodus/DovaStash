@@ -40,12 +40,29 @@ namespace dova::editor
 		bool                       verbose{ false };
 		bool                       noNeighbours{ false };  // --render-cell: exterior without the 8 cells around it
 		std::optional<std::string> tab;  // --gui: the cell tab to show ("3d", "plan", "containers", "displays", "doors", "template")  // --render-cell: list what is drawn as a box and why
+		bool                       draftAll{ false };   // --draft-all: every home of the load order, a draft each
+		bool                       compare{ false };    // --draft-all --compare: drafts against the existing templates
+		std::optional<std::string> only;                // --draft-all --only <text>: homes whose name, EditorID or plugin contains it
+		bool                       includeTemplated{ false };  // --draft-all --save-to: also homes that have a template
+		std::optional<std::string> preview;             // --preview <cell>: where items go
+		std::string                sample{ "haul" };    // --sample haul | all | <category pattern>
+		bool                       useDraft{ false };   // --preview --draft: the draft, not the existing template
+		bool                       drafts{ false };     // --gui --drafts: open the "Draft all homes" view
+		bool                       baseGame{ false };   // --draft-all/--preview --base-game: only the game's own plugins
 		std::vector<std::string>   errors;
 
-		[[nodiscard]] bool Headless() const noexcept { return !errors.empty() || help || (nifInfo.has_value() || renderCell.has_value() || (!gui && (listMods || homes || cell.has_value()))); }
+		[[nodiscard]] bool Headless() const noexcept
+		{
+			return !errors.empty() || help ||
+			       (nifInfo.has_value() || renderCell.has_value() || (!gui && (listMods || homes || cell.has_value() || draftAll || preview.has_value())));
+		}
 	};
 
 	[[nodiscard]] Args ParseArgs(const std::vector<std::string>& a_args);
 	[[nodiscard]] int  RunCli(const Args& a_args);
 	[[nodiscard]] std::string Usage();
+
+	// CliDrafts.cpp
+	[[nodiscard]] int DraftAllCommand(const Workspace& a_ws, const Args& a_args);
+	[[nodiscard]] int PreviewCommand(const Workspace& a_ws, const Args& a_args);
 }

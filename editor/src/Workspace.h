@@ -5,6 +5,7 @@
 // masters as an esp::LoadOrder for the home finder and the cell views.
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -46,6 +47,13 @@ namespace dova::editor
 
 		// The plugin and its masters (each once, masters first). nullptr when the plugin cannot be loaded.
 		[[nodiscard]] std::unique_ptr<esp::LoadOrder> OpenPlugin(std::string_view a_plugin, std::vector<std::string>& a_errors) const;
+
+		// The whole active load order (docs/EDITOR.md §4.3, decision 4): the profile's active plugins in
+		// loadorder.txt order with the base masters, each with its masters; without MO2 every plugin of the Data
+		// folder. `a_progress(done, total)` is called per plugin.
+		[[nodiscard]] std::unique_ptr<esp::LoadOrder> OpenLoadOrder(std::vector<std::string>& a_errors,
+			const std::function<void(std::size_t, std::size_t)>& a_progress = {}) const;
+		[[nodiscard]] std::vector<std::string> ActivePlugins() const;
 
 		[[nodiscard]] std::string Describe() const;
 

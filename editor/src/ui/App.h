@@ -180,6 +180,8 @@ namespace dova::editor::ui
 		std::vector<core::CategoryDef>  _categories;
 		std::optional<core::CategorySet> _categorySet;
 		std::string                     _categorySource;
+		core::DraftRules                _draftRules;
+		std::string                     _draftRulesSource;
 		std::string                     _templateAuthor;
 		int                             _saveTarget{ 0 };  // index into the save targets
 		bool                            _confirmOverwrite{ false };

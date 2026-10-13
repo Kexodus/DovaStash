@@ -235,6 +235,9 @@ namespace dova::editor::ui
 		_assets.reset();
 		_history.clear();
 		_selectedMod = -2;
+		_categoriesLoaded = false;
+		_categories.clear();
+		_categorySet.reset();
 		if (!_ws->Open(_options, _wsError)) {
 			_ws.reset();
 		} else if (_ws->Instance() && _mo2Path[0] == '\0') {
@@ -376,7 +379,10 @@ namespace dova::editor::ui
 		if (a_remember && _cell && !(_cell->info.key == a_cell && _cell->lo == a_lo)) {
 			_history.emplace_back(_cell->lo, _cell->info.key);
 		}
-		StartJob("Opening cell...", [this, a_lo, a_cell, a_keepTemplate]() -> std::function<void()> {
+		LoadCategories();
+		const core::CategorySet* categories = _categorySet ? &*_categorySet : nullptr;
+		const core::DraftRules*  rules = &_draftRules;
+		StartJob("Opening cell...", [this, a_lo, a_cell, a_keepTemplate, categories, rules]() -> std::function<void()> {
 			const auto start = Clock::now();
 			auto       cell = home::LoadCell(*a_lo, a_cell);
 			if (!cell) {
@@ -394,7 +400,7 @@ namespace dova::editor::ui
 				oc->doorText.push_back(d.destinationCell ? a_lo->Format(*d.destinationCell) : std::string{});
 			}
 			core::Diagnostics diags;
-			oc->layout = home::DraftTemplate(*a_lo, oc->info, diags);
+			oc->layout = home::DraftTemplate(*a_lo, oc->info, diags, categories, rules);
 			oc->ms = Ms(start);
 			return [this, oc, a_keepTemplate]() {
 				std::unique_ptr<OpenCell> previous = std::move(_cell);

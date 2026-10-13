@@ -96,6 +96,42 @@ namespace dova::editor
 		return lo;
 	}
 
+	std::vector<std::string> Workspace::ActivePlugins() const
+	{
+		std::vector<std::string> out{ "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" };
+		const auto add = [&](const std::string& a_plugin) {
+			if (std::ranges::none_of(out, [&](const std::string& p) { return core::IEquals(p, a_plugin); })) {
+				out.push_back(a_plugin);
+			}
+		};
+		if (_instance) {
+			for (const auto& p : _instance->LoadActivePlugins(_profile)) {
+				add(p);
+			}
+		} else {
+			for (const auto& p : _files.Plugins()) {
+				add(p);
+			}
+		}
+		return out;
+	}
+
+	std::unique_ptr<esp::LoadOrder> Workspace::OpenLoadOrder(std::vector<std::string>& a_errors, const std::function<void(std::size_t, std::size_t)>& a_progress) const
+	{
+		auto       lo = std::make_unique<esp::LoadOrder>(_files, _language);
+		const auto plugins = ActivePlugins();
+		for (std::size_t i = 0; i < plugins.size(); ++i) {
+			if (a_progress) {
+				a_progress(i, plugins.size());
+			}
+			lo->AddWithMasters(plugins[i], a_errors);
+		}
+		if (a_progress) {
+			a_progress(plugins.size(), plugins.size());
+		}
+		return lo;
+	}
+
 	std::string Workspace::Describe() const
 	{
 		std::string s;

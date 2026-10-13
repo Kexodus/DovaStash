@@ -147,6 +147,42 @@ namespace dova::editor::esp
 		return &it->second;
 	}
 
+	void LoadOrder::ForEachRecord(Sig a_type, const std::function<void(const FormKey&, const RecordRef&)>& a_fn)
+	{
+		if (!_indexBuilt) {
+			BuildIndex();
+		}
+		for (const auto& [key, rec] : _index) {
+			if (a_type == 0 || rec.type == a_type) {
+				a_fn(key, rec);
+			}
+		}
+	}
+
+	const std::string& LoadOrder::KeywordId(const FormKey& a_keyword)
+	{
+		if (const auto it = _keywordIds.find(a_keyword); it != _keywordIds.end()) {
+			return it->second;
+		}
+		std::string edid;
+		if (const auto* rec = Find(a_keyword, MakeSig("KYWD"))) {
+			edid = EditorId(Read(*rec));
+		}
+		return _keywordIds.emplace(a_keyword, std::move(edid)).first->second;
+	}
+
+	std::vector<std::string> LoadOrder::KeywordIds(std::uint32_t a_plugin, std::span<const std::byte> a_kwda)
+	{
+		std::vector<std::string> out;
+		for (std::size_t i = 0; i + 4 <= a_kwda.size(); i += 4) {
+			const auto& edid = KeywordId(Resolve(a_plugin, esp::Read<std::uint32_t>(a_kwda, i)));
+			if (!edid.empty()) {
+				out.push_back(edid);
+			}
+		}
+		return out;
+	}
+
 	Subrecords LoadOrder::Read(const RecordRef& a_rec) const { return _plugins[a_rec.plugin].plugin->ReadSubrecords(a_rec.offset); }
 
 	std::string LoadOrder::EditorId(const Subrecords& a_subs) const

@@ -20,6 +20,7 @@
 #include "Util.h"
 #include "dova/core/Template.h"
 #include "dova/core/Version.h"
+#include "home/DovaData.h"
 #include "home/TemplateFile.h"
 #include "ui/App.h"
 
@@ -31,7 +32,6 @@ namespace dova::editor::ui
 	{
 		std::string GameName(const home::PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
 
-		const char* const kCategoriesDir = "SKSE\\Plugins\\DovaStash\\Categories";
 	}
 
 	void EditorApp::LoadCategories()
@@ -40,55 +40,13 @@ namespace dova::editor::ui
 			return;
 		}
 		_categoriesLoaded = true;
-		// Every Categories/*.json of the merged Data folder (a later root wins a file name), in name order, as the DLL loads them.
-		std::map<std::string, fs::path> files;
-		std::error_code                 ec;
-		auto                            addDir = [&](const fs::path& a_root) {
-            const auto dir = a_root / PathFromUtf8(kCategoriesDir);
-            if (!fs::is_directory(dir, ec)) {
-                return;
-            }
-            for (const auto& e : fs::directory_iterator(dir, ec)) {
-                if (e.is_regular_file(ec) && IEndsWith(PathToUtf8(e.path().filename()), ".json")) {
-                    files[core::ToLower(PathToUtf8(e.path().filename()))] = e.path();
-                    _categorySource = PathToUtf8(dir);
-                }
-            }
-		};
-		for (const auto& root : _ws->Files().Roots()) {
-			addDir(root);
-		}
-		// Dova Stash itself not enabled in this profile: the folder the editor ships in, else the mod named
-		// "Dova Stash" (enabled or not), else any mod that has the default set.
-		if (files.empty()) {
-			wchar_t exe[MAX_PATH]{};
-			if (::GetModuleFileNameW(nullptr, exe, MAX_PATH) > 0) {
-				addDir(fs::path(exe).parent_path());
-			}
-		}
-		if (files.empty() && _ws->Instance()) {
-			for (const auto& m : _ws->Mods()) {
-				if (core::IEquals(m.name, "Dova Stash")) {
-					addDir(m.dir);
-				}
-			}
-			for (const auto& m : _ws->Mods()) {
-				if (files.empty() && fs::exists(m.dir / PathFromUtf8(kCategoriesDir) / L"00_Default.json", ec)) {
-					addDir(m.dir);
-				}
-			}
-		}
-		core::Diagnostics                     diags;
-		std::vector<std::vector<core::CategoryDef>> parsed;
-		for (const auto& [name, path] : files) {
-			if (const auto text = ReadTextFile(path)) {
-				parsed.push_back(core::ParseCategoryText(*text, name, diags));
-			}
-		}
-		_categories = core::MergeCategoryFiles(parsed, diags);
-		if (!_categories.empty()) {
-			_categorySet = core::CategorySet::Compile(_categories, [](const core::FormRef&) { return std::vector<core::FormRef>{}; }, diags);
-		}
+		auto data = home::LoadCategories(*_ws);
+		_categories = std::move(data.defs);
+		_categorySet = std::move(data.set);
+		_categorySource = std::move(data.source);
+		auto rules = home::LoadDraftRules(*_ws);
+		_draftRules = std::move(rules.rules);
+		_draftRulesSource = std::move(rules.source);
 	}
 
 	void EditorApp::Revalidate(OpenCell& a_cell)
