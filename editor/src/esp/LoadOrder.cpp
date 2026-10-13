@@ -21,7 +21,7 @@ namespace dova::editor::esp
 			MakeSig("INGR"), MakeSig("KEYM"), MakeSig("KYWD"), MakeSig("LCTN"), MakeSig("LIGH"), MakeSig("LVLC"), MakeSig("LVLN"),
 			MakeSig("MISC"), MakeSig("MSTT"), MakeSig("NPC_"), MakeSig("SCRL"), MakeSig("SLGM"), MakeSig("SOUN"), MakeSig("STAT"),
 			MakeSig("TACT"), MakeSig("TREE"), MakeSig("TXST"), MakeSig("WEAP"), MakeSig("WRLD"), MakeSig("SPEL"), MakeSig("HAZD"),
-			MakeSig("ARTO"), MakeSig("MOVS"), MakeSig("GRAS"), MakeSig("ASPC"), MakeSig("LTEX")
+			MakeSig("ARTO"), MakeSig("MOVS"), MakeSig("GRAS"), MakeSig("ASPC"), MakeSig("LTEX"), MakeSig("ARMA"), MakeSig("RACE")
 		};
 
 		constexpr Sig kCELL = MakeSig("CELL");

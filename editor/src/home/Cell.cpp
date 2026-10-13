@@ -208,6 +208,57 @@ namespace dova::editor::home
 			return land;
 		}
 
+		// The body a mannequin stands in: the NPC's skin (WNAM), else its race's, first armor addon's male model.
+		std::string MannequinModel(esp::LoadOrder& a_lo, const FormKey& a_npc)
+		{
+			const auto* npc = a_lo.Find(a_npc, kNPC_);
+			if (!npc) {
+				return {};
+			}
+			const auto             ns = a_lo.Read(*npc);
+			std::optional<FormKey> skin;
+			if (const auto wnam = ns.Get(MakeSig("WNAM")); wnam && wnam->size() >= 4) {
+				skin = a_lo.Resolve(npc->plugin, esp::Read<std::uint32_t>(*wnam, 0));
+			} else if (const auto rnam = ns.Get(MakeSig("RNAM")); rnam && rnam->size() >= 4) {
+				if (const auto* race = a_lo.Find(a_lo.Resolve(npc->plugin, esp::Read<std::uint32_t>(*rnam, 0)), MakeSig("RACE"))) {
+					const auto rs = a_lo.Read(*race);
+					if (const auto rw = rs.Get(MakeSig("WNAM")); rw && rw->size() >= 4) {
+						skin = a_lo.Resolve(race->plugin, esp::Read<std::uint32_t>(*rw, 0));
+					}
+				}
+			}
+			const auto* armo = skin ? a_lo.Find(*skin, MakeSig("ARMO")) : nullptr;
+			if (!armo) {
+				return {};
+			}
+			// The addon covering the body (biped slot 32), else the first one with a model.
+			const auto  as = a_lo.Read(*armo);
+			std::string first;
+			for (const auto& modl : as.GetAll(MakeSig("MODL"))) {
+				if (modl.size() < 4) {
+					continue;
+				}
+				if (const auto* arma = a_lo.Find(a_lo.Resolve(armo->plugin, esp::Read<std::uint32_t>(modl, 0)), MakeSig("ARMA"))) {
+					const auto ms = a_lo.Read(*arma);
+					const auto mod2 = ms.Get(MakeSig("MOD2"));
+					if (!mod2 || mod2->size() <= 1) {
+						continue;
+					}
+					auto slots = ms.Get(MakeSig("BOD2"));
+					if (!slots) {
+						slots = ms.Get(MakeSig("BODT"));
+					}
+					if (slots && slots->size() >= 4 && (esp::Read<std::uint32_t>(*slots, 0) & 0x4) != 0) {
+						return esp::ZString(*mod2);
+					}
+					if (first.empty()) {
+						first = esp::ZString(*mod2);
+					}
+				}
+			}
+			return first;
+		}
+
 		bool HasScript(const PlacedRef& a_ref, std::string_view a_name)
 		{
 			return std::ranges::any_of(a_ref.scripts, [&](const std::string& s) { return core::IEquals(s, a_name); });
@@ -372,6 +423,7 @@ namespace dova::editor::home
 			if (rec.type == kACHR || r.baseType == kNPC_) {
 				if (findScript("MannequinActivatorSCRIPT")) {
 					r.display = core::DisplayKind::Mannequin;
+					r.model = MannequinModel(a_lo, r.base);
 				}
 			} else if (const auto* rack = findScript("WeaponRackActivateSCRIPT")) {
 				r.display = core::DisplayKind::Rack;

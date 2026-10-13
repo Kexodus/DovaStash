@@ -358,12 +358,15 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 				}
 			}
 			if (s.kind == RefKind::Actor || (s.kind == RefKind::Display && r.display == core::DisplayKind::Mannequin)) {
-				// NPC bounds are often zero: a person-sized box.
+				// NPC bounds are often zero: a person-sized box. Mannequins show their body mesh (home::LoadCell
+				// finds it through the NPC's skin), other people stay boxes.
 				if (s.bounds[3] - s.bounds[0] < 1.0f) {
 					s.bounds = { -22.0f, -16.0f, 0.0f, 22.0f, 16.0f, 128.0f };
 				}
-				s.model.clear();
-				s.ghost = false;  // people are solid boxes
+				if (s.kind == RefKind::Actor) {
+					s.model.clear();
+				}
+				s.ghost = false;  // solid
 			}
 			s.color = KindColor(s.kind, r);
 			s.initiallyDisabled = r.initiallyDisabled;

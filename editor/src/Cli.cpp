@@ -8,6 +8,7 @@
 #include "Util.h"
 #include "dova/core/Layout.h"
 #include <cstdlib>
+#include <fstream>
 #include <numbers>
 
 #include <d3d11.h>
@@ -242,11 +243,23 @@ namespace dova::editor
 		int NifInfo(const Workspace& a_ws, const Args& a_args)
 		{
 			render::SetNifMatrixColumns(a_args.nifColumns);
-			Assets      assets(a_ws.Files().Roots(), Assets::ArchiveList(a_ws));
-			const auto  path = Assets::NormalizeMesh(*a_args.nifInfo);
-			std::string source;
-			const auto  start = Clock::now();
-			const auto  data = assets.Read(path, &source);
+			Assets                                assets(a_ws.Files().Roots(), Assets::ArchiveList(a_ws));
+			std::string                           path = Assets::NormalizeMesh(*a_args.nifInfo);
+			std::string                           source;
+			const auto                            start = Clock::now();
+			std::optional<std::vector<std::byte>> data;
+			std::error_code                       ec;
+			if (const auto file = PathFromUtf8(*a_args.nifInfo); file.is_absolute() && std::filesystem::exists(file, ec)) {
+				// A file on disk (a mesh of a disabled mod, a download).
+				std::ifstream in(file, std::ios::binary | std::ios::ate);
+				data.emplace(static_cast<std::size_t>(std::max<std::streamoff>(in.tellg(), 0)));
+				in.seekg(0);
+				in.read(reinterpret_cast<char*>(data->data()), static_cast<std::streamsize>(data->size()));
+				path = *a_args.nifInfo;
+				source = "disk";
+			} else {
+				data = assets.Read(path, &source);
+			}
 			if (!data) {
 				Err(std::format("error: {} not found in {} loose roots and {} archives\n", path, assets.LooseRootCount(), assets.ArchiveCount()));
 				return 1;
