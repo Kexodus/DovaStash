@@ -479,12 +479,19 @@ satchels, barrels and strong boxes are not (`esm_dump.py cell "HearthFires.esm|0
 2. **Add the grounds.** Deposit some iron ingots, leather strips, ore and leather (they go to the main hall
    chest (east) and the display wardrobe). Walk out of the front door and press the hotkey at nothing.
    **Expected:** a message box *Dova Stash: add this area to Lakeview Manor?* with *Add this area to Lakeview
-   Manor* / *Cancel*; choosing it: HUD *Dova Stash: this area is now part of Lakeview Manor*; the layout file
-   `Layouts/HearthFires.esm_00002FEC.json` now has `"cells": ["Skyrim.esm|0x00009BF7"]` right after `cell`; the
-   log has `Add area: ...` and, on the next hotkey, `Cell ...: part of Lakeview Manor` with the areas and, per
-   container, `reachable from every area (persistent)` or `reachable only in Lakeview Manor (not persistent)`.
-   Pressing the hotkey again opens the master menu (UIExtensions list or message boxes) with *Remove this area
-   from Lakeview Manor...*.
+   Manor* / *Cancel*; choosing it opens the UIExtensions text box pre-filled with *BYOHHouse1Exterior* (the
+   cell's own name). Type *Grounds* and confirm: HUD *Dova Stash: Grounds is now part of Lakeview Manor*; the
+   layout file `Layouts/HearthFires.esm_00002FEC.json` now has
+   `"cells": [{"cell": "Skyrim.esm|0x00009BF7", "label": "Grounds"}]` right after `cell`; the log has
+   `Add area: ... named "Grounds"` and, on the next hotkey, `Cell ...: part of Lakeview Manor` with the areas
+   and, per container, `reachable from every area (persistent)` or `reachable only in Lakeview Manor (not
+   persistent)`. Pressing the hotkey again opens the master menu (UIExtensions list or message boxes) with
+   *Rename Grounds...* (lists only) and *Remove this area from Lakeview Manor...*.
+   **Variants:** cancel the text box, or confirm it unchanged: the area is still added (HUD *this area is now
+   part of Lakeview Manor*, `"cells": ["Skyrim.esm|0x00009BF7"]`, no `label`). Without UIExtensions (or with
+   `iMode = 1`, which still uses the text box when UIExtensions is installed) the add happens at once.
+   *Rename Grounds...* → type *Yard*: HUD *Dova Stash: area renamed to "Yard"*; the panel's header and Areas
+   list and the remove prompt say *Yard*; cancelling the box changes nothing.
 3. **Forge outside, supplies inside.** Sit at the outside anvil. **Expected:** *Dova Stash: N materials at hand*;
    the ingots and strips came from the main hall containers (log: `brought ... from Chest [HearthFires.esm|...]`).
    Craft an iron dagger, leave: *put N back*, and inside, the unused ingots and strips are back in the same
@@ -494,18 +501,28 @@ satchels, barrels and strong boxes are not (`esm_dump.py cell "HearthFires.esm|0
    (`Container ... unavailable: only reachable in Lakeview Manor (not a persistent reference)` at debug, no
    warning). Retrieve → Ingots: they come from inside. Browse containers → a main hall chest: its container menu
    opens (unverified: report if it closes at once or shows nothing).
-5. **Panel.** Outside, open the panel: header *Lakeview Manor in BYOHHouse1Exterior* (or the label you gave the
-   entry); Actions → **Areas** lists *Lakeview Manor (main)* and the grounds *(you are here)* with *Remove*;
-   Containers: rows inside show *(Lakeview Manor)* next to *available*, sacks show *unavailable: only reachable
-   in Lakeview Manor (not a persistent reference)*.
+5. **Panel.** Outside, open the panel: header *Lakeview Manor in Grounds* (the name you gave it; the cell's own
+   name, *BYOHHouse1Exterior*, without one); Actions → **Areas** lists *Lakeview Manor (main)* and *Grounds (you
+   are here)* with *Rename* and *Remove*. *Rename* opens a box under the row with the current name; type
+   *Yard*, Enter (or *Save*): status *Dova Stash: area renamed to "Yard"*, the row and the header follow, the
+   file's `label` is *Yard*; an empty box brings the cell's own name back (the entry is written as a plain
+   string again). Containers: rows inside show *(Lakeview Manor)* next to *available*, sacks show
+   *unavailable: only reachable in Lakeview Manor (not a persistent reference)* (debug log only, no warning).
+   When the panel is opened in a cell that can join a home, the *Add this area to ...* button has a name box
+   next to it (hint: the cell's own name); the name typed there becomes the label.
 6. **Cellar with its own setup.** `coc BYOHHouse1FalkreathBasement` with the *Lakeview Manor Cellar* template
    enabled: the cellar stays its own home (header *Lakeview Manor, Cellar*, its own master). Add
    `"HearthFires.esm|0x00004849"` to the main hall's `cells` by hand: the cellar still stays its own home, and the
    main hall's panel says *HearthFires.esm|0x00004849 is listed but has a setup of its own, so it is not part
    of this home*. **Reset home** in the cellar: on the next hotkey there it is part of Lakeview Manor.
-7. **Remove.** Outside, master menu → *Remove this area from Lakeview Manor...* → Yes: HUD *Dova Stash: ... is no
-   longer part of Lakeview Manor*; the hotkey there says *not a player home (exterior cell not owned by you)* or
-   offers the area again right after coming out of the door. `cells` is gone from the file (no empty list).
+7. **Remove.** Outside, master menu → *Remove this area from Lakeview Manor...* → Yes: HUD *Dova Stash: Grounds
+   is no longer part of Lakeview Manor*; the hotkey there says *not a player home (exterior cell not owned by
+   you)* or offers the area again right after coming out of the door. `cells` is gone from the file (no empty
+   list).
+7a. **One home per cell.** With the grounds part of Lakeview Manor, set the cellar up as its own home (step 6)
+   and walk from the cellar out into the grounds: no *Add this area to Lakeview Manor, Cellar* is offered there
+   (the cell already belongs to Lakeview Manor; the hotkey opens Lakeview's master menu), and no template
+   notice or auto-enabled template appears in the grounds.
 8. **Persistent exterior container.** Add the grounds again, bind the outside chest `HearthFires.esm|0x00003068`
    to *Building materials* (from the panel, outside), go inside, Deposit lumber. **Expected:** it goes to the
    outside chest while you are inside (it is persistent). If it does not (log: `container is not in this home`),
@@ -594,6 +611,12 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    new timestamped `.bak` of the setup that was there. *Older copies (N)* lists the history copies (one per
    earlier session, newest first), each with **Restore the setup from (date)...**. With a broken layout
    file (4.1) the setup view offers the same buttons next to **Reset home...**.
+9. **Only meaningful restores.** Right after a save (bind a category, close the panel, open it again; or
+   after step 8's restore) the latest copy equals the setup, so **Saved setups** shows *The latest copy
+   (date) is this setup as it is now.* instead of the **Restore last setup** button; *Older copies* stay.
+   Change something (tick another category) and refresh: the button is back. The comparison ignores
+   formatting: reformat `Backups/<file>.json` by hand (one line, spaces instead of tabs) and it still counts
+   as the same. Nothing is compared per frame (no log lines, no hitch while the panel is open).
 
 ### 5.3 Containers tab
 

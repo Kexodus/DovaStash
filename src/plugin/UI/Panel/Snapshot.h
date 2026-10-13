@@ -96,6 +96,7 @@ namespace dova::ui::panel
 		std::filesystem::path path;
 		std::string           date;  // "2026-10-12 14:03"
 		bool                  history{ false };
+		bool                  same{ false };  // says the same as the current setup: restoring it would change nothing (not offered)
 	};
 
 	struct HomeSnapshot
@@ -108,6 +109,7 @@ namespace dova::ui::panel
 		// cell id Controller::AddArea takes. Also set on the setup page of a cell with no setup.
 		std::optional<std::string> addAreaTo;
 		std::uint32_t              addAreaCell{ 0 };
+		std::string                addAreaName;  // the cell's own name: what the area is called unless the player names it
 
 		std::uint32_t cellId{ 0 };
 		std::string   cellText;

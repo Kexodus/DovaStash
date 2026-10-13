@@ -5,6 +5,7 @@
 #include "Home/Store.h"
 #include "Sort/SortEngine.h"
 #include "Settings.h"
+#include "UI/AreaPrompt.h"
 #include "UI/Labels.h"
 #include "UI/MessageBox.h"
 #include "UI/SaveTemplate.h"
@@ -122,7 +123,7 @@ namespace dova::ui
 			if (body.empty()) {
 				body = std::format("Dova Stash: {}", a_home.name);
 			}
-			options.push_back({ std::format(kAddArea, offer->homeName), [cellId]() { Controller::Get().AddArea(cellId); } });
+			options.push_back({ std::format(kAddArea, offer->homeName), [cellId]() { AddAreaNamed(cellId); } });  // named first when UIExtensions is there
 		}
 		if (options.empty()) {
 			Notify(std::format("Dova Stash: look at a container and press {} to set up this home", Controller::HotkeyName()));

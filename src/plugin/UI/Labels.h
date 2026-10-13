@@ -16,6 +16,7 @@ namespace dova::ui
 	// Multi-cell homes (DESIGN §6.7), the same on every UI surface ("{}": the home's name; the area's name).
 	inline constexpr std::string_view kAddArea = "Add this area to {}";
 	inline constexpr std::string_view kConfirmAddArea = "Dova Stash: add this area to {}?\nIts containers and crafting stations then work with the rest of the home. No items are moved.";
+	inline constexpr std::string_view kRenameArea = "Rename {}...";  // the area's name
 	inline constexpr std::string_view kRemoveArea = "Remove this area from {}...";
 	inline constexpr std::string_view kConfirmRemoveArea = "Remove {} from {}?\nIts containers stay in the setup but are no longer used. No items are moved.";
 

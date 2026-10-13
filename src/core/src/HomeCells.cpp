@@ -170,6 +170,18 @@ namespace dova::core
 		return out;
 	}
 
+	bool SetHomeCellLabel(std::vector<HomeCell>& a_cells, const FormRef& a_cell, std::string_view a_label)
+	{
+		const auto it = std::ranges::find(a_cells, a_cell, &HomeCell::cell);
+		if (it == a_cells.end()) {
+			return false;
+		}
+		const auto first = a_label.find_first_not_of(" \t\r\n");
+		const auto last = a_label.find_last_not_of(" \t\r\n");
+		it->label = first == std::string_view::npos ? std::string{} : std::string(a_label.substr(first, last - first + 1));
+		return true;
+	}
+
 	std::vector<FormRef> HomeCellRefs(const FormRef& a_main, std::span<const HomeCell> a_cells)
 	{
 		std::vector<FormRef> out{ a_main };

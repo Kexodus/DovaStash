@@ -693,6 +693,15 @@ namespace dova::core
 		return detail::Dump(LayoutToJson(a_layout));
 	}
 
+	bool SameSetup(const Layout& a_lhs, const Layout& a_rhs)
+	{
+		auto lhs = LayoutToJson(a_lhs);
+		auto rhs = LayoutToJson(a_rhs);
+		lhs.erase("cell");
+		rhs.erase("cell");
+		return lhs == rhs;
+	}
+
 	std::optional<Layout> LoadLayoutFile(const std::filesystem::path& a_path, std::string_view a_source, Diagnostics& a_diags)
 	{
 		const auto text = detail::ReadTextFile(a_path);

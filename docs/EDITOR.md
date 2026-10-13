@@ -4,7 +4,7 @@
 > from your MO2 list, open its cells, click the chests, racks and mannequins, give them their jobs, check,
 > save. Everything a template can say (DESIGN §6.3), in one window.
 
-Status: **exploration + first slice (M0) built** · Code: `editor/` · Executable: `DovaStashEditor.exe` · Build: preset `editor`
+Status: **first slice (M0) built, decisions taken (§8)** · Code: `editor/` · Executable: `DovaStashEditor.exe` · Build: preset `editor`
 (docs/BUILDING.md)
 
 ---
@@ -70,8 +70,10 @@ Creation Kit or xEdit, running Papyrus.
    checks of `esm_dump.py check` (ref is a container in the cell, never a respawning one, displays exist,
    `set` is an ARMO, `requires` complete, §5.6). Problems are listed and click through to the object.
 8. **Save.** Into `Data/SKSE/Plugins/DovaStash/Templates/<Author>/<Home>.json` of a mod chosen by the
-   author (§4.4): an existing mod, a new "Dova Stash Templates" mod, or MO2's overwrite. An existing file is
-   backed up first and its version raised, as the DLL does (`core::NextPatchVersion`).
+   author (§4.4): under MO2 a "Dova Stash Templates" mod by default (created when missing), else an existing
+   mod the author picks. Never MO2's overwrite by default (cleaning it would delete the templates). An existing
+   file is backed up first and its version raised, as the DLL does (`core::NextPatchVersion`). A home over
+   several cells is one file (§3.3).
 
 The editor also **opens existing files**: a shipped or downloaded template, a player layout from `Layouts/`
 or from the backups in Documents (DESIGN §6.6). That is the path from "I set it up in game" to a template
@@ -123,9 +125,10 @@ The core schema now has an optional `cells` list (DESIGN §6.7, `core::HomeCell`
 **home = main cell + more cells**, each with its references; containers and displays keep being named by
 reference, so a container in the cellar is simply bound while the cellar tab is open. The door graph the
 editor already resolves (interior to interior, interior to exterior grid cell) proposes the candidates:
-*Lakeview Manor* links to *Lakeview Manor, Cellar* and its exterior; the author ticks which belong. Until
-templates use `cells`, saving a two-cell home writes one file per cell (as the shipped `*Cellar.json`), so
-the editor works with either; the writer is one function to switch.
+*Lakeview Manor* links to *Lakeview Manor, Cellar* and its exterior; the author ticks which belong, and gives
+each a `label` (what players see; they can rename it in game). **Decided: a multi-cell home is saved as one
+file per home** (`cell` + `cells`, DESIGN §6.7), never one file per cell; the shipped `*Cellar.json` files stay
+as they are for players who use them, and the DLL keeps loading either shape.
 
 ---
 
@@ -184,10 +187,12 @@ mods lowest priority first, overwrite; a later root wins), so both ways give the
 can be used from Explorer, a terminal or tests. The instance is still read under the VFS: it is what maps
 plugins back to mods and Nexus ids.
 
-**Which plugins are loaded.** M0 loads the chosen plugin and its masters: the home as its mod ships it,
-deterministic and fast (Whitepeak Tower with its 5 masters in under 0.1 s; all of `Skyrim.esm`'s cells in
-0.3 s). A *whole load order* mode (all active plugins in `loadorder.txt` order) shows patches that move or
-remove references (Lux, USSEP); M1 adds it as a toggle, with a mark on references a later plugin edits.
+**Which plugins are loaded.** **Decided: the whole load order by default** (all active plugins in
+`loadorder.txt` order: the home as the player sees it, with the patches that move or remove references, Lux,
+USSEP), and a toggle *Home plugin + masters only* for the home as its mod ships it (deterministic, fast:
+Whitepeak Tower with its 5 masters in under 0.1 s; all of `Skyrim.esm`'s cells in 0.3 s). The M0 scaffold can
+only do the second (`Workspace::OpenPlugin`); M1 adds the whole-load-order loader and makes it the default,
+with a mark on references a later plugin edits.
 
 Archives (M2): the base game archives from `Skyrim.ini`'s `sResourceArchiveList`, then each plugin's
 `<name>.bsa` / `<name> - Textures.bsa` in load order; loose files win over archives.
@@ -197,13 +202,16 @@ Archives (M2): the base game archives from `Skyrim.ini`'s `sResourceArchiveList`
 - Serialization is `core::SerializeLayout`, written atomically with `core::SaveLayoutFile`; overwriting
   first copies the old file to a timestamped `.bak` and raises the patch version, like *Save as template*
   in game (DESIGN §6.5). The file name comes from `core::TemplateFileStem`.
-- Target, chosen in the save dialog:
-  - **Under MO2:** `Data/SKSE/Plugins/DovaStash/Templates/<Author>/<Home>.json`, which MO2 routes to
-    overwrite or to the executable's *Create files in mod* target (recommended setup: a mod named
-    "Dova Stash Templates").
-  - **Outside MO2:** directly into a mod folder the author picks, or a new one (`mods/<name>/` with a
-    `meta.ini`). MO2 must refresh (F5) to see a new mod; the editor never edits `modlist.txt` while MO2 may
-    be running (MO2 rewrites it on exit).
+- Target, chosen in the save dialog. **Decided: under MO2 the default is a dedicated "Dova Stash Templates"
+  mod**, so clearing overwrite can never delete a template:
+  - **Under MO2:** `mods/Dova Stash Templates/SKSE/Plugins/DovaStash/Templates/<Author>/<Home>.json`, written
+    straight into the mod folder (the editor knows `mod_directory` from the instance, §4.2), created with a
+    `meta.ini` when missing; the author can pick another existing mod instead. Writing below the virtual
+    `Data` is avoided on purpose: usvfs would route it to overwrite unless the executable's *Create files in
+    mod* is set. MO2 must refresh (F5) to see a new mod; the editor never edits `modlist.txt` while MO2 may be
+    running (MO2 rewrites it on exit).
+  - **Outside MO2:** the same, into the instance's mod folder, or into a plain Data folder when there is no
+    instance.
   - **Export zip** for Nexus: the template under `SKSE/Plugins/DovaStash/Templates/...` and nothing else.
 
 ### 4.5 Rendering, staged
@@ -232,17 +240,18 @@ asymmetric object; the footprints of Whitepeak's walls line up, which suggests i
   overlap.
 - Not needed: Havok collision, Papyrus, lighting accuracy, LOD.
 
-### 4.6 What "use the in-game cursor" can mean (decision for the user)
+### 4.6 How objects are selected (decided)
 
-1. **The editor's own cursor in a 3D view** (Creation Kit style): select mode turns the mouse into a picker
-   in the editor's 3D viewport. Matches "without having to be in game"; needs M2.
-2. **Clicking the 2D plan first** (works now), the 3D view later; the plan stays as the fast overview.
-3. **A live link to a running game** (optional M3): the Dova Stash DLL sends the reference under the
-   crosshair to the editor over a named pipe when the player presses a key, and the editor selects it;
+1. **Clicking the 2D plan** (works now): select mode turns the mouse into a picker on the floor plan; the
+   plan stays as the fast overview later.
+2. **The editor's own cursor in a 3D view** (Creation Kit style, M2): select mode picks in the editor's
+   3D viewport, sharing the plan's selection model. Matches "without having to be in game".
+3. **A live link to a running game** (optional M3, not decided): the Dova Stash DLL sends the reference under
+   the crosshair to the editor over a named pipe when the player presses a key, and the editor selects it;
    *Send to game* reloads the edited template in the running game. Cheap given the DLL already tracks the
-   crosshair, but it needs the game running.
+   crosshair, but it needs the game running. Only if testing in game stays part of the author's loop.
 
-Recommendation: 2 now, 1 as M2, 3 only if testing in game stays part of the author's loop.
+Decision: 1 now, 2 as M2 (§8).
 
 ### 4.7 Validation (shared)
 
@@ -297,7 +306,7 @@ the user's own game and mod files at run time and never ships or extracts Bethes
 | 3D effort (NIF variants, skinned actors, alpha, performance) | Plan first; 3D static meshes only; placeholders for actors |
 | Template schema moving (multi-cell, new display fields) | Core owns the schema; the editor edits `core::Layout`, unknown keys survive |
 | MO2 quirks (usvfs, profiles with local settings, non-portable instances) | Detection with fallbacks; read-only on MO2's files; `--mo2`/`--profile` overrides |
-| Two programs to ship | Decision: in the main zip (one download, per the release policy) or a separate file (§7) |
+| Two programs to ship | Decided: in the main zip (one download, per the release policy; §8). The exe sits in the mod folder and MO2 runs it from there |
 
 ---
 
@@ -306,21 +315,25 @@ the user's own game and mod files at run time and never ships or extracts Bethes
 | # | Scope | Effort (one developer) |
 |---|---|---|
 | **M0** (done) | Scaffold: MO2 instance and mods with Nexus ids, plugin reader, home finder, cell facts, displays, door links, 2D plan with select mode, tables, draft template, headless commands, preset `editor` | done |
-| **M1** | The template editor on the plan: roles in the details pane (master, categories with the category tree, label, note, ignored, fixed items; displays with categories, items, armor set), open existing templates and layouts, keep rules tab, validation panel (core + ported `check`), save with backup and version, multi-cell homes from the door graph, automatic floors, undo/redo, whole-load-order toggle, golden tests | 3-4 weeks |
+| **M1** | The template editor on the plan: roles in the details pane (master, categories with the category tree, label, note, ignored, fixed items; displays with categories, items, armor set), open existing templates and layouts, keep rules tab, validation panel (core + ported `check`), save into the "Dova Stash Templates" mod with backup and version, multi-cell homes from the door graph as one file per home, automatic floors, undo/redo, whole-load-order loader as the default with the *home plugin + masters only* toggle, golden tests | 3-4 weeks |
 | **M1.5** | What goes where: `ItemInfo` from item records, category engine and planner preview per container; armor-set index for mannequins | 1-2 weeks |
 | **M2** | 3D view: archives + loose files, NIF meshes (nifly), DDS textures, D3D11 renderer with instancing, free-fly and orbit camera, ray picking, selection shared with the plan | 5-8 weeks |
 | **M3** (optional) | Live link with the running game (crosshair pick, send template to game); MO2 right-click tool plugin | 1-2 weeks |
 
 ---
 
-## 8. Decisions for the user
+## 8. Decisions
 
-1. **"Use the in-game cursor"**: a 3D view with a Creation Kit style cursor (M2), the 2D plan first, or a
-   live link to the running game (§4.6).
-2. **Shipping**: the editor inside the main Dova Stash zip (one download; MO2 can run an exe from a mod
-   folder) or as its own file on the Nexus page.
-3. **Default save target** under MO2: overwrite, a "Dova Stash Templates" mod, or the home mod itself.
-4. **Which plugins**: the home's plugin with its masters (as it ships, current default) or the whole load
-   order (as the player sees it).
-5. **Multi-cell saving** once `cells` is in templates: one file per home, or keep one file per cell for
-   compatibility with older DLLs.
+Taken with the user after M0; the sections above are written to match.
+
+| # | Decision | Where it lands |
+|---|---|---|
+| 1 | **Selecting objects**: by clicking on the 2D floor plan now; a Creation Kit style 3D view with the same select mode next (M2). A live link to the running game stays optional (M3), undecided | §2 step 5, §4.5, §4.6 |
+| 2 | **Shipping**: the editor ships **inside the main Dova Stash zip** (the one-zip release rule: one download, short notes, no side downloads). `DovaStashEditor.exe` lives in the mod folder; MO2 runs it from there (§4.8) | §6, §4.8, the release checklist |
+| 3 | **Default save target under MO2**: a dedicated **"Dova Stash Templates" mod** (created when missing), never overwrite by default, so clearing overwrite cannot delete a template. Another mod can be picked in the save dialog | §2 step 8, §4.4 |
+| 4 | **Which plugins**: the **whole load order by default** (the home as the player sees it, patches included), with a toggle *Home plugin + masters only* (the home as its mod ships it). M0 only has the second; M1 adds the first and flips the default | §4.3, §7 (M1) |
+| 5 | **Multi-cell homes**: saved as **one file per home** (`cell` + `cells`), never one file per cell. The shipped `*Cellar.json` files stay for players who use them; the DLL loads both shapes (DESIGN §6.7) | §3.3, §4.4 |
+
+Scaffold state against these: the draft's hint names the "Dova Stash Templates" mod; the save dialog, the
+whole-load-order loader and its toggle are M1 work (the scaffold has neither a save path nor a plugin-set
+option to change).

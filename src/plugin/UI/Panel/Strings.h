@@ -78,11 +78,14 @@ namespace dova::ui::panel::text
 	inline constexpr std::string_view kRestoreOlder = "Restore the setup from {}...";  // date
 	inline constexpr std::string_view kOlderBackups = "Older copies ({})";  // count
 	inline constexpr auto             kNoBackups = "No saved copy of this home's setup yet.";
+	inline constexpr std::string_view kBackupSame = "The latest copy ({}) is this setup as it is now.";  // date
 	// Multi-cell homes (DESIGN §6.7)
 	inline constexpr auto             kAreasHeader = "Areas";
 	inline constexpr auto             kAreasTip = "The cells this home spans: the main one, a cellar, the grounds outside... You are in the home in any of them. From one area, containers in another are used when their reference is persistent (the panel says which); displays are filled only in the area you are in. To add an area, walk into it from the home and press the hotkey.";
 	inline constexpr auto             kAreaMain = "(main)";
 	inline constexpr auto             kAreaHere = "(you are here)";
+	inline constexpr std::string_view kAreaNameHint = "name, e.g. Grounds (optional: {})";  // the cell's own name
+	inline constexpr auto             kAreaRenameTip = "The name this area goes by in the prompts and the panel. Empty: the cell's own name.";
 	inline constexpr std::string_view kAreaExcluded = "{} is listed but has a setup of its own, so it is not part of this home.";  // cell
 	inline constexpr std::string_view kHereArea = "in {}";  // area name, after the home's name
 	inline constexpr std::string_view kInArea = "In {}";  // area name

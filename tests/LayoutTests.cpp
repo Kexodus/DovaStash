@@ -118,6 +118,29 @@ TEST_CASE("Layout round-trip is stable and ordered", "[layout]")
 	CHECK(first.back() == '\n');
 }
 
+TEST_CASE("SameSetup: formatting and the cell do not count, the content does", "[layout]")
+{
+	const auto layout = ParseOk(kDesignExample);
+	auto       reformatted = ParseOk(LayoutToJson(layout).dump());  // one line, no tabs
+	CHECK(SameSetup(layout, reformatted));
+	CHECK(SameSetup(layout, ParseOk(SerializeLayout(layout))));
+
+	// A backup copy is loaded with the cell forced to the home's cell: the cell never decides.
+	reformatted.cell = Sk(0x1);
+	CHECK(SameSetup(layout, reformatted));
+
+	// One category more, and they differ.
+	auto changed = layout;
+	REQUIRE_FALSE(changed.containers.empty());
+	changed.containers.front().categories.emplace_back("keys");
+	CHECK_FALSE(SameSetup(layout, changed));
+
+	// A learned item more, and they differ (restoring would lose it).
+	auto learned = layout;
+	learned.learned[Sk(0x12EB7)] = layout.master.value_or(Sk(0x1));
+	CHECK_FALSE(SameSetup(layout, learned));
+}
+
 TEST_CASE("Layouts are written compactly, one container per line", "[layout]")
 {
 	const auto text = SerializeLayout(ParseOk(R"({

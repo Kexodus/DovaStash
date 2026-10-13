@@ -204,6 +204,25 @@ TEST_CASE("cells: templates reference their plugins; applying merges the player'
 	CHECK(std::ranges::find(exported.requiredPlugins, std::string("Skyrim.esm")) != exported.requiredPlugins.end());
 }
 
+TEST_CASE("cells: naming an area sets its label; an unlisted cell changes nothing", "[cells]")
+{
+	auto layout = ParseOk(kMultiCell);
+	REQUIRE(SetHomeCellLabel(layout.cells, kCellar, "  Wine cellar \t"));
+	CHECK(layout.cells[0].label == "Wine cellar");
+	CHECK(layout.cells[1].label == "Grounds");  // the others keep theirs
+	CHECK(layout.cells[1].extra.contains("future"));
+
+	// Clearing the label: the cell's own name shows again, and the entry is written as a plain string.
+	REQUIRE(SetHomeCellLabel(layout.cells, kGrounds, "   "));
+	CHECK(layout.cells[1].label.empty());
+	CHECK_FALSE(SetHomeCellLabel(layout.cells, Sk(0x9BD6), "Garden"));
+	CHECK(layout.cells.size() == 2);
+
+	const auto text = SerializeLayout(layout);
+	CHECK(text.find("\"label\": \"Wine cellar\"") != std::string::npos);
+	CHECK(text.find("Grounds") == std::string::npos);
+}
+
 TEST_CASE("cells: a cell with its own layout stays its own home", "[cells]")
 {
 	const std::vector<HomeCell> cells{ HomeCell{ kCellar }, HomeCell{ kGrounds } };

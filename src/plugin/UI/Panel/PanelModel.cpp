@@ -246,6 +246,7 @@ namespace dova::ui::panel
 		if (const auto offer = home::HomeRegistry::Get().OfferArea()) {
 			snap->addAreaTo = offer->homeName;
 			snap->addAreaCell = offer->cellId;
+			snap->addAreaName = home::AreaName(RE::TESForm::LookupByID<RE::TESObjectCELL>(offer->cellId), offer->cell);
 			home = home::HomeRegistry::Get().Current(&reason);  // OfferArea may have loaded the cell
 		}
 		if (!home) {
@@ -413,7 +414,10 @@ namespace dova::ui::panel
 		// Saved setups outside Data (a folder listing): on Full, or when the home changed; otherwise carried over.
 		if (a_refresh == Refresh::Full || !previous || previous->cellId != snap->cellId) {
 			for (auto& b : home::Store::Get().HomeBackups(home->cell)) {
-				snap->backups.push_back(BackupOption{ std::move(b.path), std::move(b.date), b.history });
+				// The latest copy is only worth offering when it differs from the setup as it is now (one file read;
+				// DESIGN §6.6). Without a setup, or with a broken file, every copy is.
+				const bool same = !b.history && layout && !home->layoutBroken && home::Store::Get().HomeBackupMatches(b.path, *layout);
+				snap->backups.push_back(BackupOption{ std::move(b.path), std::move(b.date), b.history, same });
 			}
 		} else {
 			snap->backups = previous->backups;

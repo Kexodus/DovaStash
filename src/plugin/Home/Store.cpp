@@ -645,6 +645,22 @@ namespace dova::home
 		return out;
 	}
 
+	bool Store::HomeBackupMatches(const std::filesystem::path& a_path, const core::Layout& a_layout) const
+	{
+		core::Diagnostics           diags;
+		std::optional<core::Layout> copy;
+		try {
+			copy = core::LoadLayoutFile(a_path, "Backups/" + Utf8(a_path.filename()), diags);
+		} catch (const std::exception& e) {
+			logger::debug("Home backup {}: {}", Utf8(a_path), e.what());
+		}
+		if (!copy) {
+			logger::debug("Home backup {} could not be read to compare it with the current setup", Utf8(a_path));
+			return false;
+		}
+		return core::SameSetup(*copy, a_layout);
+	}
+
 	std::optional<core::Layout> Store::LoadHomeBackup(const core::FormRef& a_cell, const std::filesystem::path& a_path) const
 	{
 		core::Diagnostics           diags;

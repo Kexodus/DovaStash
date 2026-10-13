@@ -64,8 +64,11 @@ namespace dova
 		// anywhere in the home.
 		void Browse(RE::FormID a_cellId, const core::FormRef& a_container);
 		// Multi-cell homes (DESIGN §6.7). Adds the player's cell (`a_cellId`) to the home they just came from
-		// (HomeRegistry::OfferArea, checked again here); no items are moved.
-		void AddArea(RE::FormID a_cellId);
+		// (HomeRegistry::OfferArea, checked again here); no items are moved. `a_label`: the name the player gave
+		// the area (ui::AddAreaNamed asks with the UIExtensions text box); empty keeps the cell's own name.
+		void AddArea(RE::FormID a_cellId, std::string a_label = {});
+		// Names an extra area of the home ("Grounds"); empty brings the cell's own name back. Not the main cell.
+		void RenameArea(RE::FormID a_cellId, const core::FormRef& a_area, std::string a_label);
 		// Takes an extra cell out of the home's layout (its containers stay listed, out of reach); not the main cell.
 		void RemoveArea(RE::FormID a_cellId, const core::FormRef& a_area);
 

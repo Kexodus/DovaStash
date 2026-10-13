@@ -4,6 +4,7 @@
 #include "Game/FormUtil.h"
 #include "Icons/IconService.h"
 #include "Sort/SortEngine.h"
+#include "UI/AreaPrompt.h"
 #include "UI/ArmorSetMenu.h"
 #include "UI/DisplayMenu.h"
 #include "UI/Labels.h"
@@ -251,8 +252,8 @@ namespace dova::ui
 			items.push_back({ std::format("Use template \"{}\" (by {})", best->layout.name, author), [cellId]() { Controller::Get().UseTemplate(cellId); } });
 		}
 		if (const auto offer = home::HomeRegistry::Get().OfferArea()) {
-			// Multi-cell homes (DESIGN §6.7): this cell joins the home the player just came from.
-			items.push_back({ std::format(kAddArea, offer->homeName), [cellId]() { Controller::Get().AddArea(cellId); } });
+			// Multi-cell homes (DESIGN §6.7): this cell joins the home the player just came from, named first.
+			items.push_back({ std::format(kAddArea, offer->homeName), [cellId]() { AddAreaNamed(cellId); } });
 		}
 		if (items.empty()) {
 			Notify(std::format("Dova Stash: look at a container and press {} to set up this home", Controller::HotkeyName()));
@@ -291,7 +292,12 @@ namespace dova::ui
 		items.push_back({ kSaveAsTemplate, [cellId]() { SaveAsTemplate(cellId); } });
 		items.push_back({ "Advanced...", [this, cellId, masterRef]() { OpenEditor(cellId, masterRef); } });
 		if (const auto* area = a_home.extra ? a_home.HereArea() : nullptr) {
-			// In an extra cell of a multi-cell home (DESIGN §6.7).
+			// In an extra cell of a multi-cell home (DESIGN §6.7): name it, or take it out of the home.
+			items.push_back({ std::format(kRenameArea, area->name), [this, cellId, cell = area->cell, name = area->name]() {
+								 if (!RenameAreaNamed(cellId, cell, name)) {
+									 ListUnavailable(*this);
+								 }
+							 } });
 			items.push_back({ std::format(kRemoveArea, a_home.name), [cellId, cell = area->cell, question = std::format(kConfirmRemoveArea, area->name, a_home.name)]() {
 								 Confirm(question, [cellId, cell]() { Controller::Get().RemoveArea(cellId, cell); });
 							 } });

@@ -67,6 +67,10 @@ namespace dova::core
 	// does not list; the player's label and note fill a template entry's blanks, and unknown keys are merged.
 	[[nodiscard]] std::vector<HomeCell> MergeHomeCells(std::span<const HomeCell> a_template, std::span<const HomeCell> a_player);
 
+	// Naming an area in game ("Grounds", "Cellar"): sets the `label` of the entry for `a_cell` (trimmed; empty
+	// clears it, so the cell's own name shows again). False when the cell is not listed (nothing changed).
+	bool SetHomeCellLabel(std::vector<HomeCell>& a_cells, const FormRef& a_cell, std::string_view a_label);
+
 	// Every cell of a home: the main cell first, then each listed cell once (the main cell is not repeated).
 	[[nodiscard]] std::vector<FormRef> HomeCellRefs(const FormRef& a_main, std::span<const HomeCell> a_cells);
 

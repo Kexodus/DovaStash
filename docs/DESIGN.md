@@ -366,6 +366,12 @@ folder picked the same way) under `DovaStash/Backups/`.
     setups**: *Restore last setup (date)...* and, in a tree, *Older copies (N)* with each history copy.
     Both ask first (*Restore the setup saved &lt;date&gt;? This home's current setup is backed up first
     (.bak); no items are moved.*). A broken layout file can be replaced the same way.
+  - Only meaningful restores are offered: when the latest copy says the same as the home's setup as it is
+    now (`core::SameSetup`: what both serialize to, formatting and `cell` aside; unsaved edits count), the
+    panel shows *The latest copy (date) is this setup as it is now.* instead of the button, and the older
+    copies stay listed. Worked out when the panel refreshes or the home changes (`Store::HomeBackupMatches`,
+    one file read), never per frame. Without a setup, or with a broken file, every copy is offered: there is
+    nothing to compare against.
 - **Restoring** (`Controller::RestoreBackup` → `HomeRegistry::RestoreBackup`). Only a file from
   `Store::HomeBackups` for this home is accepted. It is loaded with the layout loader first: a copy that
   does not parse is never used (HUD: *that saved setup is broken (see DovaStash.log)*; the file stays).
@@ -416,9 +422,15 @@ Templates' `cells` take effect once the template is applied (copied into the pla
 themselves. So the shipped `*Cellar.json` templates (Lakeview, Windstad, Heljarchen, Tundra Homestead) keep
 working unchanged: a cellar with its own setup stays its own home, and a home whose layout lists a cellar
 that has a setup of its own leaves that cellar out (panel: *... has a setup of its own, so it is not part of
-this home*). No merged main+cellar templates ship yet: the two masters and the overlapping categories need
-tuning in game, and a merged template would replace what **Use template** offers players whose homes already
-work (TESTING §3.9 tests the multi-cell paths in Lakeview Manor).
+this home*). **Decided: no merged Hearthfire templates (main + cellar + grounds) ship yet.** Players add the
+areas with the hotkey; the two masters and the overlapping categories need tuning in game first, and a merged
+template would replace what **Use template** offers players whose homes already work. Merged templates come
+later, after in-game testing (TESTING §3.9 tests the multi-cell paths in Lakeview Manor).
+
+**A cell belongs to one home only.** Its own setup first, else the first layout that lists it (the others are
+logged once). Entering a cell that is part of another home's setup is being in that home: nothing is offered
+there (no *Add this area*, no template notice, no `bAutoEnableTemplates`: an extra cell has its home's layout,
+so `OnCellMaybeChanged` has nothing to announce), and the hotkey opens that home's menus.
 
 `Store` keeps an index of every player layout's `cells` (built at game start from `Layouts/*.json`, kept
 current by every layout load, save and reset). The `Home` loaded for an extra cell is that layout's home
@@ -438,9 +450,10 @@ one cell can use a container of the home in:
   memory with their cell unloaded and the save keeps the changes made to them; `RemoveItem` and the inventory
   reads the `ItemMover` uses work on `InventoryChanges`, without 3D (`GetInventoryChanges` initialises a
   container never opened). A non-persistent reference of an unloaded cell is not in memory, or is about to be
-  dropped with its cell: never touched. It counts as unavailable from there (debug log; panel: *unavailable:
-  only reachable in &lt;area&gt; (not a persistent reference)*), so the planner falls back as for unbuilt
-  furniture: the next container for the category, then the master, else the item stays where it is.
+  dropped with its cell: never touched. It counts as unavailable from there (a debug line, never a warning:
+  it is the normal state of a sack in another area; the panel shows it: *unavailable: only reachable in
+  &lt;area&gt; (not a persistent reference)*), so the planner falls back as for unbuilt furniture: the next
+  container for the category, then the master, else the item stays where it is.
 - Exterior persistent references whose cell is not loaded sit in their worldspace's persistent cell: they are
   matched to an area by worldspace and grid position, once that exterior cell has been in memory this session
   (looked up when the home's areas are built, or loaded as the player walked near: `TESCellFullyLoadedEvent`
@@ -465,16 +478,29 @@ containers of a multi-cell template that are `onlyReachableInTheirCell`.
 - *Learn*, *Browse* and the container menus work on reachable containers (opening a remote container's menu
   is activation from afar; unverified in game).
 
-**Adding and removing an area.** Walk from the home into the next cell (out of its door, into the next
+**Adding, naming and removing an area.** Walk from the home into the next cell (out of its door, into the next
 exterior cell) and press the hotkey: a cell that belongs to no home, has no setup of its own and is nobody
 else's is offered to the home just left (`HomeRegistry::OfferArea`; forgotten when a game is loaded). In a
 cell that is no home a message box asks *Dova Stash: add this area to Lakeview Manor?* (*Add this area to
 Lakeview Manor* / *Cancel*); in a cell that could be a home of its own the setup prompt adds *Add this area to
-Lakeview Manor* (UIExtensions list and message boxes); the panel shows the same button. In an extra cell the
-master menu has *Remove this area from Lakeview Manor...* (asks first; its containers stay in the layout, out
-of reach), and the panel's **Actions** tab lists the **Areas** with a *Remove* button for each extra one. HUD:
-*Dova Stash: this area is now part of Lakeview Manor* / *Dova Stash: Grounds is no longer part of Lakeview
-Manor*. No items are moved by either.
+Lakeview Manor* (UIExtensions list and message boxes); the panel shows the same button with a name box next
+to it.
+- *Naming it* (`ui::AddAreaNamed`): choosing *Add this area* opens the UIExtensions text box (the same as
+  *Rename* and *Save as template*), pre-filled with the cell's own name, so the player can type *Grounds* or
+  *Cellar*. The name becomes the entry's `label` (`core::SetHomeCellLabel`); cancelling, an empty text or the
+  cell's own name typed back adds the area without a label (the add is never lost; the cell's name shows). The
+  text box needs UIExtensions; without it the area is added at once, and the panel's box names it.
+- *Renaming later*: in an extra area the master menu (UIExtensions list) has *Rename Grounds...*; the panel's
+  **Areas** list has *Rename* per extra area (a box under the row; *Save* / Enter, empty brings the cell's own
+  name back: `Controller::RenameArea`, `HomeRegistry::RenameArea`). The main cell is named by the home. HUD:
+  *Dova Stash: area renamed to "Grounds"*.
+- The label is what every surface shows for the area: the HUD lines, the panel's header (*in Grounds*), the
+  Areas list, the container rows (*In Grounds*), the remove prompt.
+- *Removing*: in an extra cell the master menu has *Remove this area from Lakeview Manor...* (asks first; its
+  containers stay in the layout, out of reach), and the panel's **Areas** list has *Remove* for each extra one.
+
+HUD: *Dova Stash: Grounds is now part of Lakeview Manor* (*this area is now part of ...* when unnamed) /
+*Dova Stash: Grounds is no longer part of Lakeview Manor*. No items are moved by any of these.
 
 **Feedback.** The log names the home's areas and, per container, its area and whether the other areas reach it
 (debug, once per load of the home). The panel's header says *in Grounds* in an extra area; container rows in
@@ -791,10 +817,13 @@ mannequin* is all it takes; more control is one menu entry away, and the full li
   `Sabatons` make a set. Names are made unique with the armor type, then the plugin. A set's id is its first
   body piece in FormRef order.
 - *Auto* (no `set`): among the armor that may go up, the set with a body piece covering the most slot groups
-  (head, body, hands, feet) wins, then the highest total value; the body piece first, then the rest, pieces
-  of the body piece's armor type first. Preferred `items`, when any are here, are the only set; with `only`,
-  the mannequin wears nothing but its `items`, filled like a chosen set as they arrive. Auto groups
-  only what is here (without the tempering hint), so it can differ from the index for unusual mods.
+  (head, body, hands, feet) wins, then the highest total value: **Auto prefers the most complete set** the
+  player owns; the body piece first, then the rest, pieces of the body piece's armor type first. Preferred
+  `items`, when any are here, are the only set; with `only`, the mannequin wears nothing but its `items`,
+  filled like a chosen set as they arrive. **Auto groups only owned armor** (what is here, without the
+  tempering hint), so it can differ from the index for unusual mods. Decided and kept: the hotkey's set list
+  shows the sets the player owns (below); the panel's *Armor sets* page shows every set in the load order.
+  A rack or mannequin pinned with `only` whose items are all missing stays empty (it waits, as above).
 - *A chosen set* (`set`): *Armor set... (Auto)* in the display menu lists `Auto` and the sets the player
   has (carried, stored in the home, or on this mannequin), most complete first: `[x] Ebony (4/4)` (slot
   groups had / slot groups of the set). Choosing one writes its id; `Auto` removes it. The mannequin then
@@ -1141,7 +1170,7 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
 | 2  | VR input gesture (sneak+activate hook) is untested by us                            | Ship as experimental; recruit a VR tester |
 | 3  | `RemoveItem` HUD spam / sounds during large deposits                                | Test in M1; suppress or batch notifications if needed |
 | 4  | Interaction with QuickLoot IE / other container-UI mods                             | Our hotkey is independent of activation; test the learn path with QuickLoot transfers |
-| 5  | Multi-cell homes (Hearthfire homes + cellar, a forge outside)                       | §6.7: optional `cells` list; a cell with its own setup stays its own home; other cells reached only when loaded or through persistent references. To verify in game: remote `RemoveItem`/activation, exterior persistent refs while their cell is unloaded |
+| 5  | Multi-cell homes (Hearthfire homes + cellar, a forge outside)                       | §6.7: optional `cells` list; a cell with its own setup stays its own home and belongs to one home only; other cells reached only when loaded or through persistent references; players add and name areas with the hotkey, no merged Hearthfire templates until tested in game. To verify in game: remote `RemoveItem`/activation, exterior persistent refs while their cell is unloaded |
 | 6  | Template trust: templates are data only (no code), but bad IDs could bind wrong refs | Validate that the ref's base form is a `CONT` and lives in the declared cell; reject otherwise |
 | 7  | JSON library: nlohmann-json (ubiquitous) vs glaze (fast, compile-time)              | nlohmann-json for readability; layouts are small |
 | 8  | Mod name collisions on Nexus                                                        | Check before release |

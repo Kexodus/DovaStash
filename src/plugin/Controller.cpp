@@ -12,6 +12,7 @@
 #include "Integrations/QuickLoot.h"
 #include "Log.h"
 #include "Settings.h"
+#include "UI/AreaPrompt.h"
 #include "UI/Labels.h"
 #include "UI/MessageBox.h"
 
@@ -351,21 +352,21 @@ namespace dova
 		logger::debug("Hotkey -> add {} to {}?", a_offer.cell.ToString(), a_offer.homeName);
 		const auto cellId = a_offer.cellId;
 		ui::ShowMessageBox(std::format(ui::kConfirmAddArea, a_offer.homeName), { std::format(ui::kAddArea, a_offer.homeName), "Cancel" },
-			[this, cellId](std::size_t a_button) {
+			[cellId](std::size_t a_button) {
 				if (a_button == 0) {
-					AddArea(cellId);
+					ui::AddAreaNamed(cellId);  // asks for a name first (UIExtensions text box), then AddArea
 				}
 			});
 	}
 
-	void Controller::AddArea(RE::FormID a_cellId)
+	void Controller::AddArea(RE::FormID a_cellId, std::string a_label)
 	{
 		const auto offer = Registry().OfferArea();
 		if (!offer || offer->cellId != a_cellId) {
 			Notify("Dova Stash: this area can't be added now");
 			return;
 		}
-		if (!Registry().AddArea(*offer)) {
+		if (!Registry().AddArea(*offer, a_label)) {
 			Notify("Dova Stash: could not add this area (see log)");
 			return;
 		}
@@ -374,7 +375,33 @@ namespace dova
 		if (&Editor() != &UI()) {
 			Editor().OnHomeChanged();
 		}
-		Notify(std::format("Dova Stash: this area is now part of {}", offer->homeName));
+		auto* home = Registry().CurrentIf(a_cellId);  // loads the cell as part of that home: its area has the name
+		const auto* area = home ? home->HereArea() : nullptr;
+		Notify(area && !Trim(a_label).empty() ? std::format("Dova Stash: {} is now part of {}", area->name, offer->homeName) :
+		                                         std::format("Dova Stash: this area is now part of {}", offer->homeName));
+	}
+
+	void Controller::RenameArea(RE::FormID a_cellId, const core::FormRef& a_area, std::string a_label)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home) {
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			return;
+		}
+		if (!Registry().RenameArea(*home, a_area, a_label)) {
+			Notify("Dova Stash: could not rename that area (see log)");
+			return;
+		}
+		integrations::quickloot::Refresh();
+		UI().OnHomeChanged();
+		if (&Editor() != &UI()) {
+			Editor().OnHomeChanged();
+		}
+		const auto area = std::ranges::find(home->areas, a_area, &home::Area::cell);
+		Notify(std::format("Dova Stash: area renamed to \"{}\"", area != home->areas.end() ? area->name : Trim(a_label)));
 	}
 
 	void Controller::RemoveArea(RE::FormID a_cellId, const core::FormRef& a_area)

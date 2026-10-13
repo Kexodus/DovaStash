@@ -39,7 +39,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]Any other home:[/b] look at a large chest that is always there, press [b]K[/b] and make it the [b]master[/b].
 [*]Then press [b]K[/b] at each other container and pick its [b]Categories...[/b], or skip that and put items away by hand once. Either way, the container becomes their home.
 [*]Mark anything you never want used (display cases, bookshelves) as [b]Ignore[/b]: it stays out for good. [b]Remove[/b] just forgets a container you set up by mistake.
-[*]Forge outside, chests inside? Walk out of the door and press [b]K[/b]: [b]Add this area to Lakeview Manor[/b]. Chests in another area are used when the game keeps them in memory (most Hearthfire chests, wardrobes and safes); sacks and barrels only from their own area.
+[*]Forge outside, chests inside? Walk out of the door and press [b]K[/b]: [b]Add this area to Lakeview Manor[/b], and give it a name ("Grounds"). Chests in another area are used when the game keeps them in memory (most Hearthfire chests, wardrobes and safes); sacks and barrels only from their own area.
 [/list]
 
 [b]Day to day[/b]

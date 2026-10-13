@@ -967,7 +967,8 @@ namespace dova::editor::ui
 	{
 		ImGui::TextWrapped("A starting point: every container with its game name, respawning containers, scripted bookshelves and containers an "
 		                   "upgrade removes ignored with a note, a master suggestion and requires filled. Give the containers categories, "
-		                   "then save it under Data/SKSE/Plugins/DovaStash/Templates/.");
+		                   "then save it under Data/SKSE/Plugins/DovaStash/Templates/ (under MO2: in a \"Dova Stash Templates\" mod, "
+		                   "never in overwrite).");
 		if (ImGui::Button("Copy to clipboard")) {
 			ImGui::SetClipboardText(a_cell.draft.c_str());
 		}

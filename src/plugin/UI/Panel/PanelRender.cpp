@@ -55,6 +55,9 @@ namespace dova::ui::panel
 
 			std::array<char, 128>        label{};
 			std::optional<core::FormRef> labelFor;
+			std::array<char, 64>         areaName{};   // the name for an area being added
+			std::array<char, 64>         areaLabel{};  // the Areas list's rename box
+			std::optional<core::FormRef> areaLabelFor;  // the area it is open for
 
 			bool                  keepLoaded{ false };
 			bool                  keepDirty{ false };
@@ -384,10 +387,14 @@ namespace dova::ui::panel
 			};
 			std::size_t older = 0;
 			for (std::size_t i = 0; i < a_snap.backups.size(); ++i) {
-				if (!a_snap.backups[i].history) {
-					offer(i, a_confirm ? std::format(text::kRestoreLast, a_snap.backups[i].date) : std::format(ui::kRestoreLastSetup, a_snap.backups[i].date));
-				} else {
+				if (a_snap.backups[i].history) {
 					++older;
+				} else if (a_snap.backups[i].same) {
+					// Restoring it would change nothing: say where things stand instead of offering it.
+					Disabled(std::format(text::kBackupSame, a_snap.backups[i].date));
+					Tooltip(text::kBackupsTip);
+				} else {
+					offer(i, a_confirm ? std::format(text::kRestoreLast, a_snap.backups[i].date) : std::format(ui::kRestoreLastSetup, a_snap.backups[i].date));
 				}
 			}
 			if (older > 0 && ImGui::TreeNodeEx(std::format(text::kOlderBackups, older).c_str(), 0)) {
@@ -496,9 +503,37 @@ namespace dova::ui::panel
 					Colored(kGreen, text::kAreaHere);
 				}
 				if (!area.main && a_snap.enabled && !a_snap.layoutBroken) {
+					// Name it ("Grounds"): a box that opens under the row, like the hotkey's Rename.
+					const bool renaming = g_state.areaLabelFor && *g_state.areaLabelFor == area.cell;
+					ImGui::SameLine();
+					if (ImGui::SmallButton(text::kRename)) {
+						if (renaming) {
+							g_state.areaLabelFor.reset();
+						} else {
+							g_state.areaLabelFor = area.cell;
+							CopyTo(g_state.areaLabel, area.name);
+						}
+					}
+					Tooltip(text::kAreaRenameTip);
 					ImGui::SameLine();
 					if (ConfirmButton(text::kRemove, "area:" + area.cellText, std::format(ui::kConfirmRemoveArea, area.name, a_snap.homeName))) {
 						Do([cell, ref = area.cell]() { Controller::Get().RemoveArea(cell, ref); }, Refresh::Full);
+					}
+					if (renaming) {
+						ImGui::Indent();
+						ImGui::SetNextItemWidth(260.0f);
+						const bool entered = ImGui::InputText("##arealabel", g_state.areaLabel.data(), g_state.areaLabel.size(), ImGui::ImGuiInputTextFlags_EnterReturnsTrue);
+						Tooltip(text::kAreaRenameTip);
+						ImGui::SameLine();
+						if (ImGui::Button(text::kSave) || entered) {
+							Do([cell, ref = area.cell, label = FromBuffer(g_state.areaLabel)]() { Controller::Get().RenameArea(cell, ref, label); }, Refresh::Full);
+							g_state.areaLabelFor.reset();
+						}
+						ImGui::SameLine();
+						if (ImGui::Button(text::kCancel)) {
+							g_state.areaLabelFor.reset();
+						}
+						ImGui::Unindent();
 					}
 				}
 				ImGui::PopID();
@@ -514,8 +549,14 @@ namespace dova::ui::panel
 			if (!a_snap.addAreaTo) {
 				return;
 			}
+			// With a name of the player's choosing ("Grounds"); empty keeps the cell's own name.
+			ImGui::SetNextItemWidth(260.0f);
+			ImGui::InputTextWithHint("##areaname", std::format(text::kAreaNameHint, a_snap.addAreaName).c_str(), g_state.areaName.data(), g_state.areaName.size());
+			Tooltip(text::kAreaRenameTip);
+			ImGui::SameLine();
 			if (Button(std::format(ui::kAddArea, *a_snap.addAreaTo))) {
-				Do([cell = a_snap.addAreaCell]() { Controller::Get().AddArea(cell); }, Refresh::Full);
+				Do([cell = a_snap.addAreaCell, label = FromBuffer(g_state.areaName)]() { Controller::Get().AddArea(cell, label); }, Refresh::Full);
+				g_state.areaName.fill('\0');
 			}
 			Tooltip(text::kAreasTip);
 		}

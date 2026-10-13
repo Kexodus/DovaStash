@@ -404,7 +404,7 @@ namespace dova::home
 		return AreaOffer{ _cameFrom->home, _cameFrom->name, _home->here, _home->cellId };
 	}
 
-	bool HomeRegistry::AddArea(const AreaOffer& a_offer)
+	bool HomeRegistry::AddArea(const AreaOffer& a_offer, std::string_view a_label)
 	{
 		const auto offer = OfferArea();
 		if (!offer || offer->home != a_offer.home || offer->cellId != a_offer.cellId) {
@@ -420,13 +420,32 @@ namespace dova::home
 		if (std::ranges::find(layout->cells, offer->cell, &core::HomeCell::cell) == layout->cells.end()) {
 			layout->cells.push_back(core::HomeCell{ offer->cell });
 		}
+		core::SetHomeCellLabel(layout->cells, offer->cell, a_label);  // the entry is there now
 		layout->cell = offer->home;
 		if (!Store::Get().SavePlayerLayout(offer->home, *layout)) {
 			return false;
 		}
-		logger::info("Add area: {} ({}) is now part of {} ({})", _home ? _home->name : ""s, offer->cell.ToString(), offer->homeName, offer->home.ToString());
+		const auto& label = std::ranges::find(layout->cells, offer->cell, &core::HomeCell::cell)->label;
+		logger::info("Add area: {} ({}{}) is now part of {} ({})", _home ? _home->name : ""s, offer->cell.ToString(),
+			label.empty() ? ""s : std::format(", named \"{}\"", label), offer->homeName, offer->home.ToString());
 		_stale = true;  // the next Current() loads this cell as part of that home
 		return true;
+	}
+
+	bool HomeRegistry::RenameArea(Home& a_home, const core::FormRef& a_cell, std::string_view a_label)
+	{
+		if (!a_home.layout || a_home.layoutBroken || a_cell == a_home.cell) {
+			return false;
+		}
+		if (!core::SetHomeCellLabel(a_home.layout->cells, a_cell, a_label)) {
+			return false;
+		}
+		const auto& label = std::ranges::find(a_home.layout->cells, a_cell, &core::HomeCell::cell)->label;
+		logger::info("Rename area: {} of {} is {}", a_cell.ToString(), a_home.name, label.empty() ? "named after its cell again"s : std::format("now \"{}\"", label));
+		const bool saved = Save(a_home);
+		BuildAreas(a_home);  // the same cells, new names (Save only rebuilds when the cells change)
+		Publish();
+		return saved;
 	}
 
 	bool HomeRegistry::RemoveArea(Home& a_home, const core::FormRef& a_cell)

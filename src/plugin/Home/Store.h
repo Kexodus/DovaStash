@@ -86,6 +86,10 @@ namespace dova::home
 		// Loads a backup with the layout loader (so a broken one is never used: nullopt, logged). The
 		// returned layout's `cell` is `a_cell`.
 		[[nodiscard]] std::optional<core::Layout> LoadHomeBackup(const core::FormRef& a_cell, const std::filesystem::path& a_path) const;
+		// The copy at `a_path` says the same as `a_layout` (core::SameSetup: formatting does not count), so
+		// restoring it would change nothing. False when it cannot be read or parsed (quiet: debug only). One file
+		// read; for the panel's refresh, never per frame.
+		[[nodiscard]] bool HomeBackupMatches(const std::filesystem::path& a_path, const core::Layout& a_layout) const;
 		// The next backup write for this home first moves the latest copy to history (after a reset, so the
 		// setup that was reset survives a new one).
 		void KeepHomeBackupHistoryNext(const core::FormRef& a_cell) const;

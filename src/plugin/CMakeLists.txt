@@ -104,6 +104,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/Labels.cpp
 	UI/SaveTemplate.h
 	UI/SaveTemplate.cpp
+	UI/AreaPrompt.h
+	UI/AreaPrompt.cpp
 	UI/Factory.cpp
 	UI/UIExtensions.h
 	UI/UIExtensions.cpp

@@ -171,6 +171,9 @@ namespace dova::core
 
 	[[nodiscard]] nlohmann::ordered_json LayoutToJson(const Layout& a_layout);
 	[[nodiscard]] std::string            SerializeLayout(const Layout& a_layout);  // tab-indented, trailing newline
+	// The two layouts say the same (what they serialize to is equal; formatting and `cell` do not count). Used to
+	// hide a "Restore last setup" that would change nothing (DESIGN §6.6).
+	[[nodiscard]] bool SameSetup(const Layout& a_lhs, const Layout& a_rhs);
 
 	[[nodiscard]] std::optional<Layout> LoadLayoutFile(const std::filesystem::path& a_path, std::string_view a_source, Diagnostics& a_diags);
 	// Atomic write (temp file + rename). Creates parent directories.

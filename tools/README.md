@@ -113,8 +113,9 @@ format.) To write one from scratch:
    `items` (a template's `items` for them are not used; Dova Stash writes the script's items in game).
    A home that spans several cells (a cellar, the exterior cells with the forge outside) lists the other
    cells in `cells`, next to `cell`: `"cells": ["HearthFires.esm|0x00004849", {"cell": "Skyrim.esm|0x00009BF7",
-   "label": "Grounds"}]` (`cells BYOHHouse1` finds them; an exterior cell is a cell like any other). Its
-   containers and displays may then be in any of those cells. A cell that has a template of its own (the
+   "label": "Grounds"}]` (`cells BYOHHouse1` finds them; an exterior cell is a cell like any other; `label` is
+   the name players see for the area, and they can rename it in game). Its containers and displays may then
+   be in any of those cells. A cell that has a template of its own (the
    shipped `*Cellar.json`) stays its own home for players who use that template.
 4. List every plugin the template references in `requires`, including the plugin that owns the cell (and the
    plugins of the `cells`). Leave

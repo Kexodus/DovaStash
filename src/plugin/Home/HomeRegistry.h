@@ -135,8 +135,13 @@ namespace dova::home
 		};
 		[[nodiscard]] std::optional<AreaOffer> OfferArea();
 		// Adds the offered cell to that home's layout (`cells`) and saves it. The player's cell then belongs to
-		// that home (the next Current() loads it so). False (nothing changed) if the offer is no longer valid.
-		bool AddArea(const AreaOffer& a_offer);
+		// that home (the next Current() loads it so). `a_label` (optional, trimmed) is the name the player gave
+		// the area ("Grounds"); empty, the cell's own name shows. False (nothing changed) if the offer is no
+		// longer valid.
+		bool AddArea(const AreaOffer& a_offer, std::string_view a_label = {});
+		// Names an extra cell of the home (its `label`; empty clears it) and saves. False if the layout does not
+		// list it (the main cell is named by the home).
+		bool RenameArea(Home& a_home, const core::FormRef& a_cell, std::string_view a_label);
 		// Removes an extra cell from the home's layout and saves it. Its containers stay in the layout (they are
 		// simply out of reach). False if the layout does not list it.
 		bool RemoveArea(Home& a_home, const core::FormRef& a_cell);
