@@ -60,10 +60,11 @@ See [docs/BUILDING.md](docs/BUILDING.md) for full instructions. You need VS 2022
 
 ## Dova Stash Editor (in development)
 A standalone program for making home templates without the game: pick the home's mod from your MO2 list
-(by name or Nexus mod id), and it finds the player homes in the mod's plugins, draws a floor plan of each
-cell with its containers, racks, mannequins, plaques and doors, and drafts a template. Run it as an MO2
-executable. Assigning categories and saving from the editor come next. See [docs/EDITOR.md](docs/EDITOR.md);
-build it with `cmake --preset editor && cmake --build --preset editor-release`.
+(by name or Nexus mod id), and it finds the player homes in the mod's plugins and shows each cell in a Creation
+Kit style 3D view and as a floor plan, with its containers, racks, mannequins, plaques and doors. Click one to
+make it the master, give it categories, ignore it or use a display, then save the template into a "Dova Stash
+Templates" mod. Run it as an MO2 executable. See [docs/EDITOR.md](docs/EDITOR.md) (§9: how to try it); build
+it with `cmake --preset editor && cmake --build --preset editor-release`.
 
 ## License
 GPL-3.0-or-later (see [LICENSE](LICENSE)), as required by CommonLibSSE-NG. The vendored SKSE Menu

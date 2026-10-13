@@ -393,6 +393,42 @@ namespace dova::editor
 			unsigned   w = 0, h = 0;
 			const auto pixels = render::ReadTexture(device.Get(), context.Get(), target.Resolved(), w, h);
 			const auto renderMs = Ms(renderStart);
+			for (const auto& p : a_args.picks) {
+				// The 3D view's click: a ray through the pixel (same math as ui/View3D.cpp).
+				const auto v = Numbers(p);
+				if (v.size() < 2) {
+					continue;
+				}
+				const float nx = (v[0] / static_cast<float>(a_args.width)) * 2.0f - 1.0f;
+				const float ny = 1.0f - (v[1] / static_cast<float>(a_args.height)) * 2.0f;
+				const float t = std::tan(cam.fovY * 0.5f);
+				const auto  dir = DirectX::XMVector3Normalize(DirectX::XMVectorAdd(cam.Forward(),
+                    DirectX::XMVectorAdd(DirectX::XMVectorScale(cam.Right(), nx * t * aspect), DirectX::XMVectorScale(cam.Up(), ny * t))));
+				for (const bool selectMode : { true, false }) {
+					const auto hit = scene.Pick(DirectX::XMLoadFloat3(&cam.position), dir, options, selectMode);
+					std::string what = "nothing";
+					if (hit && hit->index >= 0) {
+						const auto& r = cell->refs[static_cast<std::size_t>(hit->index)];
+						what = std::format("{} {} {} \"{}\" at {:.0f} units", lo->Format(r.key), esp::SigToString(r.baseType), r.baseEditorId, r.baseName, hit->distance);
+					} else if (hit) {
+						what = "a neighbour cell's object";
+					}
+					Out(std::format("pick {} ({}): {}\n", p, selectMode ? "select mode" : "anything", what));
+				}
+			}
+			if (a_args.verbose) {
+				// Frame cost once everything is loaded: CPU submit, then wait for the GPU (a read-back forces it).
+				const auto  benchStart = std::chrono::steady_clock::now();
+				constexpr int frames = 20;
+				for (int i = 0; i < frames; ++i) {
+					scene.Render(context.Get(), target, cam, options);
+				}
+				const auto cpu = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - benchStart).count();
+				unsigned   bw = 0, bh = 0;
+				(void)render::ReadTexture(device.Get(), context.Get(), target.Resolved(), bw, bh);
+				const auto total = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - benchStart).count();
+				Out(std::format("frame: {:.2f} ms CPU submit, {:.2f} ms with the GPU ({} draw calls)\n", cpu / frames, total / frames, scene.DrawCalls()));
+			}
 			if (pixels.empty() || !render::SaveImage(PathFromUtf8(*a_args.screenshot), w, h, pixels)) {
 				Err("error: cannot save " + *a_args.screenshot + "\n");
 				return 1;
@@ -464,6 +500,18 @@ namespace dova::editor
 		       "  --cell <cell>         containers, displays and doors of a cell (EditorID or \"Plugin.esm|0x...\");\n"
 		       "                        loads --mod/--plugin with its masters, else the base game\n"
 		       "  --cell <cell> --draft print a draft template for the cell (dovastash-layout-1)\n"
+		       "  --render-cell <cell> --screenshot <out.png>\n"
+		       "                        draw the cell in 3D without a window (loads like --cell); options:\n"
+		       "                        --size WxH, --camera x,y,z,yaw,pitch (degrees), --select <ref> [--frame],\n"
+		       "                        --height lo,hi, --no-disabled, --markers, --no-neighbours (exteriors),\n"
+		       "                        --pick x,y (what a click there selects), --verbose (boxes, bounds check, frame time)\n"
+		       "  --nif-info <mesh>     how the 3D view reads a mesh (\"clutter\\\\chest01.nif\" or a file on disk)\n"
+		       "\n"
+		       "Window:\n"
+		       "  --gui                 open the window even with --mod/--cell (they preselect)\n"
+		       "  --tab <name>          3d, plan, containers, displays, doors or template\n"
+		       "  --select <ref>        select a reference once the cell is open\n"
+		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
 		       "  --help\n";
 	}
 
@@ -542,6 +590,10 @@ namespace dova::editor
 				a.noDisabled = true;
 			} else if (s == "--tab") {
 				a.tab = value();
+			} else if (s == "--pick") {
+				if (auto v = value()) {
+					a.picks.push_back(*v);
+				}
 			} else if (s == "--no-neighbours") {
 				a.noNeighbours = true;
 			} else if (s == "--verbose") {

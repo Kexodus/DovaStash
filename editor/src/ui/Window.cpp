@@ -205,7 +205,7 @@ namespace dova::editor::ui
 				ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 				if (a_screenshot) {
 					idleFrames = app.Idle() ? idleFrames + 1 : 0;
-					if (idleFrames > 20) {  // a few frames for layout (tables, fit) after loading
+					if (idleFrames > 90) {  // frames for layout (tables, fit) after loading, and a settled frame rate
 						SaveBackBuffer(PathFromUtf8(*a_screenshot));
 						done = true;
 					}

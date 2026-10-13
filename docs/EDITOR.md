@@ -4,8 +4,9 @@
 > from your MO2 list, open its cells, click the chests, racks and mannequins, give them their jobs, check,
 > save. Everything a template can say (DESIGN §6.3), in one window.
 
-Status: **first slice (M0) built, decisions taken (§8)** · Code: `editor/` · Executable: `DovaStashEditor.exe` · Build: preset `editor`
-(docs/BUILDING.md)
+Status: **M0 built; M2 (3D view) first slice built: textured 3D view with select mode, role editor and saving (part of
+M1)** · Code: `editor/` · Executable: `DovaStashEditor.exe` · Build: preset `editor` (docs/BUILDING.md) · Try it:
+§9 *How to test the editor yourself*
 
 ---
 
@@ -137,17 +138,24 @@ as they are for players who use them, and the DLL keeps loading either shape.
 ```
 editor/src/
   main.cpp            wmain: command line (headless) or window
-  Cli.*               --list-mods, --homes, --cell [--draft], --gui, --screenshot
+  Cli.*               --list-mods, --homes, --cell [--draft], --render-cell, --nif-info, --gui [--tab --select --screenshot]
   Workspace.*         MO2 instance + profile + mods + merged Data view; opens a plugin with its masters
   mo2/Instance.*      ModOrganizer.ini, profiles, modlist.txt, meta.ini (Nexus id), plugins per mod, VFS detection
   data/DataFiles.*    MO2-style file resolution (later root wins)
+  data/Assets.*       meshes and textures: loose files (lazy per-directory index over the mod folders), then archives
   esp/Plugin.*        memory-mapped TES4 reader (groups, records, subrecords, zlib)
-  esp/LoadOrder.*     form keys, record index, localized strings, cell directory, cell references
-  esp/Bsa.*           BSA v104/v105 reader (strings now, meshes/textures in M2)
+  esp/LoadOrder.*     form keys, record index, localized strings, cell directory, cell references, LAND
+  esp/Bsa.*           BSA v104/v105 reader (hashed file table; strings, meshes, textures; LZ4 frames / zlib)
   esp/Vmad.*          Papyrus script properties (rack types, plaque items)
-  home/Cell.*         cell facts, placed references, displays, doors, home finder, draft template
+  home/Cell.*         cell facts, placed references (+ model paths), terrain, displays, doors, home finder, draft
+  render/Nif.*        NIF reader: node tree, BSTriShape (+ SE subclasses, skin partitions), NiTriShape/NiTriStrips
+  render/Dds.*        DDS -> Direct3D 11 texture (BC1-BC7, uncompressed, legacy 24-bit, luminance)
+  render/Scene.*      the 3D scene: async loading, renderer, camera, picking, framing
+  render/Image.*      PNG/BMP writing (WIC), GPU read-back
   ui/Window.cpp       Win32 + Direct3D 11 + Dear ImGui host
-  ui/App.*            the editor window (mods, homes, cell: plan, tables, draft)
+  ui/App.*            the editor window (mods, homes, cell: tabs, tables, details pane, Back)
+  ui/View3D.cpp       the 3D view tab: camera input, picking, overlays
+  ui/Roles.cpp        role editor (details pane) and the Template tab (header, problems, save)
 ```
 
 Core (`dova::core`) is linked unchanged: FormRef, Layout/Template schema and serialization, validation,
@@ -194,8 +202,13 @@ Whitepeak Tower with its 5 masters in under 0.1 s; all of `Skyrim.esm`'s cells i
 only do the second (`Workspace::OpenPlugin`); M1 adds the whole-load-order loader and makes it the default,
 with a mark on references a later plugin edits.
 
-Archives (M2): the base game archives from `Skyrim.ini`'s `sResourceArchiveList`, then each plugin's
-`<name>.bsa` / `<name> - Textures.bsa` in load order; loose files win over archives.
+Archives (M2, implemented in `data/Assets`): the base game archives from `Skyrim.ini`'s `sResourceArchiveList`
+and `sResourceArchiveList2` (the profile's own INI when it has one, else Documents, else the default list),
+then each plugin's `<name>.bsa` / `<name> - Textures.bsa` in load order (the profile's active plugins, then every
+other plugin in the merged Data folder, so a disabled home mod opened on purpose still shows its meshes); loose
+files win over archives. Loose files are found without walking the Data folder: a directory is listed only in
+the mod folders that have its parent, and only when a file in it is asked for (2,000 mods, a few hundred
+directories per cell). Archives are opened on the 3D view's loader threads, in parallel.
 
 ### 4.4 Writing templates
 
@@ -226,19 +239,45 @@ zoom, selection synced with the tables, the role editor in the details pane, a m
 plugin edits, and rotation on X/Y for tilted footprints (verify the Z-rotation direction against a known
 asymmetric object; the footprints of Whitepeak's walls line up, which suggests it is right).
 
-**M2 — 3D view.** Same window, same selection model, a D3D11 viewport beside the plan.
-- Meshes: **nifly** (GPL-3.0, compatible with our GPL-3.0-or-later; in vcpkg) reads SSE NIFs
-  (`BSTriShape`, `BSLightingShaderProperty`, texture sets). Static and furniture meshes first; skinned
-  actors (mannequins) as a placeholder until their race skeleton and outfit are worth it.
-- Textures: **DirectXTex** (MIT, in vcpkg) or DirectXTK's DDSTextureLoader (MIT, already a plugin
-  dependency) turn BC-compressed DDS straight into D3D11 views.
-- Archives: the editor's own BSA reader (extended to batch reads) or **rsm-bsa** (MIT, in vcpkg).
-- Renderer: one pass, diffuse + simple directional and ambient light, alpha test for foliage, instancing
-  by base form (Whitepeak Tower: 2,134 references, a few hundred unique meshes), frustum culling.
-- Camera: Creation Kit style free-fly (right mouse look, WASD) and orbit around the selection; *select
-  mode* picks with a ray against each reference's oriented bounds, refined by mesh triangles when two
-  overlap.
-- Not needed: Havok collision, Papyrus, lighting accuracy, LOD.
+**M2 — 3D view (first slice built).** The *3D view* tab, next to the *Floor plan* tab; one selection for both
+and for the tables. What is in:
+- **Meshes: the editor's own NIF reader** (`render/Nif`), not nifly. Decided while building it: Skyrim NIFs
+  (20.2.0.7, LE BS version 83 and SE 100) carry every block's size in the header, so a reader that knows only
+  the blocks the view needs (nodes, `BSTriShape` with `BSSubIndexTriShape`/`BSMeshLODTriShape`/
+  `BSDynamicTriShape`, SE skinned shapes through `NiSkinPartition`, `NiTriShape`/`NiTriStrips` with their data,
+  `BSLightingShaderProperty` + texture set, `BSEffectShaderProperty`, `NiAlphaProperty`) skips everything else
+  safely, is bounds-checked (a broken file is a box, never a crash) and adds no dependency. nifly stays the
+  fallback if more of the format is ever needed. Hidden nodes and editor markers are left out.
+- **Transforms, verified:** a reference's rotation is CommonLib's `NiMatrix3::SetEulerAnglesXYZ` (column
+  vectors, angles as stored; the plan's footprints already used the Z part), NIF matrices are read as rows, and
+  the root node's own transform is ignored because the game replaces it with the reference's. Checked against the
+  Creation Kit's object bounds: `--render-cell <cell> --verbose` compares every mesh's bounds with its base
+  record's OBND (Breezehome: the remaining differences are furniture, whose OBND includes the sitting space,
+  effects and replaced meshes).
+- **Textures: own DDS loader** (`render/Dds`): BC1–BC7 and the uncompressed formats straight into D3D11, mip
+  levels above 1024 px skipped (4K packs load fast and stay small). Missing textures are a gray checker.
+- **Renderer** (`render/Scene`): one pass, diffuse × vertex colours (when the shader asks), a key light from
+  above, a headlight and ambient; alpha test, sorted blending, two-sided shapes, effect shaders with their own
+  blend modes; reversed-Z depth, 4x MSAA, frustum and sub-pixel culling. Whitepeak Tower (2,134 references,
+  387 meshes, 3,348 draws) draws in about 1 ms of CPU; meshes and textures load in under a second on worker
+  threads while the view fills in.
+- **What is drawn:** every reference with its base object's model (armor: its world model); mannequins with
+  their body (the NPC's or race's skin, body addon); other people and missing meshes as solid boxes of their
+  bounds; things invisible in game that a template can use (hidden chests on marker meshes, rack and plaque
+  triggers, mesh-less activators) as see-through boxes in the plan's colours, room-sized volumes as outlines
+  only; markers, sound and light markers are left out. *Disabled* hides initially disabled references (house
+  upgrades). *Height* reuses the plan's height range to cut a tower into floors.
+- **Exteriors:** the cell's terrain from LAND (heights, normals, vertex colours, base texture), from the parent
+  worldspace when the cell has none (walled cities such as Whiterun), and the 8 cells around it drawn as
+  surroundings (not selectable).
+- **Camera** (controls in §9): fly with the right mouse button held (mouse look, WASD, Q/E), wheel, middle-button
+  pan, Alt + left orbit, F frames the selection (it looks for a side where no wall is in the way, once the walls
+  have loaded), Home goes back to the overview.
+- **Select mode** (S): a ray against each reference's bounds, then its triangles. Select mode picks what a
+  template can use (containers, displays, doors, furniture); a wall in front still blocks, clutter lying on a
+  chest does not (anything within 40 units in front). Off, it picks anything. Hover shows the name, reference and
+  where a door leads; a double click on a door opens the cell behind it (*Back* returns).
+- Not needed: Havok collision, Papyrus, lighting accuracy, LOD, normal maps.
 
 ### 4.6 How objects are selected (decided)
 
@@ -251,7 +290,8 @@ asymmetric object; the footprints of Whitepeak's walls line up, which suggests i
    *Send to game* reloads the edited template in the running game. Cheap given the DLL already tracks the
    crosshair, but it needs the game running. Only if testing in game stays part of the author's loop.
 
-Decision: 1 now, 2 as M2 (§8).
+Decision: 1 now, 2 as M2 (§8). Both are built: the plan and the 3D view share one selection, and the
+tables select the same objects (a double click in a table frames the object in the 3D view).
 
 ### 4.7 Validation (shared)
 
@@ -273,7 +313,9 @@ the editor with `--gui --mod "<that mod>"`.
 ### 4.9 Licensing
 
 The project is GPL-3.0-or-later. Dependencies: Dear ImGui (MIT), zlib (zlib), LZ4 (BSD-2), nlohmann-json
-(MIT); for M2 nifly (GPL-3.0), DirectXTex/DirectXTK (MIT), rsm-bsa (MIT): all compatible. The editor reads
+(MIT); the 3D view adds none (its NIF, DDS and BSA readers are the editor's own; DirectXMath, the HLSL compiler
+and WIC come with Windows). nifly (GPL-3.0), DirectXTex/DirectXTK (MIT) and rsm-bsa (MIT) stay compatible
+options. The editor reads
 the user's own game and mod files at run time and never ships or extracts Bethesda or mod assets.
 
 ---
@@ -292,7 +334,10 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    square; persistent exterior doors are mapped to their grid cell from the arrival position (XTEL).
 5. **Threading:** parsing runs on a worker; the UI only reads finished, preformatted results.
 6. **Headless mode** keeps the editor testable and scriptable (`--list-mods`, `--homes`, `--cell`,
-   `--draft`), and `--gui --screenshot` renders the window off-screen to a BMP (smoke tests, press kit).
+   `--draft`). `--render-cell <cell> --screenshot out.png` draws the 3D view off-screen (`--camera`, `--select`
+   `--frame`, `--height`, `--pick x,y` prints what a click there selects, `--verbose` lists the boxes, the bounds
+   check and the frame time); `--nif-info` dumps how a mesh is read; `--gui --tab <tab> --select <ref>
+   --screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit).
 
 ---
 
@@ -315,9 +360,9 @@ the user's own game and mod files at run time and never ships or extracts Bethes
 | # | Scope | Effort (one developer) |
 |---|---|---|
 | **M0** (done) | Scaffold: MO2 instance and mods with Nexus ids, plugin reader, home finder, cell facts, displays, door links, 2D plan with select mode, tables, draft template, headless commands, preset `editor` | done |
-| **M1** | The template editor on the plan: roles in the details pane (master, categories with the category tree, label, note, ignored, fixed items; displays with categories, items, armor set), open existing templates and layouts, keep rules tab, validation panel (core + ported `check`), save into the "Dova Stash Templates" mod with backup and version, multi-cell homes from the door graph as one file per home, automatic floors, undo/redo, whole-load-order loader as the default with the *home plugin + masters only* toggle, golden tests | 3-4 weeks |
+| **M1** (partly built) | The template editor on the plan: roles in the details pane (master, categories with the category tree, label, note, ignored, fixed items; displays with categories, items, armor set), open existing templates and layouts, keep rules tab, validation panel (core + ported `check`), save into the "Dova Stash Templates" mod with backup and version, multi-cell homes from the door graph as one file per home, automatic floors, undo/redo, whole-load-order loader as the default with the *home plugin + masters only* toggle, golden tests | 3-4 weeks |
 | **M1.5** | What goes where: `ItemInfo` from item records, category engine and planner preview per container; armor-set index for mannequins | 1-2 weeks |
-| **M2** | 3D view: archives + loose files, NIF meshes (nifly), DDS textures, D3D11 renderer with instancing, free-fly and orbit camera, ray picking, selection shared with the plan | 5-8 weeks |
+| **M2** (first slice built) | 3D view: archives + loose files, NIF meshes, DDS textures, D3D11 renderer, free-fly and orbit camera, ray picking, selection shared with the plan, terrain and surroundings for exteriors. Built: all of it (own readers instead of nifly/DirectXTex, §4.5), plus the role editor and saving from M1. Left: instancing (not needed so far), normal maps / specular, LOD meshes for far exteriors, water planes, alternate textures (MODS), heads for mannequins, joining a door's cell to the home (`cells`) from the 3D view | 1-2 weeks left |
 | **M3** (optional) | Live link with the running game (crosshair pick, send template to game); MO2 right-click tool plugin | 1-2 weeks |
 
 ---
@@ -334,6 +379,68 @@ Taken with the user after M0; the sections above are written to match.
 | 4 | **Which plugins**: the **whole load order by default** (the home as the player sees it, patches included), with a toggle *Home plugin + masters only* (the home as its mod ships it). M0 only has the second; M1 adds the first and flips the default | §4.3, §7 (M1) |
 | 5 | **Multi-cell homes**: saved as **one file per home** (`cell` + `cells`), never one file per cell. The shipped `*Cellar.json` files stay for players who use them; the DLL loads both shapes (DESIGN §6.7) | §3.3, §4.4 |
 
-Scaffold state against these: the draft's hint names the "Dova Stash Templates" mod; the save dialog, the
-whole-load-order loader and its toggle are M1 work (the scaffold has neither a save path nor a plugin-set
-option to change).
+State against these: the 3D view (decision 1) is built (§4.5); saving goes into the "Dova Stash Templates" mod
+(decision 3: created with a `meta.ini` when missing, an existing file backed up and its version raised); the
+whole-load-order loader and its toggle (decision 4) are still M1 work: the editor loads the home plugin with its
+masters. A home over several cells (decision 5) is not yet saved from the editor (the Doors tab opens the cells).
+
+---
+
+## 9. How to test the editor yourself
+
+**Build** (VS 2022 Build Tools, `VCPKG_ROOT=E:\vcpkg`; from the repository folder):
+
+```powershell
+cmake --preset editor
+cmake --build --preset editor-release
+```
+
+The program lands in `build\editor\editor\Release\DovaStashEditor.exe` (one file; copy it anywhere, e.g. next to
+MO2's other tools).
+
+**Add it to MO2:** *Tools > Executables* (the gears icon) > **+** > *Add from file...*:
+
+| Field | Value |
+|---|---|
+| Title | `Dova Stash Editor` |
+| Binary | `E:\AI Projects\Dovastash\build\editor\editor\Release\DovaStashEditor.exe` (or where you copied it) |
+| Start in | the folder of the exe |
+| Arguments | `--mo2 "E:\modding\Kexodus Skyrim" --gui` (optional: started from MO2 it finds the instance itself; add `--mod 92177 --cell bcr58WhiteTower` to open Whitepeak Tower directly) |
+| Create files in mod instead of overwrite | leave off: the editor writes its templates straight into the "Dova Stash Templates" mod folder |
+
+Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a terminal or Explorer with
+`--mo2 "<instance folder>"`.
+
+**Controls**
+
+| Where | Input | Does |
+|---|---|---|
+| 3D view | hold right mouse | look around; with it held: W/A/S/D move, Q/E down/up, Shift 4x faster, Alt slower, wheel = speed |
+| 3D view | wheel / middle drag / Alt + left drag | move forward or back / pan / orbit around the selection |
+| 3D view | left click / double click | select (what select mode allows) / on a door: open the cell behind it |
+| 3D view | F / Home / S | frame the selection / overview / select mode on or off |
+| Floor plan | wheel, right or middle drag, left click | zoom, pan, select (select mode off: left drag pans) |
+| Tables | click / double click | select / select and look at it in the 3D view |
+| Cell header | *< Hide lists*, *< Back* | give the cell the whole window / return to the cell opened before |
+
+**A 2-minute test**
+
+1. Start the editor from MO2. In *1. Home mod* type `92177` (Whitepeak Tower), click the mod; in *2. Player homes*
+   click *Whitepeak Tower*. The lists fold away and the *3D view* tab shows the tower from above while meshes
+   load (progress in the toolbar).
+2. Hold the right mouse button and fly in with W; let go and roll the wheel. Tick *Height* and narrow the range to
+   see one floor. Press Home to get the overview back.
+3. Hover a weapon rack (a blue see-through box shows its trigger): the tooltip names it. Click it: it turns
+   yellow, the details pane on the right shows it, tick *Use this display* and add a category (*Add a
+   category...*, e.g. `weapons.bows`). Press F to frame it.
+4. Switch to *Floor plan*: the same rack is selected there. Click a chest on the plan, switch back to *3D view*
+   and press F: the camera finds it. In the details pane press *Make master* or add categories.
+5. Open the *Template* tab: type your name as *Author*, check *Problems* (the same checks the DLL runs), press
+   *Save template*. It is written to the "Dova Stash Templates" mod:
+   `mods\Dova Stash Templates\SKSE\Plugins\DovaStash\Templates\<Author>\Whitepeak Tower.json`. In MO2 press F5
+   and enable the new mod. Saving again asks first, keeps a `.bak` and raises the version.
+6. *Doors* tab: *Open* the exterior (*Tamriel (-9, -2)*): the tower on its rock with the terrain and the cells
+   around it. *< Back* returns to the interior.
+
+Without the game or MO2 running anything, `--render-cell` shows the same view as an image:
+`DovaStashEditor.exe --mo2 "E:\modding\Kexodus Skyrim" --mod 92177 --render-cell bcr58WhiteTower --screenshot wt.png`.

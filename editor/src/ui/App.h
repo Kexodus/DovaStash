@@ -161,6 +161,14 @@ namespace dova::editor::ui
 		bool                           _heightCut3d{ false };
 		float                          _flySpeed{ 500.0f };  // units per second
 		float                          _viewAspect{ 16.0f / 9.0f };
+		struct PickCache
+		{
+			float  mouseX{ -1.0f }, mouseY{ -1.0f };
+			float  camX{ 0.0f }, camY{ 0.0f }, camZ{ 0.0f }, yaw{ 0.0f }, pitch{ 0.0f };
+			bool   selectMode{ false };
+			std::size_t loaded{ 0 };
+			int    result{ -1 };
+		} _pick;  // hover picking only reruns when the mouse, the camera or the scene changed
 
 		// Categories for the role editor (Data/SKSE/Plugins/DovaStash/Categories).
 		bool                            _categoriesLoaded{ false };

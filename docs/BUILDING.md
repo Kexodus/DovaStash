@@ -72,7 +72,9 @@ ctest --preset core-tests
 
 The standalone template editor (docs/EDITOR.md). Its own preset and build directory (`build/editor`), so the
 plugin and test builds are unaffected; the root option `DOVASTASH_BUILD_EDITOR` is off everywhere else.
-vcpkg feature `editor`: Dear ImGui (`dx11-binding`, `win32-binding`), lz4 and zlib; it links `dova_core`.
+vcpkg feature `editor`: Dear ImGui (`dx11-binding`, `win32-binding`), lz4 and zlib; it links `dova_core`. The 3D view
+needs nothing more: its NIF, DDS and BSA readers are the editor's own, and it links Windows' `d3d11`, `dxgi`,
+`d3dcompiler` and `windowscodecs` (PNG screenshots).
 
 ```powershell
 cmake --preset editor
@@ -88,12 +90,23 @@ $exe = 'build\editor\editor\Release\DovaStashEditor.exe'
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --mod 92177 --homes           # player homes in a mod's plugins
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --cell WhiterunBreezehome     # containers, displays, doors
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --cell WhiterunBreezehome --draft > Breezehome.json
-& $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --mod 92177 --cell bcr58WhiteTower --screenshot shot.bmp
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --mod 92177 --cell bcr58WhiteTower --screenshot shot.png
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --mod 92177 --cell bcr58WhiteTower --tab template --screenshot tpl.png
+
+# The 3D view without a window (docs/EDITOR.md §4.5): an overview, a framed selection, a camera of your own
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --mod 92177 --render-cell bcr58WhiteTower --screenshot wt.png
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --mod 92177 --render-cell bcr58WhiteTower --select 'Whitepeak Tower.esp|0x00230B30' --frame --screenshot satchel.png
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --render-cell WhiterunBreezehome --camera -600,-100,110,20,-10 --screenshot inside.png
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --render-cell 'Skyrim.esm|0x0001A27A' --screenshot whiterun.png   # exterior: terrain + 8 cells around
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --render-cell WhiterunBreezehome --verbose --pick 800,450 --screenshot b.png  # boxes, bounds check, frame time, a click
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --nif-info 'clutter\upperclass\upperchest01.nif'                 # how a mesh is read
 ```
 
 It is a Windows-subsystem program: from PowerShell or cmd, pipe the output (`| Out-Host`, `| more`) to wait
 for it; Git Bash waits by itself. To run it from MO2, add it under *Tools > Executables*; it finds the
-instance from MO2 and reads the merged Data folder (docs/EDITOR.md §4.8).
+instance from MO2 and reads the merged Data folder (docs/EDITOR.md §4.8; step by step, with the controls and a
+short test: docs/EDITOR.md §9). `--render-cell` needs a Direct3D 11 GPU (it falls back to the WARP software
+device) but no window, so it also works over remote sessions.
 
 ## Timings (16-thread machine, cold)
 

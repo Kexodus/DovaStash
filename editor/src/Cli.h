@@ -31,6 +31,7 @@ namespace dova::editor
 		std::optional<std::string> select;      // --select <ref>: highlight it (and --frame: look at it)
 		bool                       frame{ false };
 		std::optional<std::string> heightCut;   // --height lo,hi
+		std::vector<std::string>   picks;       // --pick x,y (pixels): what a click there selects, in both modes
 		bool                       noDisabled{ false };
 		bool                       markers{ false };
 		bool                       verbose{ false };

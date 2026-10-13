@@ -65,7 +65,7 @@ namespace dova::editor::ui
 						p.texturesTotal);
 				}
 			} else {
-				ImGui::TextDisabled("%zu meshes, %zu textures", p.modelsTotal, p.texturesTotal);
+				ImGui::TextDisabled("%zu meshes, %zu textures, %zu draws, %.0f fps", p.modelsTotal, p.texturesTotal, _scene->DrawCalls(), io.Framerate);
 			}
 			if (p.missingModels + p.missingTextures > 0) {
 				ImGui::SameLine();
@@ -233,9 +233,17 @@ namespace dova::editor::ui
 		_view.selected = _selectedRef;
 		_hoveredRef = -1;
 		if (hovered && !looking && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-			if (const auto hit = _scene->Pick(XMLoadFloat3(&_camera.position), rayAt(io.MousePos), _view, _selectMode); hit && hit->index >= 0) {
-				_hoveredRef = hit->index;  // neighbour cells (negative indices) are shown, not selectable
+			const auto  progress = _scene->Progress();
+			PickCache   key{ io.MousePos.x, io.MousePos.y, _camera.position.x, _camera.position.y, _camera.position.z, _camera.yaw, _camera.pitch, _selectMode,
+                progress.modelsDone, -1 };
+			const bool  same = key.mouseX == _pick.mouseX && key.mouseY == _pick.mouseY && key.camX == _pick.camX && key.camY == _pick.camY && key.camZ == _pick.camZ &&
+			                  key.yaw == _pick.yaw && key.pitch == _pick.pitch && key.selectMode == _pick.selectMode && key.loaded == _pick.loaded;
+			if (!same) {
+				const auto hit = _scene->Pick(XMLoadFloat3(&_camera.position), rayAt(io.MousePos), _view, _selectMode);
+				key.result = hit && hit->index >= 0 ? hit->index : -1;  // neighbour cells (negative indices) are shown, not selectable
+				_pick = key;
 			}
+			_hoveredRef = _pick.result;
 		}
 		const ImVec2 clickDelta(io.MousePos.x - io.MouseClickedPos[ImGuiMouseButton_Left].x, io.MousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y);
 		const bool   clicked = hovered && !io.KeyAlt && ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
