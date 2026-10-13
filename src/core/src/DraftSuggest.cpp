@@ -58,7 +58,7 @@ namespace dova::core
 		{ "label": "clothes", "words": ["dresser"], "categories": ["armor.clothing"], "confidence": 0.45 },
 		{ "label": "jewelry", "words": ["jewel*", "ring", "necklace", "amulet", "valuables", "treasure", "jewelrybox"],
 		  "categories": ["armor.jewelry", "misc.gems"], "confidence": 0.8 },
-		{ "label": "gems", "words": ["gem"], "notWords": ["soul"], "categories": ["misc.gems"], "confidence": 0.8 },
+		{ "label": "gems", "words": ["gem", "gemstone", "jewel stone"], "notWords": ["soul"], "categories": ["misc.gems"], "confidence": 0.8 },
 		{ "label": "valuables", "words": ["strongbox", "strong box", "safe", "coffer"], "categories": ["armor.jewelry", "misc.gems"], "confidence": 0.45 },
 		{ "label": "soul gems", "words": ["soul gem", "soulgem*", "soul"], "categories": ["soulgems.*"], "confidence": 0.85 },
 		{ "label": "enchanting", "words": ["enchant*", "arcane"], "categories": ["soulgems.*"], "confidence": 0.6 },
@@ -311,11 +311,14 @@ namespace dova::core
 			DraftSource source{ DraftSource::Name };
 			float       best{ 0.0f };          // strongest piece
 			float       stationDistance{ 1e9f };  // nearest station that supports it (tie-break)
+			bool        dedicated{ false };  // its name is about this one category ("Poison Crate"), not a group it is part of ("Potion Basket")
 		};
 
-		void Add(std::map<std::string, Evidence>& a_into, const std::string& a_pattern, float a_conf, std::string a_reason, DraftSource a_source, float a_dist = 1e9f)
+		void Add(std::map<std::string, Evidence>& a_into, const std::string& a_pattern, float a_conf, std::string a_reason, DraftSource a_source, float a_dist = 1e9f,
+			bool a_dedicated = false)
 		{
 			auto& e = a_into[a_pattern];
+			e.dedicated |= a_dedicated;
 			e.confidence = 1.0f - (1.0f - e.confidence) * (1.0f - std::clamp(a_conf, 0.0f, 1.0f));
 			e.reason += (e.reason.empty() ? "" : "; ") + a_reason;
 			if (a_conf > e.best) {
@@ -694,7 +697,8 @@ namespace dova::core
 				}
 				for (const auto& cat : rule.categories) {
 					if (known(cat)) {
-						Add(ev, cat, rule.confidence, std::format("name \"{}\" says {} (\"{}\")", Title(o), rule.label.empty() ? cat : rule.label, which), DraftSource::Name);
+						Add(ev, cat, rule.confidence, std::format("name \"{}\" says {} (\"{}\")", Title(o), rule.label.empty() ? cat : rule.label, which), DraftSource::Name, 1e9f,
+							rule.categories.size() == 1);
 						named[ci] = std::max(named[ci], rule.confidence);
 					}
 				}
@@ -713,7 +717,7 @@ namespace dova::core
 						       std::ranges::any_of(a_rules.masterWords, [&](const std::vector<std::string>& e) { return e.size() == 1 && TokenMatches(t, e.front()); });
 					});
 					if (onlyThose && known(pattern)) {
-						Add(ev, pattern, a_rules.categoryNameConfidence, std::format("named after the category \"{}\"", Title(o)), DraftSource::Name);
+						Add(ev, pattern, a_rules.categoryNameConfidence, std::format("named after the category \"{}\"", Title(o)), DraftSource::Name, 1e9f, true);
 						named[ci] = std::max(named[ci], a_rules.categoryNameConfidence);
 					}
 					break;
@@ -721,7 +725,7 @@ namespace dova::core
 			}
 			if (a_options.itemCategoryByName && !o.name.empty()) {
 				if (const auto cat = a_options.itemCategoryByName(o.name); cat && known(*cat)) {
-					Add(ev, *cat, a_rules.itemNameConfidence, std::format("named after the item \"{}\"", o.name), DraftSource::Name);
+					Add(ev, *cat, a_rules.itemNameConfidence, std::format("named after the item \"{}\"", o.name), DraftSource::Name, 1e9f, true);
 					named[ci] = std::max(named[ci], a_rules.itemNameConfidence);
 				}
 			}
@@ -798,7 +802,8 @@ namespace dova::core
 				cand.score += a_rules.masterEntranceWeight * std::max(0.0f, 1.0f - cand.entrance / std::max(a_rules.masterEntranceRange, 1.0f));
 			}
 			cand.score += a_rules.masterCentralWeight * (1.0f - std::min(std::hypot(o.center[0] - centroid[0], o.center[1] - centroid[1]) / maxSpread, 1.0f));
-			cand.named = named[ci] >= 0.75f;
+			// Named for what it holds: a strong name rule, a category's name or an item's name ("Firewood").
+			cand.named = named[ci] + 1e-4f >= std::min({ 0.75f, a_rules.itemNameConfidence, a_rules.categoryNameConfidence });
 			if (cand.named) {
 				cand.score -= a_rules.masterNamedPenalty;
 			}
@@ -811,7 +816,12 @@ namespace dova::core
 			plan.master = best.object;
 			const auto rank = 1 + std::ranges::count_if(candidates, [&](const Candidate& c) { return c.volume > best.volume; });
 			std::string why = std::format("{}: ", Title(o));
-			why += rank == 1 ? std::string("the largest") : std::format("the {} largest", rank == 2 ? "2nd" : rank == 3 ? "3rd" : std::format("{}th", rank));
+			const auto ordinal = [](long long n) {
+				const auto tens = n % 100;
+				const char* suffix = tens >= 11 && tens <= 13 ? "th" : n % 10 == 1 ? "st" : n % 10 == 2 ? "nd" : n % 10 == 3 ? "rd" : "th";
+				return std::format("{}{}", n, suffix);
+			};
+			why += rank == 1 ? std::string("the largest") : std::format("the {} largest", ordinal(rank));
 			why += std::format(" of {} usable containers ({:.0f} x {:.0f} x {:.0f} units)", candidates.size(), o.size[0], o.size[1], o.size[2]);
 			if (best.word) {
 				why += ", named like a chest";
@@ -952,7 +962,12 @@ namespace dova::core
 					continue;
 				}
 				const auto& other = evidence[it->second].at(pattern);
-				if (e.confidence > other.confidence + 1e-4f || (std::abs(e.confidence - other.confidence) <= 1e-4f && e.stationDistance < other.stationDistance)) {
+				// A container named for exactly this category beats one that gets it as part of a group, then confidence,
+				// then the nearer station.
+				const bool dedicatedWins = e.dedicated && !other.dedicated && e.confidence + 1e-4f >= a_rules.acceptAt;
+				const bool dedicatedLoses = other.dedicated && !e.dedicated && other.confidence + 1e-4f >= a_rules.acceptAt;
+				if (dedicatedWins ||
+					(!dedicatedLoses && (e.confidence > other.confidence + 1e-4f || (std::abs(e.confidence - other.confidence) <= 1e-4f && e.stationDistance < other.stationDistance)))) {
 					it->second = ci;
 				}
 			}

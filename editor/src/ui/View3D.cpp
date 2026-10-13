@@ -127,6 +127,12 @@ namespace dova::editor::ui
 		_view.heightCut = _heightCut3d;
 		_view.zLo = _zLo;
 		_view.zHi = _zHi;
+		// Third row: paint mode and the colours (by category, by the preview's fill) with their legend.
+		DrawPaintBar(a_cell);
+		ImGui::SameLine();
+		DrawColourLegend(a_cell);
+		UpdateTints(a_cell);
+		_view.multi = _multi;
 
 		const float  detailsWidth = ImGui::GetFontSize() * 19.0f;
 		const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -255,8 +261,43 @@ namespace dova::editor::ui
 		const ImVec2 clickDelta(io.MousePos.x - io.MouseClickedPos[ImGuiMouseButton_Left].x, io.MousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y);
 		const bool   clicked = hovered && !io.KeyAlt && ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
 		                     clickDelta.x * clickDelta.x + clickDelta.y * clickDelta.y <= io.MouseDragThreshold * io.MouseDragThreshold;
-		if (clicked) {
-			Select(_hoveredRef);
+		if (clicked && (_hoveredRef >= 0 || !io.KeyCtrl)) {
+			ClickRef(a_cell, _hoveredRef);
+		}
+		// Box selection: a left drag in select mode selects the containers and displays whose middle is inside (Ctrl adds).
+		if (_selectMode && !_paint && active && !io.KeyAlt && ImGui::IsMouseDragging(ImGuiMouseButton_Left) && !ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+			_boxing = true;
+		} else if (_boxing && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+			_boxing = false;
+			const ImVec2     a = io.MouseClickedPos[ImGuiMouseButton_Left];
+			const ImVec2     b = io.MousePos;
+			const XMMATRIX   vp = XMMatrixMultiply(_camera.View(), _camera.Projection(aspect));
+			std::vector<int> inside;
+			for (std::size_t i = 0; i < a_cell.info.refs.size(); ++i) {
+				const auto& r = a_cell.info.refs[i];
+				if (!r.IsContainer() && !r.display) {
+					continue;
+				}
+				if (_heightCut3d && (r.position[2] < _zLo || r.position[2] > _zHi)) {
+					continue;
+				}
+				XMVECTOR center = XMVectorSet(r.position[0], r.position[1], r.position[2], 1.0f);
+				if (const auto bounds = _scene->Bounds(static_cast<int>(i))) {
+					center = XMVectorScale(XMVectorAdd(XMLoadFloat3(&bounds->first), XMLoadFloat3(&bounds->second)), 0.5f);
+					center = XMVectorSetW(center, 1.0f);
+				}
+				const XMVECTOR clip = XMVector4Transform(center, vp);
+				const float    w = XMVectorGetW(clip);
+				if (w <= 0.0f) {
+					continue;  // behind the camera
+				}
+				const float sx = origin.x + (XMVectorGetX(clip) / w * 0.5f + 0.5f) * size.x;
+				const float sy = origin.y + (0.5f - XMVectorGetY(clip) / w * 0.5f) * size.y;
+				if (sx >= std::min(a.x, b.x) && sx <= std::max(a.x, b.x) && sy >= std::min(a.y, b.y) && sy <= std::max(a.y, b.y)) {
+					inside.push_back(static_cast<int>(i));
+				}
+			}
+			BoxSelect(inside, io.KeyCtrl);
 		}
 		if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && _hoveredRef >= 0) {
 			const auto& ref = a_cell.info.refs[static_cast<std::size_t>(_hoveredRef)];
@@ -274,8 +315,16 @@ namespace dova::editor::ui
 		_scene->Render(_context, _target, _camera, _view);
 		dl->AddImage(static_cast<ImTextureID>(reinterpret_cast<std::uintptr_t>(_target.Srv())), origin, ImVec2(origin.x + size.x, origin.y + size.y));
 		dl->PushClipRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), true);
-		const char* help = _selectMode ? "Hold right mouse: look + WASD/QE fly   Wheel: forward   Middle: pan   Alt+Left: orbit   F: frame   Home: overview   S: select mode (on)"
-		                               : "Hold right mouse: look + WASD/QE fly   Wheel: forward   Middle: pan   Alt+Left: orbit   F: frame   Home: overview   S: select mode (off)";
+		if (_boxing) {
+			const ImVec2 a = io.MouseClickedPos[ImGuiMouseButton_Left];
+			const ImVec2 b = io.MousePos;
+			dl->AddRectFilled(ImVec2(std::min(a.x, b.x), std::min(a.y, b.y)), ImVec2(std::max(a.x, b.x), std::max(a.y, b.y)), IM_COL32(255, 230, 120, 40));
+			dl->AddRect(ImVec2(std::min(a.x, b.x), std::min(a.y, b.y)), ImVec2(std::max(a.x, b.x), std::max(a.y, b.y)), IM_COL32(255, 230, 120, 200));
+		}
+		const char* help = _paint ? "Paint: click a container to give it the category (again: take it away)   P: paint off   Hold right mouse: look + WASD fly"
+		                   : _selectMode
+		                       ? "Right mouse: look + WASD/QE fly   Wheel: forward   Middle: pan   Alt+Left: orbit   Drag: box select   Ctrl+click: add   F: frame   Home: overview   S: select mode"
+		                       : "Hold right mouse: look + WASD/QE fly   Wheel: forward   Middle: pan   Alt+Left: orbit   F: frame   Home: overview   S: select mode (off)";
 		dl->AddText(ImVec2(origin.x + 8.0f, origin.y + size.y - ImGui::GetFontSize() - 6.0f), IM_COL32(220, 220, 220, 170), help);
 		dl->PopClipRect();
 		if (_hoveredRef >= 0 && hovered && !looking) {

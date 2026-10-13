@@ -152,6 +152,10 @@ namespace dova::editor::render
 		float zLo{ -1e9f }, zHi{ 1e9f };
 		bool  wireframe{ false };
 		float brightness{ 1.0f };  // scales the editor's light (Skyrim's textures are made for darker, HDR lighting)
+		// Colour overlay per reference (indexed by SceneRef::index; RGBA8, 0 = none): category colours, the preview's
+		// fill. Tinted and outlined, the outline drawn through walls.
+		std::vector<std::uint32_t> tint;
+		std::vector<int>           multi;  // more selected references (multi-select): outlined like the selection
 	};
 
 	struct PickResult

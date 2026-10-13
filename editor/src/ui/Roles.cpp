@@ -65,14 +65,16 @@ namespace dova::editor::ui
 		a_cell.json = core::SerializeLayout(a_cell.layout);
 	}
 
-	bool EditorApp::CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns)
+	bool EditorApp::CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title)
 	{
 		bool changed = false;
 		ImGui::PushID(a_id);
-		ImGui::TextDisabled("Categories");
-		if (a_patterns.empty()) {
-			ImGui::SameLine();
-			ImGui::TextDisabled("(none)");
+		if (a_title) {
+			ImGui::TextDisabled("Categories");
+			if (a_patterns.empty()) {
+				ImGui::SameLine();
+				ImGui::TextDisabled("(none)");
+			}
 		}
 		for (std::size_t i = 0; i < a_patterns.size(); ++i) {
 			ImGui::PushID(static_cast<int>(i));
@@ -309,6 +311,15 @@ namespace dova::editor::ui
 				a_cell.saveMessage += std::format(". In MO2: refresh with F5 and enable the \"{}\" mod", home::kTemplatesMod);
 			}
 			Revalidate(a_cell);
+			if (a_cell.layout.cell) {
+				_state.Advance(a_cell.layout.cell->ToString(), a_cell.layout.name, HomeStage::Saved, a_cell.savedPath);
+			}
+			if (_homes && _ws) {
+				_homes->templates = home::LoadTemplateIndex(*_ws);
+				if (_cellDraft >= 0 && static_cast<std::size_t>(_cellDraft) < _homes->entries.size() && _homes->entries[static_cast<std::size_t>(_cellDraft)].draft) {
+					_homes->entries[static_cast<std::size_t>(_cellDraft)].draft->layout = a_cell.layout;
+				}
+			}
 		} else {
 			a_cell.saveMessage = r.error;
 		}

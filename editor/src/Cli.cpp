@@ -539,7 +539,10 @@ namespace dova::editor
 		       "\n"
 		       "Window:\n"
 		       "  --gui                 open the window even with --mod/--cell (they preselect)\n"
-		       "  --drafts              open the \"Draft all homes\" view\n"
+		       "  --drafts              open the \"Draft all homes\" view (--only <text>: select that home)\n"
+		       "  --tab preview         the \"Where items go\" tab; --colours category|fill colours the containers\n"
+		       "  --paint <category>    paint mode on with that category; --multi <ref> selects more references\n"
+		       "  (no --mod/--cell/--drafts: the start page)\n"
 		       "  --tab <name>          3d, plan, containers, displays, doors or template\n"
 		       "  --select <ref>        select a reference once the cell is open\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
@@ -612,6 +615,14 @@ namespace dova::editor
 				a.drafts = true;
 			} else if (s == "--base-game") {
 				a.baseGame = true;
+			} else if (s == "--colours" || s == "--colors") {
+				a.colours = value();
+			} else if (s == "--paint") {
+				a.paint = value();
+			} else if (s == "--multi") {
+				if (auto v = value()) {
+					a.multi.push_back(*v);
+				}
 			} else if (s == "--gui") {
 				a.gui = true;
 			} else if (s == "--nif-info") {

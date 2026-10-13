@@ -29,6 +29,7 @@ namespace dova::editor::ui
 		ID3D11RenderTargetView* g_rtv = nullptr;
 		bool                    g_occluded = false;
 		UINT                    g_resizeW = 0, g_resizeH = 0;
+		EditorApp*              g_app = nullptr;
 
 		void CreateRenderTarget()
 		{
@@ -121,6 +122,13 @@ namespace dova::editor::ui
 					return 0;
 				}
 				break;
+			case WM_CLOSE:
+				// The editor asks first when something is not saved (EditorApp::RequestClose).
+				if (g_app) {
+					g_app->RequestClose();
+					return 0;
+				}
+				break;
 			case WM_DESTROY:
 				::PostQuitMessage(0);
 				return 0;
@@ -172,6 +180,7 @@ namespace dova::editor::ui
 
 		{
 			EditorApp app(a_options, a_gui, g_device, g_context);
+			g_app = &app;
 			bool      done = false;
 			int       idleFrames = 0;
 			while (!done) {
@@ -215,7 +224,11 @@ namespace dova::editor::ui
 					}
 				}
 				g_occluded = g_swapChain->Present(1, 0) == DXGI_STATUS_OCCLUDED;
+				if (app.ShouldQuit()) {
+					done = true;
+				}
 			}
+			g_app = nullptr;
 		}
 
 		ImGui_ImplDX11_Shutdown();

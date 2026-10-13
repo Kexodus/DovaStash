@@ -49,6 +49,9 @@ namespace dova::editor
 		bool                       useDraft{ false };   // --preview --draft: the draft, not the existing template
 		bool                       drafts{ false };     // --gui --drafts: open the "Draft all homes" view
 		bool                       baseGame{ false };   // --draft-all/--preview --base-game: only the game's own plugins
+		std::optional<std::string> colours;             // --gui --colours category|fill
+		std::optional<std::string> paint;               // --gui --paint <category>
+		std::vector<std::string>   multi;               // --gui --multi <ref> (repeatable)
 		std::vector<std::string>   errors;
 
 		[[nodiscard]] bool Headless() const noexcept

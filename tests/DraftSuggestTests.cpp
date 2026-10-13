@@ -293,6 +293,25 @@ TEST_CASE("Draft gives each category to one container, the others keep it reject
 	CHECK(far->lostTo == "Skyrim.esm|0x00000E03");
 }
 
+TEST_CASE("Draft: a container named for one category beats one that has it as part of a group", "[draft]")
+{
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00001301", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 150, 80, 80 }),
+		Container("Skyrim.esm|0x00001302", "BasketPotion", "Potion Basket", { 2000, 0, 0 }),  // potions + poisons, next to the lab
+		Container("Skyrim.esm|0x00001303", "CratePoison", "Poison Crate", { 4000, 0, 0 }),    // poisons only
+	};
+	objects.push_back(Thing(DraftObject::Kind::Other, "AlchemyLab", "Alchemy Lab", { 2050, 0, 0 }, { "WICraftingAlchemy" }));
+	const auto plan = SuggestDraft(objects, DefaultDraftRules());
+	const auto* basket = Find(plan, 1, "alchemy.poisons");
+	const auto* crate = Find(plan, 2, "alchemy.poisons");
+	REQUIRE(basket);
+	REQUIRE(crate);
+	CHECK(basket->confidence > crate->confidence);  // more evidence...
+	CHECK(crate->accepted);                         // ...but the crate is named for poisons
+	CHECK_FALSE(basket->accepted);
+	CHECK(Find(plan, 1, "alchemy.potions")->accepted);
+}
+
 TEST_CASE("Draft drops patterns the loaded categories do not know", "[draft]")
 {
 	std::vector<DraftObject> objects{

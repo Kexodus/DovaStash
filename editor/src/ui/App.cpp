@@ -142,19 +142,41 @@ namespace dova::editor::ui
 		_context(a_context)
 	{
 		::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+		_state.Load();
+		_templateAuthor = _state.author;
+		// The instance remembered from last time, when none is given and none is found (asked once, ui/State).
+		if (!_options.mo2 && !_options.data && !mo2::DetectInstance() && _state.mo2) {
+			_options.mo2 = PathFromUtf8(*_state.mo2);
+			if (!_options.profile && _state.profile) {
+				_options.profile = _state.profile;
+			}
+		}
 		if (_options.mo2) {
 			std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", PathToUtf8(*_options.mo2).c_str());
 		}
 		if (a_gui.tab) {
-			static constexpr const char* tabs[] = { "3d", "plan", "containers", "displays", "doors", "template" };
-			for (int i = 0; i < 6; ++i) {
+			static constexpr const char* tabs[] = { "3d", "plan", "containers", "displays", "doors", "template", "preview" };
+			for (int i = 0; i < 7; ++i) {
 				if (core::IEquals(*a_gui.tab, tabs[i])) {
 					_requestTab = i;
 				}
 			}
 		}
 		_pendingSelect = a_gui.select;
+		_pendingMulti = a_gui.multi;
+		if (a_gui.colours) {
+			_colours = core::IEquals(*a_gui.colours, "fill") ? Colours::Fill : core::IEquals(*a_gui.colours, "category") ? Colours::Category : Colours::None;
+		}
+		if (a_gui.paint) {
+			_paint = true;
+			_paintCategory = core::ToLower(*a_gui.paint);
+		}
+		_pendingHomeSelect = a_gui.home;
+		_mode = a_gui.mod || a_gui.cell ? Mode::Browse : a_gui.drafts ? Mode::Drafts : Mode::Welcome;
 		OpenWorkspace();
+		if (_ws && _mode != Mode::Browse) {
+			ScanHomes(_mode == Mode::Drafts);
+		}
 		bool opened = false;
 		if (_ws && a_gui.mod) {
 			std::snprintf(_modFilter, sizeof(_modFilter), "%s", a_gui.mod->c_str());
@@ -197,12 +219,16 @@ namespace dova::editor::ui
 
 	bool EditorApp::Idle() const
 	{
-		return !_job.valid() && !_pendingCell && (!_scene || _scene->Progress().finished);
+		if (_mode == Mode::Drafts && !_homes && _ws) {
+			return false;
+		}
+		return !_job.valid() && !_pendingCell && (_mode != Mode::Browse || !_scene || _scene->Progress().finished);
 	}
 
 	void EditorApp::Select(int a_index, bool a_frame)
 	{
 		_selectedRef = a_index;
+		_multi.clear();
 		if (a_frame && a_index >= 0) {
 			_frameSelection = true;
 		}
@@ -238,10 +264,20 @@ namespace dova::editor::ui
 		_categoriesLoaded = false;
 		_categories.clear();
 		_categorySet.reset();
+		_homes.reset();
+		_preview.reset();
+		_catalog.reset();
+		_catalogLo.reset();
 		if (!_ws->Open(_options, _wsError)) {
 			_ws.reset();
-		} else if (_ws->Instance() && _mo2Path[0] == '\0') {
-			std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", PathToUtf8(_ws->Instance()->root).c_str());
+		} else if (_ws->Instance()) {
+			if (_mo2Path[0] == '\0') {
+				std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", PathToUtf8(_ws->Instance()->root).c_str());
+			}
+			// Remembered for the next start (asked once).
+			_state.mo2 = PathToUtf8(_ws->Instance()->root);
+			_state.profile = _ws->Profile();
+			_state.Save();
 		}
 	}
 
@@ -414,7 +450,14 @@ namespace dova::editor::ui
 				} else if (!_templateAuthor.empty()) {
 					_cell->layout.author = _templateAuthor;
 				}
+				if (_pendingLayout) {
+					// A draft from the drafts view, or a template file opened from the start page.
+					_cell->layout = std::move(*_pendingLayout);
+					_cell->dirty = _pendingLayoutDirty;
+					_pendingLayout.reset();
+				}
 				Revalidate(*_cell);
+				_multi.clear();
 				_selectedRef = -1;
 				_hoveredRef = -1;
 				_fitPending = true;
@@ -442,6 +485,13 @@ namespace dova::editor::ui
 						}
 					}
 				}
+				for (const auto& m : std::exchange(_pendingMulti, {})) {
+					for (std::size_t i = 0; i < _cell->refText.size(); ++i) {
+						if (core::IEquals(_cell->refText[i], m) && !IsSelected(static_cast<int>(i))) {
+							ToggleMulti(static_cast<int>(i));
+						}
+					}
+				}
 				StartScene();
 			};
 		});
@@ -455,10 +505,16 @@ namespace dova::editor::ui
 		ImGui::SetNextWindowSize(vp->WorkSize);
 		ImGui::Begin("Dova Stash Editor", nullptr,
 			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+		HandleEditShortcuts();
 		DrawTopBar();
 		DrawDiscardPopup();
+		DrawQuitPopup();
 		ImGui::Separator();
-		if (_cell && _listsHidden) {
+		if (_mode == Mode::Welcome) {
+			DrawWelcome();
+		} else if (_mode == Mode::Drafts) {
+			DrawDrafts();
+		} else if (_cell && _listsHidden) {
 			ImGui::BeginChild("cell");
 			DrawCell();
 			ImGui::EndChild();
@@ -482,18 +538,49 @@ namespace dova::editor::ui
 			ImGui::EndTable();
 		}
 		ImGui::End();
+		TrackUndo();
 	}
 
 	void EditorApp::DrawTopBar()
 	{
 		const bool busy = _job.valid();
-		ImGui::TextUnformatted("Dova Stash Editor");
-		ImGui::SameLine();
-		ImGui::TextDisabled("in development: reads your setup, shows homes, drafts templates (docs/EDITOR.md)");
-		if (busy) {
+		// Where you are: the start page, the homes by mod (and the open cell), every home's draft.
+		auto modeButton = [&](const char* a_label, Mode a_mode, const char* a_tip) {
+			const bool on = _mode == a_mode;
+			if (on) {
+				ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+			}
+			if (ImGui::Button(a_label) && !on) {
+				if (_mode == Mode::Browse) {
+					SyncCellToDraft();
+				}
+				if (a_mode == Mode::Drafts && !_homes) {
+					ScanHomes(true);
+				} else {
+					_mode = a_mode;
+				}
+			}
+			if (on) {
+				ImGui::PopStyleColor();
+			}
+			ImGui::SetItemTooltip("%s", a_tip);
 			ImGui::SameLine();
-			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "%s", _jobLabel.c_str());
+		};
+		modeButton("Start", Mode::Welcome, "The start page: your setup, the homes found, what you are working on.");
+		modeButton(_cell ? "Home editor" : "Homes by mod", Mode::Browse, "Pick a home by its mod, open its cells, give its containers their jobs.");
+		ImGui::BeginDisabled(!_ws || (busy && !_homes));
+		modeButton("Draft all homes (Ctrl+D)", Mode::Drafts, "Every player home of the load order with a draft template to review and save.");
+		ImGui::EndDisabled();
+		if (AnyUnsaved()) {
+			ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f), "* unsaved changes");
+			ImGui::SetItemTooltip("The open template or reviewed drafts are not saved yet (Ctrl+S in the editor, Save in the drafts view).");
+			ImGui::SameLine();
 		}
+		if (busy) {
+			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "%s", _jobLabel.c_str());
+			ImGui::SameLine();
+		}
+		ImGui::NewLine();
 		ImGui::BeginDisabled(busy);
 		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 28.0f);
 		ImGui::InputTextWithHint("##mo2", "MO2 instance folder (with ModOrganizer.ini)", _mo2Path, sizeof(_mo2Path));
@@ -721,7 +808,25 @@ namespace dova::editor::ui
 			ImGui::SetItemTooltip("Back to the cell opened before (%zu)", _history.size());
 			ImGui::SameLine();
 		}
+		ImGui::BeginDisabled(_undo.empty());
+		if (ImGui::SmallButton("Undo")) {
+			Undo();
+		}
+		ImGui::EndDisabled();
+		ImGui::SetItemTooltip("Undo the last change to the template (Ctrl+Z), %zu steps", _undo.size());
+		ImGui::SameLine();
+		ImGui::BeginDisabled(_redo.empty());
+		if (ImGui::SmallButton("Redo")) {
+			Redo();
+		}
+		ImGui::EndDisabled();
+		ImGui::SetItemTooltip("Redo (Ctrl+Y or Ctrl+Shift+Z), %zu steps", _redo.size());
+		ImGui::SameLine();
 		ImGui::Text("%s", c.info.name.empty() ? c.info.editorId.c_str() : c.info.name.c_str());
+		if (c.dirty) {
+			ImGui::SameLine();
+			ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f), "(template not saved)");
+		}
 		ImGui::SameLine();
 		ImGui::TextDisabled("%s  %s  (%s, last edited by %s, %lld ms)", c.cellText.c_str(), c.info.editorId.c_str(),
 			c.info.interior ? "interior" : "exterior", c.info.lastOverride.c_str(), c.ms);
@@ -761,6 +866,11 @@ namespace dova::editor::ui
 				DrawTemplate(c);
 				ImGui::EndTabItem();
 			}
+			if (ImGui::BeginTabItem("Where items go", nullptr, flags(6))) {
+				DrawPreview(c);
+				ImGui::EndTabItem();
+			}
+			ImGui::SetItemTooltip("Run Dova Stash's planner over a sample of items: what each container would receive.");
 			ImGui::EndTabBar();
 		}
 	}
@@ -831,6 +941,10 @@ namespace dova::editor::ui
 		ImGui::Checkbox("Furniture", &_showFurniture);
 		ImGui::SameLine();
 		ImGui::Checkbox("Other", &_showOther);
+		ImGui::SameLine();
+		DrawPaintBar(a_cell);
+		DrawColourLegend(a_cell);
+		UpdateTints(a_cell);
 
 		const float detailsWidth = ImGui::GetFontSize() * 19.0f;
 		const ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -888,7 +1002,12 @@ namespace dova::editor::ui
 				if (LayerOf(r) != layer || r.position[2] < _zLo || r.position[2] > _zHi) {
 					continue;
 				}
-				const ImU32  col = ColorOf(r, layer);
+				ImU32 col = ColorOf(r, layer);
+				if (_colours != Colours::None && (layer == Layer::Container || layer == Layer::Display)) {
+					// Colour by category or fill; what has no colour fades so the coloured ones stand out.
+					const auto t = i < _view.tint.size() ? _view.tint[i] : 0u;
+					col = t ? t : (col & 0x00FFFFFF) | 0x50000000;
+				}
 				const ImVec2 at = toScreen(r.position[0], r.position[1]);
 				Hit          hit{ static_cast<int>(i), {}, false, at, static_cast<int>(layer), 0.0f };
 				const float  w = static_cast<float>(r.bounds[3] - r.bounds[0]) * r.scale;
@@ -964,11 +1083,40 @@ namespace dova::editor::ui
 				}
 				ImGui::SetTooltip("%s\n%s  %s\nz %.0f%s", RefTitle(r).c_str(), a_cell.refText[static_cast<std::size_t>(best->index)].c_str(),
 					r.baseEditorId.c_str(), r.position[2], r.display ? ("\n" + home::DisplayLabel(r)).c_str() : "");
-				if (_selectMode && clicked) {
-					Select(best->index);
+				if ((_selectMode || _paint) && clicked) {
+					ClickRef(a_cell, best->index);
 				}
-			} else if (_selectMode && clicked) {
+			} else if (_selectMode && clicked && !io.KeyCtrl) {
 				Select(-1);
+			}
+		}
+		// Box selection: a left drag in select mode selects the containers and displays inside (Ctrl adds).
+		if (_selectMode && !_paint && ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left) && !io.KeyAlt) {
+			const ImVec2 a = io.MouseClickedPos[ImGuiMouseButton_Left];
+			const ImVec2 b = io.MousePos;
+			dl->AddRectFilled(ImVec2(std::min(a.x, b.x), std::min(a.y, b.y)), ImVec2(std::max(a.x, b.x), std::max(a.y, b.y)), IM_COL32(255, 230, 120, 40));
+			dl->AddRect(ImVec2(std::min(a.x, b.x), std::min(a.y, b.y)), ImVec2(std::max(a.x, b.x), std::max(a.y, b.y)), IM_COL32(255, 230, 120, 200));
+			_boxing = true;
+		} else if (_boxing && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+			_boxing = false;
+			const ImVec2     a = io.MouseClickedPos[ImGuiMouseButton_Left];
+			const ImVec2     b = io.MousePos;
+			std::vector<int> inside;
+			for (const auto& h : hits) {
+				const auto layer = static_cast<Layer>(h.priority);
+				if ((layer == Layer::Container || layer == Layer::Display) && h.at.x >= std::min(a.x, b.x) && h.at.x <= std::max(a.x, b.x) &&
+					h.at.y >= std::min(a.y, b.y) && h.at.y <= std::max(a.y, b.y)) {
+					inside.push_back(h.index);
+				}
+			}
+			BoxSelect(inside, io.KeyCtrl);
+		}
+		for (const auto& h : hits) {
+			if (h.index != _selectedRef && IsSelected(h.index)) {
+				if (h.poly) {
+					dl->AddPolyline(h.pts, 4, IM_COL32(255, 230, 120, 255), ImDrawFlags_Closed, 2.5f);
+				}
+				dl->AddCircle(h.at, 7.0f, IM_COL32(255, 230, 120, 255), 0, 2.0f);
 			}
 		}
 		if (_selectedRef >= 0) {
@@ -1002,6 +1150,10 @@ namespace dova::editor::ui
 
 	void EditorApp::DrawRefDetails(OpenCell& a_cell)
 	{
+		if (Selection().size() > 1) {
+			DrawBulkEditor(a_cell);
+			return;
+		}
 		const int idx = _selectedRef >= 0 ? _selectedRef : _hoveredRef;
 		if (idx < 0 || static_cast<std::size_t>(idx) >= a_cell.info.refs.size()) {
 			ImGui::TextWrapped("Select something in the 3D view, on the plan or in the tables.");
@@ -1064,6 +1216,7 @@ namespace dova::editor::ui
 		if (idx == _selectedRef) {
 			DrawRoleEditor(a_cell, idx);
 		}
+		DrawPreviewDetails(a_cell, idx);
 	}
 
 	namespace
@@ -1099,9 +1252,13 @@ namespace dova::editor::ui
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::PushID(static_cast<int>(i));
-			if (ImGui::Selectable(RefTitle(r).c_str(), _selectedRef == static_cast<int>(i), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+			if (ImGui::Selectable(RefTitle(r).c_str(), IsSelected(static_cast<int>(i)), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
 				const bool twice = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
-				Select(static_cast<int>(i), twice);
+				if (ImGui::GetIO().KeyCtrl) {
+					ToggleMulti(static_cast<int>(i));
+				} else {
+					Select(static_cast<int>(i), twice);
+				}
 				if (twice) {
 					_requestTab = 0;
 				}
@@ -1166,9 +1323,13 @@ namespace dova::editor::ui
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::PushID(static_cast<int>(i));
-			if (ImGui::Selectable(RefTitle(r).c_str(), _selectedRef == static_cast<int>(i), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+			if (ImGui::Selectable(RefTitle(r).c_str(), IsSelected(static_cast<int>(i)), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
 				const bool twice = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
-				Select(static_cast<int>(i), twice);
+				if (ImGui::GetIO().KeyCtrl) {
+					ToggleMulti(static_cast<int>(i));
+				} else {
+					Select(static_cast<int>(i), twice);
+				}
 				if (twice) {
 					_requestTab = 0;
 				}
