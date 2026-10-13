@@ -315,6 +315,20 @@ namespace dova::editor::ui
 						}
 					}
 				}
+				// Not one of the homes (an exterior, a cellar): any cell of the mod's plugins and their masters.
+				for (const auto& s : _scans) {
+					if (!s.lo) {
+						continue;
+					}
+					auto key = s.lo->ParseFormRef(*wanted);
+					if (!key || !s.lo->FindCell(*key)) {
+						key = s.lo->FindCellByEditorId(*wanted);
+					}
+					if (key) {
+						OpenCellAsync(s.lo, *key);
+						return;
+					}
+				}
 			};
 		});
 	}
