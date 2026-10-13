@@ -320,14 +320,20 @@ namespace dova::ui::panel
 					}
 				}
 			}
-			if (a_binding && !a_master && !a_binding->ignored) {
-				// The category question the HUD asks after a few learns, also answerable here (DESIGN §8.6).
-				if (const auto suggestion = Controller::Get().SuggestionFor(*home, a_ref)) {
-					row.suggestionCategory = suggestion->category;
-					row.suggestionName = CategoryName(suggestion->category);
-					row.suggestionCount = suggestion->count;
+			if (a_binding && !a_master && !a_binding->ignored && layout) {
+				// The category question the HUD asks after a few learns, also answerable here (DESIGN §8.6). From
+				// the published copy's learned categories: no form is classified here.
+				const auto threshold = Settings::GetSingleton().GetSorting().suggestCategoryAfter;
+				if (display) {
+					if (const auto it = display->learnedCategories.find(a_ref); it != display->learnedCategories.end()) {
+						if (const auto suggestion = core::SuggestCategory(*layout, a_ref, it->second, threshold)) {
+							row.suggestionCategory = suggestion->category;
+							row.suggestionName = CategoryName(suggestion->category);
+							row.suggestionCount = suggestion->count;
+						}
+					}
 				}
-				if (layout) {
+				{
 					if (const auto it = layout->declined.find(a_ref); it != layout->declined.end()) {
 						for (const auto& id : it->second) {
 							row.declined.emplace_back(id, CategoryName(id));

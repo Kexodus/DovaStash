@@ -695,11 +695,19 @@ namespace dova
 		if (a_serial != _suggestionSerial || !_suggestion) {
 			return;
 		}
-		auto* ui = RE::UI::GetSingleton();
+		static int retries = 0;  // main thread only
+		auto*      ui = RE::UI::GetSingleton();
 		if (!ui || ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) || ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME) || ui->GameIsPaused()) {
-			ScheduleSuggestion();  // a menu is up: later
+			// A menu is up: try again in a second, for up to a minute, then let the next learn bring it back.
+			if (++retries > 60) {
+				retries = 0;
+				logger::debug("Learn: suggestion put off (menus stayed open); asked again after the next learn");
+				return;
+			}
+			Later(std::chrono::seconds(1), [this, a_serial]() { AskSuggestion(a_serial); });
 			return;
 		}
+		retries = 0;
 		const auto pending = std::exchange(_suggestion, std::nullopt);
 		auto*      home = Registry().CurrentIf(pending->cellId);
 		if (!home || !home->layout) {
