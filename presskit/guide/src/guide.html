@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Dova Stash Editor — User Guide</title>
+<meta name="author" content="Kexodus">
+<meta name="description" content="How to make Dova Stash home templates with the Dova Stash Editor.">
+<link rel="stylesheet" href="guide.css">
+<link rel="stylesheet" href="pages.css">
+<script src="figs.js"></script>
+<script src="guide.js"></script>
+</head>
+<body>
+
+<!-- ================================================================== 1 cover -->
+<section class="page cover">
+  <div class="cover-frame"></div>
+  <div class="cover-mark" data-mark="168,8,4"></div>
+  <div class="cover-word">DOVA STASH</div>
+  <div class="cover-sub">EDITOR</div>
+  <div class="cover-divider"><span></span><i data-mark="26,12,0,0"></i><span></span></div>
+  <div class="cover-title">User Guide</div>
+  <div class="cover-lede">Make a home template without starting the game: open a home, give each container its job, check it, save it.</div>
+  <div class="cover-foot">
+    <div><span class="k">Edition</span>Preview &middot; October 2026</div>
+    <div><span class="k">For</span>Dova Stash Editor, in the Dova Stash download</div>
+    <div><span class="k">Project</span>github.com/Kexodus/DovaStash</div>
+  </div>
+</section>
+
+<!-- ================================================================== 2 contents -->
+<section class="page" data-chapter="Contents">
+  <div class="body">
+    <div class="toc-head">
+      <div class="bullet" data-mark="38,11,6"></div>
+      <h1>Contents</h1>
+    </div>
+    <ol class="toc" id="toc"></ol>
+    <div class="cols" style="margin-top:18px">
+      <div>
+        <h2>Reading this guide</h2>
+        <p>Each chapter is one task. Screenshots carry <b>numbered marks</b>; the list under the picture explains each number.</p>
+        <p>Names you click or type in the editor look like <span class="ui">Save template</span>. Keys look like <kbd>Ctrl</kbd> <kbd>S</kbd>.</p>
+      </div>
+      <div>
+        <h2>The homes in the pictures</h2>
+        <p>Whitepeak Tower, Aldamar and Lakeview Manor, in a load order of about 300 plugins. Your homes and numbers will differ; the steps are the same.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 3 what it is for -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="01" data-title="What the editor is for" data-sub="Templates, and what you need"></header>
+    <p class="lede">Dova Stash sorts your loot into the containers of a player home. A <b>template</b> tells it which container takes what in one particular home. The editor makes templates for you, outside the game.</p>
+
+    <div class="how">
+      <div class="step"><div class="ic" data-icon="any_home" data-px="76"></div><h3>Open a home</h3><p>Pick it from your mod list or from every home in your load order.</p></div>
+      <div class="arrow"><svg width="54" height="12" viewBox="0 0 54 12"><path d="M0 6 H52 M46 1 L52 6 L46 11"/></svg></div>
+      <div class="step"><div class="ic" data-icon="chest" data-px="76"></div><h3>Set up the chests</h3><p>Click it in 3D or on the plan: master, categories, or ignored.</p></div>
+      <div class="arrow"><svg width="54" height="12" viewBox="0 0 54 12"><path d="M0 6 H52 M46 1 L52 6 L46 11"/></svg></div>
+      <div class="step"><div class="ic" data-icon="templates" data-px="76"></div><h3>Check and save</h3><p>The same checks the game runs, then one file in its own mod.</p></div>
+    </div>
+
+    <figure data-fig="hero"></figure>
+
+    <div class="cols">
+      <div>
+        <h2>A template says</h2>
+        <ul>
+          <li>which container is the <b>master</b>, where anything without a place goes,</li>
+          <li>which <b>categories</b> each other container takes (potions, ingots, books&hellip;),</li>
+          <li>which containers to <b>ignore</b> (ones that respawn or belong to someone),</li>
+          <li>which racks, mannequins and shelves to fill.</li>
+        </ul>
+      </div>
+      <div>
+        <h2>You need</h2>
+        <ul>
+          <li>Windows 10 or 11 with Direct3D 11,</li>
+          <li>Skyrim Special Edition or Anniversary Edition, set up with Mod Organizer 2 (or a plain Data folder),</li>
+          <li>Dova Stash installed. The editor comes with it.</li>
+        </ul>
+        <p class="muted small">The editor only reads your game and mod files. It never changes a plugin. It writes template files only, into a mod of their own.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 4 install -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="02" data-title="Install and add it to MO2" data-sub="Tools, Executables, arguments"></header>
+    <p class="lede">The editor is one program, <span class="path">DovaStashEditor.exe</span>. It is already in the Dova Stash download, in the mod's <span class="ui">Tools</span> folder. Add it to Mod Organizer 2 once, like xEdit.</p>
+
+    <ol class="steps">
+      <li>In MO2, open <span class="ui">Tools</span> &rsaquo; <span class="ui">Executables</span> (the gears icon), press <span class="ui">+</span> and choose <span class="ui">Add from file&hellip;</span></li>
+      <li>Browse to your Dova Stash mod folder, open <span class="ui">Tools</span> and pick <span class="path">DovaStashEditor.exe</span>.</li>
+      <li>Fill in the fields as below, then press <span class="ui">OK</span>.</li>
+      <li>Pick <span class="ui">Dova Stash Editor</span> in MO2's run list (top right) and press <span class="ui">Run</span>.</li>
+    </ol>
+
+    <div class="panel">
+      <div class="panel-title"><span>Edit Executables</span><span class="muted">what to enter</span></div>
+      <div class="field"><span class="l">Title</span><span class="v">Dova Stash Editor</span></div>
+      <div class="field"><span class="l">Binary</span><span class="v mono">&lt;MO2 folder&gt;\mods\Dova Stash\Tools\DovaStashEditor.exe</span></div>
+      <div class="field"><span class="l">Start in</span><span class="v mono">&lt;MO2 folder&gt;\mods\Dova Stash\Tools</span></div>
+      <div class="field"><span class="l">Arguments</span><span class="v mono">--mo2 "&lt;MO2 folder&gt;" --gui</span><span class="h">optional: run from MO2, it finds the instance itself</span></div>
+      <div class="field"><span class="l">Create files in mod instead of overwrite</span><span class="v">leave off</span><span class="h">the editor writes into its own mod</span></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <h2>Without MO2</h2>
+        <p>Double-click the exe, or start it from a terminal with <code>--mo2 "&lt;MO2 folder&gt;"</code>. Outside MO2 it rebuilds the same view of your Data folder by itself, so it gives the same answers. With no MO2 at all, point it at the game with <code>--data "&lt;Skyrim&gt;\Data"</code>.</p>
+      </div>
+      <div>
+        <h2>The first start</h2>
+        <p>The editor finds MO2's instance and profile, reads your load order (about a second for 300 plugins) and counts your player homes. If it cannot find the instance, it asks once for the folder and remembers it.</p>
+      </div>
+    </div>
+    <div class="note"><span class="k">Tip</span><p>To open one home straight away, add it to the arguments: <code>--gui --mod 92177 --cell bcr58WhiteTower</code> opens Whitepeak Tower (Nexus id 92177).</p></div>
+  </div>
+</section>
+
+<!-- ================================================================== 5 start page -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="03" data-title="The start page" data-sub="Your setup, three ways in, homes in progress"></header>
+    <p class="lede">Every session starts here. It shows that your setup was found, how many homes your load order has, and the homes you are working on.</p>
+    <figure data-fig="start"></figure>
+    <ol class="legend">
+      <li><b>Your setup.</b> The MO2 instance, profile and Data folder in use. Change them in the bar at the top (<span class="ui">Browse&hellip;</span>, <span class="ui">Profile</span>).</li>
+      <li><b>Player homes.</b> Every home in your active load order, and how many already have a template.</li>
+      <li><b>Three ways in.</b> <span class="ui">Open a home</span> from your mod list, <span class="ui">Draft all homes</span> at once, or <span class="ui">Open a template&hellip;</span> you already have.</li>
+      <li><b>Your homes in progress.</b> Each home you touched, with its stage. Click one to carry on.</li>
+    </ol>
+
+    <h2>Stages</h2>
+    <div class="stages">
+      <div><span class="k">Drafted</span><p>You opened its draft.</p></div>
+      <div class="arrow"><svg width="30" height="10" viewBox="0 0 30 10"><path d="M0 5 H28 M23 1 L28 5 L23 9"/></svg></div>
+      <div><span class="k">Reviewed</span><p>You accepted or rejected a suggestion, or edited it.</p></div>
+      <div class="arrow"><svg width="30" height="10" viewBox="0 0 30 10"><path d="M0 5 H28 M23 1 L28 5 L23 9"/></svg></div>
+      <div><span class="k">Validated</span><p>Reviewed, and no problems left.</p></div>
+      <div class="arrow"><svg width="30" height="10" viewBox="0 0 30 10"><path d="M0 5 H28 M23 1 L28 5 L23 9"/></svg></div>
+      <div><span class="k">Saved</span><p>Written to disk. The list shows where.</p></div>
+    </div>
+    <p class="muted small">Stages, your MO2 folder and your author name are kept between runs, in <span class="path">%LOCALAPPDATA%\DovaStashEditor\state.json</span>.</p>
+  </div>
+</section>
+
+<!-- ================================================================== 6 opening a home -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="04" data-title="Opening a home" data-sub="Homes by mod, the 3D view, moving around"></header>
+    <p class="lede">You know a home by its mod. <span class="ui">Open a home</span> takes you to your mod list, where a name or a Nexus id finds it.</p>
+    <figure data-fig="mods"></figure>
+    <ol class="legend">
+      <li><b>Homes by mod</b> tab.</li>
+      <li><b>Filter.</b> Part of the name, or the Nexus id (<code>92177</code> is Whitepeak Tower).</li>
+      <li><b>The mod</b> with its Nexus id and plugins.</li>
+      <li><b>Likely homes only.</b> Untick to see every cell with containers.</li>
+      <li><b>The home</b> with its score and storage. Click it to open it.</li>
+    </ol>
+    <h2>How the editor finds homes</h2>
+    <p>It reads every cell the mod adds or changes and ranks it: a player-house location, owned by the player, never resets, has containers and displays. Base-game homes and the DLC homes sit under <span class="ui">(Game Data folder)</span>.</p>
+    <p>Once a home opens, the lists fold away so the cell gets the whole window. <span class="ui">Mods and homes</span>, at the top left of the cell, brings them back.</p>
+
+    <h2>Moving around in 3D</h2>
+    <table class="t keys">
+      <tr><th>Do this</th><th>To</th></tr>
+      <tr><td>Hold right mouse, move the mouse</td><td>Look around</td></tr>
+      <tr><td>Right mouse held + <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>, <kbd>Q</kbd> <kbd>E</kbd></td><td>Fly; Q and E go down and up. <kbd>Shift</kbd> is 4&times; faster, <kbd>Alt</kbd> slower</td></tr>
+      <tr><td>Mouse wheel</td><td>Move forward or back (with right mouse held: change speed)</td></tr>
+      <tr><td>Middle drag &middot; <kbd>Alt</kbd> + left drag</td><td>Pan &middot; orbit around the selection</td></tr>
+      <tr><td><kbd>F</kbd> &middot; <kbd>Home</kbd></td><td>Frame the selection &middot; back to the overview</td></tr>
+      <tr><td>Left click &middot; double-click a door</td><td>Select &middot; open the cell behind the door</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== 7 the 3d view -->
+<section class="page" data-chapter="Opening a home">
+  <div class="body">
+    <h2>The 3D view</h2>
+    <p>The home as it looks in game, built from your own meshes and textures. It opens from above while the meshes load.</p>
+    <figure data-fig="view3d"></figure>
+    <figure data-fig="view3dBar"></figure>
+    <ol class="legend">
+      <li><b>The home.</b> Hover anything to see its name; click to select it.</li>
+      <li><b>Details pane.</b> With nothing selected it shows the colour key.</li>
+      <li><b>Hint bar</b>: the controls for the mode you are in.</li>
+      <li><b>Tabs</b> for this cell: 3D view, Floor plan, Containers, Displays, Doors, Template, Where items go.</li>
+      <li><b>Select mode</b> (<kbd>S</kbd>): on, a click picks what a template can use. <b>Overview</b> (<kbd>Home</kbd>), <b>Frame</b> (<kbd>F</kbd>), <b>Speed</b>, <b>Light</b>.</li>
+      <li><b>Layers.</b> Hide structure, people, disabled upgrades or effects. <b>Height</b> cuts a tower into floors.</li>
+      <li><b>Paint</b> and <b>Colours</b>: see chapters 07 and 10.</li>
+    </ol>
+    <div class="note"><span class="k">What the colours mean</span>
+      <p>Things you cannot see in game but a template can use, such as hidden chests and rack triggers, are drawn as see-through boxes: green containers, red respawning containers, blue weapon racks, magenta mannequins, orange plaques and cases, yellow doors, lavender furniture. A gray checker is a texture the editor could not find; it does not matter for the template.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 8 floor plan -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="05" data-title="The floor plan" data-sub="A quick map, one floor at a time"></header>
+    <p class="lede">The plan draws every object's footprint from above, north up. It is the fastest way to find a room or pick something that is hard to reach in 3D. Plan and 3D view share one selection.</p>
+    <figure data-fig="plan"></figure>
+    <ol class="legend">
+      <li><b>Select mode</b>, <b>Fit</b> (the whole cell in view) and <b>Height</b>: the lowest and highest heights shown. Narrow it to see one floor.</li>
+      <li><b>Layers</b>: structure, containers, displays, doors, furniture, other.</li>
+      <li><b>Colours</b>, as in the 3D view.</li>
+      <li><b>The selection</b>, marked on the plan.</li>
+      <li><b>Scale bar</b>, in game units.</li>
+      <li><b>North.</b></li>
+    </ol>
+    <div class="cols">
+      <div>
+        <h2>On the plan</h2>
+        <ul>
+          <li>Mouse wheel zooms, right or middle drag pans.</li>
+          <li>Left click selects. With select mode off, left drag pans.</li>
+          <li>Hover a footprint to see its name.</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Then in 3D</h2>
+        <p>Select a chest on the plan, switch to <span class="ui">3D view</span> and press <kbd>F</kbd>. The camera finds a side of it where no wall is in the way.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 9 containers -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="06" data-title="Setting up containers" data-sub="Master, categories, ignore, notes"></header>
+    <p class="lede">Click a container in 3D, on the plan or in the <span class="ui">Containers</span> tab. Its details open on the right: what it is, its reference and base object, then, under <span class="ui">In the template</span>, the role editor.</p>
+    <figure data-fig="select3d"></figure>
+    <div class="cols wide-right">
+      <figure data-fig="rolePane"></figure>
+      <div>
+        <ol class="legend one">
+          <li><b>Make master</b>: this container takes everything without a place of its own, and is the hotkey&rsquo;s target. A home has one master; the old one becomes a plain container.</li>
+          <li><b>Label</b>: the name players see. It starts as the game's name.</li>
+          <li><b>Ignored</b>: Dova Stash never uses it.</li>
+          <li><b>Categories</b> it takes. <span class="ui">Add a category&hellip;</span> opens the category tree; <span class="ui">x</span> removes one.</li>
+          <li><b>Note</b> for people who read the file.</li>
+          <li><b>Remove from the template</b>: it is no longer listed (unlisted containers stay unused).</li>
+        </ol>
+      </div>
+    </div>
+    <div class="note"><span class="k">Choosing the master</span><p>Pick a large chest near the front door that never respawns. It is the home&rsquo;s inbox: whatever has no container of its own ends up there. The master&rsquo;s details say <i>Master container</i> and offer <span class="ui">Not the master</span>.</p></div>
+  </div>
+</section>
+
+<!-- ================================================================== 10 containers cont -->
+<section class="page" data-chapter="Setting up containers">
+  <div class="body">
+    <h2>Categories</h2>
+    <p>Categories come from Dova Stash's category files, the same ones the game uses. They form a tree: <code>alchemy.potions</code>, <code>misc.ores_ingots</code>, <code>weapons.staves</code>. A name ending in <code>.*</code> takes the whole group, so <code>weapons.*</code> takes every weapon. When two containers take the same items, the more exact category wins.</p>
+
+    <h2>Ignore what is not safe</h2>
+    <div class="cols wide-right">
+      <figure data-fig="ignored"></figure>
+      <div>
+        <ol class="legend one">
+          <li><b>Respawns: never bind it.</b> Containers that reset lose what you put in them. The editor marks them in red.</li>
+          <li><b>Ignored</b> is ticked.</li>
+          <li><b>The reason</b> goes in the note, so other players know why.</li>
+        </ol>
+        <p style="margin-top:12px">Ignore containers that respawn, belong to someone else, or disappear with a house upgrade. The draft (chapter 09) does this for you and writes the reason.</p>
+      </div>
+    </div>
+
+    <h2>Every container in one table</h2>
+    <figure data-fig="containers"></figure>
+    <ol class="legend">
+      <li><b>Role</b>: its categories, <i>no categories</i>, <i>ignored</i> or <i>not listed</i>.</li>
+      <li><b>Reference</b>. Click a row to select it; double-click to look at it in 3D. Hidden chests you cannot click are reachable here.</li>
+    </ol>
+    <div class="note"><span class="k">Good to know</span><p>A container with no categories still matters: it stays empty, and its items go to the master. In <span class="ui">Where items go</span> (chapter 10) it shows as <i>receives nothing</i>.</p></div>
+  </div>
+</section>
+
+<!-- ================================================================== 11 faster editing -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="07" data-title="Faster editing" data-sub="Paint mode, multi-select, undo and redo"></header>
+    <h2>Paint mode</h2>
+    <p>Press <kbd>P</kbd> (or tick <span class="ui">Paint</span>), pick a category, then click containers, racks and mannequins to give it to them. Click again to take it away. The master, respawning and ignored containers tell you why they cannot be painted.</p>
+    <figure data-fig="paint"></figure>
+    <ol class="legend">
+      <li><b>Paint</b> on, with the category to paint.</li>
+      <li><b>By category</b> colours and their key.</li>
+      <li><b>Click a container</b> to give it the category; click again to take it away.</li>
+      <li><b>Hint bar</b>: what a click does now. <kbd>P</kbd> stops painting.</li>
+    </ol>
+    <div class="note"><span class="k">Tip</span><p>Paint a room at a time: narrow <span class="ui">Height</span> to one floor, pick a category, and click every chest that should take it. Painted containers change colour at once, so you see what is left.</p></div>
+    <h2>Undo and redo</h2>
+    <p>Every change to the template can be undone: <kbd>Ctrl</kbd> <kbd>Z</kbd> undoes, <kbd>Ctrl</kbd> <kbd>Y</kbd> (or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd>) redoes, or use <span class="ui">Undo</span> and <span class="ui">Redo</span> next to the home's name. A text field counts as one step once you leave it. The editor keeps 200 steps, also while you move between the home's cells.</p>
+  </div>
+</section>
+
+<!-- ================================================================== 12 multi-select -->
+<section class="page" data-chapter="Faster editing">
+  <div class="body">
+    <h2>Multi-select</h2>
+    <p><kbd>Ctrl</kbd> + click adds or removes one object, in 3D, on the plan or in the tables. In select mode, drag a box to select every container and display inside it (hold <kbd>Ctrl</kbd> to add). <kbd>Esc</kbd> clears the selection.</p>
+    <div class="cols">
+      <figure data-fig="multi3d"></figure>
+      <figure data-fig="multiPane"></figure>
+    </div>
+    <ol class="legend">
+      <li><b>Three sacks</b>, each in its own frame.</li>
+      <li><b>How many</b> are selected, by kind.</li>
+      <li><b>Categories of the selection</b>, with how many have each (1 of 3). <span class="ui">x</span> takes it from all.</li>
+      <li><b>Give all of them</b> a category, or <span class="ui">Clear their categories</span>.</li>
+      <li><b>Ignore all</b> or <b>Use all</b>.</li>
+      <li><b>One note</b> for all of them.</li>
+      <li><b>Clear the selection</b> (<kbd>Esc</kbd>).</li>
+    </ol>
+    <h2>Unsaved changes</h2>
+    <p>While a template has changes that are not saved, the top bar says <i>* unsaved changes</i>, the cell header says <i>(template not saved)</i> and the <span class="ui">Template</span> tab has a star. Closing the window asks first.</p>
+  </div>
+</section>
+
+<!-- ================================================================== 13 displays -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="08" data-title="Displays" data-sub="Racks, mannequins, plaques and bookshelves"></header>
+    <p class="lede">Racks, mannequins, plaques, display cases and bookshelves are <b>displays</b>. Dova Stash fills the ones the template uses with your best gear. Nothing is ever taken off a display.</p>
+    <figure data-fig="mannequin"></figure>
+    <ol class="legend">
+      <li><b>The mannequin</b>, selected.</li>
+      <li><b>Rack triggers</b>, drawn as blue see-through boxes so you can click them.</li>
+      <li><b>Display: mannequin</b> and the script that makes it one.</li>
+      <li><b>Use this display</b>: Dova Stash fills it. Untick to leave it alone.</li>
+      <li><b>Categories</b>. Empty: it wears your most complete armor set.</li>
+    </ol>
+    <div class="cols wide-right">
+      <figure data-fig="rack"></figure>
+      <div>
+        <ol class="legend one">
+          <li><b>Kind</b> of rack: any weapon, no daggers or bows, daggers, or a shield.</li>
+          <li><b>Use this display.</b></li>
+          <li><b>Categories</b>: <code>armor.shields</code> here; a bow rack could take <code>weapons.bows</code>.</li>
+          <li><b>Empty</b> means any weapon that fits the rack.</li>
+        </ol>
+        <h3>Plaques and display cases</h3>
+        <p class="small">Each keeps what its own script was made for, such as a dragon priest mask. The editor lists those items for you.</p>
+        <h3>Bookshelves</h3>
+        <p class="small">Listed in the <span class="ui">Displays</span> tab with the racks and plaques. Give one categories (skill books, spell tomes, notes) or leave it empty for the books most worth showing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 14 drafts -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="09" data-title="Draft all homes" data-sub="Suggestions with reasons, then review"></header>
+    <p class="lede">Instead of starting from nothing, let the editor draft a template for every home in your load order. Open it from the start page, the top bar or <kbd>Ctrl</kbd> <kbd>D</kbd>.</p>
+    <figure data-fig="draftsPane"></figure>
+    <ol class="legend">
+      <li><b>The home</b>, whether it has a template, and the actions: <span class="ui">Open in the editor</span> (<kbd>Enter</kbd>), <span class="ui">Save template</span> (<kbd>Ctrl</kbd> <kbd>S</kbd>), <span class="ui">Accept all</span>, <span class="ui">Reject the weak ones</span>, <span class="ui">Draft again</span>.</li>
+      <li><b>The master</b> and why it was chosen, with the next best.</li>
+      <li><b>Suggested categories</b> per container, as checkboxes with a confidence. Hover one to read its reason.</li>
+      <li><b>Displays used</b> (click to open the list) and <b>Checks</b>: the draft against the game's own rules.</li>
+    </ol>
+    <h2>Colours and confidence</h2>
+    <p><b>Green</b>: the container's name says so. <b>Yellow</b>: a crafting station or items nearby. <b>Orange</b>: a weaker hint, such as the kind of furniture. The number is the confidence; hover a suggestion to read its reason. Each category goes to one container and is ticked from 50%. Unticked ones are the alternatives (<i>Potion Basket has it with 93%</i>).</p>
+  </div>
+</section>
+
+<!-- ================================================================== 15 drafts review -->
+<section class="page" data-chapter="Draft all homes">
+  <div class="body">
+    <h2>The list of homes</h2>
+    <div class="cols wide-right">
+      <figure data-fig="draftsList"></figure>
+      <div>
+        <ol class="legend one">
+          <li><b>Filter</b> by home, plugin or cell; <span class="ui">Only homes without a template</span>; <span class="ui">Rescan</span> (<kbd>F5</kbd>).</li>
+          <li><b>Your author name</b>, and <span class="ui">Save N drafts&hellip;</span> for every opened draft at once.</li>
+          <li><b>Every home</b>, its template (none, shipped, yours) and its stage. <kbd>&uarr;</kbd> <kbd>&darr;</kbd> step through them.</li>
+        </ol>
+      </div>
+    </div>
+    <h2>Where the suggestions come from</h2>
+    <div class="cols">
+      <div>
+        <h3>The name</h3>
+        <p>A container called <i>Soul Gems</i>, <i>Ingots</i> or <i>Potion Basket</i> takes those. Homes with named containers come out nearly complete.</p>
+        <h3>What is near it</h3>
+        <p>A chest by the forge gets ores and ingots; one by the alchemy lab, ingredients and potions. Items placed on or next to it count too.</p>
+      </div>
+      <div>
+        <h3>The master</h3>
+        <p>The largest usable chest near the front door, named like a chest. Containers that respawn, are owned, or are scripted are never chosen.</p>
+        <h3>The rest</h3>
+        <p>Common groups nobody took (clothes, books, food&hellip;) go to the free container with the best hint, such as a dresser for clothes.</p>
+      </div>
+    </div>
+
+    <h2>Reviewing a draft</h2>
+    <ol class="steps">
+      <li>Read the master and its reason. If it is wrong, open the home and make another container the master.</li>
+      <li>Go down the containers. Tick what fits, untick what does not. <span class="ui">Reject the weak ones</span> clears the low ones in one go.</li>
+      <li>Press <span class="ui">Open in the editor</span> to finish in 3D: rename labels, set up displays, check <span class="ui">Where items go</span>. Your changes come back to the drafts view.</li>
+      <li>Press <span class="ui">Save template</span>. Or open several drafts and save them all with <span class="ui">Save N drafts&hellip;</span> (homes without a template only).</li>
+    </ol>
+    <div class="note"><span class="k">Homes that already have a template</span><p>The drafts view says how many categories the draft sends to the same container as the existing template. Saving asks first; the old file is kept as a backup.</p></div>
+  </div>
+</section>
+
+<!-- ================================================================== 16 where items go -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="10" data-title="Where items go" data-sub="Preview the sort before you play"></header>
+    <p class="lede">The <span class="ui">Where items go</span> tab runs Dova Stash's own sorting over a sample of loot and shows which container would get what. It runs again by itself whenever the template changes.</p>
+    <figure data-fig="preview"></figure>
+    <ol class="legend">
+      <li><b>Sample</b>: <i>Typical haul</i>, <i>One category</i>, or <i>Every item in the load order</i>.</li>
+      <li><b>Run again</b> (<kbd>R</kbd>).</li>
+      <li><b>Colours</b> for the 3D view and the plan.</li>
+      <li><b>Summary</b>: how much goes to containers, the master and displays.</li>
+      <li><b>The master</b>: what has no other place. Here, nothing.</li>
+      <li><b>Fill</b> and item counts, per category.</li>
+      <li><b>Receives nothing</b>, and why: give it categories or ignore it.</li>
+    </ol>
+    <h2>Samples</h2>
+    <table class="t">
+      <tr><td>Typical haul</td><td>A handful of each kind of loot, base-game items first (about 110 stacks). The quick everyday check.</td></tr>
+      <tr><td>One category</td><td>Every item of your load order in one category, such as <code>alchemy.*</code>: does all of it land where you expect?</td></tr>
+      <tr><td>Every item in the load order</td><td>One of each playable item, modded ones included. Shows what still falls to the master.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================== 17 colours -->
+<section class="page" data-chapter="Where items go">
+  <div class="body">
+    <h2>See it in the home</h2>
+    <p>Tick <span class="ui">by fill</span> (<kbd>V</kbd>) and go back to the 3D view or the plan: every container takes the colour of how much it would get. Click one to list its items in the details pane.</p>
+    <figure data-fig="fill3d"></figure>
+    <ol class="legend">
+      <li><b>The key</b>: gray receives nothing, green a few (under 20), orange many, magenta the master.</li>
+      <li><b>Containers</b> that get a few items.</li>
+      <li><b>Master container</b>, selected.</li>
+      <li><b>Its preview</b>: nothing falls to the master, so every item found a place.</li>
+    </ol>
+    <div class="cols wide-left">
+      <figure data-fig="planFill"></figure>
+      <div>
+        <ol class="legend one">
+          <li><b>The same key</b> on the plan.</li>
+          <li><b>The master</b>, in magenta.</li>
+        </ol>
+        <h3>By category</h3>
+        <p>Tick <span class="ui">by category</span> (<kbd>C</kbd>) to colour each container by its first category instead, one hue per group: you see at a glance where the alchemy, the weapons and the materials live.</p>
+      </div>
+    </div>
+    <figure data-fig="catLegend"></figure>
+  </div>
+</section>
+
+<!-- ================================================================== 18 multi-cell -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="11" data-title="Multi-cell homes and doors" data-sub="Cellars, upper floors, the grounds outside"></header>
+    <p class="lede">Many homes are more than one cell: a cellar, a tower, the grounds with the forge. The <span class="ui">Doors</span> tab lists where the home's doors lead, so you can add those cells to the same home.</p>
+    <figure data-fig="doors"></figure>
+    <ol class="legend">
+      <li><b>Open</b> the cell behind the door. The template comes along; <span class="ui">Back</span> returns.</li>
+      <li><b>In the home</b>: tick to make that cell part of this home.</li>
+      <li><b>Where it leads</b>: another interior, or the exterior cells around the home.</li>
+    </ol>
+    <div class="cols">
+      <div>
+        <h2>Adding a cell</h2>
+        <ol class="steps">
+          <li>Open the home's main cell, then the <span class="ui">Doors</span> tab.</li>
+          <li>Tick <span class="ui">In the home</span> next to the cellar, or press <span class="ui">Open</span> and then <span class="ui">Add this cell to the home</span> in the details pane.</li>
+          <li>Set up its containers as usual. In 3D, double-click a door to walk through it.</li>
+        </ol>
+      </div>
+      <div>
+        <h2>One file per home</h2>
+        <p>However many cells, the home is saved as one template. Its cells are listed in the <span class="ui">Template</span> tab with their names (<i>Cellar</i>, <i>Grounds</i>), which players see in game.</p>
+        <p>Exteriors open with their terrain and the cells around them, so you can find the forge outside.</p>
+      </div>
+    </div>
+    <figure data-fig="draftsCells"></figure>
+    <ol class="legend">
+      <li><b>More cells of this home</b>, found from their doors.</li>
+      <li><b>The shipped template</b> and how far the draft agrees with it.</li>
+      <li><b>Cell</b>: which cell each container is in.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================================================================== 19 saving -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="12" data-title="Checking and saving" data-sub="Problems, backups, the Templates mod"></header>
+    <p class="lede">The <span class="ui">Template</span> tab holds the template's details, checks it the way the game will, and saves it.</p>
+    <figure data-fig="template"></figure>
+    <ol class="legend">
+      <li><b>Name, Author, Version, Priority, Note.</b> Your author name is remembered.</li>
+      <li><b>Summary</b>: master, containers with categories, ignored, displays used, plugins required.</li>
+      <li><b>Cells</b> of the home.</li>
+      <li><b>Problems</b>: the same checks Dova Stash runs in game. Fix every error before you share.</li>
+      <li><b>Where it saves.</b></li>
+      <li><b>Save template</b> (<kbd>Ctrl</kbd> <kbd>S</kbd>) and <b>Copy JSON</b>.</li>
+      <li><b>The file</b> as it will be written.</li>
+    </ol>
+    <div class="cols">
+      <div>
+        <h2>Where it goes</h2>
+        <p>Into a mod of its own, <b>Dova Stash Templates</b>, created when missing:</p>
+        <p><span class="path">mods\Dova Stash Templates\SKSE\Plugins\DovaStash\Templates\&lt;Author&gt;\&lt;Home&gt;.json</span></p>
+        <p>Never MO2's overwrite folder, so cleaning overwrite cannot delete it.</p>
+      </div>
+      <div>
+        <h2>Then</h2>
+        <ol class="steps">
+          <li>In MO2, press <kbd>F5</kbd> and enable <span class="ui">Dova Stash Templates</span> (first save only).</li>
+          <li>In game, look at a container in that home, press the hotkey and pick the template.</li>
+        </ol>
+        <p class="small muted">Saving over a file asks first, keeps the old one as a <span class="path">.bak</span> and raises the version (1.0.0, 1.0.1&hellip;).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 20 troubleshooting -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="13" data-title="Troubleshooting and FAQ" data-sub="Answers to common questions"></header>
+    <div class="faq">
+      <div><h3>It says it cannot find my MO2 instance.</h3><p>Type the MO2 folder in the top bar and press <span class="ui">Open</span>, or use <span class="ui">Browse&hellip;</span>. Or add <code>--mo2 "&lt;MO2 folder&gt;"</code> to the executable's arguments.</p></div>
+      <div><h3>The wrong profile is loaded.</h3><p>Pick another in the <span class="ui">Profile</span> list at the top. The editor reads that profile's mod list and load order.</p></div>
+      <div><h3>My home is not in the list.</h3><p>Untick <span class="ui">Likely homes only</span>, or tick <span class="ui">Exterior cells too</span>. Check the mod is enabled in the profile.</p></div>
+      <div><h3>I cannot click a chest.</h3><p>It may be hidden or behind a wall. Select it in the <span class="ui">Containers</span> tab, or turn off the <span class="ui">Structure</span> layer. Make sure <span class="ui">Select mode</span> is on.</p></div>
+      <div><h3>Some surfaces are a gray checker.</h3><p>The editor could not find that texture. It does not affect the template.</p></div>
+      <div><h3>Make master is grayed out.</h3><p>That container respawns. Its contents can vanish, so it can never be the master; ignore it.</p></div>
+      <div><h3>A container &ldquo;receives nothing&rdquo;.</h3><p>It has no categories, or none of the sample matches them. Give it categories, or ignore it.</p></div>
+      <div><h3>My template does not show up in game.</h3><p>Press <kbd>F5</kbd> in MO2 and enable <span class="ui">Dova Stash Templates</span>. Then check its <span class="ui">Problems</span> list and fix any errors.</p></div>
+      <div><h3>I saved over a template by mistake.</h3><p>The old file is next to it as a <span class="path">.bak</span>. Rename it back to <span class="path">.json</span>.</p></div>
+      <div><h3>Can it break my game?</h3><p>No. It never edits plugins or game files. It only writes template files into its own mod.</p></div>
+      <div><h3>Can I edit a template I already have?</h3><p>Yes: <span class="ui">Open a template&hellip;</span> (<kbd>Ctrl</kbd> <kbd>O</kbd>) on the start page opens a shipped or downloaded template, or a setup you saved in game, on its home.</p></div>
+      <div><h3>How do I share a template?</h3><p>Upload the <span class="path">.json</span> file, keeping its <span class="path">SKSE\Plugins\DovaStash\Templates\</span> folders. The template lists the plugins it needs.</p></div>
+      <div><h3>The window stays black.</h3><p>The editor needs Direct3D 11. Update your graphics driver.</p></div>
+      <div><h3>Where are my settings kept?</h3><p>In <span class="path">%LOCALAPPDATA%\DovaStashEditor\state.json</span>: the MO2 folder, profile, author and each home's stage.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================== 21 controls -->
+<section class="page">
+  <div class="body">
+    <header class="chapter-head" data-no="14" data-title="Controls reference" data-sub="Every key and click on one page"></header>
+    <div class="cols keyref">
+      <div>
+        <h2>3D view</h2>
+        <table class="t keys">
+          <tr><td>Right mouse held</td><td>Look around</td></tr>
+          <tr><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></td><td>Fly (right mouse held)</td></tr>
+          <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>Down, up (right mouse held)</td></tr>
+          <tr><td><kbd>Shift</kbd> &middot; <kbd>Alt</kbd></td><td>4&times; faster &middot; slower</td></tr>
+          <tr><td>Wheel</td><td>Forward, back; speed while flying</td></tr>
+          <tr><td>Middle drag</td><td>Pan</td></tr>
+          <tr><td><kbd>Alt</kbd> + left drag</td><td>Orbit the selection</td></tr>
+          <tr><td>Left click</td><td>Select</td></tr>
+          <tr><td>Double-click a door</td><td>Open the cell behind it</td></tr>
+          <tr><td><kbd>F</kbd></td><td>Frame the selection</td></tr>
+          <tr><td><kbd>Home</kbd></td><td>Overview</td></tr>
+          <tr><td><kbd>S</kbd></td><td>Select mode on or off</td></tr>
+        </table>
+        <h2>Floor plan</h2>
+        <table class="t keys">
+          <tr><td>Wheel</td><td>Zoom</td></tr>
+          <tr><td>Right or middle drag</td><td>Pan</td></tr>
+          <tr><td>Left click</td><td>Select</td></tr>
+          <tr><td>Left drag, select mode off</td><td>Pan</td></tr>
+        </table>
+        <h2>Tables</h2>
+        <table class="t keys">
+          <tr><td>Click &middot; <kbd>Ctrl</kbd> + click</td><td>Select &middot; add to the selection</td></tr>
+          <tr><td>Double-click</td><td>Select and look at it in 3D</td></tr>
+        </table>
+      </div>
+      <div>
+        <h2>Selecting and painting</h2>
+        <table class="t keys">
+          <tr><td><kbd>Ctrl</kbd> + click</td><td>Add or remove one</td></tr>
+          <tr><td>Left drag (select mode)</td><td>Box select; <kbd>Ctrl</kbd> adds</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Clear the selection</td></tr>
+          <tr><td><kbd>P</kbd></td><td>Paint mode on or off</td></tr>
+          <tr><td><kbd>C</kbd> &middot; <kbd>V</kbd></td><td>Colours by category &middot; by fill</td></tr>
+        </table>
+        <h2>Anywhere in a home</h2>
+        <table class="t keys">
+          <tr><td><kbd>Ctrl</kbd> <kbd>Z</kbd></td><td>Undo</td></tr>
+          <tr><td><kbd>Ctrl</kbd> <kbd>Y</kbd> &middot; <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd></td><td>Redo</td></tr>
+          <tr><td><kbd>Ctrl</kbd> <kbd>S</kbd></td><td>Save the template</td></tr>
+          <tr><td><kbd>R</kbd></td><td>Where items go: run again</td></tr>
+          <tr><td><span class="ui">Mods and homes</span></td><td>Show or hide the lists</td></tr>
+          <tr><td><span class="ui">Back</span></td><td>Return to the cell opened before</td></tr>
+        </table>
+        <h2>Everywhere</h2>
+        <table class="t keys">
+          <tr><td><kbd>Ctrl</kbd> <kbd>D</kbd></td><td>Draft all homes</td></tr>
+          <tr><td><kbd>Ctrl</kbd> <kbd>O</kbd></td><td>Open a template file</td></tr>
+        </table>
+        <h2>Drafts view</h2>
+        <table class="t keys">
+          <tr><td><kbd>&uarr;</kbd> <kbd>&darr;</kbd></td><td>Previous, next home</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Open it in the editor</td></tr>
+          <tr><td><kbd>Ctrl</kbd> <kbd>S</kbd></td><td>Save its template</td></tr>
+          <tr><td><kbd>F5</kbd></td><td>Rescan the load order</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="endmark"><span></span><i data-mark="22,12,0,0"></i><span></span></div>
+  </div>
+</section>
+
+</body></html>

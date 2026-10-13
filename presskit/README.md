@@ -147,6 +147,11 @@ Crops, copy and callout positions are in `SHOTS` in `src/ingame.html` (boxes in 
 source pixels, labels in output pixels). They are in color, so `--check-gray` skips them and the
 size cap is Nexus's 8 MB instead of 1.5 MB. The overlay itself keeps to the palette below.
 
+## Editor user guide
+
+[`guide/DovaStashEditor-UserGuide.pdf`](guide/DovaStashEditor-UserGuide.pdf): a 21-page US Letter guide to the Dova
+Stash Editor for players, in this art set's look with callouts over real editor screenshots. Sources, screenshots and
+how to rebuild it: [`guide/README.md`](guide/README.md).
 ## Style
 
 | Token | Value | Use |

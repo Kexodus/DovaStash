@@ -530,6 +530,9 @@ cmake --build --preset editor-release
 The program lands in `build\editor\editor\Release\DovaStashEditor.exe` (one file; copy it anywhere, e.g. next to
 MO2's other tools).
 
+A players' guide with screenshots (install, every view, controls, FAQ) is `presskit/guide/DovaStashEditor-UserGuide.pdf`
+(sources and how to rebuild it: `presskit/guide/README.md`).
+
 **Add it to MO2:** *Tools > Executables* (the gears icon) > **+** > *Add from file...*:
 
 | Field | Value |

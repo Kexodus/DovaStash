@@ -1,0 +1,122 @@
+/* Page-specific pieces of the guide: cover, contents, the three steps, the executable panel,
+   stages, FAQ, the controls page. Palette and type come from guide.css. */
+
+.ico { display: block; overflow: visible; }
+.ico * {
+  fill: none; stroke: var(--paper); stroke-width: var(--sw, 1.5px);
+  stroke-linecap: square; stroke-linejoin: miter; stroke-miterlimit: 10; vector-effect: non-scaling-stroke;
+}
+.ico .k { fill: var(--ink); }
+
+/* ------------------------------------------------------------------ cover */
+.cover { display: flex; flex-direction: column; align-items: center; }
+.cover-frame {
+  position: absolute; inset: 28px;
+  border: 1px solid var(--edge-out); border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--edge-in);
+}
+.cover-mark { margin-top: 214px; }
+.cover-word {
+  margin-top: 54px;
+  font-family: var(--f-title); font-weight: 600; font-size: 46px; line-height: 1;
+  letter-spacing: 0.30em; margin-right: -0.30em; color: var(--paper); white-space: nowrap;
+}
+.cover-sub {
+  margin-top: 18px;
+  font-family: var(--f-title); font-weight: 500; font-size: 17px; line-height: 1;
+  letter-spacing: 0.62em; margin-right: -0.62em; color: var(--gray-1);
+}
+.cover-divider { margin-top: 46px; display: flex; align-items: center; gap: 20px; }
+.cover-divider span { width: 150px; height: 1px; background: var(--gray-3); }
+.cover-divider i svg path, .endmark i svg path { stroke: var(--gray-1); }
+.cover-title {
+  margin-top: 40px;
+  font-family: var(--f-title); font-weight: 500; font-size: 30px; line-height: 1;
+  letter-spacing: 0.34em; margin-right: -0.34em; color: var(--paper); text-transform: uppercase;
+}
+.cover-lede {
+  margin-top: 30px; max-width: 470px; text-align: center;
+  font-size: 15px; font-weight: 300; line-height: 1.6; color: var(--gray-2); letter-spacing: 0.01em;
+}
+.cover-foot {
+  position: absolute; left: 64px; right: 64px; bottom: 64px;
+  display: grid; grid-template-columns: 1fr 1.45fr 1.25fr; gap: 20px;
+  padding-top: 16px; border-top: 1px solid var(--gray-4);
+  font-size: 11.5px; color: var(--gray-1);
+}
+.cover-foot .k {
+  display: block; margin-bottom: 4px;
+  font-size: 8.5px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gray-3);
+}
+
+/* ------------------------------------------------------------------ contents */
+.toc-head { display: flex; align-items: center; gap: 18px; margin: 6px 0 22px; }
+.toc-head h1 {
+  font-family: var(--f-title); font-weight: 500; font-size: 25px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--paper);
+}
+ol.toc { list-style: none; margin: 0; }
+ol.toc li {
+  display: grid; grid-template-columns: 44px auto 1fr 34px; align-items: baseline; column-gap: 10px;
+  padding: 5px 0 5px; border-bottom: 1px solid var(--gray-5);
+}
+ol.toc .n { font-family: var(--f-title); font-weight: 500; font-size: 12px; letter-spacing: 0.2em; color: var(--gray-3); }
+ol.toc .t { font-family: var(--f-title); font-weight: 600; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--paper); }
+ol.toc .d { border-bottom: 1px dotted var(--gray-4); transform: translateY(-3px); }
+ol.toc .p { font-family: var(--f-title); font-weight: 500; font-size: 12px; color: var(--gray-1); text-align: right; letter-spacing: 0.1em; }
+ol.toc .s { grid-column: 2 / 4; font-size: 11.5px; color: var(--gray-2); margin-top: 1px; }
+
+/* ------------------------------------------------------------------ chapter 1: three steps */
+.how { display: flex; align-items: flex-start; justify-content: center; gap: 4px; margin: 6px 0 18px; }
+.how .step { width: 190px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.how .step h3 {
+  font-family: var(--f-title); font-weight: 600; font-size: 11.5px; letter-spacing: 0.2em; text-transform: uppercase;
+  margin: 10px 0 4px;
+}
+.how .step p { font-size: 12px; color: var(--gray-2); line-height: 1.45; }
+.how .arrow { margin-top: 34px; }
+.how .arrow path, .stages .arrow path { fill: none; stroke: var(--gray-3); stroke-width: 1px; }
+
+/* ------------------------------------------------------------------ chapter 2: executable fields */
+.panel {
+  margin: 8px 0 16px; border: 1px solid var(--edge-out); border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--edge-in); background: #060606; padding: 4px 18px 8px;
+}
+.panel-title {
+  display: flex; justify-content: space-between; padding: 10px 0 9px; border-bottom: 1px solid var(--gray-4);
+  font-size: 9.5px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; color: var(--paper);
+}
+.panel .field {
+  display: grid; grid-template-columns: 170px 1fr; column-gap: 14px; row-gap: 2px;
+  padding: 9px 0; border-bottom: 1px solid var(--gray-5); align-items: baseline;
+}
+.panel .field:last-child { border-bottom: 0; }
+.panel .field .l { font-size: 12px; color: var(--gray-2); }
+.panel .field .v { color: var(--paper); font-weight: 400; }
+.panel .field .v.mono { font-family: "Consolas", "Cascadia Mono", monospace; font-size: 11.5px; }
+.panel .field .h { grid-column: 2; font-size: 11px; color: var(--gray-3); }
+
+/* ------------------------------------------------------------------ chapter 3: stages */
+.stages { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0 12px; }
+.stages > div:not(.arrow) {
+  flex: 1; border: 1px solid var(--gray-4); border-radius: 4px; padding: 9px 11px; min-height: 76px; background: #060606;
+}
+.stages .k {
+  display: block; font-family: var(--f-title); font-weight: 600; font-size: 10.5px; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--paper); margin-bottom: 4px;
+}
+.stages p { font-size: 11.5px; color: var(--gray-2); line-height: 1.4; margin: 0; }
+.stages .arrow { margin-top: 32px; flex: none; }
+
+/* ------------------------------------------------------------------ FAQ */
+.faq { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; row-gap: 4px; margin-top: 10px; }
+.faq > div { padding: 9px 0 8px; border-top: 1px solid var(--gray-5); }
+.faq h3 { margin: 0 0 3px; font-size: 13px; }
+.faq p { font-size: 12px; margin: 0; }
+
+/* ------------------------------------------------------------------ controls page */
+.keyref h2 { margin-top: 14px; }
+.keyref table.t { margin-bottom: 4px; }
+.keyref table.t td { padding: 4px 8px 4px 0; }
+.keyref table.t td:first-child { width: 50%; white-space: normal; }
+.endmark { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; gap: 18px; }
+.endmark span { width: 120px; height: 1px; background: var(--gray-4); }
