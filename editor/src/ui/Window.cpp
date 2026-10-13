@@ -137,7 +137,11 @@ namespace dova::editor::ui
 		ImGui_ImplWin32_EnableDpiAwareness();
 		const float scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
 
-		WNDCLASSEXW wc{ sizeof(wc), CS_CLASSDC, WndProc, 0, 0, ::GetModuleHandleW(nullptr), nullptr, nullptr, nullptr, nullptr, L"DovaStashEditor", nullptr };
+		// Title bar and taskbar use the exe's own icon (res/DovaStashEditor.rc, resource 1).
+		const auto  instance = ::GetModuleHandleW(nullptr);
+		const auto  icon = static_cast<HICON>(::LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE));
+		const auto  iconSmall = static_cast<HICON>(::LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, ::GetSystemMetrics(SM_CXSMICON), ::GetSystemMetrics(SM_CYSMICON), 0));
+		WNDCLASSEXW wc{ sizeof(wc), CS_CLASSDC, WndProc, 0, 0, instance, icon, nullptr, nullptr, nullptr, L"DovaStashEditor", iconSmall };
 		::RegisterClassExW(&wc);
 		HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dova Stash Editor", WS_OVERLAPPEDWINDOW, 80, 60, static_cast<int>(1600 * scale),
 			static_cast<int>(950 * scale), nullptr, nullptr, wc.hInstance, nullptr);

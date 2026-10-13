@@ -6,7 +6,7 @@ find_package(lz4 CONFIG REQUIRED)
 
 file(GLOB_RECURSE DOVA_EDITOR_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
 
-add_executable(DovaStashEditor WIN32 ${DOVA_EDITOR_SOURCES})
+add_executable(DovaStashEditor WIN32 ${DOVA_EDITOR_SOURCES} "${CMAKE_CURRENT_SOURCE_DIR}/res/DovaStashEditor.rc")
 target_include_directories(DovaStashEditor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(DovaStashEditor PRIVATE dova::core imgui::imgui ZLIB::ZLIB lz4::lz4 d3d11 dxgi d3dcompiler windowscodecs)
 target_compile_definitions(DovaStashEditor PRIVATE UNICODE _UNICODE)

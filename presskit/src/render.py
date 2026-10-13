@@ -104,6 +104,13 @@ def jobs():
         ("logo.html", {"size": 512}, 512, 512, "logo/dovastash-logo-512.png", False),
         ("logo.html", {"size": 256}, 256, 256, "logo/dovastash-logo-256.png", False),
         ("logo.html", {"size": 1024, "bg": "transparent"}, 1024, 1024, "logo/dovastash-logo-transparent.png", True),
+        # Icon sizes for the editor exe (packed into editor/res/DovaStashEditor.ico by tools/make_ico.py).
+        ("logo.html", {"size": 128}, 128, 128, "logo/icon/dovastash-icon-128.png", False),
+        ("logo.html", {"size": 64}, 64, 64, "logo/icon/dovastash-icon-64.png", False),
+        ("logo.html", {"size": 48}, 48, 48, "logo/icon/dovastash-icon-48.png", False),
+        ("logo.html", {"size": 32}, 32, 32, "logo/icon/dovastash-icon-32.png", False),
+        ("logo.html", {"size": 24}, 24, 24, "logo/icon/dovastash-icon-24.png", False),
+        ("logo.html", {"size": 16}, 16, 16, "logo/icon/dovastash-icon-16.png", False),
     ]
     # Section headers, numbered in the order the description uses them.
     for i, key in enumerate(SECTIONS, 1):

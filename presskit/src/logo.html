@@ -9,8 +9,8 @@
   // Optical sizing: thinner relative strokes when large, heavier when small,
   // so the mark stays crisp at 1024 and still reads at 64.
   var size = +q("size", "1024");
-  var mw = size >= 1024 ? 6 : size >= 512 ? 7 : 8;
-  var fw = size >= 1024 ? 3 : size >= 512 ? 3.5 : 4;
+  var mw = size >= 1024 ? 6 : size >= 512 ? 7 : size >= 128 ? 8 : size >= 48 ? 11 : size >= 32 ? 14 : 18;
+  var fw = size >= 1024 ? 3 : size >= 512 ? 3.5 : size >= 128 ? 4 : size >= 48 ? 5.5 : size >= 32 ? 7 : 9;
   document.write(mark(Math.round(size * 0.86), mw, fw));
 </script>
 </body></html>
