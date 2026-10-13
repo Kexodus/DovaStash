@@ -146,10 +146,12 @@ namespace dova::editor::render
 			showOther{ true };
 		bool  showDisabled{ true };   // initially disabled references (upgrades, quest items)
 		bool  showTerrain{ true };
+		bool  showEffects{ true };    // glows, flames, fog and light rays (effect shaders)
 		bool  showMarkers{ false };   // boxes around every selectable object
 		bool  heightCut{ false };     // only references between zLo and zHi
 		float zLo{ -1e9f }, zHi{ 1e9f };
 		bool  wireframe{ false };
+		float brightness{ 1.0f };  // scales the editor's light (Skyrim's textures are made for darker, HDR lighting)
 	};
 
 	struct PickResult

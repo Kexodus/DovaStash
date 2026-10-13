@@ -36,6 +36,7 @@ namespace dova::editor
 		std::vector<std::string>   picks;       // --pick x,y (pixels): what a click there selects, in both modes
 		bool                       noDisabled{ false };
 		bool                       markers{ false };
+		float                      brightness{ 1.0f };  // --light <factor>
 		bool                       verbose{ false };
 		bool                       noNeighbours{ false };  // --render-cell: exterior without the 8 cells around it
 		std::optional<std::string> tab;  // --gui: the cell tab to show ("3d", "plan", "containers", "displays", "doors", "template")  // --render-cell: list what is drawn as a box and why

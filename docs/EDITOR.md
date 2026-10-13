@@ -274,7 +274,9 @@ and for the tables. What is in:
   bounds; things invisible in game that a template can use (hidden chests on marker meshes, rack and plaque
   triggers, mesh-less activators) as see-through boxes in the plan's colours, room-sized volumes as outlines
   only; markers, sound and light markers are left out. *Disabled* hides initially disabled references (house
-  upgrades). *Height* reuses the plan's height range to cut a tower into floors.
+  upgrades). *Height* reuses the plan's height range to cut a tower into floors. *Effects* hides glows, fog and
+light rays (drawn at half strength: the editor has no scene lighting to balance them); *Light* sets how bright
+the editor's light is.
 - **Exteriors:** the cell's terrain from LAND (heights, normals, vertex colours, base texture), from the parent
   worldspace when the cell has none (walled cities such as Whiterun), and the 8 cells around it drawn as
   surroundings (not selectable).

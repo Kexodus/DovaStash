@@ -370,6 +370,7 @@ namespace dova::editor
 			render::ViewOptions options;
 			options.showDisabled = !a_args.noDisabled;
 			options.showMarkers = a_args.markers;
+			options.brightness = a_args.brightness > 0.0f ? a_args.brightness : 1.0f;
 			if (a_args.heightCut) {
 				const auto v = Numbers(*a_args.heightCut);
 				if (v.size() >= 2) {
@@ -519,7 +520,7 @@ namespace dova::editor
 		       "  --render-cell <cell> --screenshot <out.png>\n"
 		       "                        draw the cell in 3D without a window (loads like --cell); options:\n"
 		       "                        --size WxH, --camera x,y,z,yaw,pitch (degrees), --select <ref> [--frame],\n"
-		       "                        --height lo,hi, --no-disabled, --markers, --no-neighbours (exteriors),\n"
+		       "                        --height lo,hi, --no-disabled, --markers, --light <factor>, --no-neighbours (exteriors),\n"
 		       "                        --pick x,y (what a click there selects), --verbose (boxes, bounds check, frame time)\n"
 		       "  --nif-info <mesh>     how the 3D view reads a mesh (\"clutter\\chest01.nif\" or a file on disk)\n"
 		       "\n"
@@ -618,6 +619,10 @@ namespace dova::editor
 				a.noNeighbours = true;
 			} else if (s == "--verbose") {
 				a.verbose = true;
+			} else if (s == "--light") {
+				if (auto v = value()) {
+					a.brightness = std::strtof(v->c_str(), nullptr);
+				}
 			} else if (s == "--markers") {
 				a.markers = true;
 			} else if (s == "--nif-columns") {

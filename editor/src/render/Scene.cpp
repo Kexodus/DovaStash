@@ -863,7 +863,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			}
 			sub.twoSided = s.doubleSided;
 			sub.vertexColors = (s.vertexColors && !s.colors.empty()) ? (s.vertexAlpha ? 2.0f : 1.0f) : 0.0f;
-			sub.tint = { s.tint[0], s.tint[1], s.tint[2], s.tint[3] * s.alpha };
+			// Effects (fog, glows, light rays) at half strength: the editor has no scene lighting to balance them.
+			sub.tint = { s.tint[0], s.tint[1], s.tint[2], s.tint[3] * s.alpha * (s.effect ? 0.5f : 1.0f) };
 			sub.uv = { s.uvOffset[0], s.uvOffset[1], s.uvScale[0], s.uvScale[1] };
 			const auto nv = s.positions.size() / 3;
 			const auto base = static_cast<std::uint32_t>(m.cpuPos.size());
@@ -1111,8 +1112,9 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		frame.cameraPos = { a_camera.position.x, a_camera.position.y, a_camera.position.z, 1.0f };
 		const XMVECTOR light = XMVector3Normalize(XMVectorSet(0.35f, 0.25f, 1.0f, 0.0f));
 		XMStoreFloat4(&frame.lightDir, light);
-		frame.ambient = { 0.42f, 0.42f, 0.45f, 1.0f };
-		frame.lightColor = { 0.55f, 0.52f, 0.48f, 1.0f };
+		const float b = std::clamp(a_options.brightness, 0.2f, 3.0f);
+		frame.ambient = { 0.42f * b, 0.42f * b, 0.45f * b, 1.0f };
+		frame.lightColor = { 0.55f * b, 0.52f * b, 0.48f * b, 1.0f };
 		D3D11_MAPPED_SUBRESOURCE map{};
 		if (SUCCEEDED(a_ctx->Map(s.frameCb.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
 			std::memcpy(map.pData, &frame, sizeof(frame));
@@ -1259,6 +1261,9 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 				continue;
 			}
 			for (const auto& sub : model.subs) {
+				if (sub.effect && !a_options.showEffects) {
+					continue;
+				}
 				if (sub.blend) {
 					blended.push_back({ &model, &sub, i, dist });
 					continue;

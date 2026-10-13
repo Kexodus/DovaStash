@@ -54,6 +54,10 @@ namespace dova::editor::ui
 		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0f);
 		ImGui::SliderFloat("Speed", &_flySpeed, 50.0f, 8000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
 		ImGui::SetItemTooltip("Flying speed in game units per second (Shift: 4x, Alt: 1/4). The wheel with the right button held changes it.");
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 5.0f);
+		ImGui::SliderFloat("Light", &_view.brightness, 0.4f, 2.5f, "%.1f");
+		ImGui::SetItemTooltip("How bright the editor's light is (the game's own lights are not used).");
 		if (_scene) {
 			const auto p = _scene->Progress();
 			ImGui::SameLine();
@@ -99,6 +103,9 @@ namespace dova::editor::ui
 		ImGui::SameLine();
 		ImGui::Checkbox("Disabled", &_view.showDisabled);
 		ImGui::SetItemTooltip("Initially disabled references: house upgrades, things a quest adds later.");
+		ImGui::SameLine();
+		ImGui::Checkbox("Effects", &_view.showEffects);
+		ImGui::SetItemTooltip("Glows, flames, fog and light rays.");
 		ImGui::SameLine();
 		ImGui::Checkbox("Outlines", &_view.showMarkers);
 		ImGui::SetItemTooltip("A box around everything select mode can pick, in its plan color.");
