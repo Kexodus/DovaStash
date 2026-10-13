@@ -17,9 +17,11 @@ namespace dova::display
 		constexpr int  kConfirmTicks = 20;  // wait up to 2 s for a rack's trigger to notice the weapon
 		constexpr int  kMoveTicks = 20;     // wait up to 2 s for the VM to run MoveToNode
 		constexpr int  kPlaqueTicks = 30;   // wait up to 3 s for a plaque's script
+		constexpr int  kShelfTicks = 30;    // wait up to 3 s for a bookshelf's script to take its books
+		constexpr int  kRefreshTicks = 50;  // wait up to 5 s for it to place them on its markers
 
 		std::atomic<bool>    g_busy{ false };
-		std::set<RE::FormID> g_failed;  // racks and plaques that did not take their item (this session)
+		std::set<RE::FormID> g_failed;  // racks, plaques and bookshelves that did not take their item (this session)
 		// (rack, base form) pairs the rack's script turned away once its 3D showed it (a staff too long for
 		// a display case); the rack is not offered that form again this session.
 		std::set<std::pair<RE::FormID, RE::FormID>> g_refused;
@@ -66,7 +68,10 @@ namespace dova::display
 			bool                done{ false };
 			bool                broughtToPlayer{ false };  // Item: came from a container
 			int                 reactivations{ 0 };
-			std::int32_t        before{ 0 };
+			std::int32_t        before{ 0 };  // Item: the player's count. Bookshelf: the shelf's count before the move
+			bool                sent{ false };      // Bookshelf: moved into the shelf
+			bool                accepted{ false };  // Bookshelf: its script put it on a slot
+			std::int32_t        playerAfter{ 0 };   // Bookshelf: the player's count right after the moves
 		};
 
 		// Where a weapon from a container is dropped before it goes up: in the open in front of the player,
@@ -96,11 +101,16 @@ namespace dova::display
 					case core::DisplayKind::Item:
 						_plaques.push_back(std::move(s));
 						break;
+					case core::DisplayKind::Bookshelf:
+						_shelves.push_back(std::move(s));
+						break;
 					default:
 						_direct.push_back(std::move(s));
 						break;
 					}
 				}
+				// One shelf at a time: its books next to each other, in plan order.
+				std::ranges::stable_sort(_shelves, {}, [](const Step& a_step) { return a_step.display.ref; });
 			}
 
 			void Start()
@@ -351,7 +361,7 @@ namespace dova::display
 					return Abort();
 				}
 				if (a_index >= _plaques.size()) {
-					return Finish();
+					return NextShelf(0);
 				}
 				auto& s = _plaques[a_index];
 				auto* player = game::Player();
@@ -423,6 +433,147 @@ namespace dova::display
 				NextPlaque(a_index + 1);
 			}
 
+			// Bookshelves, one at a time: the books go into the shelf the way the player puts them in, so its
+			// script's OnItemAdded writes each one into a slot (never more than the room it leaves, read again
+			// now). Once it took them, its own UpdateBooks shows them on its markers (game::RefreshBookshelf).
+			// A book it hands back (to the player) goes back where it came from; one it does not take within
+			// 3 s stays in the shelf (open it to take it). Either way Deposit and Sort all leave that shelf
+			// alone for the session.
+			void NextShelf(std::size_t a_first)
+			{
+				if (!StillHere()) {
+					return Abort();
+				}
+				if (a_first >= _shelves.size()) {
+					return Finish();
+				}
+				auto last = a_first;
+				while (last < _shelves.size() && _shelves[last].display.ref == _shelves[a_first].display.ref) {
+					++last;
+				}
+				const auto&  display = _shelves[a_first].display;
+				auto*        shelf = Ref(display.ref);
+				auto*        player = game::Player();
+				const auto   room = shelf ? core::BookshelfRoom(game::BookshelfStateOf(display)) : 0;
+				std::int32_t sent = 0;
+				for (auto i = a_first; i < last; ++i) {
+					auto& s = _shelves[i];
+					s.done = true;
+					auto* source = Ref(s.stack.owner);
+					if (shelf && sent >= room) {
+						logger::info("Display skipped: {} has no room for {} any more", game::Describe(shelf), s.item);
+						++_skipped;
+						continue;
+					}
+					if (!shelf || !source || !Movable(s, source)) {
+						++_skipped;
+						continue;
+					}
+					game::ItemMover::SuppressScope suppress;
+					s.before = game::LiveCount(shelf, s.stack.object);
+					source->RemoveItem(s.stack.object, 1, RE::ITEM_REMOVE_REASON::kStoreInContainer, s.stack.extra, shelf);
+					if (game::LiveCount(shelf, s.stack.object) != s.before + 1) {
+						++_errors;
+						logger::error("Display: moving {} from {} to {} did not arrive as expected (see the inventory journal)", s.item, Holder(s.stack.owner),
+							game::Describe(shelf));
+						continue;
+					}
+					s.sent = true;
+					++sent;
+				}
+				if (sent == 0) {
+					return NextShelf(last);
+				}
+				for (auto i = a_first; i < last; ++i) {
+					_shelves[i].playerAfter = game::LiveCount(player, _shelves[i].stack.object);
+				}
+				Later([self = shared_from_this(), a_first, last]() { self->PollShelf(a_first, last, 1); });
+			}
+
+			void PollShelf(std::size_t a_first, std::size_t a_last, int a_tick)
+			{
+				if (!StillHere()) {
+					return Abort();  // what went in stays in the shelf
+				}
+				const auto& display = _shelves[a_first].display;
+				auto*       shelf = Ref(display.ref);
+				const auto  slots = game::BookshelfSlots(display);
+				bool        waiting = false;
+				for (auto i = a_first; i < a_last; ++i) {
+					auto& s = _shelves[i];
+					if (!s.sent || s.accepted) {
+						continue;
+					}
+					if (!shelf || game::LiveCount(shelf, s.stack.object) < s.before + 1) {
+						s.sent = false;
+						HandedBack(s);
+					} else if (std::ranges::find(slots, s.stack.object->GetFormID()) != slots.end()) {
+						s.accepted = true;
+						Placed(s);
+					} else {
+						waiting = true;
+					}
+				}
+				if (waiting && a_tick < kShelfTicks) {
+					Later([self = shared_from_this(), a_first, a_last, a_tick]() { self->PollShelf(a_first, a_last, a_tick + 1); });
+					return;
+				}
+				bool any = false;
+				for (auto i = a_first; i < a_last; ++i) {
+					auto& s = _shelves[i];
+					any = any || s.accepted;
+					if (s.sent && !s.accepted) {
+						++_errors;
+						g_failed.insert(display.ref);
+						logger::warn("Display: {} did not take {} within {} s; it stays in the shelf (open it to take it), and Deposit and Sort all leave "
+									 "the shelf alone for the rest of this session",
+							game::Describe(shelf), s.item, kShelfTicks / 10);
+					}
+				}
+				if (!any) {
+					return NextShelf(a_last);
+				}
+				_refresh = game::RefreshBookshelf(display);
+				Later([self = shared_from_this(), a_last]() { self->WaitShelf(a_last, 1); });
+			}
+
+			// The shelf's script gave a book back (to the player): it goes back where it came from.
+			void HandedBack(Step& a_step)
+			{
+				++_errors;
+				g_failed.insert(a_step.display.ref);
+				auto*      player = game::Player();
+				auto*      source = Ref(a_step.stack.owner);
+				const auto shelf = game::Describe(Ref(a_step.display.ref));
+				logger::warn("Display: {} gave {} back (its script found no room); Deposit and Sort all leave it alone for the rest of this session", shelf,
+					a_step.item);
+				if (!player || !source || source == player) {
+					logger::info("Display: {} is in your inventory", a_step.item);
+					return;
+				}
+				if (game::LiveCount(player, a_step.stack.object) > a_step.playerAfter) {
+					game::ItemMover::SuppressScope suppress;
+					player->RemoveItem(a_step.stack.object, 1, RE::ITEM_REMOVE_REASON::kStoreInContainer, nullptr, source);
+					logger::info("Display: {} went back to {}", a_step.item, game::Describe(source));
+				} else {
+					logger::warn("Display: {} is not in your inventory either; look in {}", a_step.item, shelf);
+				}
+			}
+
+			// The books show once the shelf's UpdateBooks ran; it finishes on its own if it takes longer.
+			void WaitShelf(std::size_t a_next, int a_tick)
+			{
+				if (_refresh && *_refresh == 0 && a_tick < kRefreshTicks) {
+					Later([self = shared_from_this(), a_next, a_tick]() { self->WaitShelf(a_next, a_tick + 1); });
+					return;
+				}
+				if (_refresh && *_refresh == 0) {
+					logger::debug("Display: a bookshelf is still placing its books after {} s; it finishes on its own", kRefreshTicks / 10);
+				}
+				_refresh.reset();
+				NextShelf(a_next);
+			}
+
 			void Abort()
 			{
 				// A weapon dropped for a rack and not up yet must not stay on the floor.
@@ -456,6 +607,8 @@ namespace dova::display
 			std::vector<Step> _direct;
 			std::vector<Step> _racks;
 			std::vector<Step> _plaques;
+			std::vector<Step> _shelves;
+			std::shared_ptr<std::atomic<int>> _refresh;  // the bookshelf whose books are being placed (game::RefreshBookshelf)
 			std::int32_t      _placed{ 0 };
 			std::int32_t      _skipped{ 0 };
 			std::int32_t      _errors{ 0 };
@@ -560,10 +713,10 @@ namespace dova::display
 			if (g_failed.contains(d.ref) && !a_only) {
 				return true;  // "Fill now" (a_only) tries it again
 			}
-			if (d.kind != core::DisplayKind::Case) {
+			if (d.kind != core::DisplayKind::Case && d.kind != core::DisplayKind::Bookshelf) {
 				return false;
 			}
-			// A container the layout uses for storage is a container, not a case.
+			// A container the layout uses for storage is a container, not a case or a bookshelf.
 			const auto ref = RefOf(d.ref);
 			const auto* binding = ref ? layout.FindContainer(*ref) : nullptr;
 			return ref && (layout.IsMaster(*ref) || (binding && !binding->ignored));
@@ -597,9 +750,18 @@ namespace dova::display
 				spot.categories = binding->categories;
 				// "only": nothing but its items (which may all be missing: it then waits). A mannequin's chosen set decides instead.
 				spot.only = binding->only && !binding->items.empty() &&
-				            (d.kind == core::DisplayKind::Rack || (d.kind == core::DisplayKind::Mannequin && !binding->set));
+				            (d.kind == core::DisplayKind::Rack || d.kind == core::DisplayKind::Bookshelf ||
+								(d.kind == core::DisplayKind::Mannequin && !binding->set));
 			}
 			spot.full = game::DisplayFull(d);
+			if (d.kind == core::DisplayKind::Bookshelf) {
+				const auto state = game::BookshelfStateOf(d);
+				spot.room = core::BookshelfRoom(state);
+				spot.full = spot.room <= 0;
+				logger::debug("Display: {} takes {} more book{} (its script counts {} of {}; {} markers, {} inside)",
+					game::Describe(RE::TESForm::LookupByID(d.ref)), spot.room, spot.room == 1 ? "" : "s", state.counted, state.capacity, state.markers,
+					state.inside);
+			}
 			if (d.kind == core::DisplayKind::Rack && !spot.full) {
 				auto fit = game::RackFitOf(d);
 				spot.crossbows = fit.crossbows;

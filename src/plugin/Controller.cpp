@@ -284,6 +284,9 @@ namespace dova
 			if (auto* behind = game::ContainerBehind(target); behind && behind != target) {
 				logger::debug("Hotkey: {} opens {}", game::Describe(target), game::Describe(behind));
 				target = behind;
+			} else if (auto* shelf = game::BookshelfAt(target); shelf && shelf != target) {
+				logger::debug("Hotkey: {} stands for the bookshelf {} (used for storage)", game::Describe(target), game::Describe(shelf));
+				target = shelf;
 			}
 		}
 		// A container across the border of the next exterior cell counts when that cell is a loaded area of this
@@ -441,8 +444,8 @@ namespace dova
 		if (!display) {
 			return false;
 		}
-		if (found->kind == core::DisplayKind::Case && a_home.layout) {
-			// A container the layout uses for storage is a container, not a case.
+		if ((found->kind == core::DisplayKind::Case || found->kind == core::DisplayKind::Bookshelf) && a_home.layout) {
+			// A container the layout uses for storage is a container, not a case or a bookshelf.
 			const auto* binding = a_home.layout->FindContainer(*display);
 			if (a_home.layout->IsMaster(*display) || (binding && !binding->ignored)) {
 				return false;

@@ -16,6 +16,12 @@ namespace dova::game
 		constexpr std::string_view kMannequinScript = "MannequinActivatorSCRIPT";
 		constexpr std::string_view kRackTriggerKeyword = "WRackTrigger";
 		constexpr std::string_view kRackTriggerWaiting = "WaitingForReference";  // the trigger state that notices a take
+		constexpr std::string_view kBookshelfScript = "PlayerBookShelfContainerScript";
+		constexpr std::string_view kShelfContainerKeyword = "BookShelfContainer";  // PlayerBookShelfClickTrigger -> its shelf
+		constexpr std::string_view kBookTriggerIgnore = "IgnoreBooks";  // book trigger states (PlayerBookShelfTriggerSCRIPT)
+		constexpr std::string_view kBookTriggerWait = "WaitForBooks";
+		constexpr int              kBookSlots = 18;    // PlacedBook01..18, BookShelfBook01..18
+		constexpr int              kBookTriggers = 4;  // BookShelfTrigger01..04
 
 		// Scripts bound to `a_ref` (copied out under the VM's lock), without the bare engine base types.
 		std::vector<ScriptPtr> BoundScripts(RE::TESObjectREFR* a_ref)
@@ -216,6 +222,81 @@ namespace dova::game
 			return {};
 		}
 
+		// "PlacedBook01", "BookShelfTrigger02Ref".
+		std::string Numbered(std::string_view a_prefix, int a_index, std::string_view a_suffix = {})
+		{
+			return std::format("{}{:02}{}", a_prefix, a_index, a_suffix);
+		}
+
+		std::int32_t IntOf(const RE::BSScript::Variable* a_var)
+		{
+			return a_var && a_var->IsInt() ? a_var->GetSInt() : 0;
+		}
+
+		// An object variable that is not None (also one whose form no longer exists: the script compares it
+		// with None, so that slot counts as taken).
+		bool HoldsObject(const RE::BSScript::Variable* a_var)
+		{
+			return a_var && a_var->IsObject() && a_var->GetObject();
+		}
+
+		// PlayerBookShelfContainerScript, or a home mod's copy of it with the same variables and UpdateBooks.
+		bool IsBookshelfScript(const ScriptPtr& a_script)
+		{
+			if (core::IEquals(ScriptName(a_script), kBookshelfScript)) {
+				return true;
+			}
+			const auto vars = Variables(a_script);
+			return FindVar(vars, "MaxBooksAllowed") && FindVar(vars, "CurrentBookAmount") && FindVar(vars, "PlacedBook01") &&
+			       HandlesEvent(a_script, "UpdateBooks");
+		}
+
+		ScriptPtr BookshelfScript(RE::TESObjectREFR* a_ref)
+		{
+			if (!a_ref || !IsContainerRef(a_ref)) {
+				return {};
+			}
+			for (auto& s : BoundScripts(a_ref)) {
+				if (IsBookshelfScript(s)) {
+					return s;
+				}
+			}
+			return {};
+		}
+
+		RE::BGSKeyword* KeywordOf(const std::vector<Var>& a_vars, std::string_view a_name)
+		{
+			auto* form = FormOf(FindVar(a_vars, a_name));
+			return form ? form->As<RE::BGSKeyword>() : nullptr;
+		}
+
+		// The book triggers of a shelf that can ignore books: BookShelfTrigger01Ref..04Ref (set on its first cell
+		// load), else its BookShelfTrigger01..04 linked refs.
+		std::vector<ScriptPtr> BookTriggers(RE::TESObjectREFR* a_shelf, const std::vector<Var>& a_vars)
+		{
+			std::vector<RE::TESObjectREFR*> refs;
+			for (int i = 1; i <= kBookTriggers; ++i) {
+				auto* form = FormOf(FindVar(a_vars, Numbered("BookShelfTrigger", i, "Ref")));
+				auto* ref = form ? form->As<RE::TESObjectREFR>() : nullptr;
+				if (!ref) {
+					auto* keyword = KeywordOf(a_vars, Numbered("BookShelfTrigger", i));
+					ref = keyword ? a_shelf->GetLinkedRef(keyword) : nullptr;
+				}
+				if (ref && std::ranges::find(refs, ref) == refs.end()) {
+					refs.push_back(ref);
+				}
+			}
+			std::vector<ScriptPtr> out;
+			for (auto* ref : refs) {
+				for (auto& s : BoundScripts(ref)) {
+					if (HasState(s, kBookTriggerIgnore)) {
+						out.push_back(s);
+					}
+				}
+			}
+			return out;
+		}
+
 		RE::BGSKeyword* RackTriggerKeyword(const std::vector<Var>& a_vars)
 		{
 			if (auto* form = FormOf(FindVar(a_vars, "WRackTrigger")); form && form->Is(RE::FormType::Keyword)) {
@@ -281,6 +362,10 @@ namespace dova::game
 			if (core::IEquals(name, kRackScript)) {
 				return Rack(a_ref, script);
 			}
+			// Before cases: a bookshelf's PlacedBookNN slots hold books too.
+			if (container && IsBookshelfScript(script)) {
+				return FoundDisplay{ a_ref->GetFormID(), core::DisplayKind::Bookshelf, core::RackType::Any, 0, {}, std::nullopt, name };
+			}
 			const auto vars = Variables(script);
 			auto       items = ItemsOf(vars);
 			if (items.empty()) {
@@ -303,6 +388,9 @@ namespace dova::game
 	{
 		if (auto d = InspectDisplay(a_ref)) {
 			return d;
+		}
+		if (auto* shelf = BookshelfAt(a_ref); shelf && shelf != a_ref) {
+			return InspectDisplay(shelf);
 		}
 		const auto* base = a_ref ? a_ref->GetBaseObject() : nullptr;
 		auto*       cell = a_ref ? a_ref->GetParentCell() : nullptr;
@@ -352,6 +440,64 @@ namespace dova::game
 		return best;
 	}
 
+	RE::TESObjectREFR* BookshelfAt(RE::TESObjectREFR* a_ref)
+	{
+		if (!a_ref) {
+			return nullptr;
+		}
+		if (BookshelfScript(a_ref)) {
+			return a_ref;
+		}
+		const auto* base = a_ref->GetBaseObject();
+		auto*       cell = a_ref->GetParentCell();
+		if (!base || !cell) {
+			return nullptr;
+		}
+		const auto shelf = [&](RE::TESObjectREFR* a_candidate) {
+			return a_candidate && a_candidate != a_ref && a_candidate->GetParentCell() == cell && BookshelfScript(a_candidate);
+		};
+		if (base->Is(RE::FormType::Activator)) {
+			// PlayerBookShelfClickTrigger links with BookShelfContainer (and keeps it in ShelfContainer); the
+			// book triggers and home mods' activators use the plain linked ref.
+			if (auto* linked = a_ref->GetLinkedRef(nullptr); shelf(linked)) {
+				return linked;
+			}
+			if (auto* keyword = RE::TESForm::LookupByEditorID<RE::BGSKeyword>(kShelfContainerKeyword)) {
+				if (auto* linked = a_ref->GetLinkedRef(keyword); shelf(linked)) {
+					return linked;
+				}
+			}
+			for (const auto& script : BoundScripts(a_ref)) {
+				for (const auto& v : Variables(script)) {
+					auto* form = FormOf(v.value);
+					if (auto* ref = form ? form->As<RE::TESObjectREFR>() : nullptr; shelf(ref)) {
+						return ref;
+					}
+				}
+			}
+			return nullptr;
+		}
+		if (!base->Is(RE::FormType::Book)) {
+			return nullptr;
+		}
+		// A book on a shelf: the copy its script placed on a marker (PlacedBookNNRef).
+		RE::TESObjectREFR* found = nullptr;
+		cell->ForEachReference([&](RE::TESObjectREFR* a_candidate) {
+			const auto script = a_candidate && a_candidate != a_ref ? BookshelfScript(a_candidate) : ScriptPtr{};
+			if (script) {
+				const auto vars = Variables(script);
+				for (int i = 1; i <= kBookSlots; ++i) {
+					if (FormOf(FindVar(vars, Numbered("PlacedBook", i, "Ref"))) == a_ref) {
+						found = a_candidate;
+						return RE::BSContainer::ForEachResult::kStop;
+					}
+				}
+			}
+			return RE::BSContainer::ForEachResult::kContinue;
+		});
+		return found;
+	}
+
 	std::optional<FoundDisplay> DeclaredDisplay(RE::TESObjectREFR* a_ref, core::DisplayKind a_kind)
 	{
 		if (!a_ref) {
@@ -378,6 +524,8 @@ namespace dova::game
 			return IsContainerRef(a_ref) ? std::optional(d) : std::nullopt;
 		case core::DisplayKind::Item:
 			return d;
+		case core::DisplayKind::Bookshelf:
+			return std::nullopt;  // without its script, how many books fit is unknown: nothing goes on it
 		default:
 			return std::nullopt;
 		}
@@ -442,6 +590,8 @@ namespace dova::game
 					return std::ranges::find(holds, a_item) != holds.end();
 				});
 			}
+		case core::DisplayKind::Bookshelf:
+			return core::BookshelfRoom(BookshelfStateOf(a_display)) <= 0;
 		default:
 			return false;
 		}
@@ -451,13 +601,74 @@ namespace dova::game
 	{
 		std::vector<RE::TESBoundObject*> out;
 		auto*                            ref = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_display.ref);
-		if (!ref || (a_display.kind != core::DisplayKind::Mannequin && a_display.kind != core::DisplayKind::Case)) {
+		const auto kind = a_display.kind;
+		if (!ref || (kind != core::DisplayKind::Mannequin && kind != core::DisplayKind::Case && kind != core::DisplayKind::Bookshelf)) {
 			return out;
 		}
 		for (const auto& [object, data] : ref->GetInventory()) {
-			if (object && data.first > 0 && (a_display.kind == core::DisplayKind::Case || object->Is(RE::FormType::Armor))) {
+			if (object && data.first > 0 &&
+				(kind == core::DisplayKind::Case || (kind == core::DisplayKind::Mannequin && object->Is(RE::FormType::Armor)) ||
+					(kind == core::DisplayKind::Bookshelf && object->Is(RE::FormType::Book)))) {
 				out.push_back(object);
 			}
+		}
+		return out;
+	}
+
+	core::BookshelfState BookshelfStateOf(const FoundDisplay& a_shelf)
+	{
+		core::BookshelfState out;
+		auto*                shelf = a_shelf.kind == core::DisplayKind::Bookshelf ? RE::TESForm::LookupByID<RE::TESObjectREFR>(a_shelf.ref) : nullptr;
+		const auto           script = BookshelfScript(shelf);
+		if (!script) {
+			return out;  // no capacity: nothing goes on it
+		}
+		const auto vars = Variables(script);
+		out.capacity = IntOf(FindVar(vars, "MaxBooksAllowed"));
+		out.counted = IntOf(FindVar(vars, "CurrentBookAmount"));
+		for (int i = 1; i <= kBookSlots; ++i) {
+			const auto* slot = FindVar(vars, Numbered("PlacedBook", i));
+			if (!slot) {
+				break;
+			}
+			out.slots.push_back(HoldsObject(slot));
+		}
+		// Like the script's CountMaxBooks: the markers linked with BookShelfBook01, 02... up to the first missing.
+		std::int32_t markers = 0;
+		for (int i = 1; i <= kBookSlots; ++i) {
+			auto* keyword = KeywordOf(vars, Numbered("BookShelfBook", i));
+			if (!keyword) {
+				if (i == 1) {
+					markers = -1;  // a copy without these keywords: unknown, the script's own count decides
+				}
+				break;
+			}
+			if (!shelf->GetLinkedRef(keyword)) {
+				break;
+			}
+			++markers;
+		}
+		out.markers = markers;
+		for (const auto& [object, data] : shelf->GetInventory()) {
+			if (object && object->Is(RE::FormType::Book) && data.first > 0) {
+				out.inside += data.first;
+			}
+		}
+		return out;
+	}
+
+	std::vector<RE::FormID> BookshelfSlots(const FoundDisplay& a_shelf)
+	{
+		std::vector<RE::FormID> out;
+		auto*                   shelf = a_shelf.kind == core::DisplayKind::Bookshelf ? RE::TESForm::LookupByID<RE::TESObjectREFR>(a_shelf.ref) : nullptr;
+		const auto              script = BookshelfScript(shelf);
+		if (!script) {
+			return out;
+		}
+		const auto vars = Variables(script);
+		for (int i = 1; i <= kBookSlots; ++i) {
+			auto* form = FormOf(FindVar(vars, Numbered("PlacedBook", i)));
+			out.push_back(form ? form->GetFormID() : 0);
 		}
 		return out;
 	}
@@ -494,6 +705,45 @@ namespace dova::game
 		private:
 			std::shared_ptr<std::atomic<bool>> _flag;
 		};
+
+		// Runs `a_fn` on the main thread once the VM ran the call.
+		class Then final : public RE::BSScript::IStackCallbackFunctor
+		{
+		public:
+			explicit Then(std::function<void()> a_fn) :
+				_fn(std::move(a_fn))
+			{}
+
+			void operator()(RE::BSScript::Variable) override
+			{
+				if (_fn) {
+					SKSE::GetTaskInterface()->AddTask(std::exchange(_fn, nullptr));
+				}
+			}
+			void SetObject(const RE::BSTSmartPointer<RE::BSScript::Object>&) override {}
+
+		private:
+			std::function<void()> _fn;
+		};
+
+		// Runs `a_fn` on the main thread after `a_delay`.
+		void After(std::chrono::milliseconds a_delay, std::function<void()> a_fn)
+		{
+			std::thread([a_delay, fn = std::move(a_fn)]() mutable {
+				std::this_thread::sleep_for(a_delay);
+				SKSE::GetTaskInterface()->AddTask(std::move(fn));
+			}).detach();
+		}
+
+		bool GotoState(ScriptPtr a_script, std::string_view a_state, std::function<void()> a_then = nullptr)
+		{
+			auto*                                                    vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+			RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> callback;
+			if (a_then) {
+				callback.reset(new Then(std::move(a_then)));
+			}
+			return vm && vm->DispatchMethodCall(a_script, "GotoState", RE::MakeFunctionArguments(RE::BSFixedString(a_state)), callback);
+		}
 	}
 
 	std::shared_ptr<std::atomic<bool>> PapyrusMoveToNode(RE::TESObjectREFR* a_item, RE::TESObjectREFR* a_target, std::string_view a_node)
@@ -514,6 +764,79 @@ namespace dova::game
 			return nullptr;
 		}
 		return flag;
+	}
+
+	std::shared_ptr<std::atomic<int>> RefreshBookshelf(const FoundDisplay& a_shelf)
+	{
+		auto       status = std::make_shared<std::atomic<int>>(0);
+		auto*      vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+		auto*      shelf = a_shelf.kind == core::DisplayKind::Bookshelf ? RE::TESForm::LookupByID<RE::TESObjectREFR>(a_shelf.ref) : nullptr;
+		auto       script = BookshelfScript(shelf);
+		const auto name = Describe(shelf);
+		if (!vm || !script || !HandlesEvent(script, "UpdateBooks")) {
+			logger::debug("{}: its script can't be asked to place the books; they show the next time it is opened", name);
+			*status = -1;
+			return status;
+		}
+		const char* current = script->currentState.c_str();
+		if (const std::string_view state = current ? current : ""; !state.empty()) {
+			// PlacingBooks (its menu just closed: its own UpdateBooks runs and restores the triggers) or the
+			// Unofficial Patch's PickingUp: leave it to the script; the books show the next time it is opened.
+			logger::debug("{}: its script is busy ({}); the books show the next time it is opened", name, state);
+			*status = -1;
+			return status;
+		}
+		const auto triggers = BookTriggers(shelf, Variables(script));
+		// 3. A moment after UpdateBooks returned (the trigger events of the copies it replaced are past), the
+		// triggers watch the books again.
+		const auto restore = [triggers, status, name](int a_status) {
+			After(std::chrono::milliseconds(250), [triggers, status, name, a_status]() {
+				for (const auto& t : triggers) {
+					if (!GotoState(t, kBookTriggerWait)) {
+						logger::warn("{}: a book trigger could not be set back to {}; opening the shelf once fixes that", name, kBookTriggerWait);
+					}
+				}
+				*status = a_status;
+			});
+		};
+		// 2. The script's own UpdateBooks.
+		auto update = [script, status, restore, name]() mutable {
+			auto*                                                    vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+			RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> callback{ new Then([restore, name]() {
+				logger::debug("{}: its UpdateBooks placed the books on their markers", name);
+				restore(1);
+			}) };
+			if (!vm || !vm->DispatchMethodCall(script, "UpdateBooks", RE::MakeFunctionArguments(), callback)) {
+				logger::warn("{}: its UpdateBooks could not be called; the books show the next time it is opened", name);
+				restore(-1);  // nothing was replaced
+			}
+		};
+		// 1. The triggers ignore the copies UpdateBooks removes (they would take the books out of the shelf).
+		if (triggers.empty()) {
+			update();
+			return status;
+		}
+		auto pending = std::make_shared<std::atomic<int>>(static_cast<int>(triggers.size()));
+		auto failed = std::make_shared<std::atomic<bool>>(false);
+		auto next = [pending, failed, update, restore, name]() mutable {
+			if (--*pending > 0) {
+				return;
+			}
+			if (*failed) {
+				logger::warn("{}: a book trigger could not be told to ignore books; the books show the next time it is opened", name);
+				restore(-1);
+				return;
+			}
+			update();
+		};
+		for (const auto& t : triggers) {
+			if (!GotoState(t, kBookTriggerIgnore, next)) {
+				*failed = true;
+				auto now = next;
+				now();
+			}
+		}
+		return status;
 	}
 
 	namespace

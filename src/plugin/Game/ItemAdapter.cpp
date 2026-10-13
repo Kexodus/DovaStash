@@ -86,6 +86,12 @@ namespace dova::game
 			return stem.find("note") != std::string::npos;
 		}
 
+		// The Elder Scrolls (vanilla, Dawnguard and the mods that copy them) use Clutter\ElderScroll\ models.
+		bool ModelLooksLikeElderScroll(const char* a_model)
+		{
+			return a_model && core::ToLower(a_model).find("elderscroll") != std::string::npos;
+		}
+
 		// What SKSE's scaleform extension reports for a magic item (potion, ingredient, scroll): the
 		// costliest effect's actor values, plus I4's "effectKeywords" (keywords of every base effect).
 		void FillMagicInfo(core::ItemInfo& a_info, const RE::MagicItem* a_magic)
@@ -230,6 +236,7 @@ namespace dova::game
 		a_info.armorSlots = 0;
 		a_info.typeFlags = 0;
 		a_info.bookIsNote = false;
+		a_info.elderScroll = false;
 		a_info.equipSlot.reset();
 		a_info.useSound.reset();
 		a_info.actorValue.reset();
@@ -274,6 +281,7 @@ namespace dova::game
 				                                            core::BookTeaches::None;
 				a_info.typeFlags = book->data.flags.underlying();
 				a_info.bookIsNote = book->data.type == RE::OBJ_BOOK::Type::kNoteScroll || ModelLooksLikeNote(book->GetModel());
+				a_info.elderScroll = ModelLooksLikeElderScroll(book->GetModel());
 				if (book->TeachesSpell()) {
 					if (const auto* spell = book->GetSpell()) {
 						a_info.teachesSpell = ToFormRef(spell);

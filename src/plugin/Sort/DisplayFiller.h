@@ -4,7 +4,7 @@
 // ones the player turned on with the hotkey, or that a template lists. Deposit and Sort all plan them
 // before their own moves (core::PlanDisplays, so what goes up is taken out of the deposit); "Fill now" in
 // a display's menu fills just that one. Fill then places the items over the next frames. Main thread only.
-// A rack or mannequin with categories takes only items in them (the layout entry's `categories`). A
+// A rack, mannequin or bookshelf with categories takes only items in them (the layout entry's `categories`). A
 // mannequin with a `set` takes only that armor set (game::ApplyChosenSet), and more of it as it arrives.
 //
 // How each kind is filled (always what the display's own script would do, or the script itself):
@@ -32,6 +32,12 @@
 //   favorited copy the script could take instead). If the count went up instead (the plaque was full
 //   and gave its item back), it is activated once more. If nothing happens within 3 seconds, the item
 //   goes back where it came from and Deposit and Sort all leave that plaque alone for the session.
+// - Bookshelf: one shelf at a time, never more books than the room its script leaves (read again just
+//   before): the books are moved into the shelf's container, as the player puts them in, so its script's
+//   OnItemAdded writes each into a slot. Once it took them, its own UpdateBooks shows them on its markers
+//   (game::RefreshBookshelf; the script itself only does that when its menu closes). A book its script hands
+//   back (to the player) goes back where it came from; one it does not take within 3 seconds stays in the
+//   shelf (open it to take it); either way Deposit and Sort all leave that shelf alone for the session.
 // Nothing is ever taken off a display. If the player leaves the cell, filling stops (a weapon dropped for
 // a rack and not up yet goes into the player's inventory).
 

@@ -19,12 +19,22 @@
 //   item back.
 // - Case: a container whose script holds playable items in its properties and handles OnItemAdded (it
 //   shows a model of each item put in and sends anything else back).
+// - Bookshelf: a container running PlayerBookShelfContainerScript, or a home mod's copy of it (a script with
+//   MaxBooksAllowed, CurrentBookAmount, PlacedBook01 and an UpdateBooks function; the Unofficial Patch's and
+//   Skyrim Souls' versions keep all of these). Checked before Case: its PlacedBookNN slots hold books too.
+//   Its OnItemAdded writes each book into the first empty PlacedBookNN slot while CurrentBookAmount + count
+//   <= MaxBooksAllowed (the BookShelfBook01... markers linked to it, counted on its first cell load) and
+//   gives anything else back to the player; the books only appear on their markers when UpdateBooks runs,
+//   which the script does when the player closes its menu (OnActivate). Its BookShelfTrigger01Ref...
+//   triggers remove a book from the container when its copy leaves the shelf, so they are put in their
+//   IgnoreBooks state while UpdateBooks replaces the copies, as OnActivate does. The player reaches it
+//   through the activator in front of it (PlayerBookShelfClickTrigger, linked with BookShelfContainer).
 
 namespace dova::game
 {
 	struct FoundDisplay
 	{
-		RE::FormID                       ref{ 0 };  // rack activator, plaque, mannequin actor or case container
+		RE::FormID                       ref{ 0 };  // rack activator, plaque, mannequin actor, case or bookshelf container
 		core::DisplayKind                kind{ core::DisplayKind::Rack };
 		core::RackType                   rack{ core::RackType::Any };
 		RE::FormID                       trigger{ 0 };  // Rack: holds the pivot nodes (WRackTrigger linked ref)
@@ -38,20 +48,40 @@ namespace dova::game
 	// The same checks for one reference; nullopt when it is no display Dova Stash recognises.
 	[[nodiscard]] std::optional<FoundDisplay> InspectDisplay(RE::TESObjectREFR* a_ref);
 	// The display the player aims at with the hotkey: the display itself, a mannequin through the activator
-	// in front of it, or a rack through the weapon sitting on it (a full rack's activator is disabled, so
-	// the crosshair finds the weapon). nullopt when it is none of these.
+	// in front of it, a rack through the weapon sitting on it (a full rack's activator is disabled, so
+	// the crosshair finds the weapon), a bookshelf through the activator in front of it or a book on it.
+	// nullopt when it is none of these.
 	[[nodiscard]] std::optional<FoundDisplay> DisplayAt(RE::TESObjectREFR* a_ref);
+	// The bookshelf container `a_ref` stands for: the shelf itself, the activator in front of it (its linked
+	// ref, plain or with BookShelfContainer, or an ObjectReference its script holds), or a book on it.
+	// Null when it is none of these.
+	[[nodiscard]] RE::TESObjectREFR* BookshelfAt(RE::TESObjectREFR* a_ref);
 	// A display a layout declares with `kind` that the scripts do not reveal (racks still need their
-	// WRackTrigger linked ref, mannequins must be actors, cases containers). Its state is unknown.
+	// WRackTrigger linked ref, mannequins must be actors, cases containers). Its state is unknown. Never a
+	// bookshelf: without its script there is no telling how many books fit.
 	[[nodiscard]] std::optional<FoundDisplay> DeclaredDisplay(RE::TESObjectREFR* a_ref, core::DisplayKind a_kind);
 
 	// Built (not disabled, also through enable parents) and, for racks, its trigger has 3D.
 	[[nodiscard]] bool DisplayAvailable(const FoundDisplay& a_display);
 	// Nothing more goes on it: a rack's activator is disabled, a mannequin wears armor, a plaque's flag is
-	// set, a case holds every item it is made for.
+	// set, a case holds every item it is made for, a bookshelf has no room (core::BookshelfRoom).
 	[[nodiscard]] bool DisplayFull(const FoundDisplay& a_display);
-	// What a mannequin or a case holds.
+	// What a mannequin, a case or a bookshelf holds (a bookshelf: the books in its container).
 	[[nodiscard]] std::vector<RE::TESBoundObject*> DisplayHolds(const FoundDisplay& a_display);
+
+	// A bookshelf as its script holds it: MaxBooksAllowed, CurrentBookAmount, its PlacedBookNN slots, the
+	// markers linked to it (counted like the script's CountMaxBooks) and the books in its container.
+	[[nodiscard]] core::BookshelfState BookshelfStateOf(const FoundDisplay& a_shelf);
+	// The base forms on its PlacedBookNN slots (0: empty).
+	[[nodiscard]] std::vector<RE::FormID> BookshelfSlots(const FoundDisplay& a_shelf);
+	// Shows the books its script has on its slots, the way the script does when the player closes its menu:
+	// its triggers go to IgnoreBooks, the script's own UpdateBooks replaces the copies on the markers, and a
+	// moment after it returned the triggers go back to WaitForBooks. Runs on its own over the next frames
+	// (also if the player leaves): the status turns 1 when done, -1 if the script has no UpdateBooks or the VM
+	// can't be asked (the books then show the next time the player opens the shelf). While UpdateBooks has not
+	// returned the triggers stay in IgnoreBooks: then a book taken off the shelf stays counted (never a book
+	// destroyed because its copy was replaced).
+	[[nodiscard]] std::shared_ptr<std::atomic<int>> RefreshBookshelf(const FoundDisplay& a_shelf);
 
 	// What a rack takes beyond its RackType, from the Unofficial Patch's WeaponRackActivateSCRIPT and its
 	// trigger's nodes (nothing with the vanilla script): crossbows where the trigger has CrossbowPivot01;

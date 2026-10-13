@@ -1478,7 +1478,7 @@ namespace dova::ui::panel
 			ImGui::Unindent();
 			ImGui::EndDisabled();
 			apply |= ImGui::Checkbox("Put gear on the home's displays", &v.sorting.fillDisplays);
-			Help("Deposit and Sort all fill the displays you turned on with the hotkey (weapon racks, mannequins, plaques made for one item such as masks, claws, Elder Scrolls) with your best gear, one of each. Nothing is taken off a display.", "[Sorting] bFillDisplays");
+			Help("Deposit and Sort all fill the displays you turned on with the hotkey (weapon racks, mannequins, bookshelves, plaques made for one item such as masks, claws, Elder Scrolls) with your best gear and books, one of each. Nothing is taken off a display.", "[Sorting] bFillDisplays");
 			apply |= ImGui::Checkbox("Materials at the workbench", &v.sorting.craftingSupply);
 			Help("Sit down at a forge, smelter, tanning rack, cooking pot, alchemy lab, enchanter or any modded station in your home: the stored materials its recipes use come to you, and what you didn't use goes back when you get up. What you just made stays with you.", "[Sorting] bCraftingSupply");
 			ImGui::BeginDisabled(!v.sorting.craftingSupply);

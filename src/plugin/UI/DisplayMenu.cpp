@@ -21,6 +21,8 @@ namespace dova::ui
 				return "mannequin";
 			case core::DisplayKind::Case:
 				return "display case";
+			case core::DisplayKind::Bookshelf:
+				return "bookshelf";
 			default:
 				return "display";
 			}
@@ -31,11 +33,31 @@ namespace dova::ui
 			return core::IEquals(a_id, a_root) || (a_id.size() > a_root.size() && a_id[a_root.size()] == '.' && core::IEquals(a_id.substr(0, a_root.size()), a_root));
 		}
 
+		// The category root a display's picker starts from: weapons, armor, books.
+		std::string_view Root(core::DisplayKind a_kind)
+		{
+			switch (a_kind) {
+			case core::DisplayKind::Mannequin:
+				return "armor";
+			case core::DisplayKind::Bookshelf:
+				return "books";
+			default:
+				return "weapons";
+			}
+		}
+
 		// "Bows, Crossbows", "any weapon".
 		std::string Summary(const DisplayMenu& a_menu)
 		{
 			if (a_menu.categories.empty()) {
-				return a_menu.kind == core::DisplayKind::Mannequin ? "any armor" : "any weapon";
+				switch (a_menu.kind) {
+				case core::DisplayKind::Mannequin:
+					return "any armor";
+				case core::DisplayKind::Bookshelf:
+					return "any book";
+				default:
+					return "any weapon";
+				}
 			}
 			std::string out;
 			for (std::size_t i = 0; i < a_menu.categories.size(); ++i) {
@@ -107,6 +129,8 @@ namespace dova::ui
 			}
 		} else if (a_kind == core::DisplayKind::Mannequin) {
 			add("armor", [](const std::string& a_id) { return !IsUnder(a_id, "armor.shields"); });
+		} else if (a_kind == core::DisplayKind::Bookshelf) {
+			add("books", [](const std::string&) { return true; });
 		}
 		return out;
 	}
@@ -137,8 +161,7 @@ namespace dova::ui
 			return out;
 		}
 		if (!DisplayCategoryChoices(a_menu.kind).empty()) {
-			auto icon = a_menu.categories.empty() ? icons::ForCategory(a_menu.kind == core::DisplayKind::Mannequin ? "armor" : "weapons") :
-			                                        icons::ForPattern(a_menu.categories.front());
+			auto icon = a_menu.categories.empty() ? icons::ForCategory(std::string(Root(a_menu.kind))) : icons::ForPattern(a_menu.categories.front());
 			out.push_back({ std::format("Categories... ({})", Summary(a_menu)), std::move(a_openCategories), std::move(icon) });
 		}
 		if (a_menu.kind == core::DisplayKind::Mannequin) {

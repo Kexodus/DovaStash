@@ -19,7 +19,7 @@ namespace dova::ui
 		core::DisplayKind        kind{ core::DisplayKind::Rack };
 		bool                     used{ false };  // the layout uses it (Deposit and Sort all fill it)
 		bool                     full{ false };  // it holds something now
-		std::vector<std::string> categories;     // racks and mannequins: what they take (empty: anything that fits)
+		std::vector<std::string> categories;     // racks, mannequins, bookshelves: what they take (empty: anything that fits)
 	};
 
 	struct ArmorSetMenu;
