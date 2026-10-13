@@ -710,7 +710,10 @@ Books and each book category); *Armor set... (Auto)* for a mannequin (see *Manne
 plus what is stored; it also retries a display that failed earlier in the session, see *Filling*; a case is
 full once it holds every item it is made for, a bookshelf once its script has no room left); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
 does not turn it back on). Templates list the displays that should look hand-placed from the start. A
-display case or bookshelf the layout uses for storage opens the container menu instead.
+display case or bookshelf the layout uses for storage opens the container menu instead. The panel's *Displays* page
+(§10.1) lists every display of the home with its state and offers the same actions, plus *Use all racks* (or
+mannequins, plaques...): the displays not in the setup yet are added, ones turned off stay off
+(`Controller::UseDisplays`).
 
 **Finding them.** Displays are recognised from the scripts the game binds to them (read from the Papyrus VM;
 only a rack's own bookkeeping is written, see the table), in any home, with or without a template (`game::FindDisplays`):
@@ -1049,9 +1052,30 @@ struct IStashUI {
 
 - **MenuFrameworkUI:** chosen when `SKSEMenuFramework::IsInstalled()` returns true and the runtime is not VR. Uses
   `AddWindow` for the contextual stash panel and `SetSection`/`AddSectionItem("Dova Stash/...")` for a
-  global settings page, a template browser and an *Armor sets* page (every armor set in the load order,
-  searchable, assignable to a mannequin of the current home, §8.4 *Mannequins*). This is the rich editor:
-  category trees, multi-select binding, keep-rule quotas, and template export (§6.5).
+  global settings page, a template browser, an *Armor sets* page (every armor set in the load order,
+  searchable, assignable to a mannequin of the current home, §8.4 *Mannequins*) and a *Displays* page (below).
+  This is the rich editor: category trees, multi-select binding, keep-rule quotas, and template export (§6.5).
+  The section's pages: *This home* (the stash window's page), *Settings*, *Templates*, *Armor sets*,
+  *Displays*, *Diagnostics*, *About* (version, runtime, what is installed, and *Dova Stash Editor: installed
+  at <path>* when `Tools/DovaStashEditor.exe` sits in the plugin's mod folder, found from the DLL's own path).
+- **Displays page** (`UI/Panel/DisplaysPage.cpp`, `DisplaysModel.cpp`; §8.4). Every display Dova Stash
+  recognises in the current home's loaded cells (the player's cell and the home's other attached cells), plus
+  the setup's display entries it cannot see from there (*not loaded*): name, kind, area (multi-cell homes),
+  *used* / *not used* / *ignored*, not built, what it takes (categories, a mannequin's set or *Auto*,
+  preferred items, what a plaque or case is made for) and what it holds (*full* / *empty*, a mannequin's or
+  case's items, a placed plaque's item). A display case the setup uses for storage is not listed. Filters
+  (kind, status, contents), a search box and a sort order. A selected row has the display menu's actions:
+  *Use* / *Stop using*, *Categories* (the hotkey picker's choices, `ui::DisplayCategoryChoices`, as
+  checkboxes), *Armor set* for a mannequin (*Auto* or any set: the sets the player has first, a search over
+  every set, from the *Armor sets* page's data, `ui::ChooseArmorSet`), *Fill now* (only in the player's area,
+  as filling is); below the table, *Use all 12 racks...* per kind with displays not in the setup, after an
+  inline confirmation. Every action is a Controller call on the main thread, as from the hotkey: nothing is
+  taken off a display. Same threading as the other pages: the snapshot is built on the main thread and the
+  page only reads it. Looking for displays runs the VM's script lookups over every reference, so cells are
+  scanned only when the home's loaded cells change or on *Refresh*; the rebuild every few seconds while the
+  page is shown re-reads the found displays' state (a plaque's placed flag from its script). Kinds are handled
+  generically (`core::DisplayKindName`, the picker's choices per kind), so a new display kind shows up with no
+  change to the page.
 - **MessageBoxUI:** native `RE::MessageBoxData` chains with pagination. It covers every *essential* action
   (enable, restore a saved setup, bind categories, deposit, retrieve, keep defaults, save as template). Advanced editing on VR is done by editing
   JSON or by using a flat-screen session.

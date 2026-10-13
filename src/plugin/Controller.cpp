@@ -1192,6 +1192,41 @@ namespace dova
 		});
 	}
 
+	void Controller::UseDisplays(RE::FormID a_cellId, const std::vector<core::FormRef>& a_displays)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			return;
+		}
+		auto&       layout = *home->layout;
+		std::size_t added = 0;
+		for (const auto& display : a_displays) {
+			if (layout.FindDisplay(display)) {
+				continue;  // listed: used already, or turned off by the player
+			}
+			const auto* container = layout.FindContainer(display);
+			if (layout.IsMaster(display) || (container && !container->ignored)) {
+				continue;  // storage, not a display
+			}
+			core::DisplayBinding binding;
+			binding.ref = display;
+			binding.label = game::RefName(game::LookupRef(display));
+			layout.displays.push_back(std::move(binding));
+			++added;
+		}
+		if (added == 0) {
+			return;
+		}
+		RecordDisplayItems(layout);
+		SaveLayout(*home);
+		logger::info("{} display(s) in {} used now (panel)", added, home->name);
+		Notify(std::format("Dova Stash: {} display{} used now", added, added == 1 ? "" : "s"));
+	}
+
 	void Controller::Browse(RE::FormID a_cellId, const core::FormRef& a_container)
 	{
 		auto* home = Registry().CurrentIf(a_cellId);

@@ -6,6 +6,8 @@
 #include "Sort/SortEngine.h"
 #include "UI/Labels.h"
 #include "UI/Panel/ArmorSetsPage.h"
+#include "UI/Panel/DisplaysPage.h"
+#include "UI/Panel/EditorInfo.h"
 #include "UI/Panel/PanelModel.h"
 #include "UI/Panel/Strings.h"
 
@@ -1661,6 +1663,8 @@ namespace dova::ui::panel
 			Text(std::format("Categories: {}   Templates: {}", global->categoryCount, global->templates.size()));
 			Text(std::format("Hotkey: {}", global->hotkeyName));
 			Text(std::format("QuickLoot IE: {}   UIExtensions: {}", global->quickLootReady ? "yes" : "no", global->uiExtensions ? "yes" : "no"));
+			const auto& editor = EditorInstallPath();
+			Text(editor.empty() ? std::string(text::kAboutEditorMissing) : std::format(text::kAboutEditor, editor));
 			ImGui::Spacing();
 			ColoredWrapped(kGrey, "Data: Data/SKSE/Plugins/DovaStash/ (Categories, Templates, Layouts). Log: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log. Copies of your setups: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups");
 			ColoredWrapped(kGrey, "License: GPL-3.0-or-later. Uses the SKSE Menu Framework 3 API header (LGPL-2.1).");
@@ -1698,6 +1702,7 @@ namespace dova::ui::panel
 		SKSEMenuFramework::AddSectionItem(text::kItemSettings, RenderSettingsPage);
 		SKSEMenuFramework::AddSectionItem(text::kItemTemplates, RenderTemplatesPage);
 		SKSEMenuFramework::AddSectionItem(text::kItemArmorSets, RenderArmorSetsPage);  // UI/Panel/ArmorSetsPage.cpp
+		SKSEMenuFramework::AddSectionItem(text::kItemDisplays, RenderDisplaysPage);    // UI/Panel/DisplaysPage.cpp
 		SKSEMenuFramework::AddSectionItem(text::kItemDiagnostics, RenderDiagnosticsPage);
 		SKSEMenuFramework::AddSectionItem(text::kItemAbout, RenderAboutPage);
 		static auto* event = SKSEMenuFramework::AddEvent(OnFrameworkEvent, 0.0f);  // lives for the whole session
