@@ -15,7 +15,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]A master container as your inbox.[/b] [b]Deposit[/b] sends everything you aren't keeping to where it belongs. Items you drop into the master are sorted out of it right away.
 [*][b]37 keyword-driven categories.[/b] Weapons by type, armor by weight class, potions, ingredients, books, soul gems, ores, gems and more, defined in JSON. Items that KID gives vendor keywords sort without a patch.
 [*][b]Learns as you go.[/b] Put an item into a container by hand once and that container becomes its home. Enchanted variants count as the item they are made from. Changed your mind? Press [b]K[/b] within a few seconds to undo. After three items of one kind, Dova Stash asks once: "Send all Books to End Table?"
-[*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor. Your best weapons go up on the racks, and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down.
+[*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin, bookshelf or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor, a shelf for skill books. Your best weapons go up on the racks, your books on the shelves (as many as each holds, never more), and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down.
 [*][b]Dresses your mannequins.[/b] Each one wears your best matching armor set, or the set you pick from a searchable list of every set in your load order, modded sets included.
 [*][b]Materials at the workbench.[/b] At a home's forge, smelter, tanning rack, cooking pot, alchemy lab or enchanter, the materials stored in the home come to you, and what you don't use goes back when you're done. What you just made stays with you. Modded recipes and materials work too.
 [*][b]Homes over several areas.[/b] Add the cellar or the grounds outside to a home: walk out of it and press [b]K[/b]. The forge outside then brings what is stored inside, and Deposit works in every area. Your existing setups don't change.
@@ -38,7 +38,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]Homes with a template:[/b] walk in and you're told a setup is available. Press [b]K[/b] at any container to turn it on.
 [*][b]Any other home:[/b] look at a large chest that is always there, press [b]K[/b] and make it the [b]master[/b].
 [*]Then press [b]K[/b] at each other container and pick its [b]Categories...[/b], or skip that and put items away by hand once. Either way, the container becomes their home.
-[*]Mark anything you never want used (display cases, bookshelves) as [b]Ignore[/b]: it stays out for good. [b]Remove[/b] just forgets a container you set up by mistake.
+[*]Mark anything you never want used (a barrel that respawns, say) as [b]Ignore[/b]: it stays out for good. [b]Remove[/b] just forgets a container you set up by mistake.
 [*]Forge outside, chests inside? Walk out of the door and press [b]K[/b]: [b]Add this area to Lakeview Manor[/b], and give it a name ("Grounds"). Chests in another area are used when the game keeps them in memory (most Hearthfire chests, wardrobes and safes); sacks and barrels only from their own area.
 [/list]
 
@@ -123,7 +123,7 @@ No Menu Framework? Every option is in [font=Courier New]Data/SKSE/Plugins/DovaSt
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-08-template-authoring.png[/img][/center]
 
-A template is a small JSON file that says which container in a home holds which categories, and which racks and mannequins are filled with what, down to one weapon or armor set, even from other mods (a player without that mod still gets the rest of the template). Set a home up in game and choose [b]Save as template...[/b] in the hotkey menu (or the panel's Template tab), or use [font=Courier New]tools/esm_dump.py[/font] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] to find the containers and validate your file. The [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]template guide[/url] walks through it. Good templates for popular homes may be bundled, with credit.
+A template is a small JSON file that says which container in a home holds which categories, and which racks, mannequins and bookshelves are filled with what, down to one weapon or armor set, even from other mods (a player without that mod still gets the rest of the template). Set a home up in game and choose [b]Save as template...[/b] in the hotkey menu (or the panel's Template tab), or use [font=Courier New]tools/esm_dump.py[/font] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] to find the containers and validate your file. The [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]template guide[/url] walks through it. Good templates for popular homes may be bundled, with credit.
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-09-faq.png[/img][/center]
 

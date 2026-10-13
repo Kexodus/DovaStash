@@ -8,8 +8,8 @@ There are two ways to make one: set the home up in game and save it as a templat
 
 [list=1]
 [*]Walk into the home, look at the chest you want as the inbox, press [b]K[/b] and make it the [b]master[/b].
-[*]Look at each other container, press [b]K[/b], open [b]Categories...[/b] and pick what goes there. Mark anything you never want used for storage (scripted display cases, bookshelves) as [b]Ignore[/b].
-[*]Look at each weapon rack, mannequin and plaque you want filled, press [b]K[/b] and choose [b]Use this rack[/b] (or mannequin, display). Press [b]K[/b] again and open [b]Categories...[/b] to pick what a rack or mannequin takes.
+[*]Look at each other container, press [b]K[/b], open [b]Categories...[/b] and pick what goes there. Mark anything you never want used for storage as [b]Ignore[/b].
+[*]Look at each weapon rack, mannequin, bookshelf and plaque you want filled, press [b]K[/b] and choose [b]Use this rack[/b] (or mannequin, bookshelf, display). Press [b]K[/b] again and open [b]Categories...[/b] to pick what a rack, mannequin or bookshelf takes.
 [*]Deposit a full pack and check that everything lands where you expect.
 [*]Press [b]K[/b] at nothing (or at the master) and choose [b]Save as template...[/b]. Type a name (it starts as the home's name) and confirm. Your character is the author. In the SKSE Menu Framework, the [b]Template[/b] tab of [b]Dova Stash > This home[/b] does the same, with fields for the author and version.
 [/list]
@@ -73,35 +73,36 @@ Form references are written as [font=Courier New]"Plugin.esp|0x00ABCDEF"[/font]:
 Dova Stash refuses respawning containers in game, but not the others below. A good template marks all of them [font=Courier New]"ignored": true[/font] with a [b]note[/b] that says why:
 [list]
 [*][b]Respawning containers.[/b] Their contents can reset, and stored items would be lost.
-[*][b]Scripted bookshelves and display cases.[/b] They only take certain items and hand everything else back.
+[*][b]Scripted bookshelves and display cases.[/b] They only take certain items and hand everything else back. List them under displays instead (below).
 [*]Containers that are removed when the house is upgraded.
 [/list]
 Containers that only appear later, such as Hearthfire furniture you haven't built yet, are fine to bind. Dova Stash skips them until they exist.
 
 [size=4][b]Displays[/b][/size]
 
-Deposit puts the player's best gear on weapon racks, shield and dagger displays, mannequins, and plaques made for one item (dragon priest masks, claws, Elder Scrolls), but only on the displays that are turned on: by the player with the hotkey, or by your template. List the ones that should look hand-placed from the start:
+Deposit puts the player's best gear on weapon racks, shield and dagger displays, mannequins, and plaques made for one item (dragon priest masks, claws, Elder Scrolls), and books on bookshelves (as many as each holds), but only on the displays that are turned on: by the player with the hotkey, or by your template. List the ones that should look hand-placed from the start:
 
 [code]"displays": [
   {"ref": "MyHome.esp|0x00000D10", "label": "Bow rack",   "categories": ["weapons.bows"]},
   {"ref": "MyHome.esp|0x00000D11", "label": "Sword rack", "items": ["MyArmory.esp|0x00000D62", "Skyrim.esm|0x0002ACD2"], "only": true},
   {"ref": "MyHome.esp|0x00000D20", "label": "Mask wall"},
   {"ref": "MyHome.esp|0x00000D30", "label": "Mannequin",  "set": "Skyrim.esm|0x00013961"},
+  {"ref": "MyHome.esp|0x00000D40", "label": "Study shelf", "categories": ["books.skill", "books.spelltomes"]},
   {"ref": "MyHome.esp|0x00000D12", "ignored": true, "note": "Trophy wall: left for the player."}
 ][/code]
 
 Every entry has the same fields, in this order; all but [b]ref[/b] are optional:
 [list]
-[*][b]ref[/b]: the rack's activator, the plaque, the mannequin (the actor, not the trigger in front of it) or the display case. Dova Stash recognises the game's own racks and mannequins and most home mods' plaques by their scripts.
-[*][b]kind[/b]: only for a display Dova Stash doesn't recognise by itself: [font=Courier New]rack[/font], [font=Courier New]mannequin[/font], [font=Courier New]item[/font] (a plaque for one item) or [font=Courier New]case[/font].
-[*][b]categories[/b]: what a rack or mannequin takes, with the same ids as containers. Without it, anything that fits.
-[*][b]items[/b]: the items a rack or mannequin should get first.
-[*][b]only[/b]: [font=Courier New]true[/font] puts nothing but its [b]items[/b] on that rack or mannequin, and no other display takes them (here a rack that waits for the modded sword or Dawnbreaker).
+[*][b]ref[/b]: the rack's activator, the plaque, the mannequin (the actor, not the trigger in front of it), the display case or the bookshelf (its container, not the activator in front of it). Dova Stash recognises the game's own racks, mannequins and bookshelves and most home mods' plaques and shelves by their scripts.
+[*][b]kind[/b]: only for a display Dova Stash doesn't recognise by itself: [font=Courier New]rack[/font], [font=Courier New]mannequin[/font], [font=Courier New]item[/font] (a plaque for one item) or [font=Courier New]case[/font]. ([font=Courier New]bookshelf[/font] is accepted too, but a shelf is only filled when its script is recognised: that is where Dova Stash reads how many books fit.)
+[*][b]categories[/b]: what a rack, mannequin or bookshelf takes, with the same ids as containers. Without it, anything that fits (a bookshelf: any book but notes).
+[*][b]items[/b]: the items a rack, mannequin or bookshelf should get first.
+[*][b]only[/b]: [font=Courier New]true[/font] puts nothing but its [b]items[/b] on that rack, mannequin or bookshelf, and no other display takes them (here a rack that waits for the modded sword or Dawnbreaker).
 [*][b]set[/b]: the armor set a mannequin wears, named by any one of its pieces (here the Ebony Armor: the Ebony set). Without it, the mannequin wears the player's best matching set.
 [*][b]ignored[/b]: listed but not used. Players can still turn it on.
 [/list]
 
-[b]Items from other mods.[/b] A rack's or mannequin's items and a mannequin's set can come from any mod. Don't list those mods in [b]requires[/b]: for a player without one, Dova Stash skips its items, writes one line to the log (for example [font=Courier New]Template My Home: Sword rack: 1 item doesn't exist in this load order (MyArmory.esp|0x00000D62); skipped[/font]) and uses the rest of the template as usual. A rack with [b]only[/b] whose items all come from a missing mod, or a mannequin whose set does, stays empty.
+[b]Items from other mods.[/b] A rack's, mannequin's or bookshelf's items and a mannequin's set can come from any mod. Don't list those mods in [b]requires[/b]: for a player without one, Dova Stash skips its items, writes one line to the log (for example [font=Courier New]Template My Home: Sword rack: 1 item doesn't exist in this load order (MyArmory.esp|0x00000D62); skipped[/font]) and uses the rest of the template as usual. A rack with [b]only[/b] whose items all come from a missing mod, or a mannequin whose set does, stays empty.
 
 [b]Plaques and display cases[/b] (dragon priest masks, claws, Elder Scrolls) always take what the home's own script made them for: list them to turn them on, but don't give them [b]items[/b]. A template can't change what they hold; Dova Stash writes their items into the player's setup from the script.
 

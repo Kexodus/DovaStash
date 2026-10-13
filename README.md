@@ -15,9 +15,10 @@ No ESP is needed.
 - **Learns as you go:** put an item in a chest once, and that chest becomes its home. Enchanted variants
   count as the item they are made from; a learn can be undone for a few seconds; and after a few learned
   items of one kind, Dova Stash asks once whether the whole category should go there.
-- **Fills your displays:** turn a weapon rack, mannequin or item plaque (dragon priest masks, claws, Elder
-  Scrolls) on with the hotkey, pick the weapon or armor categories it takes, and Deposit puts your best
-  matching gear on it, as if placed by hand. Works in any home.
+- **Fills your displays:** turn a weapon rack, mannequin, bookshelf or item plaque (dragon priest masks, claws,
+  Elder Scrolls) on with the hotkey, pick the weapon, armor or book categories it takes, and Deposit puts your
+  best matching gear and books on it, as if placed by hand. A bookshelf gets as many books as it holds, never
+  more. Works in any home.
 - **Dresses your mannequins:** each wears your best matching armor set, or one you pick from a searchable
   index of every set in your load order, modded sets included.
 - **Materials at the workbench:** at a home's forge, smelter, tanning rack, cooking pot, alchemy lab or
@@ -29,7 +30,7 @@ No ESP is needed.
 - **Templates:** a ready-made setup per home, as shareable JSON. 22 are included (vanilla, Hearthfire and
   Creation Club homes). Save your own from inside the game (hotkey menu → Save as template...), learned
   items included, to share it or to get the setup back after a reset. A template can also pre-define the
-  home's racks and mannequins, down to the exact weapon or armor set, even from other mods: a missing mod's
+  home's racks, mannequins and bookshelves, down to the exact weapon or armor set, even from other mods: a missing mod's
   items are skipped (one line in the log) and the rest of the template still works.
 - **Setups backed up outside Data:** every change to a home's setup is also copied to
   `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups`, which MO2's overwrite cleanup never

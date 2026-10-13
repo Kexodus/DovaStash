@@ -94,7 +94,7 @@ worth sharing: open the saved setup, rename the labels, add notes, drop the lear
 | `cells` (multi-cell homes, DESIGN §6.7, `core::HomeCells`) | Cells joined from the Doors tab or the home list, with `label` and `note` |
 | `master` | *Make master* on a container; the draft suggests the first always-present, non-respawning chest |
 | `containers[]`: `label`, `note`, `categories`, `forms`, `ignored` | Details pane: label (default: the game name), note, category picker (tree from the loaded `Categories/*.json`, wildcards `weapons.*`), fixed item bindings (item search over the load order), *Ignore* with a reason note |
-| `displays[]`: `kind`, `label`, `note`, `categories`, `items`, `set`, `ignored` | Details pane on a rack, mannequin, plaque or case: *Use this display*, categories (weapon categories for racks, armor for mannequins), `items` prefilled from the plaque's script, `set` from the armor-set index (`core::BuildArmorSets` over the load order's ARMO, as the in-game *Armor sets* page) |
+| `displays[]`: `kind`, `label`, `note`, `categories`, `items`, `set`, `ignored` | Details pane on a rack, mannequin, plaque, case or bookshelf: *Use this display*, categories (weapon categories for racks, armor for mannequins, books for bookshelves), `items` prefilled from the plaque's script, `set` from the armor-set index (`core::BuildArmorSets` over the load order's ARMO, as the in-game *Armor sets* page) |
 | `keep` (`inherit`, `always`, `never`, `quotas`) | Keep rules tab, the same vocabulary as the panel's keep-rule editor |
 | Unknown keys, unparsed entries | Kept untouched (core preserves them) |
 | `learned`, `basedOn` (player layouts only) | Shown when a layout is opened; *Keep learned items as fixed bindings* on export (`core::ExportAsTemplate`) |
@@ -240,7 +240,7 @@ directories per cell). Archives are opened on the 3D view's loader threads, in p
 **M1 — 2D floor plan (first version in the scaffold).** Top-down, north up. Each reference is drawn from
 data already in the plugins: position, Z rotation, scale, and the base record's object bounds (OBND) as a
 footprint. Structure (statics) as faint outlines gives the room shapes; containers green (respawning
-red), racks blue, mannequins magenta, plaques/cases orange, doors yellow, furniture lavender. Wheel zoom,
+red), racks blue, mannequins magenta, plaques/cases/bookshelves orange, doors yellow, furniture lavender. Wheel zoom,
 right/middle-drag pan, a scale bar, a height range to isolate one floor of a tower, layer toggles, hover
 tooltips, click-to-select. To do in M1: automatic floors (clusters of floor heights), labels at higher
 zoom, selection synced with the tables, the role editor in the details pane, a marker for objects a later

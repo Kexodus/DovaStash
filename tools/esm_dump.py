@@ -995,11 +995,38 @@ def _display_items(lo: LoadOrder, props: dict) -> list[dict]:
     return items
 
 
+def _is_bookshelf_script(name: str, props: dict) -> bool:
+    """PlayerBookShelfContainerScript, or a home mod's copy of it (its book marker and trigger keywords)."""
+    return name.lower() == "playerbookshelfcontainerscript" or ("BookShelfBook01" in props and "BookShelfTrigger01" in props)
+
+
+def bookshelf_capacity(rec: Record, props: dict) -> int | None:
+    """How many books the shelf shows, as its script counts them on its first cell load (CountMaxBooks): the
+    markers linked with BookShelfBook01, BookShelfBook02... up to the first one missing. None if the script has
+    no BookShelfBook01 keyword."""
+    links = {}
+    for x in rec.get_all("XLKR"):
+        if len(x) >= 8:
+            kw, target = struct.unpack_from("<II", x)
+            if kw:
+                links[kl(rec.plugin.resolve(kw))] = target
+    n = 0
+    for i in range(1, 19):
+        v = props.get(f"BookShelfBook{i:02}")
+        if not (isinstance(v, tuple) and v[0] == "form"):
+            return None if i == 1 else n
+        if kl(v[1]) not in links:
+            return n
+        n += 1
+    return n
+
+
 def find_displays(lo: LoadOrder, cell_key, include_deleted=False) -> list[dict]:
     """Displays Dova Stash fills (DESIGN 8.4), as far as the plugin files show them: vanilla weapon racks
-    (WeaponRackActivateSCRIPT), mannequins (MannequinActivatorSCRIPT), plaques whose script points at items
-    ("item"; in game it also needs a 'placed' flag, which is rarely set in the plugin) and containers whose
-    script points at items ("case"; in game it also needs an OnItemAdded event)."""
+    (WeaponRackActivateSCRIPT), mannequins (MannequinActivatorSCRIPT), bookshelves
+    (PlayerBookShelfContainerScript and copies of it, with the number of books they show), plaques whose script
+    points at items ("item"; in game it also needs a 'placed' flag, which is rarely set in the plugin) and
+    containers whose script points at items ("case"; in game it also needs an OnItemAdded event)."""
     out = []
     refs = lo.cell_refs(cell_key, ("REFR", "ACHR"))
     for rec, _gtype in refs.values():
@@ -1022,6 +1049,10 @@ def find_displays(lo: LoadOrder, cell_key, include_deleted=False) -> list[dict]:
             props = rack["props"]
             rtype = 3 if props.get("Patch14COARacks") else props.get("RackType", 1)
             out.append({**d, "kind": "rack", "rackType": RACK_TYPES.get(rtype, f"unknown ({rtype})"), "script": rack["name"]})
+            continue
+        shelf = next((e for e in scripts.values() if base.type == "CONT" and _is_bookshelf_script(e["name"], e["props"])), None)
+        if shelf is not None:
+            out.append({**d, "kind": "bookshelf", "capacity": bookshelf_capacity(rec, shelf["props"]), "script": shelf["name"]})
             continue
         for entry in scripts.values():
             items = _display_items(lo, entry["props"])
@@ -1110,7 +1141,7 @@ LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requ
                "keep", "learned", "declined", "basedOn"}
 CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
 DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "only", "set", "ignored"}
-DISPLAY_KINDS = {"rack", "mannequin", "item", "case"}
+DISPLAY_KINDS = {"rack", "mannequin", "item", "case", "bookshelf"}
 
 
 def _as_list(v):
@@ -1310,11 +1341,19 @@ def check_layout(lo, doc, errors, warnings, category_ids):
                 warnings.append(f"{where}: 'set' is only used by mannequins (this is a {kind})")
             if kind in ("item", "case"):
                 if d.get("categories"):
-                    warnings.append(f"{where}: 'categories' are only used by racks and mannequins (this is a {kind})")
+                    warnings.append(f"{where}: 'categories' are only used by racks, mannequins and bookshelves (this is a {kind})")
                 if d.get("only") is True:
-                    warnings.append(f"{where}: 'only' is for racks and mannequins; an item plaque or case always takes just what it is made for")
+                    warnings.append(f"{where}: 'only' is for racks, mannequins and bookshelves; an item plaque or case always takes just what it is made for")
                 if d.get("items") and kl(key) in script_kinds and not player_layout:
                     warnings.append(f"{where}: an {kind} display takes what its script is made for; a template's 'items' are not used")
+            if kind == "bookshelf":
+                for j, item in enumerate(_as_list(d.get("items", []))):
+                    try:
+                        ik = parse_ref(item)
+                    except (ValueError, AttributeError):
+                        continue
+                    if ik[0].lower() in loaded and lo.lookup(ik, DISPLAY_ITEM_TYPES) is not None and lo.lookup(ik, ["BOOK"]) is None:
+                        warnings.append(f"{where}.items[{j}]: {fmt_ref(ik)} is not a book; a bookshelf only takes books")
 
     info = dict(info_optional)
     if not cell_key or missing_plugins:
@@ -1365,7 +1404,8 @@ def check_layout(lo, doc, errors, warnings, category_ids):
         if d["respawns"] and bound:
             errors.append(f"{where}: {fmt_ref(key)} ({d['baseEditorId']}) RESPAWNS - never bind it")
         if bound and "PlayerBookShelfContainerScript" in d.get("baseScripts", []):
-            warnings.append(f"{where}: {fmt_ref(key)} is a scripted bookshelf")
+            warnings.append(f"{where}: {fmt_ref(key)} is a scripted bookshelf (it holds a few books and hands the rest back): "
+                            "mark it ignored and list it under 'displays' instead")
         ep = d.get("enableParent") or {}
         divert = any(s.lower() == "byohdivertitemscript" for s in d.get("refScripts", []))
         if bound and ep.get("oppositeOfParent") and not divert:

@@ -286,10 +286,13 @@ namespace dova::editor::ui
 				ImGui::SetNextItemWidth(-FLT_MIN);
 				changed |= ImGui::InputText("##label", &d->label);
 				changed |= ImGui::Checkbox("Ignored (never filled)", &d->ignored);
-				const bool takesCategories = *r.display == core::DisplayKind::Rack || *r.display == core::DisplayKind::Mannequin;
+				const bool takesCategories = *r.display == core::DisplayKind::Rack || *r.display == core::DisplayKind::Mannequin ||
+				                             *r.display == core::DisplayKind::Bookshelf;
 				if (takesCategories && !d->ignored) {
 					changed |= CategoryEditor("dcats", d->categories);
-					ImGui::TextDisabled(*r.display == core::DisplayKind::Rack ? "Empty: any weapon that fits the rack." : "Empty: the mannequin picks an armor set.");
+					ImGui::TextDisabled(*r.display == core::DisplayKind::Rack      ? "Empty: any weapon that fits the rack." :
+					                    *r.display == core::DisplayKind::Bookshelf ? "Empty: the books most worth showing, no notes." :
+					                                                                 "Empty: the mannequin picks an armor set.");
 				}
 				if (!d->items.empty()) {
 					ImGui::TextDisabled("%zu items%s", d->items.size(), takesCategories ? "" : " (from its script)");

@@ -472,6 +472,39 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    `Display ...: made for 1 item(s) by its script; the template's list (2) is not used`), no `doesn't exist`
    line for it, and Deposit puts the mask (never the dagger) on it. `esm_dump.py check` on that file warns that a
    template's `items` for the plaque are not used.
+14. **Bookshelves.** Breezehome with the living room decorated (two shelves, 18 books each) and, with Hearthfire,
+   the alchemy laboratory (two shelves, 11 books each); Whitepeak Tower for a home mod's shelves. Store
+   everything, then give yourself books: `player.additem 0001B01C 1` (Advances in Lockpicking, a skill book),
+   `0001B276` (Three Thieves, skill), `000A270E` (Spell Tome: Lightning Storm), `000F68AC` (The Nightingales
+   Vol. 1, a plain book worth 500), `000F5CB2` (Paralysis Poison Recipe, a note), `0002D513` (the Elder Scroll
+   (Dragon)), a second Three Thieves, and a dozen cheap books (`help "Book" 4`).
+   - Aim at a living-room bookshelf (the shelf itself, where the game says *Book Shelf*), press the hotkey.
+     **Expected:** *Use this bookshelf*. Choose it: HUD *Book Shelf is used now*, nothing moves yet. The
+     hotkey again: *Categories... (any book)*, *Fill now*, *Stop using this bookshelf* (same in the message
+     boxes with UIExtensions off). The log has `Hotkey -> display menu: ... (bookshelf, used, empty)`.
+   - Deposit. **Expected:** the books appear on the shelf right away (no need to open it): the two skill
+     books' titles first, the spell tome, The Nightingales, then the cheap books by value; never the note,
+     the Elder Scroll, or the second Three Thieves; the rest is stored as usual. The log has
+     `Display: <shelf> takes 18 more books (its script counts 0 of 18; 18 markers, 0 inside)`, one
+     `Display: <book> from <player> on <shelf> (bookshelf)` per book and `<shelf>: its UpdateBooks placed
+     the books on their markers`. Activate the shelf: the game says how much room is left (18 minus what went
+     up), the menu lists exactly those books; close it: the books stay where they are.
+   - Take one book off the shelf by hand (activate it on the shelf). **Expected:** it is in your inventory and
+     no longer in the shelf's menu (the shelf's own trigger noticed, as without Dova Stash). Deposit: it goes
+     back up. *Fill now* is not offered on a full shelf.
+   - Use an alchemy-lab shelf (11 markers) with more books than fit stored or carried, *Fill now*. **Expected:**
+     exactly 11 books go up, no *There is no more room* message, nothing handed back; the shelf's menu lists 11.
+   - *Categories...* on the second living-room shelf: tick *Notes & recipes* only, *Fill now*: the recipe goes
+     up (and nothing else). Untick it, tick *Spell tomes*: nothing more goes up there (the spell tome is on the
+     first shelf: one copy of each title in the home).
+   - A shelf the layout stores items in (before loading the save, remove `"ignored": true` from the other
+     alchemy-lab shelf's entry in the home's layout file and give it `"categories": ["books.*"]`): the hotkey
+     at it opens the container menu, not the display menu, and nothing fills it as a display.
+   - Leave and come back: the books are still on the shelves, the shelves' menus list them; the books on the
+     shelf can be taken as usual.
+   - **Fail if** a shelf shows a book its menu doesn't list (or the other way around after reopening it), the
+     game says there is no more room, a book is handed back, the Elder Scroll or a note goes up uninvited, a
+     title appears twice in the home, or a book disappears (check the `Inventory:` journal lines). Send the log.
 
 ### 3.8 Materials at the workbench (DESIGN §8.5)
 

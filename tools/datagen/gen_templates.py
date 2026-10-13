@@ -2,7 +2,8 @@
 
 Ignored entries are derived automatically from the plugin data:
   * base CONT has the respawn flag                      -> ignored ("respawns")
-  * PlayerBookShelfContainer (scripted display shelf)   -> ignored
+  * PlayerBookShelfContainer (scripted display shelf)   -> ignored (never storage; a template may also list
+    it under "displays" as a bookshelf, kind "bookshelf", to have Deposit put books on it)
   * enabled only until a house upgrade (enable parent with "opposite" flag) and no Hearthfire
     divert script                                        -> ignored ("removed by an upgrade")
   * explicit extra ignores (quest/test containers)

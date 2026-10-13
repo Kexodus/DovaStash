@@ -246,7 +246,8 @@ On entering an eligible cell:
     {"ref": "Skyrim.esm|0x000EEEEE", "label": "Bow rack", "categories": ["weapons.bows"]},
     {"ref": "Skyrim.esm|0x000EEEF0", "label": "Sword rack", "items": ["MyArmory.esp|0x00000D62"], "only": true},  // only this sword; skipped without MyArmory.esp
     {"ref": "Skyrim.esm|0x000FFFFF", "kind": "item", "label": "Mask wall", "items": ["Skyrim.esm|0x00061CD6"]},  // what its script is made for
-    {"ref": "Skyrim.esm|0x000EEEEF", "label": "Mannequin", "set": "Skyrim.esm|0x00013961"}  // wears the Ebony set
+    {"ref": "Skyrim.esm|0x000EEEEF", "label": "Mannequin", "set": "Skyrim.esm|0x00013961"},  // wears the Ebony set
+    {"ref": "Skyrim.esm|0x000EEEF1", "label": "Book Shelf", "categories": ["books.skill"]}  // skill books, as many as fit
   ],
   "keep": {
     "inherit": true,
@@ -267,14 +268,16 @@ displays) is free text for people reading the file. Dova Stash never acts on a n
 container's note under its name, so that is where a template says why it ignores a container.
 
 A display entry has one shape in layouts and templates (§8.4, *Displays in templates*): `ref`, then the
-optional `kind`, `label`, `categories` (racks, mannequins), `items`, `only` (racks, mannequins), `set`
-(mannequins), `ignored` and `note`, written in that order. `set` names the armor set the mannequin wears by
+optional `kind`, `label`, `categories` (racks, mannequins, bookshelves), `items`, `only` (racks, mannequins,
+bookshelves), `set` (mannequins), `ignored` and `note`, written in that order (`kind` is `rack`, `mannequin`,
+`item`, `case` or `bookshelf`). `set` names the armor set the mannequin wears by
 any one of its pieces (an ARMO form; Dova Stash writes the set's first body piece). Without it the mannequin
-picks a set itself ("Auto"). `only` makes a rack or mannequin take nothing but its `items`. A rack's or
-mannequin's items and a set are soft references: one from a plugin that is not loaded is skipped (a template's
+picks a set itself ("Auto"). `only` makes a rack, mannequin or bookshelf take nothing but its `items`. A rack's,
+mannequin's or bookshelf's items and a set are soft references: one from a plugin that is not loaded is skipped (a template's
 get one info line in the log), and their plugins never belong in `requires`. An item plaque's or case's
 `items` are what its own script is made for, never a template's choice. `set` and `only` are optional fields
-of schema 1: an older DLL keeps them as unknown keys.
+of schema 1: an older DLL keeps them as unknown keys (and an entry whose `kind` it does not know, such as
+`bookshelf`, as it is).
 
 Files are written to be read by people: tabs, one line per container (fields lined up in columns), short
 lists on one line, anything longer than 200 columns spread over lines (`detail::Dump`). The shipped
@@ -693,20 +696,21 @@ Global defaults live in `DovaStash.ini`/`Settings.json`. A layout may override t
 
 ### 8.4 Displays
 
-Deposit and Sort all put gear on the displays the player uses, so the home looks as if the player had placed
+Deposit and Sort all put gear and books on the displays the player uses, so the home looks as if the player had placed
 it by hand (`[Sorting] bFillDisplays`, on by default). Dova Stash never takes anything off a display; the
 player takes things down as usual.
 
 **Turning them on.** A display is filled only when the layout lists it (and it is not `ignored`). The player
-aims the hotkey at a rack, a mannequin (or the activator in front of it), an item plaque or a display case,
-or at a weapon sitting on a rack, and gets a small menu (`ui::DisplayMenu`): *Use this rack* adds the entry
-(nothing goes up until Deposit or Sort all). Once used: *Categories...* picks what a rack or mannequin
-takes, like a container's categories (racks are offered All Weapons, each weapon category and Shields;
-mannequins the armor categories); *Armor set... (Auto)* for a mannequin (see *Mannequins* below); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
+aims the hotkey at a rack, a mannequin (or the activator in front of it), an item plaque, a display case or a
+bookshelf (or a book on it), or at a weapon sitting on a rack, and gets a small menu (`ui::DisplayMenu`):
+*Use this rack* (*... bookshelf*) adds the entry (nothing goes up until Deposit or Sort all). Once used:
+*Categories...* picks what a rack, mannequin or bookshelf takes, like a container's categories (racks are
+offered All Weapons, each weapon category and Shields; mannequins the armor categories; bookshelves All
+Books and each book category); *Armor set... (Auto)* for a mannequin (see *Mannequins* below); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
 plus what is stored; it also retries a display that failed earlier in the session, see *Filling*; a case is
-full once it holds every item it is made for); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
+full once it holds every item it is made for, a bookshelf once its script has no room left); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
 does not turn it back on). Templates list the displays that should look hand-placed from the start. A
-display case the layout uses for storage opens the container menu instead.
+display case or bookshelf the layout uses for storage opens the container menu instead.
 
 **Finding them.** Displays are recognised from the scripts the game binds to them (read from the Papyrus VM;
 only a rack's own bookkeeping is written, see the table), in any home, with or without a template (`game::FindDisplays`):
@@ -717,18 +721,22 @@ only a rack's own bookkeeping is written, see the table), in any home, with or w
 | `mannequin` | An actor running `MannequinActivatorSCRIPT` | Moving armor into its inventory; its script equips it |
 | `item` | A reference whose script holds playable items in its properties (or a form list of them) and a "placed" flag: the `ClawToPlace` display script that home mods copy for masks, claws, Elder Scrolls, books, artifacts | Bringing the item to the player and activating the plaque for the player, so the home's own script takes it and shows the model |
 | `case` | A container whose script holds playable items in its properties and handles `OnItemAdded` | Moving the items in; its script shows them |
+| `bookshelf` | A container running `PlayerBookShelfContainerScript` (vanilla and Hearthfire homes, Creation Club homes), or a home mod's copy of it: a script with `MaxBooksAllowed`, `CurrentBookAmount`, `PlacedBook01` and an `UpdateBooks` function (the Unofficial Patch's and Skyrim Souls' versions keep all of these). Checked before `case` (its `PlacedBookNN` slots hold books too). The player reaches it through the activator in front of it (`PlayerBookShelfClickTrigger`, linked with `BookShelfContainer`, which only activates the shelf) or a book standing on it (`game::BookshelfAt`). How the vanilla script works: on its first cell load it counts the markers linked to it with `BookShelfBook01`, `02`... up to the first missing (`MaxBooksAllowed`: 18 in Breezehome's living room, 11 in Hearthfire's alchemy laboratories). `OnItemAdded` (from the player's menu or a script alike) accepts a book while `CurrentBookAmount + count <= MaxBooksAllowed` and writes it into the first empty `PlacedBookNN` slot; anything else, and a book over the limit, goes back to the player with a message. The books only appear on their markers in `UpdateBooks` (each slot's copy is deleted and a plain copy placed at its marker with `PlaceAtMe`), which the script runs from `OnActivate` once its menu closes, with its `BookShelfTrigger01Ref`... triggers in `IgnoreBooks` meanwhile: in `WaitForBooks` a trigger removes a book from the shelf's container when its copy leaves the shelf (the player took it; the container's copy is destroyed, the player keeps the placed one) | Never more books than its room (`core::BookshelfRoom`: the smallest of `MaxBooksAllowed - CurrentBookAmount`, its empty slots among the first `MaxBooksAllowed`, and `MaxBooksAllowed` minus the books inside; never more than its markers; 0 until its cell first loaded), read again just before: moving the books into its container one by one, as the player puts them in, so its `OnItemAdded` writes each into a slot; Dova Stash checks the slots for each book (3 s). Then what the script does when its menu closes, without the menu or its messages (`game::RefreshBookshelf`): its triggers go to `IgnoreBooks`, the script's own `UpdateBooks` places the books on the markers, and 250 ms after it returned the triggers go back to `WaitForBooks` (while `UpdateBooks` has not returned they stay in `IgnoreBooks`: a book taken then stays counted, never one destroyed because its copy was replaced). A shelf whose script is busy (`PlacingBooks`, the Unofficial Patch's `PickingUp`) or has no `UpdateBooks` keeps the books in their slots; they show the next time the player opens it. A book the script hands back (it found no room after all) goes from the player back to where it came from; one it does not take within 3 s stays in the shelf's container, listed in its menu; either way Deposit and Sort all leave that shelf alone for the session (*Fill now* tries again) |
 
 Furniture and harvestables (chopping blocks list firewood and axes) are never displays. A container the
-layout uses for storage is not a case. `esm_dump.py cell` lists the displays it can see in the plugin files.
+layout uses for storage is not a case or a bookshelf (templates keep bookshelves in `containers` as `ignored`, so
+they are never storage, and may list them in `displays` too). `esm_dump.py cell` lists the displays it can see in the plugin files.
 
 **Layouts and templates** (`displays`, §6.3) list the displays in use, by `ref`. `categories` (patterns, as
-for containers) limits what a rack or mannequin takes; without it, anything that fits. `items` names preferred
-items for a rack or mannequin (`only`: nothing else goes on it), or what an item plaque or case is made for.
+for containers) limits what a rack, mannequin or bookshelf takes; without it, anything that fits (a bookshelf:
+any book but notes). `items` names preferred items for a rack, mannequin or bookshelf (`only`: nothing else goes
+on it), or what an item plaque or case is made for.
 When an item plaque or case is turned on (the hotkey, a template, or an entry without `items` found on
 arrival), Dova Stash writes the items its script is made for into `items`, so the entry shows, and keeps,
 exactly what goes on it; in a player layout, edit the list to change that. `set` (mannequins) is the armor set
 it wears, named by any of its pieces (see *Mannequins*). An entry for a display the scripts do not reveal needs
-`kind` (racks still need their `WRackTrigger` linked ref, mannequins must be actors, cases containers).
+`kind` (racks still need their `WRackTrigger` linked ref, mannequins must be actors, cases containers; a
+bookshelf is only ever recognised by its script, as how many books fit comes from it).
 `ignored` turns a listed display off. Applying a template merges the entries like containers (the player's
 `ignored` wins; the player's `kind`, `label`, `note`, `categories`, `items` (with their `only`) and `set` stay
 where the template gives none; displays only the player lists stay as they are).
@@ -741,11 +749,11 @@ order (one line per entry, fields lined up, like containers):
 | Field | Kinds | Meaning |
 |---|---|---|
 | `ref` | all | The display reference (rack activator, mannequin actor, plaque, case). Required |
-| `kind` | all | `rack`, `mannequin`, `item`, `case`; only needed for a display the scripts do not reveal |
+| `kind` | all | `rack`, `mannequin`, `item`, `case`, `bookshelf`; only needed for a display the scripts do not reveal |
 | `label`, `note` | all | The name players see; free text for people reading the file |
-| `categories` | rack, mannequin | Category patterns it takes |
-| `items` | all | Rack, mannequin: preferred items, chosen by the file. Item plaque, case: what its script is made for |
-| `only` | rack, mannequin | `true`: nothing but its `items` goes on it, and no other display takes them |
+| `categories` | rack, mannequin, bookshelf | Category patterns it takes |
+| `items` | all | Rack, mannequin, bookshelf: preferred items, chosen by the file. Item plaque, case: what its script is made for |
+| `only` | rack, mannequin, bookshelf | `true`: nothing but its `items` goes on it, and no other display takes them |
 | `set` | mannequin | The armor set it wears, by any one of its pieces |
 | `ignored` | all | Listed but never filled |
 
@@ -755,11 +763,12 @@ order (one line per entry, fields lined up, like containers):
   {"ref": "MyHome.esp|0x00000811", "label": "Sword rack",        "items": ["MyArmory.esp|0x00000D62", "Skyrim.esm|0x0002ACD2"], "only": true},
   {"ref": "MyHome.esp|0x00000812", "label": "Mannequin (left)",  "set": "MyArmor.esp|0x00000D70"},
   {"ref": "MyHome.esp|0x00000813", "label": "Mannequin (right)", "categories": ["armor.light"]},
-  {"ref": "MyHome.esp|0x00000814", "label": "Mask wall"}
+  {"ref": "MyHome.esp|0x00000814", "label": "Mask wall"},
+  {"ref": "MyHome.esp|0x00000815", "label": "Study bookshelf",   "categories": ["books.skill", "books.spelltomes"]}
 ]
 ```
 
-- **Soft references, only for what a template chose.** A rack's or mannequin's `items` and a mannequin's `set`
+- **Soft references, only for what a template chose.** A rack's, mannequin's or bookshelf's `items` and a mannequin's `set`
   may name forms of mods the player may not have. One from a plugin that is not loaded (or a form its plugin
   does not have) is skipped and the rest of the template works: the other items, the other displays, the
   containers. Such plugins never go in `requires` (`ReferencedPlugins` leaves display items and sets out,
@@ -781,9 +790,10 @@ order (one line per entry, fields lined up, like containers):
   `items` in their layout keeps working as before. Only for a display declared with `kind` whose script Dova
   Stash cannot read are the entry's `items` what it is made for.
 - **Lint** (`core::ValidateDisplays`, run by `ValidateTemplate` and mirrored by `esm_dump.py check`, warnings
-  only): `set` on a rack, plaque or case; `categories` or `only` on a plaque or case; `only` without `items`, or
-  next to `set` (the set decides); a display that is also the master or a container in use (it is storage, never
-  filled as a display).
+  only): `set` on a rack, plaque, case or bookshelf; `categories` or `only` on a plaque or case; `only` without
+  `items`, or next to `set` (the set decides); a display that is also the master or a container in use (it is
+  storage, never filled as a display). `esm_dump.py check` also warns about a bookshelf's `items` that are not
+  books, and about a bookshelf bound as storage.
 - Existing layouts and templates load and behave exactly as before (all fields optional; `only` is new and
   only written when set; `tests/ShippedTemplateTests.cpp` pins the shipped templates).
 
@@ -791,20 +801,28 @@ order (one line per entry, fields lined up, like containers):
 - Candidates are what Deposit would move from the player (never kept, worn, favorited or quest items) and
   everything movable in the managed containers. What goes on display is taken out of the deposit.
 - One copy of each base form on display in the whole home. Forms already shown (loose weapons and armor in
-  the cell, mannequin outfits, case contents) are not put up again.
-- Items an item plaque or a case is made for are reserved for it: racks and mannequins never take them
-  (a dragon priest mask waits for its plaque). So are the `items` of a rack or mannequin with `only`
-  (`DisplaySpot::only`): it takes nothing else, and no other rack or mannequin takes them.
-- A rack or mannequin with categories only takes items whose categories (every category the item matches,
+  the cell, mannequin outfits, case contents, the books on bookshelves) are not put up again.
+- Items an item plaque or a case is made for are reserved for it: racks, mannequins and bookshelves never take
+  them (a dragon priest mask waits for its plaque). So are the `items` of a rack, mannequin or bookshelf with
+  `only` (`DisplaySpot::only`): it takes nothing else, and no other display takes them.
+- A rack, mannequin or bookshelf with categories only takes items whose categories (every category the item matches,
   `CategorySet::MatchAll`, as containers use) match one of its patterns.
 - Item plaques swap the item for a model and recreate it when it is taken back, so they only get copies
   without extra data (`ItemInfo::customized`: tempered, renamed, enchanted by the player, poisoned). Their
   scripts remove "one of this item", so a plaque is also skipped while the player carries any such copy, or a
   worn or favorited one, that the script could take instead. Racks, mannequins and cases keep the very copy.
 - Order: item plaques, cases, mannequins with a chosen set or `only`, the other mannequins, shield racks, dagger racks,
-  racks without daggers or bows, large display cases, racks for any weapon. Each takes the best remaining
-  item: preferred items first, then Daedric artifacts, then the highest value; the player's copy before a
-  stored one.
+  racks without daggers or bows, large display cases, racks for any weapon, bookshelves. Each takes the best remaining
+  item: preferred items first, then Daedric artifacts, then (books) skill books, then spell tomes, then the highest
+  value; the player's copy before a stored one.
+- A bookshelf takes books only, up to its room (`DisplaySpot::room`, `core::BookshelfRoom`), and only books worth
+  showing (`core::BookshelfTakes`): never an Elder Scroll (`ItemInfo::elderScroll`: a model under
+  `Clutter\ElderScroll\`), never a copy with extra data of its own (`customized`: the script shows a plain copy
+  and destroys the stored one when the book is taken off the shelf), never what a plaque or case is made for;
+  without categories, no notes or letters (`bookIsNote`) unless it prefers them. Every bookshelf takes its own
+  preferred `items` before any shelf fills up with the rest, so a shelf filled first never takes another's. Books
+  already on a shelf count as shown (one copy of each title in the home); "rare" books are not known as such,
+  their value stands for it.
 - A mannequin gets one set (*Mannequins*), one piece per slot (head, hair, body, hands, forearms, feet,
   calves, circlet). Shields and jewelry other than circlets stay for other displays. A mannequin wearing
   anything is left alone, except one with a chosen set (or `only`) that wears only pieces of it (of its items).
@@ -852,7 +870,7 @@ mannequin* is all it takes; more control is one menu entry away, and the full li
 
 **Filling** (`display::Fill`, over the next frames after the sort's own moves): mannequins and cases at once,
 then racks one at a time (drop, out of sight until it is up, wait every 100 ms for 3D for at most 5 s, place, the script's bookkeeping a
-tick later, then wait at most 2 s for the rack's activator to be disabled, then show it), then item plaques one at a time (their scripts take the item from the inventory and enable the model; nothing is seen moving). A
+tick later, then wait at most 2 s for the rack's activator to be disabled, then show it), then item plaques one at a time (their scripts take the item from the inventory and enable the model; nothing is seen moving), then bookshelves one at a time (see the table). A
 rack whose activator stays enabled (one without `WeaponRackActivateSCRIPT`'s `PlayersDroppedWeapon`, whose
 trigger did not disable it) gets nothing: the weapon goes into the player's inventory, the HUD line says so,
 and Deposit and Sort all leave the rack alone for the session. A plaque that hands an item back (it was full)
@@ -1300,6 +1318,8 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
 - **Scripted containers:** containers with attached Papyrus scripts (bookshelves, display cases...)
   are never added by Learn, and binding one shows the warning "This container runs a script and may
   reject or return items". Detection reads the VM's attached-script table for the reference's handle.
+  Bookshelves and display cases are displays instead (§8.4): the hotkey at one opens the display menu (the
+  container menu only while the layout uses it for storage), so a bookshelf gets only the books that fit.
 - **Container ownership:** a container without its own owner inherits the cell's owner. A foreign
   cell owner rejects the container, except in a cell whose own location is a `LocTypePlayerHouse`
   (accepted by §9), where it is a warning.

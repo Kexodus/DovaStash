@@ -64,8 +64,9 @@ Each container entry:
   - `enableParent.oppositeOfParent: true` means the container *disappears* when its parent marker is
     enabled. These are usually pre-upgrade clutter. Do not bind them unless `refScripts` contains
     `BYOHDivertItemScript`, which moves their contents out before they disappear.
-- `displays` / `displayCounts`: the racks, mannequins, item plaques and display cases Dova Stash can fill
-  (DESIGN §8.4), with the rack type or the items each plaque or case is made for. Only the ones a layout
+- `displays` / `displayCounts`: the racks, mannequins, item plaques, display cases and bookshelves Dova Stash can
+  fill (DESIGN §8.4), with the rack type, the items each plaque or case is made for, or how many books a
+  bookshelf shows (`capacity`: the book markers linked to it, counted as its script counts them). Only the ones a layout
   lists are filled: copy the refs you want into the template's `displays`. In game an item plaque
   also needs a "placed" flag in its script and a case an `OnItemAdded` event; these are rarely visible
   in the plugin, so the list can be a little longer than what the game fills. Template `displays` entries
@@ -73,7 +74,8 @@ Each container entry:
 - `openedBy`: activators in front of this container that open it (a food shelf, a wine rack, a bookshelf
   trigger). Bind the container; Dova Stash shows it on the activator in game.
 - `baseScripts` / `refScripts`: attached Papyrus scripts. `PlayerBookShelfContainerScript` is a bookshelf
-  that only displays books and gives everything else back. Leave those out or mark them `"ignored": true`.
+  that only displays a few books and gives everything else back. Never bind it as storage: mark it
+  `"ignored": true` (the shipped templates do), and list it under `displays` to have books put on it.
 - `position` / `rotationZDeg`: in-game coordinates. Use them to work out which room a container is in.
 - `persistent`, `deleted`, `lockLevel`, `owner`.
 - `reachableFromOtherCells` (the same as `persistent`; header: `persistentCount`): in a home that spans several
@@ -101,12 +103,13 @@ format.) To write one from scratch:
 3. Pick a `master`, preferably a large, always-present, non-respawning chest. Bind the other containers to
    categories (see `dist/Data/SKSE/Plugins/DovaStash/Categories/00_Default.json` for the ids; wildcards like
    `weapons.*` are allowed). Mark dangerous containers with `"ignored": true` and a `"note"` that explains
-   why; keep `"label"` for the short name players see. List the racks, mannequins and item plaques that
-   should be filled in `displays` (the `cell` output's `displays` has their refs); players turn the others
+   why; keep `"label"` for the short name players see. List the racks, mannequins, bookshelves and item plaques
+   that should be filled in `displays` (the `cell` output's `displays` has their refs); players turn the others
    on with the hotkey. Each entry has the same fields, in this order: `ref`, `kind` (only for a display
-   Dova Stash can't recognise), `label`, `categories` (what a rack or mannequin takes, like a container's),
-   `items` (what a rack or mannequin gets first), `only` (`true`: nothing but its `items`, which no other
-   display takes), `set` (a mannequin's armor set, named by any of its pieces; `check` makes sure it is an
+   Dova Stash can't recognise: `rack`, `mannequin`, `item`, `case`; a bookshelf is only filled when its script
+   is recognised, so `bookshelf` adds nothing), `label`, `categories` (what a rack, mannequin or bookshelf takes,
+   like a container's), `items` (what a rack, mannequin or bookshelf gets first), `only` (`true`: nothing but
+   its `items`, which no other display takes), `set` (a mannequin's armor set, named by any of its pieces; `check` makes sure it is an
    ARMO), `ignored`, `note` (DESIGN §8.4, *Displays in templates*). Items and sets may come from other mods:
    where a mod is missing they are skipped with one info line in `DovaStash.log`, and the rest of the
    template works. Plaques and cases always take what their own script is made for: list them without
@@ -128,10 +131,11 @@ format.) To write one from scratch:
      unknown categories, display entries that point at nothing in the cell, and plugins that are missing
      from `requires`. Display items and sets from plugins that are not loaded are listed in
      `optionalPlugins` instead (they are optional); from a loaded plugin they must exist.
-   - It warns about bookshelves, containers that disappear on upgrade, and a master that starts disabled,
-     and about display fields the display's kind doesn't use (`set` on a rack; `categories`, `only` or, in a
-     template, `items` on a plaque or case), `only` without `items` or next to `set`, and a display that is
-     also the master or a container in use.
+   - It warns about bookshelves bound as storage, containers that disappear on upgrade, and a master that starts
+     disabled, and about display fields the display's kind doesn't use (`set` on a rack or bookshelf;
+     `categories`, `only` or, in a template, `items` on a plaque or case), a bookshelf's `items` that are not
+     books, `only` without `items` or next to `set`, and a display that is also the master or a container in
+     use.
    - `//` and `/* */` comments are allowed, as in game.
 
 Plugin names in form refs use the plugin's own file name, for example `ccBGSSSE001-Fish.esm` as written in
@@ -161,7 +165,8 @@ The scripts that produce the shipped data:
   building-material form lists from the plugins.
 - `datagen/gen_templates.py` writes `Templates/Vanilla/*.json` and `Templates/CreationClub/*.json`. The
   container-to-category bindings in it are hand-picked. The `"ignored"` entries are derived from the plugin
-  data: respawning containers, scripted bookshelves, and containers removed by upgrades. They are labelled
+  data: respawning containers, scripted bookshelves (never storage; a template may list them under
+  `displays` too), and containers removed by upgrades. They are labelled
   with the container's game name, and the reason goes in `"note"`. The output is laid out by
   `datagen/jsonfmt.py` (`align=True`): one line per container, fields lined up in columns, like the files the
   DLL writes.

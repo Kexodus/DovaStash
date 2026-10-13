@@ -437,6 +437,8 @@ namespace dova::editor::home
 				if (type >= 1 && type <= 5) {
 					r.rackType = static_cast<core::RackType>(type);
 				}
+			} else if (r.baseType == kCONT && findScript("PlayerBookShelfContainerScript")) {
+				r.display = core::DisplayKind::Bookshelf;
 			} else if (r.baseType == MakeSig("ACTI") || r.baseType == kCONT || r.baseType == MakeSig("MSTT") || r.baseType == MakeSig("STAT")) {
 				for (const auto& s : scripts) {
 					auto items = DisplayItems(a_lo, s);
