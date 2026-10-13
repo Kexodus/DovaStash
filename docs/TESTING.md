@@ -209,6 +209,52 @@ copies next to a special copy stay where they are (`Move skipped: ... left in ..
 6. Store something in the **master** itself. Nothing is learned (`ignored (master)` or no log line).
 7. Our own moves are never learned. During Deposit, Distribute and Retrieve, no `Learn:` lines appear.
 
+### 3.3a Undo, item families, category suggestion (DESIGN §8.6)
+
+Defaults: `iSuggestCategoryAfter = 3`, `iLearnUndoSeconds = 5` (both on the settings page under *Learn
+where you put things by hand*, live).
+
+1. **Undo.** Put a Dwarven Gyro into the end table by hand and close the menu. HUD: *Dova Stash: Dwarven
+   Gyro now goes to End Table (K: undo)*. Press **K** within 5 s (aimed at anything, or at nothing).
+   HUD: *Dova Stash: undone, Dwarven Gyro is not learned*; the log has `Learn: 1 learn(s) undone in
+   Breezehome`; the layout file has no `learned` entry for it, and the end table is gone from
+   `containers` again (it only entered the setup with that learn). Repeat and wait 6 s before pressing K:
+   the hotkey opens the usual menu, nothing is undone.
+2. Put three different items in at once and close. HUD: *3 items now go to End Table (Gyro, ...) (K:
+   undo)*. K within 5 s undoes all three.
+3. **Families.** `help "Iron Sword of" 4 WEAP` lists the enchanted iron swords (made from the Iron Sword,
+   `00012EB7`); add one ("of Burning") and one more ("of Scorching"). Put the first into the end table by
+   hand. Log: `Learn: Iron Sword of Burning ... -> End Table: recorded (as Iron Sword ...)`; the layout's
+   `learned` has the **Iron Sword's** ref (`Skyrim.esm|0x00012EB7`), not the enchanted one's. Then put a
+   plain Iron Sword and the second enchanted one into the master: both move to the end table (*sorted 2
+   items into 1 container*). Put the plain Iron Sword into the cupboard (`weapons.*`) by hand: `Learn: ...
+   removed (container is the natural destination)`, the entry is gone, and the enchanted ones go to the
+   cupboard again.
+4. **Suggestion.** Clean slate; three different ordinary books (`help book 4 BOOK`, or take them off
+   Breezehome's shelves). Put the first two into the end table by hand and close
+   it: no question (2 < 3). Put the third in and close. ~5.5 s after closing (the undo window must pass
+   first; with `iLearnUndoSeconds = 0` right after the close animation) a message box asks *Dova Stash:
+   send all Books to End Table?* with **Yes** / **No**. Not while any menu is open; never while a sort
+   runs. Log: `Learn: asking whether all books.other go to End Table (3 learned)`.
+   - **Yes.** HUD: *Dova Stash: End Table now takes Books*. The layout: the end table has
+     `"categories": ["books.other"]` and the three books are gone from `learned` (log: `... (3 learned
+     item(s) now covered by it dropped)`). A book put into the master goes to the end table by category.
+   - **No** (or Esc). Nothing on the HUD; the layout has `"declined": {"<end table ref>": ["books.other"]}`.
+     Put a fourth book in: no question. Panel → Containers → End Table: *Not asked again for: Books*
+     **Ask again** removes it; the next book put in asks again.
+   - A fourth kind: put three potions into a container another container already takes with the exact
+     `alchemy.potions`: no question (an exact binding elsewhere). With `alchemy.*` elsewhere instead: the
+     question comes (the exact binding wins by specificity, 3.4 shows the potions then go to the end table).
+   - The panel's container page shows the same question (*Dova Stash: send all Books to End Table? (3
+     learned items)*) with **Yes** / **No, don't ask again** while it is pending.
+5. **Save as template** with learned items: the template has no `declined` (and `esm_dump.py check` warns
+   if one is put in by hand). **Use template** over the layout keeps the `declined` entries of containers
+   still in the setup.
+6. **QuickLoot IE.** Deposit from the master with a weapon that goes to the cupboard, then within 5 s open
+   the cupboard with QuickLoot (no E) and take the weapon. The log has **no** `... came back from ... (a
+   script returns it)` line, and the next Deposit moves it again. (Before: it was marked as returning and
+   never moved again that session.)
+
 ### 3.4 Sort all and Retrieve by category
 
 1. Unbind the cupboard (Assign → Weapons → All Weapons toggles off), and bind it to *Weapons → Swords* only.
@@ -653,6 +699,12 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 2. **Remove** drops one entry. The layout JSON no longer has it, and the next Distribute uses
    categories again for that item.
 3. With nothing learned, the tab shows the explanation text.
+4. **Stale entries.** Ignore a container with learned items (3.5): its rows read *<container>
+   (ignored)* in yellow, and the tab says *N of these point at a container that is no longer used, so
+   they do nothing.* with **Forget those (N)...** → **Yes** removes exactly those (HUD: *forgot N learned
+   items*); the others stay. A learned entry for an unbuilt Hearthfire chest reads its reason in grey
+   (*not built yet*) and is not counted or removed. In a multi-cell home, an entry for a container out
+   of reach from this area is not marked.
 
 ### 5.5 Keep rules tab
 
@@ -801,7 +853,7 @@ skin in MO2). Dova Stash must work the same with both.
 | 6.7.1 | Bind a container to Weapons, put spears, bows, then daggers in it | Its floating icon stays the Weapons category icon the whole time. The master shows SkyUI's "All" icon. |
 | 6.7.2 | Open the master (Skyrim Souls: game keeps running), drop three items in, keep the menu open | ~0.4 s after the last item, they leave the master for their containers; the open menu updates; one notification. |
 | 6.7.3 | Hotkey at a container -> Rename... -> type "Potions" | The activate prompt, the container menu title, QuickLoot's title and the lists all say "Potions". Rename to an empty name: the original name comes back. |
-| 6.7.4 | Put an Iron Sword by hand into a managed container that is not for weapons | Notification "Iron Sword now goes to <container>". Hotkey at it -> Learned items (1)... -> Forget Iron Sword removes it. |
+| 6.7.4 | Put an Iron Sword by hand into a managed container that is not for weapons | Notification "Iron Sword now goes to <container> (K: undo)". Hotkey at it (after the 5 s undo window) -> Learned items (1)... -> Forget Iron Sword removes it. |
 | 6.7.5 | QuickLoot on a container holding items that belong elsewhere | Those items read "Iron Sword  >  Weapon Rack" in QuickLoot's list; items that belong there are unchanged. |
 | 6.7.6 | Open Advanced... (Menu Framework window), press Esc | The window closes. It always opens centred and fully on screen, with Close at the top. Floating icons hide while it is open. |
 | 6.7.7 | QuickLoot on the master, then on a container bound to Weapons, Armor and Alchemy | The master shows "Master" bottom-right. The bound container shows three category icons (your SkyUI/I4 art) bottom-right in binding order, no text, clear of the weight readout; with more than 5 categories the rest show as "+N". The button reads "Stash". |

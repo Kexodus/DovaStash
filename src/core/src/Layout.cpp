@@ -602,6 +602,42 @@ namespace dova::core
 						a_diags.Warn(source, "learned[\"" + formText + "\"]: duplicate entry (same form spelled differently); the first is used");
 					}
 				}
+			} else if (key == "declined") {
+				// Turned-down category suggestions (Learning.h): container ref -> category ids. A value of the
+				// wrong shape is kept verbatim, never dropped.
+				if (!value.is_object()) {
+					a_diags.Error(source, "declined: expected an object, got " + detail::TypeName(value) + " (kept verbatim)");
+					layout.extra[key] = value;
+					continue;
+				}
+				for (const auto& [refText, idsValue] : value.items()) {
+					auto ref = FormRef::Parse(refText);
+					bool ok = ref.has_value() && idsValue.is_array();
+					std::vector<std::string> ids;
+					if (ok) {
+						for (const auto& id : idsValue) {
+							if (!id.is_string() || id.get<std::string>().empty()) {
+								ok = false;
+								break;
+							}
+							const auto text = id.get<std::string>();
+							if (std::ranges::none_of(ids, [&](const std::string& e) { return IEquals(e, text); })) {
+								ids.push_back(text);
+							}
+						}
+					}
+					if (!ok) {
+						a_diags.Error(source, "declined[\"" + refText + "\"]: expected a container reference and a list of category ids (kept verbatim)");
+						layout.unparsedDeclined[refText] = idsValue;
+						continue;
+					}
+					auto& list = layout.declined[*ref];
+					for (auto& id : ids) {
+						if (std::ranges::none_of(list, [&](const std::string& e) { return IEquals(e, id); })) {
+							list.push_back(std::move(id));
+						}
+					}
+				}
 			} else {
 				a_diags.Warn(source, "unknown field \"" + key + "\" (preserved)");
 				layout.extra[key] = value;
@@ -680,6 +716,18 @@ namespace dova::core
 			}
 			AppendExtra(learned, a_layout.unparsedLearned);
 			out["learned"] = std::move(learned);
+		}
+		if (!a_layout.declined.empty() || !a_layout.unparsedDeclined.empty()) {
+			ojson declined = ojson::object();
+			for (const auto& [container, ids] : a_layout.declined) {
+				if (!ids.empty()) {
+					declined[container.ToString()] = ids;
+				}
+			}
+			AppendExtra(declined, a_layout.unparsedDeclined);
+			if (!declined.empty()) {
+				out["declined"] = std::move(declined);
+			}
 		}
 		if (a_layout.basedOn) {
 			out["basedOn"] = *a_layout.basedOn;

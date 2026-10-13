@@ -47,6 +47,12 @@ namespace dova::ui::panel
 		std::size_t              learnedCount{ 0 };
 		std::map<std::string, std::int32_t> learnedByCategory;  // learned items per primary category id
 		std::string              learnedText;  // their category names, most items first ("Books, Potions")
+		// Category suggestion (DESIGN §8.6): the category a few learned items share that this container does
+		// not bind yet ("" = none), its display name and how many learned items it covers.
+		std::string              suggestionCategory;
+		std::string              suggestionName;
+		std::int32_t             suggestionCount{ 0 };
+		std::vector<std::pair<std::string, std::string>> declined;  // suggestions turned down: (id, display name)
 		bool                     master{ false };
 		bool                     managed{ false };  // has a binding entry (or is the master)
 		bool                     ignored{ false };
@@ -77,6 +83,11 @@ namespace dova::ui::panel
 		std::string   containerText;
 		std::string   containerLabel;
 		bool          containerManaged{ false };
+		// Why the entry does nothing right now ("" = it works): the container is no longer used (`unused`: not
+		// in the setup, ignored, or the master; what "Forget those" removes), or it fails the safety checks
+		// (not loaded, not built yet...). Out of reach from this area of a multi-cell home is not stale.
+		std::string   stale;
+		bool          unused{ false };
 	};
 
 	struct TemplateOption
@@ -130,6 +141,8 @@ namespace dova::ui::panel
 		std::vector<ContainerRow>  containers;  // master first, then bindings, then the focus container if unmanaged
 		std::optional<std::size_t> masterRow;
 		std::vector<LearnedRow>    learned;
+		std::size_t                learnedUnused{ 0 };  // rows with `unused`
+		std::size_t                learnedStale{ 0 };   // rows with a `stale` reason (unused ones included)
 		std::vector<TemplateOption> templates;  // eligible templates for this cell, best first
 		std::vector<std::string>   layoutWarnings;  // ValidateLayoutCategories on the current layout
 		// Saved setups outside Data: the latest copy first, then history, newest first. Listed on a full

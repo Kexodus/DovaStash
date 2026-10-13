@@ -510,3 +510,121 @@ TEST_CASE("Smart Learn keeps learned data minimal", "[planner][learn]")
 	CHECK(Learn(layout, bow, kMaster, categories) == LearnResult::RejectedMaster);
 	CHECK(Learn(layout, bow, kDisplay, categories) == LearnResult::RejectedIgnored);
 }
+
+TEST_CASE("Item families: variants follow their root item's learned and explicit destinations", "[planner][learn][family]")
+{
+	Fixture    f;
+	const auto ironSword = Weapon(Sk(0x80), WeaponType::OneHandSword);
+	auto       burning = Weapon(Sk(0x81), WeaponType::OneHandSword);  // "Iron Sword of Burning": made from 0x80
+	burning.family = Sk(0x80);
+
+	// Nothing learned: both go to the armory by category.
+	CHECK(f.Dest(burning)->container == kArmory);
+
+	// The plain sword learned for the loose chest: the enchanted variant follows.
+	f.layout.learned.emplace(Sk(0x80), kLooseChest);
+	auto d = f.Dest(burning);
+	REQUIRE(d);
+	CHECK(d->container == kLooseChest);
+	CHECK(d->reason == Destination::Reason::Learned);
+
+	// An entry for the variant itself (older data) wins over the family's.
+	f.layout.learned.emplace(Sk(0x81), kValuables);
+	CHECK(f.Dest(burning)->container == kValuables);
+	CHECK(f.Dest(ironSword)->container == kLooseChest);
+	f.layout.learned.clear();
+
+	// A fixed item binding of the root item takes its variants too (templates' learnedAsForms).
+	f.layout.containers[2].forms.push_back(Sk(0x80));  // satchel
+	d = f.Dest(burning);
+	REQUIRE(d);
+	CHECK(d->container == kSatchel);
+	CHECK(d->reason == Destination::Reason::Explicit);
+	// ... unless the variant itself is bound somewhere.
+	f.layout.containers[4].forms.push_back(Sk(0x81));  // valuables
+	CHECK(f.Dest(burning)->container == kValuables);
+	CHECK(f.Dest(ironSword)->container == kSatchel);
+}
+
+TEST_CASE("Learning a variant records its family root and drops the variant's own entry", "[planner][learn][family]")
+{
+	const auto categories = CompileCategories(kStandardCategories);
+	auto       layout = MakeLayout();
+	auto       burning = Weapon(Sk(0x81), WeaponType::OneHandSword);
+	burning.family = Sk(0x80);
+	const auto ironSword = Weapon(Sk(0x80), WeaponType::OneHandSword);
+
+	LearnUndo undo;
+	CHECK(Learn(layout, burning, kLooseChest, categories, &undo) == LearnResult::Recorded);
+	CHECK(layout.learned.size() == 1);
+	CHECK(layout.learned.at(Sk(0x80)) == kLooseChest);  // keyed by the root item
+	CHECK(undo.key == Sk(0x80));
+	CHECK_FALSE(undo.previous);
+	CHECK_FALSE(undo.containerAdded);
+	// Every variant and the plain sword now go there.
+	CHECK(SortPlanner(layout, categories).ResolveDestination(ironSword)->container == kLooseChest);
+	CHECK(SortPlanner(layout, categories).ResolveDestination(burning)->container == kLooseChest);
+
+	// Already there: unchanged. Back to the armory (its category destination): the family entry goes.
+	CHECK(Learn(layout, burning, kLooseChest, categories) == LearnResult::Unchanged);
+	CHECK(Learn(layout, burning, kArmory, categories) == LearnResult::Removed);
+	CHECK(layout.learned.empty());
+
+	// Older data for the variant itself is replaced by the family's entry (and comes back on undo).
+	layout.learned.emplace(Sk(0x81), kValuables);
+	CHECK(Learn(layout, burning, kLooseChest, categories, &undo) == LearnResult::Recorded);
+	CHECK(layout.learned.size() == 1);
+	CHECK(layout.learned.at(Sk(0x80)) == kLooseChest);
+	REQUIRE(undo.variantWas);
+	CHECK(undo.variantWas->first == Sk(0x81));
+	UndoLearn(layout, undo);
+	CHECK(layout.learned.size() == 1);
+	CHECK(layout.learned.at(Sk(0x81)) == kValuables);
+
+	// Putting a variant where its category sends it anyway also clears the variant's stale entry.
+	CHECK(Learn(layout, burning, kArmory, categories) == LearnResult::Removed);
+	CHECK(layout.learned.empty());
+}
+
+TEST_CASE("UndoLearn restores the entry and removes a container the learn added", "[planner][learn][undo]")
+{
+	const auto categories = CompileCategories(kStandardCategories);
+	auto       layout = MakeLayout();
+	const auto before = layout;
+	const auto book = MakeItem(Sk(0x90), ItemType::Book);
+
+	// New container, new entry: undo leaves the layout exactly as it was.
+	LearnUndo undo;
+	CHECK(Learn(layout, book, kUnmanaged, categories, &undo) == LearnResult::Recorded);
+	CHECK(undo.containerAdded);
+	CHECK(layout.FindContainer(kUnmanaged));
+	UndoLearn(layout, undo);
+	CHECK_FALSE(layout.FindContainer(kUnmanaged));
+	CHECK(layout.learned.empty());
+	CHECK(SerializeLayout(layout) == SerializeLayout(before));
+	UndoLearn(layout, undo);  // twice: still the same
+	CHECK(SerializeLayout(layout) == SerializeLayout(before));
+
+	// Updated entry: undo brings the previous destination back.
+	layout.learned.emplace(Sk(0x90), kLooseChest);
+	CHECK(Learn(layout, book, kValuables, categories, &undo) == LearnResult::Updated);
+	REQUIRE(undo.previous);
+	CHECK(*undo.previous == kLooseChest);
+	UndoLearn(layout, undo);
+	CHECK(layout.learned.at(Sk(0x90)) == kLooseChest);
+
+	// Removed (the item went back to its natural place): undo restores the stale entry.
+	const auto bow = Weapon(Sk(0x70), WeaponType::Bow);
+	layout.learned.emplace(Sk(0x70), kLooseChest);
+	CHECK(Learn(layout, bow, kBowRack, categories, &undo) == LearnResult::Removed);
+	CHECK_FALSE(layout.learned.contains(Sk(0x70)));
+	UndoLearn(layout, undo);
+	CHECK(layout.learned.at(Sk(0x70)) == kLooseChest);
+
+	// A container the learn added stays when it has gained a category or another learned item meanwhile.
+	CHECK(Learn(layout, book, kUnmanaged, categories, &undo) == LearnResult::Updated);
+	layout.FindContainer(kUnmanaged)->categories.push_back("keys");
+	UndoLearn(layout, undo);
+	CHECK(layout.FindContainer(kUnmanaged));
+	CHECK(layout.learned.at(Sk(0x90)) == kLooseChest);
+}

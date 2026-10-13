@@ -14,7 +14,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]Any home.[/b] Vanilla, Hearthfire, Creation Club or mod-added. There's no whitelist: a home qualifies when you own it, it's a player house, or nobody owns it.
 [*][b]A master container as your inbox.[/b] [b]Deposit[/b] sends everything you aren't keeping to where it belongs. Items you drop into the master are sorted out of it right away.
 [*][b]37 keyword-driven categories.[/b] Weapons by type, armor by weight class, potions, ingredients, books, soul gems, ores, gems and more, defined in JSON. Items that KID gives vendor keywords sort without a patch.
-[*][b]Learns as you go.[/b] Put an item into a container by hand once and that container becomes its home.
+[*][b]Learns as you go.[/b] Put an item into a container by hand once and that container becomes its home. Enchanted variants count as the item they are made from. Changed your mind? Press [b]K[/b] within a few seconds to undo. After three items of one kind, Dova Stash asks once: "Send all Books to End Table?"
 [*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor. Your best weapons go up on the racks, and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down.
 [*][b]Dresses your mannequins.[/b] Each one wears your best matching armor set, or the set you pick from a searchable list of every set in your load order, modded sets included.
 [*][b]Materials at the workbench.[/b] At a home's forge, smelter, tanning rack, cooking pot, alchemy lab or enchanter, the materials stored in the home come to you, and what you don't use goes back when you're done. What you just made stays with you. Modded recipes and materials work too.
@@ -97,7 +97,7 @@ Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right
 [list]
 [*]Hotkeys, keyboard and gamepad
 [*]What the hotkey opens: UIExtensions lists, message boxes or the panel
-[*]Sort on arrival, sort when the master closes, learning, filling displays
+[*]Sort on arrival, sort when the master closes, learning (undo time, when to suggest a category), filling displays
 [*]Enable templates automatically
 [*]QuickLoot IE: item tags and category icons
 [*]Activate prompt and floating icons

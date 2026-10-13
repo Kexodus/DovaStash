@@ -12,7 +12,9 @@ No ESP is needed.
 ## Features
 - **Any home:** eligibility comes from runtime safety checks (ownership, respawning containers), not a whitelist.
 - **Category sorting:** 37 default categories defined in JSON, driven by keywords, so items distributed by KID sort correctly.
-- **Learns as you go:** put an item in a chest once, and that chest becomes its home.
+- **Learns as you go:** put an item in a chest once, and that chest becomes its home. Enchanted variants
+  count as the item they are made from; a learn can be undone for a few seconds; and after a few learned
+  items of one kind, Dova Stash asks once whether the whole category should go there.
 - **Fills your displays:** turn a weapon rack, mannequin or item plaque (dragon priest masks, claws, Elder
   Scrolls) on with the hotkey, pick the weapon or armor categories it takes, and Deposit puts your best
   matching gear on it, as if placed by hand. Works in any home.

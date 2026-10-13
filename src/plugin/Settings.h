@@ -58,6 +58,11 @@ namespace dova
 			bool sortOnArrival{ true };
 			// DESIGN §8.1 Learn: items you put into a managed container by hand teach their destination.
 			bool learn{ true };
+			// DESIGN §8.6: after this many learned items of one category point at the same container, ask
+			// once whether the whole category should go there ("Send all Books to End Table?"). 0 = never ask.
+			std::int32_t suggestCategoryAfter{ 3 };
+			// DESIGN §8.6: for this many seconds after a learn, the hotkey takes it back. 0 = no undo.
+			std::int32_t learnUndoSeconds{ 5 };
 			// DESIGN §8.4: Deposit and Sort all put gear on the home's empty weapon racks, shield plaques,
 			// mannequins, item plaques and display cases.
 			bool fillDisplays{ true };

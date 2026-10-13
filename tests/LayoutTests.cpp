@@ -209,6 +209,48 @@ TEST_CASE("Layout serialization canonicalizes form refs and sorts learned", "[la
 	CHECK(text.find("Skyrim.esm|0x00000001") < text.find("Skyrim.esm|0x00000002"));
 }
 
+TEST_CASE("Declined category suggestions round-trip and malformed ones are kept", "[layout][learning]")
+{
+	// No "declined": not written (existing layouts stay byte-identical).
+	const auto plain = ParseOk(R"({ "$schema": "dovastash-layout-1", "cell": "Skyrim.esm|0x1" })");
+	CHECK(SerializeLayout(plain).find("declined") == std::string::npos);
+
+	Diagnostics diags;
+	const auto  layout = ParseLayoutText(R"({
+		"$schema": "dovastash-layout-1",
+		"cell": "Skyrim.esm|0x1",
+		"learned": { "Skyrim.esm|0x2": "Skyrim.esm|0xB" },
+		"declined": {
+			"Skyrim.esm|0xB": ["books.skill", "BOOKS.SKILL", "alchemy.potions"],
+			"not a ref": ["books"],
+			"Skyrim.esm|0xC": "books"
+		},
+		"basedOn": "Templates/X.json@1.0.0"
+	})", "test", diags);
+	REQUIRE(layout);
+	CHECK(diags.HasErrors());  // the two malformed entries
+	REQUIRE(layout->declined.size() == 1);
+	CHECK(layout->declined.at(Sk(0xB)) == std::vector<std::string>{ "books.skill", "alchemy.potions" });
+	CHECK(layout->unparsedDeclined.size() == 2);
+
+	const auto text = SerializeLayout(*layout);
+	CHECK(text.find("\"declined\"") != std::string::npos);
+	CHECK(text.find("\"not a ref\"") != std::string::npos);  // kept verbatim
+	CHECK(text.find("\"Skyrim.esm|0xC\"") != std::string::npos);  // verbatim: the spelling is not canonicalized
+	CHECK(text.find("\"learned\"") < text.find("\"declined\""));
+	CHECK(text.find("\"declined\"") < text.find("\"basedOn\""));
+	Diagnostics again;
+	const auto  reparsed = ParseLayoutText(text, "test", again);
+	REQUIRE(reparsed);
+	CHECK(SerializeLayout(*reparsed) == text);
+
+	// An emptied list is not written.
+	auto copy = *layout;
+	copy.declined.at(Sk(0xB)).clear();
+	copy.unparsedDeclined = nlohmann::json::object();
+	CHECK(SerializeLayout(copy).find("declined") == std::string::npos);
+}
+
 TEST_CASE("Unknown fields survive a round-trip", "[layout]")
 {
 	const auto layout = ParseOk(R"({

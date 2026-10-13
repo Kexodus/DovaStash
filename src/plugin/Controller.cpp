@@ -257,6 +257,9 @@ namespace dova
 
 	void Controller::OnHotkey(RE::RefHandle a_crosshairTarget)
 	{
+		if (TryUndoLearn()) {
+			return;  // within the undo window after a learn: the press means "undo" (DESIGN §8.6)
+		}
 		std::string reason;
 		auto*       home = Registry().Current(&reason);
 		if (!home) {
@@ -527,6 +530,14 @@ namespace dova
 		if (&Editor() != &UI()) {
 			Editor().OnHomeChanged();
 		}
+		// The hotkey is blocked while the menu is open: the undo window (re)starts now that it can be pressed,
+		// and the category question waits for that window to pass (never during a sort, never over the menu).
+		if (_undo && !_undo->learns.empty()) {
+			OpenUndoWindow();
+		}
+		if (_suggestion) {
+			ScheduleSuggestion();
+		}
 
 		if (const auto deferred = std::exchange(_arrivalDeferredCell, 0)) {
 			// The items that arrived while the paused menu was open. The menu can still be in its close
@@ -614,19 +625,124 @@ namespace dova
 			if (serial != _learnSerial) {
 				return;
 			}
+			const bool  undo = _undo && !_undo->learns.empty() && Settings::GetSingleton().GetSorting().learnUndoSeconds > 0;
+			const auto  suffix = undo ? std::format(" ({}: undo)", HotkeyName()) : std::string{};
 			for (const auto& [container, items] : _learnBatch) {
 				Notify(items.size() == 1 ?
-						   std::format("Dova Stash: {} now goes to {}", items.front(), container) :
-						   std::format("Dova Stash: {} items now go to {} ({}, ...)", items.size(), container, items.front()));
+						   std::format("Dova Stash: {} now goes to {}{}", items.front(), container, suffix) :
+						   std::format("Dova Stash: {} items now go to {} ({}, ...){}", items.size(), container, items.front(), suffix));
 			}
 			_learnBatch.clear();
+			if (undo) {
+				OpenUndoWindow();
+			}
 		});
 	}
 
-	void Controller::OnItemReturned(RE::FormID a_container, RE::FormID a_baseObject)
+	void Controller::OpenUndoWindow()
 	{
-		if (_openContainer == a_container) {
-			return;  // the player took it out by hand
+		const auto seconds = Settings::GetSingleton().GetSorting().learnUndoSeconds;
+		if (!_undo || seconds <= 0) {
+			_undo.reset();
+			return;
+		}
+		_undo->until = std::chrono::steady_clock::now() + std::chrono::seconds(seconds);
+		logger::debug("Learn: undo offered for {} s ({} learn(s))", seconds, _undo->learns.size());
+	}
+
+	bool Controller::TryUndoLearn()
+	{
+		if (!_undo || !_undo->until) {
+			return false;
+		}
+		if (std::chrono::steady_clock::now() > *_undo->until) {
+			_undo.reset();  // the window has passed: the hotkey means what it always means
+			return false;
+		}
+		auto undo = std::move(*_undo);
+		_undo.reset();
+		_suggestion.reset();  // a question built on these learns is moot
+		auto* home = Registry().CurrentIf(undo.cellId);
+		if (!home || !home->layout) {
+			return false;
+		}
+		for (auto it = undo.learns.rbegin(); it != undo.learns.rend(); ++it) {
+			core::UndoLearn(*home->layout, *it);
+		}
+		SaveLayout(*home);
+		UI().OnHomeChanged();
+		if (&Editor() != &UI()) {
+			Editor().OnHomeChanged();
+		}
+		logger::info("Learn: {} learn(s) undone in {}", undo.learns.size(), home->name);
+		Notify(undo.itemNames.empty()     ? "Dova Stash: undone"s :
+		       undo.itemNames.size() == 1 ? std::format("Dova Stash: undone, {} is not learned", undo.itemNames.front()) :
+		                                    std::format("Dova Stash: undone, {} items are not learned", undo.itemNames.size()));
+		return true;
+	}
+
+	void Controller::ScheduleSuggestion()
+	{
+		// After the undo window (the hotkey must stay free for undo while it is open), else right after the
+		// menu's close animation.
+		const auto undoSeconds = _undo && !_undo->learns.empty() ? Settings::GetSingleton().GetSorting().learnUndoSeconds : 0;
+		const auto serial = ++_suggestionSerial;
+		Later(std::chrono::milliseconds(400 + 1000 * std::max(0, undoSeconds)), [this, serial]() { AskSuggestion(serial); });
+	}
+
+	void Controller::AskSuggestion(std::uint64_t a_serial)
+	{
+		if (a_serial != _suggestionSerial || !_suggestion) {
+			return;
+		}
+		auto* ui = RE::UI::GetSingleton();
+		if (!ui || ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) || ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME) || ui->GameIsPaused()) {
+			ScheduleSuggestion();  // a menu is up: later
+			return;
+		}
+		const auto pending = std::exchange(_suggestion, std::nullopt);
+		auto*      home = Registry().CurrentIf(pending->cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		// Still worth asking? Learns may have been undone or the container bound meanwhile.
+		const auto suggestion = SuggestionFor(*home, pending->container);
+		if (!suggestion || !core::IEquals(suggestion->category, pending->category)) {
+			logger::debug("Learn: suggestion for {} no longer applies", pending->container.ToString());
+			return;
+		}
+		const auto* binding = home->layout->FindContainer(pending->container);
+		const auto  label = binding && !binding->label.empty() ? binding->label : game::RefName(game::LookupRef(pending->container));
+		const auto  cellId = pending->cellId;
+		const auto  container = pending->container;
+		const auto  category = suggestion->category;
+		logger::debug("Learn: asking whether all {} go to {} ({} learned)", category, label, suggestion->count);
+		ui::ShowMessageBox(std::format(ui::kSuggestCategory, ui::CategoryName(category), label), { "Yes", "No" },
+			[this, cellId, container, category](std::size_t a_button) {
+				if (a_button == 0) {
+					AcceptSuggestion(cellId, container, category);
+				} else {
+					DeclineSuggestion(cellId, container, category);
+				}
+			});
+	}
+
+	std::optional<core::CategorySuggestion> Controller::SuggestionFor(home::Home& a_home, const core::FormRef& a_container)
+	{
+		if (!a_home.layout) {
+			return std::nullopt;
+		}
+		const auto threshold = Settings::GetSingleton().GetSorting().suggestCategoryAfter;
+		if (threshold <= 0) {
+			return std::nullopt;
+		}
+		return core::SuggestCategory(*a_home.layout, a_container, core::SortLearnedCategories(sort::LearnedByCategory(*a_home.layout, a_container)), threshold);
+	}
+
+	void Controller::OnItemReturned(RE::FormID a_container, RE::FormID a_baseObject, bool a_byHand)
+	{
+		if (_openContainer == a_container || a_byHand) {
+			return;  // the player took it out by hand (the container menu, or QuickLoot's loot menu)
 		}
 		if (game::ItemMover::NoteReturned(a_baseObject, a_container)) {
 			logger::info("{} came back from {} right after it was stored (a script returns it); it stays where it is from now on",
@@ -680,9 +796,11 @@ namespace dova
 		}
 		info.count = 1;
 
-		const bool wasManaged = home->layout->FindContainer(*containerRef) != nullptr;
-		const auto result = core::Learn(*home->layout, info, *containerRef, home::Store::Get().Categories());
-		logger::info("Learn: {} -> {}: {}", game::Describe(object), game::Describe(ref), LearnResultName(result));
+		const bool      wasManaged = home->layout->FindContainer(*containerRef) != nullptr;
+		core::LearnUndo undo;
+		const auto      result = core::Learn(*home->layout, info, *containerRef, home::Store::Get().Categories(), &undo);
+		logger::info("Learn: {} -> {}: {}{}", game::Describe(object), game::Describe(ref), LearnResultName(result),
+			info.family && result != core::LearnResult::RejectedItem ? std::format(" (as {})", game::Describe(game::LookupForm(*info.family))) : "");
 
 		switch (result) {
 		case core::LearnResult::Recorded:
@@ -698,9 +816,22 @@ namespace dova
 				}
 			}
 			Registry().MarkDirty(*home);  // written when the container menu closes
+			// Undo: one batch per home; a learn in another home starts over.
+			if (!_undo || _undo->cellId != home->cellId) {
+				_undo = PendingUndo{ .cellId = home->cellId };
+			}
+			_undo->learns.push_back(std::move(undo));
+			_undo->until.reset();  // the window opens with the HUD line, and again when the menu closes
 			if (result != core::LearnResult::Removed) {
 				const auto* binding = home->layout->FindContainer(*containerRef);
-				ReportLearned(binding && !binding->label.empty() ? binding->label : game::RefName(ref), info.name.empty() ? game::Describe(object) : info.name);
+				const auto  itemName = info.name.empty() ? game::Describe(object) : info.name;
+				_undo->itemNames.push_back(itemName);
+				ReportLearned(binding && !binding->label.empty() ? binding->label : game::RefName(ref), itemName);
+				// A few learned items of one category here: suggest binding the category once the menu closes.
+				if (const auto suggestion = SuggestionFor(*home, *containerRef)) {
+					_suggestion = PendingSuggestion{ home->cellId, *containerRef, suggestion->category };
+					logger::debug("Learn: {} has {} learned {}; will ask about the category", game::Describe(ref), suggestion->count, suggestion->category);
+				}
 			}
 			break;
 		default:
@@ -803,6 +934,7 @@ namespace dova
 		auto& layout = Registry().EnsureLayout(*home);
 		std::erase_if(layout.containers, [&](const core::ContainerBinding& c) { return c.ref == a_container; });
 		std::erase_if(layout.learned, [&](const auto& a_pair) { return a_pair.second == a_container; });
+		layout.declined.erase(a_container);
 		layout.master = a_container;
 		SaveLayout(*home);
 		logger::info("Master of {} is now {}", home->name, game::Describe(ref));
@@ -962,6 +1094,7 @@ namespace dova
 		}
 		const auto  bindings = std::erase_if(layout.containers, [&](const core::ContainerBinding& b) { return b.ref == a_container; });
 		const auto  learned = std::erase_if(layout.learned, [&](const auto& a_pair) { return a_pair.second == a_container; });
+		layout.declined.erase(a_container);
 		if (bindings == 0 && learned == 0) {
 			return;
 		}
@@ -1179,6 +1312,93 @@ namespace dova
 		if (home->layout->learned.erase(a_item) > 0) {
 			logger::info("Learned destination of {} removed", a_item.ToString());
 			SaveLayout(*home);
+		}
+	}
+
+	void Controller::ForgetStaleLearned(RE::FormID a_cellId)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		auto&      layout = *home->layout;
+		const auto removed = std::erase_if(layout.learned, [&](const auto& a_pair) {
+			const auto* c = layout.FindContainer(a_pair.second);
+			return !c || c->ignored || layout.IsMaster(a_pair.second);
+		});
+		if (removed == 0) {
+			Notify("Dova Stash: nothing to forget");
+			return;
+		}
+		SaveLayout(*home);
+		logger::info("{}: forgot {} learned item(s) whose container is no longer used", home->name, removed);
+		Notify(std::format("Dova Stash: forgot {} learned item{}", removed, removed == 1 ? "" : "s"));
+	}
+
+	void Controller::AcceptSuggestion(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_category)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			return;
+		}
+		const core::ItemLookup lookup = [](const core::FormRef& a_form) -> std::optional<core::ItemInfo> {
+			auto*          form = game::LookupForm(a_form);
+			auto*          object = form ? form->As<RE::TESBoundObject>() : nullptr;
+			core::ItemInfo info;
+			if (!object || !game::FillBaseInfo(info, object)) {
+				return std::nullopt;
+			}
+			info.count = 1;
+			return info;
+		};
+		const auto pruned = core::AcceptSuggestion(*home->layout, a_container, a_category, home::Store::Get().Categories(), lookup);
+		if (!pruned) {
+			return;  // master, ignored or unknown: nothing changed
+		}
+		SaveLayout(*home);
+		UI().OnHomeChanged();
+		if (&Editor() != &UI()) {
+			Editor().OnHomeChanged();
+		}
+		const auto* binding = home->layout->FindContainer(a_container);
+		const auto  label = binding && !binding->label.empty() ? binding->label : game::RefName(game::LookupRef(a_container));
+		logger::info("{}: bound {} from a suggestion ({} learned item(s) now covered by it dropped)", label, a_category, *pruned);
+		Notify(std::format("Dova Stash: {} now takes {}", label, ui::CategoryName(a_category)));
+	}
+
+	void Controller::DeclineSuggestion(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_category)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home || !home->layout || home->layoutBroken) {
+			return;
+		}
+		if (core::DeclineSuggestion(*home->layout, a_container, a_category)) {
+			SaveLayout(*home);
+			UI().OnHomeChanged();
+			if (&Editor() != &UI()) {
+				Editor().OnHomeChanged();
+			}
+			logger::info("{}: {} declined for {} (not asked again)", home->name, a_category, a_container.ToString());
+		}
+	}
+
+	void Controller::ClearDeclined(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_category)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home || !home->layout || home->layoutBroken) {
+			return;
+		}
+		if (core::ClearDeclined(*home->layout, a_container, a_category) > 0) {
+			SaveLayout(*home);
+			UI().OnHomeChanged();
+			if (&Editor() != &UI()) {
+				Editor().OnHomeChanged();
+			}
+			logger::info("{}: suggestion(s) for {} may be asked again", home->name, a_container.ToString());
 		}
 	}
 

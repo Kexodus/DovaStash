@@ -82,6 +82,11 @@ namespace dova::core
 	struct ItemInfo
 	{
 		FormRef                  form;
+		// The item this one is made from, when it is a variant of another (an enchanted "Iron Sword of
+		// Burning" made from the Iron Sword: WEAP CNAM / ARMO TNAM, followed to the root). Learned
+		// destinations and fixed item bindings of that root item also apply to its variants (DESIGN §7).
+		// nullopt: the item is its own root. The plugin fills it; core only compares it.
+		std::optional<FormRef>   family;
 		std::uint32_t            stackId{ 0 };
 		ItemType                 type{ ItemType::Other };
 		std::string              name;

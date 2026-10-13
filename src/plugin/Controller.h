@@ -33,7 +33,8 @@ namespace dova
 		// Player -> container transfer (TESContainerChangedEvent) — candidate for learning.
 		void OnItemStored(RE::FormID a_container, RE::FormID a_baseObject);
 		// Container -> player transfer: an item a script hands back right after Dova Stash stored it.
-		void OnItemReturned(RE::FormID a_container, RE::FormID a_baseObject);
+		// `a_byHand`: the player took it through a loot menu (QuickLoot IE), which is never a script.
+		void OnItemReturned(RE::FormID a_container, RE::FormID a_baseObject, bool a_byHand = false);
 		void OnSaveGame();
 
 		// --- actions (main thread; all validate a_cellId against the current cell) --------------------
@@ -80,6 +81,18 @@ namespace dova
 		void ForgetLearned(RE::FormID a_cellId, const core::FormRef& a_container);
 		// Drops the learned destination of one base form.
 		void RemoveLearned(RE::FormID a_cellId, const core::FormRef& a_item);
+		// Drops the learned destinations whose container is no longer used: not in the setup, ignored, or the
+		// master (the panel's Learned tab, DESIGN §8.6). Entries for containers that are merely unavailable
+		// right now (unbuilt, out of reach) stay.
+		void ForgetStaleLearned(RE::FormID a_cellId);
+		// Category suggestions (DESIGN §8.6, core/Learning.h). Accept binds the category to the container and
+		// drops the learned entries it covers; Decline remembers the No in the layout (never asked again);
+		// ClearDeclined forgets a No (the panel's "Ask again"; empty category: every No for the container).
+		void AcceptSuggestion(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_category);
+		void DeclineSuggestion(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_category);
+		void ClearDeclined(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_category);
+		// The suggestion the panel shows for a container, if any (main thread; the live layout).
+		[[nodiscard]] std::optional<core::CategorySuggestion> SuggestionFor(home::Home& a_home, const core::FormRef& a_container);
 		// Replaces the layout's keep block (nullopt = remove it, i.e. use the global defaults only).
 		void SetKeep(RE::FormID a_cellId, std::optional<core::KeepConfig> a_keep);
 		// Keep defaults for every home (Data/SKSE/Plugins/DovaStash/Settings.json).
@@ -151,8 +164,17 @@ namespace dova
 		// item was put into the master); schedules a Distribute once arrivals stop for a moment.
 		bool OnMasterArrival(RE::FormID a_container);
 		void SortArrivals(RE::FormID a_cellId);
-		// Learn feedback: batches "this container now holds X" into one notification per burst.
+		// Learn feedback: batches "this container now holds X" into one notification per burst (with the
+		// undo offer when iLearnUndoSeconds > 0).
 		void ReportLearned(const std::string& a_container, const std::string& a_item);
+		// Undo (DESIGN §8.6): the hotkey within the window after a learn forgets the whole batch. True when
+		// the press was consumed. The window starts with the HUD line and again when the container closes.
+		bool TryUndoLearn();
+		void OpenUndoWindow();
+		// Category suggestion (DESIGN §8.6): asked once the container is closed and the undo window has
+		// passed, never during a sort; a No is remembered in the layout.
+		void ScheduleSuggestion();
+		void AskSuggestion(std::uint64_t a_serial);
 
 		// Saves the layout and lets UI surfaces that show it (QuickLoot info bar) refresh.
 		bool SaveLayout(home::Home& a_home);
@@ -166,5 +188,25 @@ namespace dova
 		std::uint64_t _learnSerial{ 0 };
 		std::map<std::string, std::vector<std::string>> _learnBatch;  // container label -> item names
 		RE::FormID                    _openContainer{ 0 };  // target of the open ContainerMenu (0 = none)
+
+		// Undo: what the current learn batch changed (core::UndoLearn takes it back, newest first), the home it
+		// belongs to, and until when the hotkey means "undo" (steady clock; nullopt = no window open).
+		struct PendingUndo
+		{
+			RE::FormID                    cellId{ 0 };
+			std::vector<core::LearnUndo>  learns;
+			std::vector<std::string>      itemNames;
+			std::optional<std::chrono::steady_clock::time_point> until;
+		};
+		std::optional<PendingUndo> _undo;
+		// Category suggestion waiting for the container to close (one at a time: the latest learn's).
+		struct PendingSuggestion
+		{
+			RE::FormID    cellId{ 0 };
+			core::FormRef container;
+			std::string   category;
+		};
+		std::optional<PendingSuggestion> _suggestion;
+		std::uint64_t                    _suggestionSerial{ 0 };
 	};
 }

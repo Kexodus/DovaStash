@@ -109,17 +109,38 @@ namespace dova::core
 
 	std::optional<Destination> SortPlanner::ResolveDestination(const ItemInfo& a_item) const
 	{
-		// 1. Explicit per-item binding.
-		for (const auto& c : _layout.containers) {
-			if (!c.ignored && std::ranges::find(c.forms, a_item.form) != c.forms.end() && IsAvailable(c.ref)) {
-				return Destination{ c.ref, Destination::Reason::Explicit, {} };
+		// 1. Explicit per-item binding: the item itself, then the item it is made from (its family root).
+		const auto explicitFor = [&](const FormRef& a_form) -> const ContainerBinding* {
+			for (const auto& c : _layout.containers) {
+				if (!c.ignored && std::ranges::find(c.forms, a_form) != c.forms.end() && IsAvailable(c.ref)) {
+					return &c;
+				}
+			}
+			return nullptr;
+		};
+		if (const auto* c = explicitFor(a_item.form)) {
+			return Destination{ c->ref, Destination::Reason::Explicit, {} };
+		}
+		if (a_item.family) {
+			if (const auto* c = explicitFor(*a_item.family)) {
+				return Destination{ c->ref, Destination::Reason::Explicit, {} };
 			}
 		}
 
-		// 2. Learned destination.
-		if (const auto it = _layout.learned.find(a_item.form); it != _layout.learned.end()) {
+		// 2. Learned destination: the item itself, then its family root.
+		const auto learnedFor = [&](const FormRef& a_form) -> const ContainerBinding* {
+			const auto it = _layout.learned.find(a_form);
+			if (it == _layout.learned.end()) {
+				return nullptr;
+			}
 			const auto* c = _layout.FindContainer(it->second);
-			if (c && !c->ignored && !_layout.IsMaster(c->ref) && IsAvailable(c->ref)) {
+			return c && !c->ignored && !_layout.IsMaster(c->ref) && IsAvailable(c->ref) ? c : nullptr;
+		};
+		if (const auto* c = learnedFor(a_item.form)) {
+			return Destination{ c->ref, Destination::Reason::Learned, {} };
+		}
+		if (a_item.family) {
+			if (const auto* c = learnedFor(*a_item.family)) {
 				return Destination{ c->ref, Destination::Reason::Learned, {} };
 			}
 		}
@@ -272,11 +293,12 @@ namespace dova::core
 		return moves;
 	}
 
-	LearnResult Learn(Layout& a_layout, const FormRef& a_form, const FormRef& a_container)
+	LearnResult Learn(Layout& a_layout, const FormRef& a_form, const FormRef& a_container, LearnUndo* a_undo)
 	{
 		if (a_layout.IsMaster(a_container)) {
 			return LearnResult::RejectedMaster;
 		}
+		bool added = false;
 		if (const auto* c = a_layout.FindContainer(a_container)) {
 			if (c->ignored) {
 				return LearnResult::RejectedIgnored;
@@ -285,12 +307,22 @@ namespace dova::core
 			ContainerBinding binding;
 			binding.ref = a_container;
 			a_layout.containers.push_back(std::move(binding));
+			added = true;
+		}
+		if (a_undo) {
+			a_undo->key = a_form;
+			a_undo->container = a_container;
+			a_undo->containerAdded = added;
+			a_undo->previous.reset();
 		}
 
 		const auto it = a_layout.learned.find(a_form);
 		if (it == a_layout.learned.end()) {
 			a_layout.learned.emplace(a_form, a_container);
 			return LearnResult::Recorded;
+		}
+		if (a_undo) {
+			a_undo->previous = it->second;
 		}
 		if (it->second == a_container) {
 			return LearnResult::Unchanged;
@@ -299,7 +331,7 @@ namespace dova::core
 		return LearnResult::Updated;
 	}
 
-	LearnResult Learn(Layout& a_layout, const ItemInfo& a_item, const FormRef& a_container, const CategorySet& a_categories)
+	LearnResult Learn(Layout& a_layout, const ItemInfo& a_item, const FormRef& a_container, const CategorySet& a_categories, LearnUndo* a_undo)
 	{
 		if (a_item.questItem || !a_item.playable || a_item.name.empty() || a_item.returns) {
 			return LearnResult::RejectedItem;
@@ -311,20 +343,58 @@ namespace dova::core
 			return LearnResult::RejectedIgnored;
 		}
 
-		// What would the destination be without a learned entry for this form?
+		// A variant is learned under its root item (the family), so every variant follows.
+		const FormRef& key = a_item.family ? *a_item.family : a_item.form;
+
+		// What would the destination be without a learned entry for this item (its own, or its family's)?
 		std::optional<FormRef> previous;
-		if (const auto it = a_layout.learned.find(a_item.form); it != a_layout.learned.end()) {
+		if (const auto it = a_layout.learned.find(key); it != a_layout.learned.end()) {
 			previous = it->second;
 			a_layout.learned.erase(it);
+		}
+		std::optional<std::pair<FormRef, FormRef>> variantWas;
+		if (a_item.family) {
+			if (const auto it = a_layout.learned.find(a_item.form); it != a_layout.learned.end()) {
+				variantWas = *it;
+				a_layout.learned.erase(it);  // older data for the variant itself: the family's entry takes over
+			}
+		}
+		if (a_undo) {
+			*a_undo = LearnUndo{ .key = key, .previous = previous, .variantWas = variantWas, .container = a_container };
 		}
 		const auto natural = SortPlanner(a_layout, a_categories).ResolveDestination(a_item);
 		if (natural && natural->container == a_container &&
 			(natural->reason == Destination::Reason::Explicit || natural->reason == Destination::Reason::Category)) {
-			return previous ? LearnResult::Removed : LearnResult::Unchanged;
+			return previous || variantWas ? LearnResult::Removed : LearnResult::Unchanged;
 		}
 		if (previous) {
-			a_layout.learned.emplace(a_item.form, *previous);  // restore, then let the basic overload decide
+			a_layout.learned.emplace(key, *previous);  // restore, then let the basic overload decide
 		}
-		return Learn(a_layout, a_item.form, a_container);
+		LearnUndo basic;
+		const auto result = Learn(a_layout, key, a_container, &basic);
+		if (a_undo) {
+			a_undo->containerAdded = basic.containerAdded;
+		}
+		return result;
+	}
+
+	void UndoLearn(Layout& a_layout, const LearnUndo& a_undo)
+	{
+		if (a_undo.previous) {
+			a_layout.learned[a_undo.key] = *a_undo.previous;
+		} else if (const auto it = a_layout.learned.find(a_undo.key); it != a_layout.learned.end() && it->second == a_undo.container) {
+			a_layout.learned.erase(it);
+		}
+		if (a_undo.variantWas) {
+			a_layout.learned.try_emplace(a_undo.variantWas->first, a_undo.variantWas->second);
+		}
+		if (!a_undo.containerAdded) {
+			return;
+		}
+		const auto* c = a_layout.FindContainer(a_undo.container);
+		const bool  stillUsed = std::ranges::any_of(a_layout.learned, [&](const auto& a_pair) { return a_pair.second == a_undo.container; });
+		if (c && !c->ignored && c->categories.empty() && c->forms.empty() && c->unparsedForms.empty() && !stillUsed) {
+			std::erase_if(a_layout.containers, [&](const ContainerBinding& b) { return b.ref == a_undo.container; });
+		}
 	}
 }

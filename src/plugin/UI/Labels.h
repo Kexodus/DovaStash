@@ -13,6 +13,9 @@ namespace dova::ui
 	// confirmations, the same on every UI surface.
 	inline constexpr std::string_view kRestoreLastSetup = "Restore your last setup ({})";
 	inline constexpr std::string_view kConfirmRestore = "Restore the setup saved {}? This home's current setup is backed up first (.bak); no items are moved.";
+	// Category suggestion after a few learns (DESIGN §8.6): the message box after the container closes and the
+	// panel's container page ask the same ("{}": the category's name, the container's label).
+	inline constexpr std::string_view kSuggestCategory = "Dova Stash: send all {} to {}?";
 	// Multi-cell homes (DESIGN §6.7), the same on every UI surface ("{}": the home's name; the area's name).
 	inline constexpr std::string_view kAddArea = "Add this area to {}";
 	inline constexpr std::string_view kConfirmAddArea = "Dova Stash: add this area to {}?\nIts containers and crafting stations then work with the rest of the home. No items are moved.";

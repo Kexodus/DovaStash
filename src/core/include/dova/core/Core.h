@@ -13,6 +13,7 @@
 #include "dova/core/Item.h"
 #include "dova/core/KeepRules.h"
 #include "dova/core/Layout.h"
+#include "dova/core/Learning.h"
 #include "dova/core/SortPlanner.h"
 #include "dova/core/Template.h"
 #include "dova/core/TemplateDisplays.h"

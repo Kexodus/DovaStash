@@ -119,10 +119,12 @@ TEST_CASE("ApplyTemplate copies with basedOn and handles learned data", "[templa
 	tpl.layout.containers.push_back({ .ref = Sk(0xB), .label = "Armory", .categories = { "weapons.*" } });
 	tpl.layout.containers.push_back({ .ref = Sk(0xD), .label = "Display", .ignored = true });
 	tpl.layout.learned.emplace(Sk(0x99), Sk(0xB));  // should never ship, dropped on apply
+	tpl.layout.declined[Sk(0xB)] = { "books.skill" };  // same
 
 	const auto applied = ApplyTemplate(tpl);
 	CHECK(applied.basedOn == "Templates/Vanilla/Breezehome.json@1.2.0");
 	CHECK(applied.learned.empty());
+	CHECK(applied.declined.empty());
 	CHECK(applied.containers.size() == 2);
 	CHECK(applied.master == tpl.layout.master);
 
@@ -132,18 +134,28 @@ TEST_CASE("ApplyTemplate copies with basedOn and handles learned data", "[templa
 	existing.learned.emplace(Sk(0x2), Sk(0xD));      // ignored container, still in the layout -> kept (inert)
 	existing.learned.emplace(Sk(0x3), Sk(0xEEEE));   // container in no layout -> dropped
 	existing.learned.emplace(Sk(0x4), Sk(0xAAAAA));  // master -> dropped
+	existing.declined[Sk(0xB)] = { "alchemy.potions" };  // the player's No -> kept
+	existing.declined[Sk(0xEEEE)] = { "keys" };          // container in no layout -> dropped
 	existing.containers[0].categories = { "armor.*" };  // player tweak, reset by re-apply
 
 	const auto reapplied = ApplyTemplate(tpl, &existing);
 	CHECK(reapplied.learned.size() == 2);
 	CHECK(reapplied.learned.contains(Sk(0x1)));
 	CHECK(reapplied.learned.contains(Sk(0x2)));
+	CHECK(reapplied.declined.size() == 1);
+	CHECK(reapplied.declined.at(Sk(0xB)) == std::vector<std::string>{ "alchemy.potions" });
 	CHECK(reapplied.containers[0].categories == std::vector<std::string>{ "weapons.*" });
 
 	const auto exported = ExportAsTemplate(reapplied);
 	CHECK(exported.learned.empty());
+	CHECK(exported.declined.empty());
 	CHECK_FALSE(exported.basedOn.has_value());
 	CHECK(exported.containers.size() == 2);
+
+	// The lint flags both player-only keys in a template.
+	Diagnostics diags;
+	ValidateTemplate(tpl.layout, "tpl", diags);
+	CHECK(std::ranges::any_of(diags.Items(), [](const Diagnostic& d) { return d.message.find("\"declined\"") != std::string::npos; }));
 }
 
 TEST_CASE("ApplyTemplate over a player layout keeps the player's data", "[templates]")

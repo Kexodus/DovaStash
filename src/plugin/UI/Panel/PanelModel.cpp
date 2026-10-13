@@ -10,6 +10,7 @@
 #include "Integrations/QuickLoot.h"
 #include "Sort/SortEngine.h"
 #include "UI/MenuFramework.h"
+#include "UI/Panel/Strings.h"
 
 #include <DovaStash/Version.h>
 
@@ -319,6 +320,21 @@ namespace dova::ui::panel
 					}
 				}
 			}
+			if (a_binding && !a_master && !a_binding->ignored) {
+				// The category question the HUD asks after a few learns, also answerable here (DESIGN §8.6).
+				if (const auto suggestion = Controller::Get().SuggestionFor(*home, a_ref)) {
+					row.suggestionCategory = suggestion->category;
+					row.suggestionName = CategoryName(suggestion->category);
+					row.suggestionCount = suggestion->count;
+				}
+				if (layout) {
+					if (const auto it = layout->declined.find(a_ref); it != layout->declined.end()) {
+						for (const auto& id : it->second) {
+							row.declined.emplace_back(id, CategoryName(id));
+						}
+					}
+				}
+			}
 			core::Reach reach = core::Reach::Here;
 			const auto  verdict = ref ? home::CheckHomeContainer(ref, *home, &reach) :
 			                            game::Verdict::Reject(home->MultiCell() ? "not in memory here (in another area and not persistent, or its plugin is missing)" :
@@ -369,12 +385,38 @@ namespace dova::ui::panel
 				row.containerText = container.ToString();
 				const auto* binding = layout->FindContainer(container);
 				row.containerManaged = binding != nullptr;
+				auto* containerRef = game::LookupRef(container);
 				if (binding && !binding->label.empty()) {
 					row.containerLabel = binding->label;
-				} else if (auto* ref = game::LookupRef(container)) {
-					row.containerLabel = game::RefName(ref);
+				} else if (containerRef) {
+					row.containerLabel = game::RefName(containerRef);
 				} else {
 					row.containerLabel = row.containerText;
+				}
+				// Stale entries (DESIGN §8.6): the planner never uses them as they are.
+				if (layout->IsMaster(container)) {
+					row.stale = text::kStaleMaster;
+					row.unused = true;
+				} else if (!binding) {
+					row.stale = text::kStaleNotInSetup;
+					row.unused = true;
+				} else if (binding->ignored) {
+					row.stale = text::kStaleIgnored;
+					row.unused = true;
+				} else if (!containerRef) {
+					row.stale = text::kStaleNotLoaded;
+				} else {
+					core::Reach reach = core::Reach::Here;
+					const auto  verdict = home::CheckHomeContainer(containerRef, *home, &reach);
+					if (!verdict.ok && reach != core::Reach::Unreachable) {
+						row.stale = verdict.reason;  // "not built yet", a respawning container...
+					}
+				}
+				if (!row.stale.empty()) {
+					++snap->learnedStale;
+				}
+				if (row.unused) {
+					++snap->learnedUnused;
 				}
 				snap->learned.push_back(std::move(row));
 			}

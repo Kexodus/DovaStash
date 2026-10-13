@@ -88,6 +88,9 @@ namespace dova::core
 		if (!a_template.learned.empty() || !a_template.unparsedLearned.empty()) {
 			a_diags.Warn(source, "templates should not contain \"learned\" (it is dropped when the template is applied)");
 		}
+		if (!a_template.declined.empty() || !a_template.unparsedDeclined.empty()) {
+			a_diags.Warn(source, "templates should not contain \"declined\" (the player's own answers; dropped when the template is applied)");
+		}
 		if (a_template.basedOn) {
 			a_diags.Warn(source, "templates should not contain \"basedOn\"");
 		}
@@ -203,6 +206,8 @@ namespace dova::core
 		Layout layout = a_template.layout;
 		layout.learned.clear();
 		layout.unparsedLearned = nlohmann::json::object();
+		layout.declined.clear();
+		layout.unparsedDeclined = nlohmann::json::object();
 		layout.basedOn = MakeBasedOn(a_template.source, a_template.layout.version);
 
 		if (!a_existing) {
@@ -310,6 +315,13 @@ namespace dova::core
 			}
 		}
 		layout.unparsedLearned = a_existing->unparsedLearned;
+		// Declined category suggestions (Learning.h): the player's answers for containers still in the layout.
+		for (const auto& [container, ids] : a_existing->declined) {
+			if (layout.FindContainer(container) && !layout.IsMaster(container)) {
+				layout.declined.emplace(container, ids);
+			}
+		}
+		layout.unparsedDeclined = a_existing->unparsedDeclined;
 
 		// The home's cells (DESIGN §6.7): the template's, plus the ones the player added (never dropped).
 		layout.cells = MergeHomeCells(layout.cells, a_existing->cells);
@@ -430,6 +442,8 @@ namespace dova::core
 		}
 		out.learned.clear();
 		out.unparsedLearned = nlohmann::json::object();
+		out.declined.clear();  // the player's answers, not part of a shared setup
+		out.unparsedDeclined = nlohmann::json::object();
 		out.basedOn.reset();
 		for (auto& plugin : ReferencedPlugins(out)) {
 			if (!PluginLoaded(plugin, out.requiredPlugins)) {

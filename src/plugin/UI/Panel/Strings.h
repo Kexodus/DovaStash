@@ -126,10 +126,24 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kViaWider = "(via a wider pattern)";
 	inline constexpr auto             kOtherPatterns = "Other patterns (unknown categories):";
 
+	// Category suggestion on a container's page (DESIGN §8.6; the HUD asks the same, ui::kSuggestCategory)
+	inline constexpr std::string_view kSuggestionCount = "({} learned items)";
+	inline constexpr auto             kSuggestionNo = "No, don't ask again";
+	inline constexpr std::string_view kDeclinedInfo = "Not asked again for: {}";  // category names
+	inline constexpr auto             kAskAgain = "Ask again";
+
 	// Learned tab
 	inline constexpr auto kLearnedEmpty = "Nothing learned yet. Put an item into a managed container by hand to teach Dova Stash where it belongs.";
+	inline constexpr auto kLearnedIntro = "Items you put away by hand go back to the same container. An enchanted or otherwise variant item counts as the item it is made from.";
 	inline constexpr auto kColItem = "Item";
 	inline constexpr auto kNotManagedSuffix = " (not managed)";
+	inline constexpr std::string_view kLearnedUnusedInfo = "{} of these point at a container that is no longer used, so they do nothing.";
+	inline constexpr std::string_view kForgetUnused = "Forget those ({})...";
+	inline constexpr std::string_view kConfirmForgetUnused = "Forget the {} learned item(s) whose container is no longer used?";
+	inline constexpr auto             kStaleMaster = "the master";
+	inline constexpr auto             kStaleNotInSetup = "not in the setup";
+	inline constexpr auto             kStaleIgnored = "ignored";
+	inline constexpr auto             kStaleNotLoaded = "not loaded (plugin missing?)";
 
 	// Keep tab
 	inline constexpr auto kKeepIntro = "Keep rules decide what Deposit leaves in your inventory. Quest items and non-playable items are always kept.";

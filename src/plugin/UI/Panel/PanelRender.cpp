@@ -758,6 +758,28 @@ namespace dova::ui::panel
 			} else if (!a_row.learnedText.empty()) {
 				ColoredWrapped(kGrey, std::format(text::kLearnedInfo, a_row.learnedText));
 			}
+			if (!a_row.suggestionCategory.empty()) {
+				// The same question the HUD asks once the container closes (DESIGN §8.6).
+				Wrapped(std::format("{} {}", std::format(ui::kSuggestCategory, a_row.suggestionName, a_row.label), std::format(text::kSuggestionCount, a_row.suggestionCount)));
+				if (ImGui::Button(text::kYes)) {
+					Do([cell, ref, category = a_row.suggestionCategory]() { Controller::Get().AcceptSuggestion(cell, ref, category); });
+				}
+				ImGui::SameLine();
+				if (ImGui::Button(text::kSuggestionNo)) {
+					Do([cell, ref, category = a_row.suggestionCategory]() { Controller::Get().DeclineSuggestion(cell, ref, category); });
+				}
+			}
+			if (!a_row.declined.empty()) {
+				std::string names;
+				for (const auto& [id, name] : a_row.declined) {
+					names += (names.empty() ? "" : ", ") + name;
+				}
+				Disabled(std::format(text::kDeclinedInfo, names));
+				ImGui::SameLine();
+				if (ImGui::SmallButton(text::kAskAgain)) {
+					Do([cell, ref]() { Controller::Get().ClearDeclined(cell, ref, {}); });
+				}
+			}
 			const std::function<void(std::string)> toggle = [cell, ref](std::string a_pattern) {
 				Do([cell, ref, pattern = std::move(a_pattern)]() { Controller::Get().ToggleCategory(cell, ref, pattern); });
 			};
@@ -863,6 +885,14 @@ namespace dova::ui::panel
 				ColoredWrapped(kGrey, text::kLearnedEmpty);
 				return;
 			}
+			ColoredWrapped(kGrey, text::kLearnedIntro);
+			if (a_snap.learnedUnused > 0) {
+				// Entries the planner never uses (DESIGN §8.6): offer to drop them in one go.
+				ColoredWrapped(kYellow, std::format(text::kLearnedUnusedInfo, a_snap.learnedUnused));
+				if (ConfirmButton(std::format(text::kForgetUnused, a_snap.learnedUnused), "forget-unused", std::format(text::kConfirmForgetUnused, a_snap.learnedUnused))) {
+					Do([cell = a_snap.cellId]() { Controller::Get().ForgetStaleLearned(cell); });
+				}
+			}
 			const float lineHeight = ImGui::GetTextLineHeightWithSpacing();
 			const float height = lineHeight * static_cast<float>(std::min<std::size_t>(a_snap.learned.size(), 16) + 2);
 			const int   flags = ImGui::ImGuiTableFlags_Borders | ImGui::ImGuiTableFlags_RowBg | ImGui::ImGuiTableFlags_Resizable |
@@ -882,7 +912,10 @@ namespace dova::ui::panel
 				Text(row.itemName);
 				Tooltip(row.itemText);
 				ImGui::TableNextColumn();
-				if (row.containerManaged) {
+				if (!row.stale.empty()) {
+					// Stale: the container is no longer used (yellow) or fails the checks right now (grey).
+					Colored(row.unused ? kYellow : kGrey, std::format("{} ({})", row.containerLabel, row.stale));
+				} else if (row.containerManaged) {
 					Text(row.containerLabel);
 				} else {
 					Disabled(row.containerLabel + text::kNotManagedSuffix);
@@ -1433,7 +1466,17 @@ namespace dova::ui::panel
 			apply |= ImGui::Checkbox("Sort the master container when it closes", &v.sorting.distributeOnMasterClose);
 			Help("Closing the master's menu sorts whatever is left in it.", "[Sorting] bDistributeOnMasterClose");
 			apply |= ImGui::Checkbox("Learn where you put things by hand", &v.sorting.learn);
-			Help("Put an item into a container yourself and that container becomes its home from then on.", "[Sorting] bLearn");
+			Help("Put an item into a container yourself and that container becomes its home from then on. An enchanted or otherwise variant item counts as the item it is made from.", "[Sorting] bLearn");
+			ImGui::BeginDisabled(!v.sorting.learn);
+			ImGui::Indent();
+			ImGui::SliderInt("Suggest a category after this many learned items", &v.sorting.suggestCategoryAfter, 0, 20, v.sorting.suggestCategoryAfter == 0 ? "never" : "%d");
+			apply |= ImGui::IsItemDeactivatedAfterEdit();
+			Help("Once this many items of one category were learned for the same container, Dova Stash asks once when you close it: \"Send all Books to End Table?\". Yes binds the category there; No is remembered for that container and category (the container's page can ask again). 0 = never ask.", "[Sorting] iSuggestCategoryAfter");
+			ImGui::SliderInt("Undo a learn for this many seconds", &v.sorting.learnUndoSeconds, 0, 30, v.sorting.learnUndoSeconds == 0 ? "off" : "%d s");
+			apply |= ImGui::IsItemDeactivatedAfterEdit();
+			Help("For this long after \"... now goes to End Table\", pressing the hotkey takes the learn back. 0 = no undo.", "[Sorting] iLearnUndoSeconds");
+			ImGui::Unindent();
+			ImGui::EndDisabled();
 			apply |= ImGui::Checkbox("Put gear on the home's displays", &v.sorting.fillDisplays);
 			Help("Deposit and Sort all fill the displays you turned on with the hotkey (weapon racks, mannequins, plaques made for one item such as masks, claws, Elder Scrolls) with your best gear, one of each. Nothing is taken off a display.", "[Sorting] bFillDisplays");
 			apply |= ImGui::Checkbox("Materials at the workbench", &v.sorting.craftingSupply);

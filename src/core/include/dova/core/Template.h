@@ -16,7 +16,8 @@
 //   home's extra cells, containers (categories, explicit forms, label, note, ignored, unknown keys), displays (kind, label,
 //   note, categories, items, only, set, ignored), keep rules, the top-level note and unknown keys, and entries
 //   that could not be parsed (kept verbatim, as in the layout). It deliberately drops `learned` (the
-//   player's own item-by-item habits: personal, and often hundreds of entries) and `basedOn`, and lists
+//   player's own item-by-item habits: personal, and often hundreds of entries), `declined` (the player's
+//   answers to category suggestions, Learning.h) and `basedOn`, and lists
 //   every plugin the result references in `requires` (ReferencedPlugins), so it passes ValidateTemplate
 //   and is only offered where its references can resolve. Display items and sets are soft references
 //   (TemplateDisplays.h): they never make a template depend on their plugins. With ExportOptions::learnedAsForms the learned
@@ -37,7 +38,8 @@
 //       kind/label/note/categories/items (with their `only`)/set where the template gives none; displays
 //       only in the player layout: kept. (An item plaque's or case's items from a template are replaced by
 //       what its script is made for, in the plugin: TemplateDisplays.h.)
-//     * every learned entry whose container is in the merged layout (and is not the master);
+//     * every learned entry whose container is in the merged layout (and is not the master), and the
+//       declined suggestions of those containers;
 //     * the home's extra `cells` (HomeCells.h): the template's, then the player's (MergeHomeCells);
 //     * the player's keep block (replaces the template's), unparsed learned entries, unparsed
 //       container entries and unknown top-level keys.

@@ -62,11 +62,15 @@ namespace dova::events
 				}
 				// Container -> player: maybe a script handing back what Dova Stash just stored there (not gated on
 				// IsSuppressing: the script can answer within the grace period; our own retrieves never match).
+				// Taken by hand through QuickLoot IE's loot menu (no ContainerMenu opens for it) is not a script
+				// handing it back: decided here, while the menu is still open.
 				if (a_event && a_event->newContainer == game::kPlayerRefID && a_event->oldContainer != 0 &&
 					a_event->oldContainer != game::kPlayerRefID && a_event->itemCount > 0) {
 					const auto container = a_event->oldContainer;
 					const auto base = a_event->baseObj;
-					Enqueue([container, base]() { Controller::Get().OnItemReturned(container, base); });
+					auto*      ui = RE::UI::GetSingleton();
+					const bool byHand = ui && ui->IsMenuOpen("LootMenu");
+					Enqueue([container, base, byHand]() { Controller::Get().OnItemReturned(container, base, byHand); });
 				}
 				if (!a_event || a_event->oldContainer != game::kPlayerRefID || a_event->newContainer == 0 ||
 					a_event->newContainer == game::kPlayerRefID || a_event->itemCount <= 0) {

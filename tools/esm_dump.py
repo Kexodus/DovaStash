@@ -1107,7 +1107,7 @@ MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms"
               "weaponTypes", "armorTypes", "bookTeaches", "alchemy", "soulGem", "enchanted", "ammo"}
 CELLS_KEYS = {"cell", "label", "note"}
 LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "cells", "master", "containers", "displays",
-               "keep", "learned", "basedOn"}
+               "keep", "learned", "declined", "basedOn"}
 CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
 DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "only", "set", "ignored"}
 DISPLAY_KINDS = {"rack", "mannequin", "item", "case"}
@@ -1188,7 +1188,7 @@ def check_layout(lo, doc, errors, warnings, category_ids):
     for k in ("name", "cell", "master", "containers"):
         if k not in doc:
             errors.append(f"missing required key {k!r}")
-    for k in ("learned", "basedOn"):
+    for k in ("learned", "declined", "basedOn"):
         if k in doc:
             warnings.append(f"{k!r} belongs in player Layouts only, not in shipped templates")
     requires = [r.lower() for r in doc.get("requires", [])]
@@ -1298,7 +1298,7 @@ def check_layout(lo, doc, errors, warnings, category_ids):
         info_optional = {"optionalPlugins": optional}  # display items/sets: fine without them (skipped, one info log line)
     else:
         info_optional = {}
-    player_layout = "learned" in doc or "basedOn" in doc
+    player_layout = "learned" in doc or "declined" in doc or "basedOn" in doc
 
     def kind_warnings(script_kinds):
         # The kind the scripts give a display wins over the entry's 'kind' (as in the DLL).

@@ -61,6 +61,8 @@ namespace dova
 				DOVA_BOOL("Sorting", "bDistributeOnMasterClose", sorting.distributeOnMasterClose),
 				DOVA_BOOL("Sorting", "bSortOnArrival", sorting.sortOnArrival),
 				DOVA_BOOL("Sorting", "bLearn", sorting.learn),
+				DOVA_INT("Sorting", "iSuggestCategoryAfter", sorting.suggestCategoryAfter),
+				DOVA_INT("Sorting", "iLearnUndoSeconds", sorting.learnUndoSeconds),
 				DOVA_BOOL("Sorting", "bFillDisplays", sorting.fillDisplays),
 				DOVA_BOOL("Sorting", "bCraftingSupply", sorting.craftingSupply),
 				DOVA_BOOL("Sorting", "bCraftingSupplyGear", sorting.craftingSupplyGear),
@@ -110,6 +112,8 @@ namespace dova
 			logger::warn("Settings: iMode={} is not 0-3, using default {}", v.ui.mode, def.ui.mode);
 			v.ui.mode = def.ui.mode;
 		}
+		v.sorting.suggestCategoryAfter = std::clamp(v.sorting.suggestCategoryAfter, 0, 20);  // same ranges as the settings page
+		v.sorting.learnUndoSeconds = std::clamp(v.sorting.learnUndoSeconds, 0, 30);
 		v.overlay.radius = std::clamp(v.overlay.radius, 100.0f, 5000.0f);  // same ranges as the settings page
 		v.overlay.maxIcons = std::clamp(v.overlay.maxIcons, 1, 32);
 		v.overlay.iconSize = std::clamp(v.overlay.iconSize, 8.0f, 128.0f);

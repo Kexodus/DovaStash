@@ -4,8 +4,10 @@
 // Core never moves anything; the plugin executes the Moves on the main thread.
 //
 // Destination precedence for an item (first that applies):
-//   1. explicit per-item binding: a non-ignored container whose "forms" lists the item's base form
-//   2. learned destination for the base form, if it is a non-ignored, non-master container of the layout
+//   1. explicit per-item binding: a non-ignored container whose "forms" lists the item's base form (or
+//      the item it is made from, ItemInfo::family: an enchanted variant follows its root item)
+//   2. learned destination for the base form, else for its family root, if it is a non-ignored,
+//      non-master container of the layout
 //   3. categories: the item's matching categories are tried best-first (CategorySet::MatchAll); for the
 //      first category that any non-ignored container binds, the container with the most specific
 //      matching pattern wins (exact > deeper wildcard > shallower wildcard > "*"), ties go to the
@@ -172,12 +174,33 @@ namespace dova::core
 		RejectedItem      // smart overload: quest / non-playable / nameless items are not learned
 	};
 
+	// What one Learn changed, so it can be taken back (UndoLearn): the HUD offers it for a few seconds.
+	struct LearnUndo
+	{
+		FormRef                key;        // the learned entry's key (the item, or its family root)
+		std::optional<FormRef> previous;   // what it pointed at before (nullopt: there was no entry)
+		// Smart Learn of a variant: the entry for the variant itself (form -> container) that the family's
+		// entry replaced, if there was one.
+		std::optional<std::pair<FormRef, FormRef>> variantWas;
+		FormRef                container;
+		bool                   containerAdded{ false };  // the container entered the layout with this learn
+	};
+
 	// Records `a_form` -> `a_container` in layout.learned. A container not yet in the layout is added
 	// as a managed container without categories (the plugin must have checked it is safe to use).
-	LearnResult Learn(Layout& a_layout, const FormRef& a_form, const FormRef& a_container);
+	LearnResult Learn(Layout& a_layout, const FormRef& a_form, const FormRef& a_container, LearnUndo* a_undo = nullptr);
 
 	// Like Learn, but does not record anything when the container already is the item's explicit or
 	// category destination (and removes a stale learned entry in that case). This keeps learned data
 	// minimal so later category re-binding still takes effect for those items.
-	LearnResult Learn(Layout& a_layout, const ItemInfo& a_item, const FormRef& a_container, const CategorySet& a_categories);
+	// Item families: a variant (ItemInfo::family set) is learned under its root item, so every variant
+	// of it follows ("Iron Sword of Burning" teaches where iron swords go). A learned entry for the
+	// variant itself (older data) is dropped at the same time. `a_undo`, when given, is filled for
+	// Recorded / Updated / Removed.
+	LearnResult Learn(Layout& a_layout, const ItemInfo& a_item, const FormRef& a_container, const CategorySet& a_categories, LearnUndo* a_undo = nullptr);
+
+	// Takes a Learn back: the learned entry is restored to what it was, and a container that only
+	// entered the layout with that learn (still without categories, forms or learned items) leaves it
+	// again. Safe to call twice (the second call changes nothing).
+	void UndoLearn(Layout& a_layout, const LearnUndo& a_undo);
 }

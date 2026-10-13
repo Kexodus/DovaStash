@@ -34,8 +34,19 @@ bDistributeOnMasterClose = true
 bSortOnArrival = true
 
 ; true = putting an item into a managed container by hand (container menu open) remembers that
-; container as the item's destination ("learned destinations").
+; container as the item's destination ("learned destinations"). Enchanted or otherwise variant items
+; count as the item they are made from: an "Iron Sword of Burning" teaches where iron swords go.
 bLearn = true
+
+; After this many learned items of one category point at the same container, Dova Stash asks once
+; when you close it: "Send all Books to End Table?". Yes binds the category to the container (the
+; learned items it now covers are dropped); No is remembered for that container and category.
+; 0 = never ask.
+iSuggestCategoryAfter = 3
+
+; For this many seconds after something was learned, the hotkey takes it back ("... now goes to
+; End Table (K: undo)"). 0 = no undo.
+iLearnUndoSeconds = 5
 
 ; true = Deposit and Sort all put your gear on the displays you use, as if you had placed it by hand.
 ; Turn a display on with the hotkey (look at a weapon rack, mannequin or plaque and choose "Use this

@@ -9,8 +9,9 @@
 // - Output is indented with tabs and kept compact so people can read it: a short list or an entry without
 //   nested objects stays on one line (one line per container), and the fields of such lines are lined up
 //   in columns (detail::Dump). Fixed key order: $schema, name, note, author, version, priority, requires,
-//   cell, cells, master, containers, displays, keep, learned, basedOn, then any unknown keys (sorted).
-//   `cells` (more cells of a multi-cell home, HomeCells.h) is only written when the layout lists any.
+//   cell, cells, master, containers, displays, keep, learned, declined, basedOn, then any unknown keys
+//   (sorted). `cells` (more cells of a multi-cell home, HomeCells.h) and `declined` (turned-down category
+//   suggestions, Learning.h) are only written when the layout has any.
 //   name/author/version/priority are always written; optional parts only when set.
 // - `note` (top level, containers, displays) is free text for people reading the file; Dova Stash never
 //   uses it (the panel shows a container's note).
@@ -140,12 +141,16 @@ namespace dova::core
 		std::vector<DisplayBinding>   displays;
 		std::optional<KeepConfig>     keep;
 		std::map<FormRef, FormRef>    learned;  // base form -> container ref
+		// Category suggestions the player turned down (Learning.h): container ref -> category ids. "Send all
+		// Books to End Table?" is never asked again for a pair listed here. Player layouts only; optional.
+		std::map<FormRef, std::vector<std::string>> declined;
 		std::optional<std::string>    basedOn;  // "Templates/Vanilla/Breezehome.json@1.0.0"
 
 		nlohmann::json extra = nlohmann::json::object();               // unknown top-level keys
 		nlohmann::json unparsedContainers = nlohmann::json::array();   // entries we could not parse
 		nlohmann::json unparsedDisplays = nlohmann::json::array();     // display entries we could not parse
 		nlohmann::json unparsedLearned = nlohmann::json::object();     // pairs we could not parse
+		nlohmann::json unparsedDeclined = nlohmann::json::object();    // "declined" entries we could not parse
 		nlohmann::json unparsedCells = nlohmann::json::array();        // "cells" entries we could not parse
 
 		[[nodiscard]] const ContainerBinding* FindContainer(const FormRef& a_ref) const;

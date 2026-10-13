@@ -257,6 +257,7 @@ On entering an eligible cell:
 
   // Player layouts only (never in shipped templates):
   "learned": {"Skyrim.esm|0x0001397E": "Skyrim.esm|0x000BBBBB"},
+  "declined": {"Skyrim.esm|0x000BBBBB": ["books.skill"]},   // category suggestions turned down, per container (§8.6); optional
   "basedOn": "Templates/Vanilla/Breezehome.json@1.0.0"
 }
 ```
@@ -513,10 +514,19 @@ another area show it (*In Cellar*, and *(Cellar)* next to *available* when used 
 Categories are hierarchical IDs (`weapons.swords`, `alchemy.potions`), matched by compiled predicates.
 Bindings accept wildcards (`weapons.*`). Evaluation order for a given item:
 
-1. Per-item **explicit binding** in the layout (rare; the escape hatch)
-2. **Learned** destination for that exact base form
+1. Per-item **explicit binding** in the layout (rare; the escape hatch): the item's base form, else the
+   item it is made from (its *family* root, below)
+2. **Learned** destination for that exact base form, else for its family root
 3. First matching **category** by priority, then specificity (deeper IDs win over shallower ones)
 4. No match → item stays in / goes to **master** ("homeless")
+
+**Item families.** An enchanted weapon or armor is its own base form, made from a plain one (WEAP `CNAM`,
+ARMO `TNAM`: `TESObjectWEAP::templateWeapon`, `TESObjectARMO::templateArmor`). The plugin follows that
+chain to the root item and hands it to core as `ItemInfo::family` (nullopt for an item that is its own
+root; never a dynamic form). Core treats the family as one unit: a learned entry or a fixed item binding for
+the root covers every variant, and learning a variant records the root (§8.6). An entry for the variant
+itself (older data, or a deliberate exception) still wins over the family's. Player-made enchantments do not
+change the base form, so they need none of this.
 
 ### 7.1 Category definition schema
 
@@ -635,7 +645,7 @@ download that drops into the same `Categories/` folder, not in the main archive.
 | **Retrieve**   | Destinations → player                 | Menu: by category, or everything                                  |
 | **Fill displays** | Player + managed containers → the empty displays in use (§8.4) | Part of Deposit and Sort all (`bFillDisplays`); one display with *Fill now* in its menu |
 | **Crafting supply** | Managed containers → player, the unused rest back (§8.5) | Sitting down at a crafting station in an enabled home (`bCraftingSupply`); back when the crafting menu closes |
-| **Learn**      | Records item → container              | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
+| **Learn**      | Records item → container (§8.6)       | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
 
 ### 8.2 Moving items safely (`ItemMover`)
 
@@ -916,6 +926,65 @@ player's inventory, never lost.
 when nothing went back). The log has a line per stack brought and per (form, key) at the end at debug (`had 2,
 brought 10, crafted 3, now 9 -> 6 back`), and a summary each way at info.
 
+### 8.6 Learning
+
+Putting an item into a managed container by hand teaches Dova Stash where it goes (§4.2, §8.1; the rules of
+§16 *Learn*). Core: `core::Learn` / `UndoLearn` (`SortPlanner.h`) and `core/Learning.h`, all unit-tested;
+the plugin side is `Controller::OnItemStored` and the pieces below. `[Sorting] bLearn` turns the whole of it
+off.
+
+**One item, one family.** The learned key is the item's base form, or its family root when it is a variant
+(§7 *Item families*): an "Iron Sword of Burning" put into the end table records the Iron Sword, so plain and
+enchanted iron swords all go there. A learned entry for the variant itself is dropped at the same time (the
+family's entry takes over; undo brings it back). Existing `learned` data keeps working unchanged: entries are
+looked up by the exact form first. Log: `Learn: Iron Sword of Burning -> End Table: recorded (as Iron Sword)`.
+
+**Undo** (`[Sorting] iLearnUndoSeconds`, 5; 0 = off). The HUD line for a learn ends with the offer: *Dova
+Stash: Iron Sword now goes to End Table (K: undo)*. Pressing the hotkey within the window takes back every
+learn of that batch (`core::UndoLearn`, newest first): the entries go back to what they were, and a container
+that only entered the setup with those learns leaves it again (unless it has gained a category, a fixed item
+or another learned item meanwhile). HUD: *Dova Stash: undone, Iron Sword is not learned*. The hotkey is
+blocked while the container menu is open, so the window starts with the HUD line and starts again when the
+menu closes; outside the window the hotkey means what it always means (one clock comparison at the top of
+`OnHotkey`). A learn in another home starts a new batch.
+
+**Category suggestion** (`[Sorting] iSuggestCategoryAfter`, 3; 0 = never). When that many learned items of
+one primary category point at the same container, Dova Stash asks once, in a native message box, after the
+container has closed and the undo window has passed (never while a menu is open, never during a sort):
+*Dova Stash: send all Books to End Table?* — **Yes** / **No**. The panel's container page shows the same
+question with the same two answers (*No, don't ask again*), so every surface agrees.
+- *What is suggested* (`core::SuggestCategory`, from the counts `DisplayHome::learnedCategories` also uses):
+  the category with the most learned items that the container does not cover yet with any of its patterns,
+  that the player has not declined for it, and that no other non-ignored container binds by its exact id. A
+  wider pattern elsewhere does not block it (`books.*` on the bookshelf; the exact `books.skill` on the end
+  table wins by specificity, §16), so the question turns a habit into a clean exception. Never for the master
+  or an ignored container.
+- **Yes** (`core::AcceptSuggestion`): the exact category id is added to the container's `categories`, then
+  the learned entries pointing at that container whose item would reach it anyway (its explicit or category
+  destination without the entry, the rule the smart Learn applies to one item) are dropped
+  (`core::PruneRedundantLearned`). Decided: the entries are cleaned up rather than kept, for the same reason
+  the smart Learn keeps learned data minimal: a later re-binding of the category must take effect for those
+  items, and hundreds of exact entries hide what the setup really says. Entries whose item cannot be looked up
+  (plugin missing) stay. HUD: *Dova Stash: End Table now takes Books*.
+- **No** (`core::DeclineSuggestion`): remembered in the layout as `"declined": {"<container>": ["books.skill"]}`
+  (§6.3; optional, only written when there is any; malformed entries kept verbatim in `unparsedDeclined`), so
+  the pair is never asked again. Esc counts as No. The panel's container page lists the declined categories
+  with *Ask again* (`core::ClearDeclined`). Remove and Make master drop the container's entry; `Reset home`
+  drops the file. Templates never carry `declined` (`ExportAsTemplate` keeps it out of the export; the
+  template lint and `esm_dump.py check` warn about it like `learned`).
+
+**Stale entries.** The panel's Learned tab marks entries the planner cannot use: the container is no longer
+used (not in the setup, ignored, or the master: yellow, with *Forget those (N)...* to drop them in one go,
+`Controller::ForgetStaleLearned`) or fails the safety checks right now (not loaded, not built yet: grey, kept;
+they work again when it is). A container out of reach from the player's area of a multi-cell home (§6.7) is
+not stale.
+
+**Taking items out.** Taking a learned item out of its container is using it, not a correction, so nothing is
+forgotten for it (putting it somewhere else by hand updates the entry, §16). A container → player transfer is
+read for one thing only: an item a script hands back right after Dova Stash stored it (§8.2). Taken by hand
+does not count: through the open ContainerMenu, or through QuickLoot IE's loot menu (`LootMenu` open at the
+time of the event, decided in the sink), which has no ContainerMenu.
+
 ## 9. Home eligibility & safety
 
 A cell can host a Dova Stash layout when **all** of the following hold:
@@ -997,7 +1066,7 @@ Scaleform UI they already own.
 |---|---|---|---|
 | Container name/role ("Chest — Weapons") | Vanilla HUD activate prompt. We hook `TESObjectCONT`'s `GetActivateText` (vtable), so nothing is written to the save | HUD skin, fonts | Always available (VR included) |
 | Container contents summary, where the selected item goes, hotkey button | **QuickLoot IE** API: `PopulateInfoBar` (V20), `ModifyButtonBar` (V21; legacy `PopulateButtonBar` on V20). Plain text only | Whatever QuickLoot skin is installed, the game's button art | Activate prompt plus K hotkey |
-| Learn from looting | QuickLoot IE `TakeItem` / transfer events, plus the vanilla container-changed sink | — | Vanilla sink only |
+| Learning next to QuickLoot IE | Nothing to learn from a loot menu (it only takes). What it takes is a hand retrieval, not a script handing an item back: the container-changed sink checks `LootMenu` (§8.6) | — | Vanilla sink only |
 | Retrieving items | **The real `ContainerMenu`** of the bound container, opened by us. We never draw our own item lists | SkyUI 6 lists, I4/I5 item icons, sorting and search | Same (vanilla menu) |
 | In-world menus (master/container actions, assignment, retrieve, browse) | **UIExtensions** `UIListMenu`: plain top-down, scrollable, flat lists (group list → category list), each headed by the menu's name, with category/container icons and the Dova Stash logo where the menu allows it ("List menus" below). Opened from the DLL (see "Skin-agnostic contracts" below), so no ESP | Whatever replaces UIExtensions' `listmenu.swf` (any skin, or none); the player's SkyUI icon SWFs | Native `MessageBoxMenu` chain (themed by the menu skin) |
 | Confirmations, quick actions | Native `MessageBoxMenu` | Menu skin | — |
@@ -1172,7 +1241,7 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
 | 1  | Default hotkey choice (avoid vanilla and common-mod conflicts)                      | Pick during M1; always rebindable |
 | 2  | VR input gesture (sneak+activate hook) is untested by us                            | Ship as experimental; recruit a VR tester |
 | 3  | `RemoveItem` HUD spam / sounds during large deposits                                | Test in M1; suppress or batch notifications if needed |
-| 4  | Interaction with QuickLoot IE / other container-UI mods                             | Our hotkey is independent of activation; test the learn path with QuickLoot transfers |
+| 4  | Interaction with QuickLoot IE / other container-UI mods                             | Our hotkey is independent of activation. Reviewed (§8.6): a loot menu only takes, so there is nothing to learn from it; what it takes is not mistaken for a script handing an item back. To verify in game: take a just-deposited item through QuickLoot, then Deposit again |
 | 5  | Multi-cell homes (Hearthfire homes + cellar, a forge outside)                       | §6.7: optional `cells` list; a cell with its own setup stays its own home and belongs to one home only; other cells reached only when loaded or through persistent references; players add and name areas with the hotkey, no merged Hearthfire templates until tested in game. To verify in game: remote `RemoveItem`/activation, exterior persistent refs while their cell is unloaded |
 | 6  | Template trust: templates are data only (no code), but bad IDs could bind wrong refs | Validate that the ref's base form is a `CONT` and lives in the declared cell; reject otherwise |
 | 7  | JSON library: nlohmann-json (ubiquitous) vs glaze (fast, compile-time)              | nlohmann-json for readability; layouts are small |
@@ -1194,6 +1263,8 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
   valuable stacks first. Quest and non-playable items are always kept.
 - **Learn:** an unknown container that passes the safety checks is added to the layout with no
   categories. Learning is skipped when the container is already the item's rule-based destination.
+  A variant is learned as its family root (§7, §8.6); a learn can be undone for a few seconds, and after a
+  few learns of one category the player is asked once whether the category should go there (§8.6).
   The category picker shows where a container's learned items belong ("Books (1 learned)",
   `sort::LearnedByCategory`), though learning binds the exact item, never its category. A container with
   learned items only names those categories wherever its role is shown: activate prompt "End Table

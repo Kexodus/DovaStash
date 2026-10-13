@@ -114,6 +114,29 @@ namespace dova::game
 			}
 		}
 
+		// The root of a variant chain: an enchanted weapon's CNAM template (TESObjectWEAP::templateWeapon) or
+		// an enchanted armor's TNAM template (TESObjectARMO::templateArmor), followed to the item that has
+		// none. Cycles and absurd chains stop after a few steps. nullptr: the object is its own root.
+		RE::TESBoundObject* FamilyRoot(RE::TESBoundObject* a_object)
+		{
+			RE::TESBoundObject* root = nullptr;
+			auto*               current = a_object;
+			for (int depth = 0; current && depth < 8; ++depth) {
+				RE::TESBoundObject* next = nullptr;
+				if (auto* weap = current->As<RE::TESObjectWEAP>()) {
+					next = weap->templateWeapon;
+				} else if (auto* armo = current->As<RE::TESObjectARMO>()) {
+					next = armo->templateArmor;
+				}
+				if (!next || next == current || next == a_object) {
+					break;
+				}
+				root = next;
+				current = next;
+			}
+			return root;
+		}
+
 		RE::InventoryEntryData* FindChangesEntry(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object)
 		{
 			auto* changes = a_ref ? a_ref->GetInventoryChanges() : nullptr;
@@ -172,6 +195,12 @@ namespace dova::game
 			a_info.form = std::move(*ref);
 		} else {
 			a_info.form = {};  // dynamic form: invalid FormRef, never persisted
+		}
+		a_info.family.reset();
+		if (auto* root = FamilyRoot(a_object)) {
+			if (auto ref = ToFormRef(root); ref && ref->IsValid()) {
+				a_info.family = std::move(*ref);  // a dynamic root cannot be persisted: then no family
+			}
 		}
 		a_info.name.clear();
 		if (const char* name = a_object->GetName(); name) {
