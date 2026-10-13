@@ -512,7 +512,11 @@ satchels, barrels and strong boxes are not (`esm_dump.py cell "HearthFires.esm|0
    the exterior cell's grid was not known: report it with the log.
 9. **Loading a game** outside right after leaving the house: no area is offered until you come out of a home
    again.
-10. **Fail if** an item disappears, a move touches a non-persistent container in another cell, a display in
+10. **Two exterior areas.** Add the garden's cell too (`Skyrim.esm|0x00009BD6`, walk into it from the grounds
+   and press the hotkey). Standing in the grounds, aim the hotkey at a container in the garden's cell (both
+   loaded): its container menu opens, as for one in your own cell. A rack or mannequin across the border is not
+   offered (displays only in your own cell).
+11. **Fail if** an item disappears, a move touches a non-persistent container in another cell, a display in
    another cell is filled, a single-cell home behaves differently from before, or a file without `cells` gains
    one.
 

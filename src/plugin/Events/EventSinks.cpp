@@ -3,6 +3,7 @@
 #include "Controller.h"
 #include "Game/FormUtil.h"
 #include "Game/ItemMover.h"
+#include "Home/Areas.h"
 
 namespace dova::events
 {
@@ -124,6 +125,10 @@ namespace dova::events
 			{
 				if (a_event && a_event->cell && a_event->cell->IsInteriorCell()) {
 					Enqueue([]() { Controller::Get().OnCellMaybeChanged(); });
+				} else if (a_event && a_event->cell) {
+					// An exterior cell loaded (walked near): its grid square is remembered so that the persistent
+					// references of a home's exterior area can be matched to it from indoors later (DESIGN §6.7).
+					home::RememberCell(a_event->cell);
 				}
 				return Control::kContinue;
 			}

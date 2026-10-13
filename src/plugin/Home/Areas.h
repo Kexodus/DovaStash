@@ -53,6 +53,11 @@ namespace dova::home
 	// temporary cell or owned by someone else (the player, the player's factions or a player house are fine).
 	[[nodiscard]] game::Verdict CheckExtraCell(RE::TESObjectCELL* a_cell);
 
+	// An exterior cell that is in memory (loaded, or looked up): its worldspace and grid square are remembered for
+	// the session, so its persistent references can be matched to an area while they sit in the worldspace's
+	// persistent cell (AreaOf). Interior cells are ignored. Any thread (guarded); cheap.
+	void RememberCell(RE::TESObjectCELL* a_cell);
+
 	// Display name of a cell for the panel and the log: its name, else its editor id, else the form ref.
 	[[nodiscard]] std::string AreaName(RE::TESObjectCELL* a_cell, const core::FormRef& a_ref);
 

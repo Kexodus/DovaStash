@@ -271,7 +271,8 @@ namespace dova
 
 		auto  targetHold = game::RefFromHandle(a_crosshairTarget);  // keeps the ref alive for this call
 		auto* target = targetHold.get();
-		if (target && target->GetParentCell() == cell) {
+		const bool targetHere = target && target->GetParentCell() == cell;
+		if (targetHere) {
 			if (OpenDisplayMenu(*home, target)) {
 				return;
 			}
@@ -281,8 +282,12 @@ namespace dova
 				target = behind;
 			}
 		}
-		if (target && (!game::IsContainerRef(target) || target->GetParentCell() != cell)) {
-			target = nullptr;  // NPCs, doors, items...: behave as if nothing was targeted
+		// A container across the border of the next exterior cell counts when that cell is a loaded area of this
+		// home (DESIGN §6.7); displays and fronts only in the player's own cell. A single-cell home: as before.
+		const bool targetInHome = target && game::IsContainerRef(target) &&
+		                          (targetHere || (home->MultiCell() && home::AreaOf(*home, target) && target->GetParentCell() && target->GetParentCell()->IsAttached()));
+		if (target && !targetInHome) {
+			target = nullptr;  // NPCs, doors, items, containers elsewhere: behave as if nothing was targeted
 		}
 
 		logger::debug("Hotkey in {} (layout: {}), target {}", home->name, home->layout ? "yes" : "no", target ? game::Describe(target) : "none"s);
@@ -293,7 +298,7 @@ namespace dova
 				UI().OpenMasterMenu(*home, target);
 				return;
 			}
-			const auto verdict = game::CheckContainer(target, cell);
+			const auto verdict = targetHere ? game::CheckContainer(target, cell) : home::CheckHomeContainer(target, *home);
 			if (!verdict.ok) {
 				Notify(std::format("Dova Stash: can't use {} ({})", game::RefName(target), verdict.reason));
 				return;

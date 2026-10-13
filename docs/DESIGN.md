@@ -443,8 +443,14 @@ one cell can use a container of the home in:
   furniture: the next container for the category, then the master, else the item stays where it is.
 - Exterior persistent references whose cell is not loaded sit in their worldspace's persistent cell: they are
   matched to an area by worldspace and grid position, once that exterior cell has been in memory this session
-  (until then they count as out of reach).
+  (looked up when the home's areas are built, or loaded as the player walked near: `TESCellFullyLoadedEvent`
+  → `home::RememberCell`). Until then, and for a persistent reference that has no cell at all right now, they
+  count as out of reach (*not loaded here (its area has not been visited this session)*, debug), never as
+  outside the home.
 - Displays are filled only in the player's cell (they need their 3D and their cell's scripts).
+- The hotkey aimed at a container just across the border of the next exterior cell works when that cell is a
+  loaded area of the home (the grounds often straddle two cells); displays and fronts (activators that open a
+  hidden chest) only in the player's own cell.
 
 Hearthfire furniture containers are mostly persistent (their scripts point at them): Lakeview Manor's master
 and main hall chests, cupboards, wardrobes, safes and end tables are; sacks, satchels, barrels and strong boxes

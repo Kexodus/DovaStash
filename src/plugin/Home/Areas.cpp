@@ -62,6 +62,11 @@ namespace dova::home
 		}
 	}
 
+	void RememberCell(RE::TESObjectCELL* a_cell)
+	{
+		Remember(a_cell);
+	}
+
 	const Area* Home::AreaById(RE::FormID a_cell) const
 	{
 		if (a_cell == 0) {
@@ -159,7 +164,15 @@ namespace dova::home
 		if (!a_home.MultiCell() || !a_ref || a_ref->GetParentCell() == playerCell) {
 			return game::CheckContainer(a_ref, playerCell);  // a single-cell home: exactly as before
 		}
-		auto*       cell = a_ref->GetParentCell();
+		auto* cell = a_ref->GetParentCell();
+		if (!cell) {
+			// In memory (persistent) but placed nowhere right now: its cell has not been loaded this session, so
+			// where it stands is unknown. Never touched from here.
+			if (a_reach) {
+				*a_reach = core::Reach::Unreachable;
+			}
+			return game::Verdict::Reject("not loaded here (its area has not been visited this session)");
+		}
 		const auto* area = AreaOf(a_home, a_ref);
 		const core::RefPlacement place{
 			.inHome = area != nullptr,
