@@ -324,8 +324,10 @@ namespace dova::editor
 				return 1;
 			}
 
+			render::SetNifMatrixColumns(a_args.nifColumns);
 			auto assets = std::make_shared<Assets>(a_ws.Files().Roots(), Assets::ArchiveList(a_ws));
-			auto desc = render::BuildSceneDesc(*cell);
+			const auto around = a_args.noNeighbours ? std::vector<home::CellInfo>{} : home::LoadNeighbourCells(*lo, *cell);
+			auto       desc = render::BuildSceneDesc(*cell, around);
 			render::Scene scene(device.Get(), assets, std::move(desc));
 			const auto    loadStart = Clock::now();
 			scene.Start();
@@ -390,6 +392,15 @@ namespace dova::editor
 			}
 			Out(std::format("{} {} \"{}\": {} references, {} drawn ({} with a mesh, {} boxes), {} terrain cells\n", lo->Format(cell->key), cell->editorId,
 				cell->name, cell->refs.size(), scene.Desc().refs.size(), shown, scene.Desc().refs.size() - shown, scene.Desc().terrain.size()));
+			if (!cell->interior && scene.Desc().terrain.empty()) {
+				Out(std::format("no terrain: LAND {}, grid {}\n", cell->land ? "read" : (lo->CellLandRecord(cell->key) ? "unreadable" : "missing"),
+					cell->grid ? std::format("{}, {}", (*cell->grid)[0], (*cell->grid)[1]) : std::string("missing")));
+			}
+			for (const auto& t : scene.Desc().terrain) {
+				const auto [lo2, hi2] = std::ranges::minmax(t.heights);
+				Out(std::format("terrain ({}, {}): heights {:.0f} .. {:.0f}, {} colors, {} normals, texture {}\n", t.gridX, t.gridY, lo2, hi2, t.colors.size(),
+					t.normals.size(), t.texture));
+			}
 			Out(std::format("meshes: {} unique, {} missing or unreadable; textures: {} loaded, {} missing; {} archives, {} loose roots{}\n",
 				progress.modelsTotal, progress.missingModels, progress.texturesTotal - progress.missingTextures, progress.missingTextures,
 				assets->ArchiveCount(), assets->LooseRootCount(), warp ? "; WARP software device" : ""));
@@ -397,6 +408,12 @@ namespace dova::editor
 				cam.yaw * 180.0f / std::numbers::pi_v<float>, cam.pitch * 180.0f / std::numbers::pi_v<float>, scene.DrawCalls()));
 			Out(std::format("time: cell {} ms, meshes and textures {} ms, render {} ms -> {}\n", cellMs, loadMs, renderMs, *a_args.screenshot));
 			if (a_args.verbose) {
+				std::size_t checked = 0;
+				const auto  off = scene.BoundsMismatches(4.0f, checked);
+				Out(std::format("bounds check: {} of {} meshes differ from their OBND by more than 4 units\n", off.size(), checked));
+				for (const auto& m : off) {
+					Out("  " + m + "\n");
+				}
 				for (const auto& r : scene.Desc().refs) {
 					const auto& p = cell->refs[static_cast<std::size_t>(r.index)];
 					if (r.model.empty() || std::ranges::any_of(r.model, [](char c) { return static_cast<unsigned char>(c) >= 0x80 || c < 0x20; })) {
@@ -512,6 +529,8 @@ namespace dova::editor
 				a.noDisabled = true;
 			} else if (s == "--tab") {
 				a.tab = value();
+			} else if (s == "--no-neighbours") {
+				a.noNeighbours = true;
 			} else if (s == "--verbose") {
 				a.verbose = true;
 			} else if (s == "--markers") {

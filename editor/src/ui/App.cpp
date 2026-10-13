@@ -198,7 +198,7 @@ namespace dova::editor::ui
 		if (!_assets) {
 			return;
 		}
-		_scene = std::make_unique<render::Scene>(_device, _assets, render::BuildSceneDesc(_cell->info));
+		_scene = std::make_unique<render::Scene>(_device, _assets, render::BuildSceneDesc(_cell->info, _cell->context));
 		_scene->Start();
 		_cameraPending = true;
 	}
@@ -311,6 +311,7 @@ namespace dova::editor::ui
 			auto oc = std::make_shared<OpenCell>();
 			oc->lo = a_lo;
 			oc->info = std::move(*cell);
+			oc->context = home::LoadNeighbourCells(*a_lo, oc->info);
 			oc->cellText = a_lo->Format(oc->info.key);
 			for (const auto& r : oc->info.refs) {
 				oc->refText.push_back(a_lo->Format(r.key));

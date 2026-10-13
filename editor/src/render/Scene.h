@@ -56,7 +56,7 @@ namespace dova::editor::render
 	// One placed reference as the scene needs it (built from home::PlacedRef by BuildSceneRefs).
 	struct SceneRef
 	{
-		int                         index{ -1 };  // index into CellInfo::refs: the selection id shared with the plan
+		int                         index{ -1 };  // index into CellInfo::refs: the selection id shared with the plan (< -1: a neighbour cell's)
 		std::string                 model;        // "meshes\\...nif", empty: box
 		std::array<float, 3>        position{};
 		std::array<float, 3>        rotation{};  // radians as stored
@@ -76,6 +76,7 @@ namespace dova::editor::render
 		std::vector<std::array<float, 3>> normals;
 		std::vector<std::uint32_t>        colors;
 		std::string                       texture;  // "textures\\...dds" (first quadrant's base texture)
+		bool                              context{ false };  // a neighbour cell's
 	};
 
 	struct SceneDesc
@@ -87,7 +88,9 @@ namespace dova::editor::render
 
 	// Turns an opened cell into scene references: markers and objects without a mesh are left out (NPCs stay
 	// as boxes), `a_selectable` decides what select mode picks.
-	[[nodiscard]] SceneDesc BuildSceneDesc(const home::CellInfo& a_cell);
+	// `a_context`: cells drawn around it (exterior neighbours); their references cannot be selected and get
+	// negative indices.
+	[[nodiscard]] SceneDesc BuildSceneDesc(const home::CellInfo& a_cell, const std::vector<home::CellInfo>& a_context = {});
 
 	struct Camera
 	{
@@ -182,6 +185,10 @@ namespace dova::editor::render
 		[[nodiscard]] std::pair<DirectX::XMFLOAT3, DirectX::XMFLOAT3>                SceneBounds() const;
 
 		[[nodiscard]] const SceneDesc& Desc() const noexcept { return _desc; }
+
+		// Meshes whose bounds differ from their base object's OBND by more than `a_tolerance` units (the
+		// Creation Kit computes OBND from the mesh, so this checks the mesh reader): "path: mesh .. vs OBND ..".
+		[[nodiscard]] std::vector<std::string> BoundsMismatches(float a_tolerance, std::size_t& a_checked) const;
 		[[nodiscard]] std::size_t      DrawCalls() const noexcept { return _drawCalls; }
 
 		// A camera looking at the whole scene from above at an angle (interiors: through the culled ceilings).

@@ -104,6 +104,10 @@ namespace dova::editor::home
 
 	[[nodiscard]] std::optional<CellInfo> LoadCell(esp::LoadOrder& a_lo, const esp::FormKey& a_cell, const LoadCellOptions& a_options = {});
 
+	// The exterior cells around an exterior cell (`a_radius` 1: the 8 neighbours), loaded without door
+	// links: the surroundings the 3D view draws around a home's exterior.
+	[[nodiscard]] std::vector<CellInfo> LoadNeighbourCells(esp::LoadOrder& a_lo, const CellInfo& a_cell, int a_radius = 1);
+
 	// A cell of a plugin that may be a player home, with the evidence.
 	struct HomeCandidate
 	{

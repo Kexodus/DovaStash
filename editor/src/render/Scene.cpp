@@ -296,15 +296,18 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 
 	// ---- Scene description ------------------------------------------------------------------------------
 
-	SceneDesc BuildSceneDesc(const home::CellInfo& a_cell)
+	namespace
 	{
+		void AddCell(SceneDesc& desc, const home::CellInfo& a_cell, bool a_context, int& a_contextIndex)
+		{
+		if (!a_context && a_cell.refs.empty() && !a_cell.land) {
+			return;
+		}
 		using esp::MakeSig;
-		SceneDesc desc;
-		desc.interior = a_cell.interior;
 		for (std::size_t i = 0; i < a_cell.refs.size(); ++i) {
 			const auto& r = a_cell.refs[i];
 			SceneRef    s;
-			s.index = static_cast<int>(i);
+			s.index = a_context ? a_contextIndex-- : static_cast<int>(i);
 			if (r.display) {
 				s.kind = RefKind::Display;
 			} else if (r.IsContainer()) {
@@ -343,6 +346,9 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			if (s.model.empty() && !important) {
 				continue;  // sound markers, trigger volumes, lights without a mesh
 			}
+			if (s.model.empty()) {
+				s.ghost = true;  // no mesh at all (an activator volume): see-through like a marker
+			}
 			s.position = r.position;
 			s.rotation = r.rotation;
 			s.scale = r.scale > 0.0f ? r.scale : 1.0f;
@@ -357,14 +363,16 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 					s.bounds = { -22.0f, -16.0f, 0.0f, 22.0f, 16.0f, 128.0f };
 				}
 				s.model.clear();
+				s.ghost = false;  // people are solid boxes
 			}
 			s.color = KindColor(s.kind, r);
 			s.initiallyDisabled = r.initiallyDisabled;
-			s.selectable = s.kind == RefKind::Container || s.kind == RefKind::Display || s.kind == RefKind::Door || s.kind == RefKind::Furniture;
+			s.selectable = !a_context && (s.kind == RefKind::Container || s.kind == RefKind::Display || s.kind == RefKind::Door || s.kind == RefKind::Furniture);
 			desc.refs.push_back(std::move(s));
 		}
 		if (a_cell.land && a_cell.grid) {
 			SceneTerrain t;
+			t.context = a_context;
 			t.gridX = (*a_cell.grid)[0];
 			t.gridY = (*a_cell.grid)[1];
 			t.heights = a_cell.land->heights;
@@ -379,6 +387,18 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			}
 			t.texture = Assets::NormalizeTexture(tex.empty() ? std::string("landscape\\dirt02.dds") : tex);
 			desc.terrain.push_back(std::move(t));
+		}
+		}
+	}
+
+	SceneDesc BuildSceneDesc(const home::CellInfo& a_cell, const std::vector<home::CellInfo>& a_context)
+	{
+		SceneDesc desc;
+		desc.interior = a_cell.interior;
+		int contextIndex = -2;
+		AddCell(desc, a_cell, false, contextIndex);
+		for (const auto& c : a_context) {
+			AddCell(desc, c, true, contextIndex);
 		}
 		return desc;
 	}
@@ -938,6 +958,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		init.pSysMem = idx.data();
 		_device->CreateBuffer(&bd, &init, &m.ib);
 		m.state = (m.vb && m.ib) ? 1 : 2;
+		std::scoped_lock lock(_mutex);
+		_problems.push_back(std::format("debug terrain: {} vertices, {} indices, state {}, bounds z {:.0f}..{:.0f}", verts.size(), idx.size(), m.state.load(), m.bmin.z, m.bmax.z));
 	}
 
 	void Scene::EnsurePipeline()
@@ -1045,6 +1067,13 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 				return false;
 			}
 			return !o.heightCut || (a_ref.position[2] >= o.zLo && a_ref.position[2] <= o.zHi);
+		}
+
+		// Things invisible in game (marker meshes, collision-only activators) get a see-through box only when
+		// a template can use them (hidden chests, rack and plaque triggers); everything else stays invisible.
+		bool GhostShown(const SceneRef& a_ref)
+		{
+			return a_ref.selectable && (a_ref.kind == RefKind::Container || a_ref.kind == RefKind::Display || a_ref.kind == RefKind::Door);
 		}
 
 		// The 8 corners of a local box under a world matrix.
@@ -1216,7 +1245,9 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			}
 			if (box) {
 				if (ref.ghost || model.invisible) {
-					ghosts.push_back(i);
+					if (GhostShown(ref)) {
+						ghosts.push_back(i);
+					}
 					continue;
 				}
 				a_ctx->RSSetState(a_options.wireframe ? s.wire.Get() : s.cullBack.Get());
@@ -1258,7 +1289,13 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			} else if (ref.index == a_options.hovered) {
 				highlight = { 0.12f, 0.12f, 0.14f, 0.0f };
 			}
-			draw(*_models[0], _models[0]->subs[0], _instances[i].boxWorld, { c.x, c.y, c.z, 0.28f }, highlight, true);
+			// A faint fill for small things (a hidden chest, a rack trigger); trigger volumes the size of a room
+			// only get their outline.
+			const float extent = std::max({ ref.bounds[3] - ref.bounds[0], ref.bounds[4] - ref.bounds[1], ref.bounds[5] - ref.bounds[2] }) * ref.scale;
+			const bool  big = extent > 300.0f;
+			if (!big || ref.index == a_options.selected || ref.index == a_options.hovered) {
+				draw(*_models[0], _models[0]->subs[0], _instances[i].boxWorld, { c.x, c.y, c.z, big ? 0.10f : 0.22f }, highlight, true);
+			}
 		}
 		a_ctx->OMSetBlendState(s.opaque.Get(), nullptr, 0xFFFFFFFF);
 
@@ -1287,7 +1324,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 				addBox(i, Rgba(255, 230, 120), lines);
 			} else if (ref.index == a_options.hovered) {
 				addBox(i, Rgba(220, 220, 220, 200), lines);
-			} else if ((a_options.showMarkers && ref.selectable) || ref.ghost || _models[_instances[i].model]->invisible) {
+			} else if ((a_options.showMarkers && ref.selectable) || ((ref.ghost || _models[_instances[i].model]->invisible) && GhostShown(ref))) {
 				addBox(i, (ref.color & 0x00FFFFFF) | 0xC0000000, occluded);
 			}
 		}
@@ -1354,8 +1391,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			if (!box && state != 1) {
 				continue;
 			}
-			if (box && (ref.ghost || model.invisible) && a_ignore >= 0) {
-				continue;  // see-through boxes do not block the view
+			if (box && (ref.ghost || model.invisible) && (a_ignore >= 0 || !GhostShown(ref))) {
+				continue;  // see-through boxes do not block the view; invisible things cannot be clicked
 			}
 			const Model&    m = box ? *_models[0] : model;
 			const XMMATRIX  inv = XMLoadFloat4x4(box ? &inst.boxInverse : &inst.inverse);
@@ -1454,19 +1491,50 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		return std::nullopt;
 	}
 
+	std::vector<std::string> Scene::BoundsMismatches(float a_tolerance, std::size_t& a_checked) const
+	{
+		std::vector<std::string>        out;
+		std::unordered_map<std::size_t, bool> seen;
+		a_checked = 0;
+		for (std::size_t i = 0; i < _instances.size(); ++i) {
+			const auto& r = _desc.refs[i];
+			const auto  mi = _instances[i].model;
+			if (mi == 0 || _models[mi]->state.load() != 1 || seen.contains(mi)) {
+				continue;
+			}
+			const float* b = r.bounds.data();
+			if (b[3] - b[0] < 1.0f && b[4] - b[1] < 1.0f) {
+				continue;
+			}
+			seen[mi] = true;
+			++a_checked;
+			const auto& m = *_models[mi];
+			const float d = std::max({ std::abs(m.bmin.x - b[0]), std::abs(m.bmin.y - b[1]), std::abs(m.bmin.z - b[2]), std::abs(m.bmax.x - b[3]),
+				std::abs(m.bmax.y - b[4]), std::abs(m.bmax.z - b[5]) });
+			if (d > a_tolerance) {
+				out.push_back(std::format("{}: mesh ({:.0f} {:.0f} {:.0f})..({:.0f} {:.0f} {:.0f}) vs OBND ({:.0f} {:.0f} {:.0f})..({:.0f} {:.0f} {:.0f})", m.path, m.bmin.x,
+					m.bmin.y, m.bmin.z, m.bmax.x, m.bmax.y, m.bmax.z, b[0], b[1], b[2], b[3], b[4], b[5]));
+			}
+		}
+		return out;
+	}
+
 	std::pair<XMFLOAT3, XMFLOAT3> Scene::SceneBounds() const
 	{
 		XMFLOAT3 lo{ FLT_MAX, FLT_MAX, FLT_MAX }, hi{ -FLT_MAX, -FLT_MAX, -FLT_MAX };
 		bool     any = false;
 		for (const auto& r : _desc.refs) {
-			if (r.kind == RefKind::Other) {
-				continue;
+			if (r.kind == RefKind::Other || r.index < 0) {
+				continue;  // neighbour cells are not part of the overview
 			}
 			lo = { std::min(lo.x, r.position[0]), std::min(lo.y, r.position[1]), std::min(lo.z, r.position[2]) };
 			hi = { std::max(hi.x, r.position[0]), std::max(hi.y, r.position[1]), std::max(hi.z, r.position[2]) };
 			any = true;
 		}
 		for (const auto& t : _desc.terrain) {
+			if (t.context) {
+				continue;
+			}
 			const float x0 = static_cast<float>(t.gridX) * 4096.0f, y0 = static_cast<float>(t.gridY) * 4096.0f;
 			lo = { std::min(lo.x, x0), std::min(lo.y, y0), lo.z };
 			hi = { std::max(hi.x, x0 + 4096.0f), std::max(hi.y, y0 + 4096.0f), hi.z };

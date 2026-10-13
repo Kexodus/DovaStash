@@ -34,6 +34,7 @@ namespace dova::editor
 		bool                       noDisabled{ false };
 		bool                       markers{ false };
 		bool                       verbose{ false };
+		bool                       noNeighbours{ false };  // --render-cell: exterior without the 8 cells around it
 		std::optional<std::string> tab;  // --gui: the cell tab to show ("3d", "plan", "containers", "displays", "doors", "template")  // --render-cell: list what is drawn as a box and why
 		std::vector<std::string>   errors;
 

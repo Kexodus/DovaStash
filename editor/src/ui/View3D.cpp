@@ -105,6 +105,8 @@ namespace dova::editor::ui
 		if (!a_cell.info.interior) {
 			ImGui::SameLine();
 			ImGui::Checkbox("Terrain", &_view.showTerrain);
+			ImGui::SameLine();
+			ImGui::TextDisabled("(+%zu cells around)", a_cell.context.size());
 		}
 		ImGui::SameLine();
 		ImGui::Checkbox("Height", &_heightCut3d);
@@ -231,8 +233,8 @@ namespace dova::editor::ui
 		_view.selected = _selectedRef;
 		_hoveredRef = -1;
 		if (hovered && !looking && !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-			if (const auto hit = _scene->Pick(XMLoadFloat3(&_camera.position), rayAt(io.MousePos), _view, _selectMode)) {
-				_hoveredRef = hit->index;
+			if (const auto hit = _scene->Pick(XMLoadFloat3(&_camera.position), rayAt(io.MousePos), _view, _selectMode); hit && hit->index >= 0) {
+				_hoveredRef = hit->index;  // neighbour cells (negative indices) are shown, not selectable
 			}
 		}
 		const ImVec2 clickDelta(io.MousePos.x - io.MouseClickedPos[ImGuiMouseButton_Left].x, io.MousePos.y - io.MouseClickedPos[ImGuiMouseButton_Left].y);

@@ -410,7 +410,9 @@ namespace dova::editor::render
 					}
 					return;
 				}
-				const Transform world = a_parent * av.local;
+				// The root's own transform is replaced by the reference's position, rotation and scale in game
+				// (the Creation Kit's object bounds leave it out too).
+				const Transform world = a_index == 0 ? a_parent : a_parent * av.local;
 				if (verbose) {
 					log.push_back(std::format("block {} {} \"{}\": {} children, t ({:.1f} {:.1f} {:.1f}) s {:.2f} r [{:.2f} {:.2f} {:.2f} | {:.2f} {:.2f} {:.2f} | {:.2f} {:.2f} {:.2f}]",
 						a_index, a_type, av.name, count, av.local.t[0], av.local.t[1], av.local.t[2], av.local.s, av.local.r[0][0], av.local.r[0][1],
@@ -673,7 +675,7 @@ namespace dova::editor::render
 					shape.skinned = true;
 					ReadSkinPartition(skin, shape);
 				}
-				Finish(std::move(shape), a_parent * av.local);
+				Finish(std::move(shape), a_index == 0 ? a_parent : a_parent * av.local);
 			}
 
 			// SE skinned shapes keep their vertices in the skin partition (BSTriShape data size 0).
@@ -827,7 +829,7 @@ namespace dova::editor::render
 					}
 				}
 				if (best) {
-					Finish(std::move(*best), a_parent * av.local);
+					Finish(std::move(*best), a_index == 0 ? a_parent : a_parent * av.local);
 				} else {
 					Warn(std::format("block {} {}: geometry data unreadable", data, dt));
 				}

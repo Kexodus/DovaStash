@@ -140,9 +140,28 @@ namespace dova::editor::home
 
 		std::optional<CellLand> LoadLand(esp::LoadOrder& a_lo, const FormKey& a_cell)
 		{
-			const auto rec = a_lo.CellLandRecord(a_cell);
+			auto rec = a_lo.CellLandRecord(a_cell);
 			if (!rec) {
-				return std::nullopt;
+				// A child worldspace (a walled city) using its parent's land: the parent's cell at the same grid.
+				const auto* entry = a_lo.FindCell(a_cell);
+				const auto* world = entry && entry->world ? a_lo.Find(*entry->world, MakeSig("WRLD")) : nullptr;
+				if (!world) {
+					return std::nullopt;
+				}
+				const auto ws = a_lo.Read(*world);
+				const auto wnam = ws.Get(MakeSig("WNAM"));
+				const auto pnam = ws.Get(MakeSig("PNAM"));
+				const auto xclc = a_lo.Read(entry->rec).Get(MakeSig("XCLC"));
+				if (!wnam || wnam->size() < 4 || !xclc || xclc->size() < 8 || (pnam && !pnam->empty() && (static_cast<std::uint8_t>((*pnam)[0]) & 1) == 0)) {
+					return std::nullopt;
+				}
+				const auto parent = a_lo.Resolve(world->plugin, esp::Read<std::uint32_t>(*wnam, 0));
+				if (const auto parentCell = FindExteriorCell(a_lo, parent, esp::Read<std::int32_t>(*xclc, 0), esp::Read<std::int32_t>(*xclc, 4))) {
+					rec = a_lo.CellLandRecord(*parentCell);
+				}
+				if (!rec) {
+					return std::nullopt;
+				}
 			}
 			const auto subs = a_lo.Read(*rec);
 			const auto vhgt = subs.Get(MakeSig("VHGT"));
@@ -427,6 +446,38 @@ namespace dova::editor::home
 			}
 		}
 		return info;
+	}
+
+	std::vector<CellInfo> LoadNeighbourCells(esp::LoadOrder& a_lo, const CellInfo& a_cell, int a_radius)
+	{
+		std::vector<CellInfo> out;
+		if (a_cell.interior || !a_cell.world || !a_cell.grid) {
+			return out;
+		}
+		// One pass over the worldspace's cells instead of one per neighbour.
+		std::map<std::pair<std::int32_t, std::int32_t>, FormKey> wanted;
+		for (std::uint32_t i = 0; i < a_lo.PluginCount(); ++i) {
+			for (const auto& c : a_lo.CellsOf(i)) {
+				if (c.worldPersistent || c.world != a_cell.world) {
+					continue;
+				}
+				const auto subs = a_lo.Read(c.rec);
+				const auto xclc = subs.Get(MakeSig("XCLC"));
+				if (!xclc || xclc->size() < 8) {
+					continue;
+				}
+				const auto x = esp::Read<std::int32_t>(*xclc, 0), y = esp::Read<std::int32_t>(*xclc, 4);
+				if (std::abs(x - (*a_cell.grid)[0]) <= a_radius && std::abs(y - (*a_cell.grid)[1]) <= a_radius && !(c.key == a_cell.key)) {
+					wanted[{ x, y }] = c.key;
+				}
+			}
+		}
+		for (const auto& [grid, key] : wanted) {
+			if (auto cell = LoadCell(a_lo, key, LoadCellOptions{ .resolveDoors = false })) {
+				out.push_back(std::move(*cell));
+			}
+		}
+		return out;
 	}
 
 	std::vector<HomeCandidate> FindHomes(esp::LoadOrder& a_lo, std::uint32_t a_plugin, bool a_exteriors)

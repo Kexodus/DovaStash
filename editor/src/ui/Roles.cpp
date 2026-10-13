@@ -10,6 +10,10 @@
 #include <fstream>
 #include <map>
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
@@ -40,15 +44,38 @@ namespace dova::editor::ui
 		// Every Categories/*.json of the merged Data folder (a later root wins a file name), in name order, as the DLL loads them.
 		std::map<std::string, fs::path> files;
 		std::error_code                 ec;
+		auto                            addDir = [&](const fs::path& a_root) {
+            const auto dir = a_root / PathFromUtf8(kCategoriesDir);
+            if (!fs::is_directory(dir, ec)) {
+                return;
+            }
+            for (const auto& e : fs::directory_iterator(dir, ec)) {
+                if (e.is_regular_file(ec) && IEndsWith(PathToUtf8(e.path().filename()), ".json")) {
+                    files[core::ToLower(PathToUtf8(e.path().filename()))] = e.path();
+                    _categorySource = PathToUtf8(dir);
+                }
+            }
+		};
 		for (const auto& root : _ws->Files().Roots()) {
-			const auto dir = root / PathFromUtf8(kCategoriesDir);
-			if (!fs::is_directory(dir, ec)) {
-				continue;
+			addDir(root);
+		}
+		// Dova Stash itself not enabled in this profile: the folder the editor ships in, else the mod named
+		// "Dova Stash" (enabled or not), else any mod that has the default set.
+		if (files.empty()) {
+			wchar_t exe[MAX_PATH]{};
+			if (::GetModuleFileNameW(nullptr, exe, MAX_PATH) > 0) {
+				addDir(fs::path(exe).parent_path());
 			}
-			for (const auto& e : fs::directory_iterator(dir, ec)) {
-				if (e.is_regular_file(ec) && IEndsWith(PathToUtf8(e.path().filename()), ".json")) {
-					files[core::ToLower(PathToUtf8(e.path().filename()))] = e.path();
-					_categorySource = PathToUtf8(dir);
+		}
+		if (files.empty() && _ws->Instance()) {
+			for (const auto& m : _ws->Mods()) {
+				if (core::IEquals(m.name, "Dova Stash")) {
+					addDir(m.dir);
+				}
+			}
+			for (const auto& m : _ws->Mods()) {
+				if (files.empty() && fs::exists(m.dir / PathFromUtf8(kCategoriesDir) / L"00_Default.json", ec)) {
+					addDir(m.dir);
 				}
 			}
 		}
@@ -394,7 +421,7 @@ namespace dova::editor::ui
 
 		ImGui::SeparatorText("Save");
 		const auto path = PathToUtf8(TemplatePath(a_cell));
-		ImGui::TextWrapped("Saved to %s", path.c_str());
+		ImGui::TextWrapped("Saves to %s", path.c_str());
 		if (_ws && _ws->Instance()) {
 			ImGui::TextDisabled("A mod of its own (\"%s\"), never MO2's overwrite folder: clearing overwrite cannot delete it.", kTemplatesMod);
 		}

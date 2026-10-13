@@ -64,6 +64,7 @@ namespace dova::editor::ui
 		{
 			std::shared_ptr<esp::LoadOrder> lo;
 			home::CellInfo                  info;
+			std::vector<home::CellInfo>     context;   // exterior: the cells around it, drawn in 3D
 			std::vector<std::string>        refText;   // formatted ref, parallel to info.refs
 			std::vector<std::string>        doorText;  // formatted destination cell, parallel to info.doors
 			std::string                     cellText;
