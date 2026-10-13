@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -I *luxtools*)",
+      "Edit(E:/modding/Kexodus Skyrim/profiles/Dova Stash Testing/**)",
+      "Write(E:/modding/Kexodus Skyrim/profiles/Dova Stash Testing/**)"
+    ]
+  }
+}

@@ -186,6 +186,7 @@ set(_dova_deploy_cmd
 	"-DPDB=$<TARGET_PDB_FILE:DovaStash>"
 	"-DDIST_DIR=${PROJECT_SOURCE_DIR}/dist/Data/SKSE/Plugins/DovaStash"
 	"-DINTERFACE_DIR=${PROJECT_SOURCE_DIR}/dist/Data/Interface"
+	"-DEDITOR_EXE=${PROJECT_SOURCE_DIR}/build/editor/editor/Release/DovaStashEditor.exe"
 	"-DDEFAULT_INI=${CMAKE_CURRENT_SOURCE_DIR}/DovaStash.ini.default"
 	"-DDEPLOY_DIR=${DOVASTASH_DEPLOY_DIR}"
 	-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Deploy.cmake"
