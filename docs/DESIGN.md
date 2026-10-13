@@ -920,6 +920,9 @@ brought 10, crafted 3, now 9 -> 6 back`), and a summary each way at info.
 
 A cell can host a Dova Stash layout when **all** of the following hold:
 
+- It does not come from a home mod that sorts and displays items itself (`game::SortsItself`:
+  `Clockwork.esp`, `LegacyoftheDragonborn.esm`). Dova Stash leaves those homes alone entirely, so the two
+  systems never move the same items.
 - It is an interior cell, or an exterior cell that is player-owned.
 - It is player-owned (`TESObjectCELL::GetOwner()` is the player or the player faction), **or** unowned, **or**
   the cell's **own** location has the `LocTypePlayerHouse` keyword. That keyword covers most vanilla, CC,

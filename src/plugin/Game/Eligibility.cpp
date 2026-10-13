@@ -172,6 +172,13 @@ namespace dova::game
 		return out;
 	}
 
+	bool SortsItself(std::string_view a_plugin)
+	{
+		// Homes whose own scripts sort and display items: Dova Stash leaves them alone entirely.
+		constexpr std::array kSelfSorting{ "Clockwork.esp"sv, "LegacyoftheDragonborn.esm"sv };
+		return std::ranges::any_of(kSelfSorting, [&](std::string_view a_name) { return core::IEquals(a_name, a_plugin); });
+	}
+
 	Verdict CheckCell(RE::TESObjectCELL* a_cell)
 	{
 		if (!a_cell) {
@@ -179,6 +186,9 @@ namespace dova::game
 		}
 		if ((a_cell->GetFormID() >> 24) == 0xFF) {
 			return Verdict::Reject("temporary cell");
+		}
+		if (const auto ref = ToFormRef(a_cell); ref && SortsItself(ref->plugin)) {
+			return Verdict::Reject(std::format("{} sorts items itself", ref->plugin));
 		}
 
 		auto*      owner = a_cell->GetOwner();

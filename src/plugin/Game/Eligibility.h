@@ -26,7 +26,10 @@ namespace dova::game
 	// A cell can host a layout when it is an interior (or a player-owned exterior) AND it is owned by the
 	// player / the player faction / a faction the player is a member of, OR unowned, OR its location (or
 	// a parent location) carries LocTypePlayerHouse.
+	// A cell from a home mod with its own sorting system (Clockwork, Legacy of the Dragonborn) is rejected.
 	[[nodiscard]] Verdict CheckCell(RE::TESObjectCELL* a_cell);
+	// True for the plugins of home mods that sort and display items themselves.
+	[[nodiscard]] bool SortsItself(std::string_view a_plugin);
 
 	// Per-container checks: base form is a CONT, the ref lives in `a_homeCell`, is persistent-identifiable,
 	// not disabled (including through its enable parent), not owned by someone else, and does not respawn
