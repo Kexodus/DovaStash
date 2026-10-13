@@ -1526,12 +1526,31 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 	{
 		XMFLOAT3 lo{ FLT_MAX, FLT_MAX, FLT_MAX }, hi{ -FLT_MAX, -FLT_MAX, -FLT_MAX };
 		bool     any = false;
+		// Robust bounds: the 2nd to 98th percentile on each axis (a stray reference far below the cell, a
+		// forgotten marker, must not shrink the home to a dot), padded by a tenth of the span.
+		std::array<std::vector<float>, 3> axes;
 		for (const auto& r : _desc.refs) {
 			if (r.kind == RefKind::Other || r.index < 0) {
 				continue;  // neighbour cells are not part of the overview
 			}
-			lo = { std::min(lo.x, r.position[0]), std::min(lo.y, r.position[1]), std::min(lo.z, r.position[2]) };
-			hi = { std::max(hi.x, r.position[0]), std::max(hi.y, r.position[1]), std::max(hi.z, r.position[2]) };
+			for (std::size_t k = 0; k < 3; ++k) {
+				axes[k].push_back(r.position[k]);
+			}
+		}
+		if (!axes[0].empty()) {
+			float l[3], h[3];
+			for (std::size_t k = 0; k < 3; ++k) {
+				auto& v = axes[k];
+				std::ranges::sort(v);
+				const auto  n = v.size();
+				const float a = v[static_cast<std::size_t>(static_cast<double>(n - 1) * 0.02)];
+				const float b = v[static_cast<std::size_t>(static_cast<double>(n - 1) * 0.98 + 0.5)];
+				const float pad = (b - a) * 0.1f;
+				l[k] = a - pad;
+				h[k] = b + pad;
+			}
+			lo = { l[0], l[1], l[2] };
+			hi = { h[0], h[1], h[2] };
 			any = true;
 		}
 		for (const auto& t : _desc.terrain) {
