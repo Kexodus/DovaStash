@@ -1,0 +1,76 @@
+{
+  "$schema": "dovastash-selfsorting-1",
+  "note": "Homes that sort items with their own scripts: Dova Stash leaves them alone, so two systems never move the same items. An entry applies while its plugin is loaded. Without cells or containers, every cell from the plugin is left alone; with cells, only those cells (from any plugin); with containers, only those containers are never used (a reference, or a base container: all its references). Add your own in another file in this folder (DESIGN 9.1).",
+  "homes": [
+    {
+      "plugin": "Clockwork.esp",
+      "name": "Clockwork",
+      "note": "Castle with its own sorter. Plugin name checked in the MO2 mods folder."
+    },
+    {
+      "plugin": "LegacyoftheDragonborn.esm",
+      "name": "Legacy of the Dragonborn",
+      "note": "Museum and Safehouse sorting, displays, craftloot. Plugin name checked in the MO2 mods folder."
+    },
+    {
+      "plugin": "Mirele Bismath Reborn.esp",
+      "name": "Mirele Bismath Reborn",
+      "note": "Autosorting system (_rmp_boxofsorting) and its own displays. Plugin name checked in the MO2 mods folder."
+    },
+    {
+      "plugin": "DA_Skyship.esp",
+      "name": "LUFTSHIP K747",
+      "note": "Auto-sort master and lever (_da_sgaautosort). Plugin name checked in the MO2 mods folder."
+    },
+    {
+      "plugin": "SkyfallEstate.esp",
+      "name": "Skyfall Estate",
+      "note": "Auto Access/Store for cooking, ingredient, smithing and soul gem storage. Plugin name checked in the MO2 mods folder."
+    },
+    {
+      "plugin": "RiversideLodge.esp",
+      "name": "Riverside Lodge",
+      "note": "Category storage scripts (rl_*storagescript). Plugin name checked in the MO2 mods folder."
+    },
+    {
+      "plugin": "HoardersChestRebuilt.esp",
+      "name": "The Hoarder's Chest - Rebuilt",
+      "note": "One-button sort of the whole inventory, auto craft access. Not installed here: plugin name from the Nexus file list (mod 60581)."
+    },
+    {
+      "plugin": "DovahDen.esp",
+      "name": "The Dovah Den",
+      "note": "Auto-sort and crafting auto-loot. Not installed here: plugin names (four variants) from the Nexus file list (mod 38376)."
+    },
+    {
+      "plugin": "DovahDenDBM.esp",
+      "name": "The Dovah Den (Legacy)"
+    },
+    {
+      "plugin": "DovahDen_MC.esp",
+      "name": "The Dovah Den"
+    },
+    {
+      "plugin": "DovahDenDBM_MC.esp",
+      "name": "The Dovah Den (Legacy)"
+    },
+    {
+      "plugin": "LSESD_TundraHomestead.esp",
+      "name": "Tundra Homestead - LotD Storage",
+      "note": "Turns Tundra Homestead into Legacy storage with a sorting chest. The cells are the Creation Club file's, so they are listed. Not installed here: plugin name from the Nexus file list (mod 89836).",
+      "cells": ["ccEEJSSE001-Hstead.esm|0x0000087F", "ccEEJSSE001-Hstead.esm|0x00000B06"]
+    },
+    {
+      "plugin": "PlayerHouse.esp",
+      "name": "Player houses overhaul",
+      "note": "Rebuilds the five city homes, with its own sorting and autocraft. Not installed here: plugin name from the mod page (mod 190875), its archive ships PlayerHouse.bsa.",
+      "cells": ["Skyrim.esm|0x000165A8", "Skyrim.esm|0x00016BDD", "Skyrim.esm|0x00016778", "Skyrim.esm|0x00016A06", "Skyrim.esm|0x00016DFA"]
+    },
+    {
+      "plugin": "Carpenter Chests.esp",
+      "name": "Carpenter Storage Chests for Hearthfire",
+      "note": "Sorts only the Hearthfire building-supply chests (BYOHHouseCraftingChest); the homes stay usable. Not installed here: plugin name from the Nexus file list (mod 95040).",
+      "containers": ["HearthFires.esm|0x00003055"]
+    }
+  ]
+}

@@ -794,6 +794,29 @@ namespace dova::editor::ui
 			w::MutedWrapped(("Requires " + Join(t.requiredPlugins)).c_str());
 			ImGui::PopTextWrapPos();
 		}
+		// "conflicts" (DESIGN §6.2): mods that rebuild this home. The game does not offer the template while one is loaded.
+		w::FieldLabel("Conflicts");
+		if (!_conflictsActive) {
+			_conflictsEdit = Join(t.conflictPlugins);
+		}
+		ImGui::InputTextWithHint("##conflicts", "Plugins that rebuild this home", &_conflictsEdit);
+		_conflictsActive = ImGui::IsItemActive();
+		w::Tip("Not offered while one of these is loaded (comma-separated plugin files, e.g. WynterBreezehomeRedux.esp)");
+		if (ImGui::IsItemDeactivatedAfterEdit()) {
+			std::vector<std::string> plugins;
+			for (std::size_t pos = 0; pos <= _conflictsEdit.size();) {
+				const auto end = std::min(_conflictsEdit.find(',', pos), _conflictsEdit.size());
+				auto       name = Trim(std::string_view(_conflictsEdit).substr(pos, end - pos));
+				if (!name.empty() && std::ranges::none_of(plugins, [&](const std::string& p) { return core::IEquals(p, name); })) {
+					plugins.emplace_back(name);
+				}
+				pos = end + 1;
+			}
+			if (plugins != t.conflictPlugins) {
+				t.conflictPlugins = std::move(plugins);
+				changed = true;
+			}
+		}
 
 		w::SectionHead("Cells");
 		{

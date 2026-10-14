@@ -41,7 +41,7 @@ string id.
 | `ref "<Plugin\|0x...>"` | Describe one placed reference and the cell it lives in |
 | `keywords [--filter text] [--check A B ...]` | List keyword EditorIDs, or check that the given ones exist |
 | `keyword-usage KW ... [--types MISC,INGR]` | Count the items that carry each keyword, with a few sample items |
-| `check <files or dirs>` | Validate templates and category files against the plugins. The exit code is 1 if there are errors |
+| `check <files or dirs>` | Validate templates, category files and the list of homes that sort themselves (`SelfSorting/`) against the plugins. The exit code is 1 if there are errors |
 | `plugins` | Show the resolved load order (masters, light and localized flags) |
 
 ### Reading a `cell` dump
@@ -123,6 +123,9 @@ format.) To write one from scratch:
 4. List every plugin the template references in `requires`, including the plugin that owns the cell (and the
    plugins of the `cells`). Leave
    out the plugins that only display items and sets come from (listing one makes the whole template need it).
+   If a mod rebuilds the home so that your refs no longer fit (Wynter's Breezehome Redux for Breezehome), list its
+   plugin in `conflicts`: the template is not offered while it is loaded (DESIGN §6.2). Without that, Dova Stash
+   still offers instead of enabling a template when under 60% of its refs are there (DESIGN §9.1).
 5. `python -I esm_dump.py check path\to\MyHome.json --categories path\to\Categories\00_Default.json`
    - With `cells`, refs may be in any of the home's cells; the result lists the bound containers that are
      `onlyReachableInTheirCell` (not persistent), and `cellsChecked`. Bad `cells` entries are errors, the main
@@ -136,6 +139,11 @@ format.) To write one from scratch:
      `categories`, `only` or, in a template, `items` on a plaque or case), a bookshelf's `items` that are not
      books, `only` without `items` or next to `set`, and a display that is also the master or a container in
      use.
+   - It warns about `conflicts` entries that are not plugin file names, that `requires` also lists, that are the
+     cell's own plugin (the template could never be offered), or that are in the load order it checks against.
+   - A `SelfSorting/*.json` file (homes that sort themselves, DESIGN §9.1) fails on entries without a plugin file
+     name, malformed refs, `cells` that are not cells (when their plugin is loaded), and empty `cells` and
+     `containers`; unknown keys are warnings.
    - `//` and `/* */` comments are allowed, as in game.
 
 Plugin names in form refs use the plugin's own file name, for example `ccBGSSSE001-Fish.esm` as written in
@@ -169,7 +177,7 @@ The scripts that produce the shipped data:
   `displays` too), and containers removed by upgrades. They are labelled
   with the container's game name, and the reason goes in `"note"`. The output is laid out by
   `datagen/jsonfmt.py` (`align=True`): one line per container, fields lined up in columns, like the files the
-  DLL writes.
+  DLL writes. `CONFLICTS` in it lists the mods that rebuild a home (the templates' `conflicts`).
 - `datagen/gen_ocf_categories.py --ocf "<OCF mod folder>"` writes the optional OCF set,
   `dist/Optional/OCF/Data/SKSE/Plugins/DovaStash/Categories/50_OCF.json`, and `tests/data/ocf_keywords.txt`. It
   reads OCF's `*_KID.ini` files and fails if a category uses a keyword that OCF doesn't put on that record type.

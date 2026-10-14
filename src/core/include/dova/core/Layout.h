@@ -9,10 +9,12 @@
 // - Output is indented with tabs and kept compact so people can read it: a short list or an entry without
 //   nested objects stays on one line (one line per container), and the fields of such lines are lined up
 //   in columns (detail::Dump). Fixed key order: $schema, autoDraft, name, note, author, version, priority, requires,
-//   cell, cells, master, containers, displays, keep, learned, declined, basedOn, then any unknown keys
+//   conflicts, cell, cells, master, containers, displays, keep, learned, declined, basedOn, then any unknown keys
 //   (sorted). `cells` (more cells of a multi-cell home, HomeCells.h) and `declined` (turned-down category
 //   suggestions, Learning.h) are only written when the layout has any.
 //   name/author/version/priority are always written; optional parts only when set (autoDraft only when true).
+// - `conflicts` (templates, DESIGN §6.2): plugins that rebuild the home; a template is not offered while any of them
+//   is loaded (the negative of `requires`). Written only when the layout has any.
 // - `autoDraft` (templates only, DESIGN §6.8): true marks a file written by the editor's bulk "Draft all homes"
 //   that no person has saved since. Such a file may be replaced by the next bulk draft; any other template file
 //   never is (CheckAutoDraftTarget, Template.h). Saving it as a person drops the mark. The game loads it as any
@@ -143,6 +145,7 @@ namespace dova::core
 		std::string                   version;
 		std::int32_t                  priority{ 0 };
 		std::vector<std::string>      requiredPlugins;  // JSON "requires": plugin file names
+		std::vector<std::string>      conflictPlugins;  // JSON "conflicts": not offered while any of these is loaded
 		std::optional<FormRef>        cell;
 		std::vector<HomeCell>         cells;  // more cells of the same home (DESIGN §6.7); optional
 		std::optional<FormRef>        master;

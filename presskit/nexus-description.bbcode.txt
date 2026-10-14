@@ -117,7 +117,8 @@ No Menu Framework? Every option is in [font=Courier New]Data/SKSE/Plugins/DovaSt
 [*][b]Skyrim Souls:[/b] supported. Items dropped into the master are sorted while its menu is still open.
 [*][b]UI skins:[/b] Dova Stash uses each UI mod's own interface, never a particular skin, so any skin for UIExtensions, QuickLoot IE or SkyUI works.
 [*][b]Scripted containers[/b] (bookshelves, display cases) are never learned automatically.
-[*][b]Homes that sort by themselves[/b] (Clockwork, Legacy of the Dragonborn): Dova Stash leaves them alone, so the two never move the same items.
+[*][b]Homes that sort by themselves[/b] (Clockwork, Legacy of the Dragonborn, Mirele Bismath Reborn, LUFTSHIP K747, Skyfall Estate, Riverside Lodge, The Hoarder's Chest, The Dovah Den, Player houses overhaul, Tundra Homestead - LotD Storage): Dova Stash leaves them alone, so the two never move the same items. With Carpenter Storage Chests it leaves out only the building-supply chests. The list is a JSON file, so a patch can add a home without a new DLL.
+[*][b]Rebuilt homes[/b] (Wynter's Breezehome Redux, Player houses overhaul): the shipped template for that home is not offered. For other mods that rebuild a home, a template whose containers are mostly gone is offered, never enabled on its own.
 [*][b]Other large home mods:[/b] no templates yet. Setting one up by hand takes a minute.
 [/list]
 

@@ -438,6 +438,8 @@ namespace dova::editor::ui
 		core::DraftRules                _draftRules;
 		std::string                     _draftRulesSource;
 		std::string                     _templateAuthor;
+		std::string                     _conflictsEdit;  // the Template panel's "Conflicts" field while it is being typed in
+		bool                            _conflictsActive{ false };
 		bool                            _confirmSave{ false };
 		mutable std::optional<std::vector<std::string>> _saveTargets;  // per workspace
 		std::function<void()>           _pendingOpen;  // another home, waiting for "drop the changes?"

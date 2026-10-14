@@ -1618,10 +1618,15 @@ namespace dova::ui::panel
 				Tooltip(t.cellText);
 				ImGui::TableNextColumn();
 				Text(t.required.empty() ? std::string(text::kNone) : Join(t.required));
-				if (t.missing.empty()) {
+				if (t.missing.empty() && t.conflicting.empty()) {
 					Colored(kGreen, text::kOk);
-				} else {
+				}
+				if (!t.missing.empty()) {
 					Colored(kRed, std::format(text::kMissing, Join(t.missing)));
+				}
+				if (!t.conflicting.empty()) {
+					Colored(kRed, std::format(text::kConflicts, Join(t.conflicting)));
+					Tooltip(text::kConflictsTip);
 				}
 				ImGui::TableNextColumn();
 				if (t.diagnostics.empty()) {
@@ -1661,6 +1666,7 @@ namespace dova::ui::panel
 			DiagnosticsSection(text::kDiagCategories, global->categoryDiagnostics);
 			DiagnosticsSection(text::kDiagTemplates, global->templateDiagnostics);
 			DiagnosticsSection(text::kDiagSettings, global->settingsDiagnostics);
+			DiagnosticsSection(text::kDiagSelfSorting, global->selfSortingDiagnostics);
 
 			const auto snap = PanelModel::Get().Home();
 			if (snap && snap->inHome && snap->enabled) {

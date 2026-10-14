@@ -539,9 +539,9 @@ namespace dova::core
 					a_diags.Error(source, "priority: expected an integer (kept verbatim)");
 					layout.extra[key] = value;
 				}
-			} else if (key == "requires") {
+			} else if (key == "requires" || key == "conflicts") {
 				if (auto list = detail::ReadStringList(value, source, key, a_diags)) {
-					layout.requiredPlugins = std::move(*list);
+					(key == "requires" ? layout.requiredPlugins : layout.conflictPlugins) = std::move(*list);
 				} else {
 					layout.extra[key] = value;
 				}
@@ -708,6 +708,9 @@ namespace dova::core
 		}
 		if (!a_layout.requiredPlugins.empty()) {
 			out["requires"] = a_layout.requiredPlugins;
+		}
+		if (!a_layout.conflictPlugins.empty()) {
+			out["conflicts"] = a_layout.conflictPlugins;
 		}
 		if (a_layout.cell) {
 			out["cell"] = a_layout.cell->ToString();

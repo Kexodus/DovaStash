@@ -6,8 +6,9 @@
 // - A player layout for the cell always wins (Kind::Player); eligible templates are still ranked and
 //   returned as `alternatives` so the UI can offer "re-apply / switch template".
 // - A template is a candidate when its `cell` equals the requested cell. It is eligible when every
-//   plugin in `requires` is loaded (case-insensitive). The cell's own plugin is implied by the cell
-//   match, so it is not checked separately.
+//   plugin in `requires` is loaded and none in `conflicts` is (case-insensitive): `conflicts` names the mods
+//   that rebuild the home (Wynter's Breezehome Redux for Breezehome), where its references no longer fit. The
+//   cell's own plugin is implied by the cell match, so it is not checked separately.
 // - Ranking (CompareTemplateRank): templates a person made before auto-drafts (`autoDraft`, DESIGN §6.8: the
 //   editor's "Draft all homes" output nobody saved since), whatever their priority or version; then priority
 //   (desc), then the player's own exports (`source` under kUserTemplatePrefix) before the others, then semantic
@@ -35,7 +36,7 @@
 //   container the layout does not list gets a plain entry. Their plugins join `requires` like any form.
 // - ApplyTemplate copies the template, sets basedOn = "<source>@<version>" and drops any learned data
 //   carried by the template, and its `autoDraft` mark (a player layout is the player's). When applied over an existing player layout, only the category bindings
-//   (and master, name, requires) come from the template; the player's data is merged in, never dropped:
+//   (and master, name, requires, conflicts) come from the template; the player's data is merged in, never dropped:
 //     * containers in both: template categories; ignored = template OR player; explicit forms are
 //       united; the player's label is used when the template has none; unknown keys merged;
 //     * containers only in the player layout: kept with NO categories (ignored flag, label, forms and
@@ -87,8 +88,9 @@ namespace dova::core
 		std::string_view a_sourcePrefix = "Templates/");
 
 	// Template-only lint (warnings only): player-only fields present, no master, form references to
-	// plugins that are not listed in `requires` (display items and sets are soft and not checked), and
-	// the display entry lint (ValidateDisplays, TemplateDisplays.h).
+	// plugins that are not listed in `requires` (display items and sets are soft and not checked), `conflicts`
+	// entries that are not plugin file names, name a plugin `requires` also lists or the cell's own plugin (the
+	// template could never be offered), and the display entry lint (ValidateDisplays, TemplateDisplays.h).
 	void ValidateTemplate(const Layout& a_template, std::string_view a_source, Diagnostics& a_diags);
 
 	// Warns about container patterns / keep patterns that match no known category (likely typos).
@@ -106,13 +108,14 @@ namespace dova::core
 		struct Rejected
 		{
 			std::size_t              index{ 0 };       // into the candidate span
-			std::vector<std::string> missingPlugins;  // `requires` entries not loaded
+			std::vector<std::string> missingPlugins;      // `requires` entries not loaded
+			std::vector<std::string> conflictingPlugins;  // `conflicts` entries that are loaded
 		};
 
 		Kind                       kind{ Kind::None };
 		std::optional<std::size_t> chosen;        // best eligible template (set even for Kind::Player when one exists)
 		std::vector<std::size_t>   alternatives;  // the other eligible templates, best first
-		std::vector<Rejected>      rejected;      // templates for this cell whose requirements are not met
+		std::vector<Rejected>      rejected;      // templates for this cell whose requirements are not met, or that conflict
 	};
 
 	// The order the templates of one home are offered in (ResolveLayout, DESIGN §6.2; see the ranking above):
@@ -126,6 +129,8 @@ namespace dova::core
 
 	// Plugins from `requires` that are not in `a_loadedPlugins` (case-insensitive).
 	[[nodiscard]] std::vector<std::string> MissingRequirements(const Layout& a_layout, std::span<const std::string> a_loadedPlugins);
+	// Plugins from `conflicts` that are in `a_loadedPlugins` (case-insensitive).
+	[[nodiscard]] std::vector<std::string> LoadedConflicts(const Layout& a_layout, std::span<const std::string> a_loadedPlugins);
 
 	// Player layout created from a template. `a_existing` (optional) is the current player layout when re-applying.
 	[[nodiscard]] Layout ApplyTemplate(const TemplateCandidate& a_template, const Layout* a_existing = nullptr);

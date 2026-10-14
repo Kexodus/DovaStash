@@ -203,11 +203,14 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kColIssues = "Issues";
 	inline constexpr auto             kOk = "ok";
 	inline constexpr std::string_view kMissing = "missing: {}";
+	inline constexpr std::string_view kConflicts = "conflicts: {}";
+	inline constexpr auto             kConflictsTip = "Not offered: a mod that rebuilds this home is loaded.";
 	inline constexpr std::string_view kIssues = "{} warning(s)";
 	inline constexpr auto             kDiagIntro = "Problems found when the data files were loaded at game start (also in DovaStash.log).";
 	inline constexpr auto             kDiagCategories = "Categories";
 	inline constexpr auto             kDiagTemplates = "Templates";
 	inline constexpr auto             kDiagSettings = "Settings.json (global keep defaults)";
+	inline constexpr auto             kDiagSelfSorting = "Homes that sort themselves (SelfSorting)";
 	inline constexpr auto             kDiagHome = "This home's setup";
 	inline constexpr auto             kDiagNone = "No problems.";
 	inline constexpr std::string_view kDiagCounts = "{} error(s), {} warning(s)";

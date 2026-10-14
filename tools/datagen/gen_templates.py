@@ -25,6 +25,18 @@ OUT = HERE.parents[1] / "dist" / "Data" / "SKSE" / "Plugins" / "DovaStash" / "Te
 # to point at another install.
 LO = E.build_load_order(argparse.Namespace(data=None, plugins=None, vanilla_only=False, add=None, lang="english"))
 
+# Mods that rebuild a home (DESIGN 6.2, "conflicts"): the template is not offered while one is loaded.
+# WynterBreezehomeRedux.esp: Wynter's Breezehome Redux (checked in the MO2 mods folder). PlayerHouse.esp: Player
+# houses overhaul, rebuilds the five city homes (name from its Nexus page; also in SelfSorting/00_Default.json).
+CITY = ["PlayerHouse.esp"]
+CONFLICTS = {
+    "Vanilla/Breezehome.json": ["WynterBreezehomeRedux.esp"] + CITY,
+    "Vanilla/Honeyside.json": CITY,
+    "Vanilla/VlindrelHall.json": CITY,
+    "Vanilla/Hjerim.json": CITY,
+    "Vanilla/ProudspireManor.json": CITY,
+}
+
 ALC = ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]
 ARM = ["armor.heavy", "armor.light", "armor.shields"]
 
@@ -104,6 +116,7 @@ def build(name, file, cell, requires, master, bindings, extra_ignores=None, auto
         "version": "1.0.0",
         "priority": 0,
         "requires": requires,
+        **({"conflicts": CONFLICTS[file]} if file in CONFLICTS else {}),
         "cell": cell,
         "master": conts[mk]["ref"],
         "containers": entries,

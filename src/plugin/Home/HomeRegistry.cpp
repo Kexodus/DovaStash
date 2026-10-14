@@ -4,6 +4,7 @@
 #include "Game/FormUtil.h"
 #include "Game/ItemAdapter.h"
 #include "Home/Store.h"
+#include "Log.h"
 
 namespace dova::home
 {
@@ -47,6 +48,48 @@ namespace dova::home
 			}
 			return a_home.layout && !a_home.layout->name.empty() ? a_home.layout->name : a_home.cell.ToString();
 		}
+	}
+
+	core::TemplateFit CheckTemplateFit(const core::Layout& a_template, RE::TESObjectCELL* a_cell)
+	{
+		std::vector<RE::TESObjectCELL*> templateCells;  // the other cells it names that are in memory
+		for (const auto& c : a_template.cells) {
+			auto* form = game::LookupForm(c.cell);
+			if (auto* cell = form ? form->As<RE::TESObjectCELL>() : nullptr) {
+				templateCells.push_back(cell);
+			}
+		}
+		const auto storage = [&](const core::FormRef& a_ref) { return a_template.IsMaster(a_ref) || a_template.FindContainer(a_ref); };
+		const auto probe = [&](const core::FormRef& a_ref) {
+			using enum core::RefPresence;
+			auto* ref = game::LookupRef(a_ref);
+			if (!ref) {
+				// Every reference of an attached cell is in memory; one of another cell may just not be loaded.
+				return a_template.cells.empty() ? Missing : Unknown;
+			}
+			if (ref->IsDeleted() || ref->IsMarkedForDeletion()) {
+				return Disabled;
+			}
+			auto* cell = ref->GetParentCell();
+			if (cell != a_cell) {
+				if (!cell || (std::ranges::find(templateCells, cell) != templateCells.end() && !cell->IsAttached())) {
+					return Unknown;
+				}
+				if (std::ranges::find(templateCells, cell) == templateCells.end()) {
+					return Missing;  // moved to a place the template does not name
+				}
+			}
+			if (storage(a_ref) && !game::ContainerBehind(ref)) {
+				return Missing;  // replaced by something that is no container
+			}
+			if (!game::IsEffectivelyDisabled(ref)) {
+				return Present;
+			}
+			const auto* parent = ref->extraList.GetByType<RE::ExtraEnableStateParent>();
+			const bool  undeleted = (parent && parent->parent.get().get() == game::Player() && (parent->flags & 1) != 0) || ref->GetPosition().z < -29000.0f;
+			return undeleted ? Disabled : NotBuilt;
+		};
+		return core::JudgeTemplateFit(a_template, probe);
 	}
 
 	const core::TemplateCandidate* Home::BestTemplate() const
@@ -238,6 +281,7 @@ namespace dova::home
 
 	void HomeRegistry::Resolve(Home& a_home)
 	{
+		a_home.bestFit.reset();
 		const auto templates = Store::Get().Templates();
 		a_home.resolution = core::ResolveLayout(a_home.layout ? &*a_home.layout : nullptr, templates, a_home.cell, game::LoadedPlugins());
 		if (const auto* best = a_home.BestTemplate()) {
@@ -250,7 +294,16 @@ namespace dova::home
 				for (const auto& p : rejected.missingPlugins) {
 					missing += missing.empty() ? p : ", " + p;
 				}
-				logger::info("  template {} not offered: missing {}", templates[rejected.index].source, missing);
+				std::string conflicting;
+				for (const auto& p : rejected.conflictingPlugins) {
+					conflicting += conflicting.empty() ? p : ", " + p;
+				}
+				if (!missing.empty()) {
+					logger::info("  template {} not offered: missing {}", templates[rejected.index].source, missing);
+				}
+				if (!conflicting.empty()) {
+					logger::info("  template {} not offered: {} rebuilds this home (conflicts)", templates[rejected.index].source, conflicting);
+				}
 			}
 		}
 	}
@@ -307,6 +360,31 @@ namespace dova::home
 			return false;
 		}
 		return ApplyTemplate(a_home, *best);
+	}
+
+	const core::TemplateFit* HomeRegistry::BestTemplateFit(Home& a_home)
+	{
+		if (a_home.bestFit) {
+			return &*a_home.bestFit;
+		}
+		const auto* best = a_home.BestTemplate();
+		auto*       player = game::Player();
+		auto*       cell = player ? player->GetParentCell() : nullptr;
+		if (!best || a_home.extra || !cell || cell->GetFormID() != a_home.cellId || !cell->IsAttached()) {
+			return nullptr;
+		}
+		const auto& fit = a_home.bestFit.emplace(CheckTemplateFit(best->layout, cell));
+		if (log::FirstTime(std::format("template-fit:{}:{}", a_home.cell.ToString(), best->source))) {
+			const auto counts = std::format("{} of {} references there ({} present, {} not built yet, {} disabled or deleted, {} missing; {} not checked)",
+				fit.present + fit.notBuilt, fit.checked, fit.present, fit.notBuilt, fit.disabled, fit.missing, fit.unknown);
+			if (fit.fits) {
+				logger::debug("{}: template {} fits: {}", a_home.name, best->source, counts);
+			} else {
+				logger::info("{}: template {} may not fit this home (another mod may have rebuilt it): {}; offered, not enabled automatically",
+					a_home.name, best->source, counts);
+			}
+		}
+		return &fit;
 	}
 
 	bool HomeRegistry::ApplyTemplate(Home& a_home, const core::TemplateCandidate& a_template)
