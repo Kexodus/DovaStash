@@ -719,6 +719,9 @@ namespace dova::editor::ui
 			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4.5f);
 			changed |= ImGui::InputInt("##quota", &q.quota, 0);
 			ImGui::SameLine();
+			changed |= ImGui::Checkbox("Restock##restock", &q.restock);
+			w::Tip("Also top the player up to this many from the home's containers (Restock)");
+			ImGui::SameLine();
 			if (w::IconButton("rm", w::Icon::Close, "Remove")) {
 				remove = static_cast<int>(i);
 			}
@@ -733,6 +736,7 @@ namespace dova::editor::ui
 			core::QuotaRule q;
 			q.category = "";
 			q.quota = 1;
+			q.restock = true;  // as in the game's panel: a new quota is something to carry
 			k.quotas.push_back(std::move(q));
 			changed = true;
 		}

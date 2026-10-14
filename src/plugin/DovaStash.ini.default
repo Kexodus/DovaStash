@@ -56,6 +56,11 @@ iLearnUndoSeconds = 5
 ; plaques made for one item (dragon priest masks, claws, Elder Scrolls...) that item. Nothing is ever taken off a display; take things down by hand as usual.
 bFillDisplays = true
 
+; true = after a Deposit, Dova Stash tops you up from the home's containers to every keep quota marked
+; "Restock" (keep 10 health potions, 50 arrows... edit them under Keep rules). The menus also have
+; Restock on its own. Nothing happens without such a quota; it never gives you more than the quota.
+bRestockAfterDeposit = true
+
 ; true = sit down at a crafting station in a home you set up (forge, smelter, tanning rack, sharpening
 ; wheel, armor table, cooking pot, alchemy lab, enchanter, and modded stations) and the materials its
 ; recipes use come out of your containers into your inventory. When you get up, what you didn't use goes

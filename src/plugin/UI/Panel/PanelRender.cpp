@@ -584,6 +584,16 @@ namespace dova::ui::panel
 			}
 			Tooltip(text::kDepositTip);
 			ImGui::SameLine();
+			const bool restocks = core::RestockApplies(a_snap.globalKeep, a_snap.keep ? &*a_snap.keep : nullptr);
+			ImGui::BeginDisabled(!restocks);
+			if (ImGui::Button(text::kRestock)) {
+				Do([cell]() { Controller::Get().RunOperation(cell, sort::Op::Restock); }, Refresh::Full);
+			}
+			ImGui::EndDisabled();
+			if (ImGui::IsItemHovered(ImGui::ImGuiHoveredFlags_AllowWhenDisabled)) {
+				ImGui::SetTooltip("%s", restocks ? text::kRestockTip : text::kRestockNoneTip);
+			}
+			ImGui::SameLine();
 			if (ImGui::Button(text::kSortAll)) {
 				Do([cell]() { Controller::Get().RunOperation(cell, sort::Op::SortAll); }, Refresh::Full);
 			}
@@ -1026,7 +1036,8 @@ namespace dova::ui::panel
 			}
 			for (const auto& q : a_keep.quotas) {
 				ImGui::Bullet();
-				Text(std::format("{} x {}", q.quota, q.category ? DescribeKeepEntry(*q.category, a_tree) : std::string(text::kNoCategory)));
+				Text(std::format("{} x {}{}", q.quota, q.category ? DescribeKeepEntry(*q.category, a_tree) : std::string(text::kNoCategory),
+					q.restock ? text::kRestockMark : ""));
 			}
 			ImGui::Unindent();
 		}
@@ -1043,10 +1054,11 @@ namespace dova::ui::panel
 			std::optional<std::size_t> remove;
 			if (!a_draft.quotas.empty()) {
 				const int flags = ImGui::ImGuiTableFlags_Borders | ImGui::ImGuiTableFlags_RowBg | ImGui::ImGuiTableFlags_SizingStretchProp;
-				if (ImGui::BeginTable("##quotas", 4, flags)) {
-					ImGui::TableSetupColumn(text::kColCategories, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.45f);
-					ImGui::TableSetupColumn(text::kColQuota, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.2f);
-					ImGui::TableSetupColumn(text::kColOther, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.25f);
+				if (ImGui::BeginTable("##quotas", 5, flags)) {
+					ImGui::TableSetupColumn(text::kColCategories, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.4f);
+					ImGui::TableSetupColumn(text::kColQuota, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.17f);
+					ImGui::TableSetupColumn(text::kColRestock, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.11f);
+					ImGui::TableSetupColumn(text::kColOther, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.22f);
 					ImGui::TableSetupColumn("##remove", ImGui::ImGuiTableColumnFlags_WidthStretch, 0.1f);
 					ImGui::TableHeadersRow();
 					for (std::size_t i = 0; i < a_draft.quotas.size(); ++i) {
@@ -1067,6 +1079,11 @@ namespace dova::ui::panel
 							q.quota = std::max(quota, 0);
 							a_dirty = true;
 						}
+						ImGui::TableNextColumn();
+						if (ImGui::Checkbox("##restock", &q.restock)) {
+							a_dirty = true;
+						}
+						Tooltip(text::kRestockColTip);
 						ImGui::TableNextColumn();
 						std::vector<std::string> other;
 						if (q.keywordsAny && !q.keywordsAny->empty()) {
@@ -1092,6 +1109,7 @@ namespace dova::ui::panel
 			if (ImGui::Button(text::kAddQuota)) {
 				core::QuotaRule rule;
 				rule.quota = 5;
+				rule.restock = true;  // a new quota is usually something to carry (files without the key stay off)
 				a_draft.quotas.push_back(std::move(rule));
 				a_dirty = true;
 			}
@@ -1494,6 +1512,8 @@ namespace dova::ui::panel
 			ImGui::EndDisabled();
 			apply |= ImGui::Checkbox("Put gear on the home's displays", &v.sorting.fillDisplays);
 			Help("Deposit and Sort all fill the displays you turned on with the hotkey (weapon racks, mannequins, bookshelves, plaques made for one item such as masks, claws, Elder Scrolls) with your best gear and books, one of each. Nothing is taken off a display.", "[Sorting] bFillDisplays");
+			apply |= ImGui::Checkbox("Restock after Deposit", &v.sorting.restockAfterDeposit);
+			Help("After a Deposit, the home's containers top you up to every keep quota marked Restock (10 health potions, 50 arrows...), never more. Without such a quota nothing happens. Restock is also in the menus on its own.", "[Sorting] bRestockAfterDeposit");
 			apply |= ImGui::Checkbox("Materials at the workbench", &v.sorting.craftingSupply);
 			Help("Sit down at a forge, smelter, tanning rack, cooking pot, alchemy lab, enchanter or any modded station in your home: the stored materials its recipes use come to you, and what you didn't use goes back when you get up. What you just made stays with you.", "[Sorting] bCraftingSupply");
 			ImGui::BeginDisabled(!v.sorting.craftingSupply);

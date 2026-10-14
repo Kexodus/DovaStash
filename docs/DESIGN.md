@@ -97,7 +97,8 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 
 1. Look at a container and press the hotkey → *"Make this the Dova Stash master container?"*
 2. The master's menu has these actions:
-   - **Deposit**: move eligible inventory items using the keep rules
+   - **Deposit**: move eligible inventory items using the keep rules (then restock, §8.7)
+   - **Restock**: top the player up to the keep quotas marked *Restock* (only listed when one applies, §8.7)
    - **Sort**: redistribute everything in the master
    - **Retrieve…**: by category, or everything
    - **Containers**: highlight managed containers
@@ -113,7 +114,8 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 
 - Come home and press the hotkey (from anywhere in the cell, or at the master) → **Deposit**.
 - Dump things into the master and close it → items with a known destination move automatically.
-- Need arrows? Look at the master → **Retrieve → Ammo**.
+- Need arrows? Look at the master → **Retrieve → Ammo**. Or give the arrows a keep quota marked *Restock*
+  ("50 steel arrows"): every Deposit then tops you back up to 50 from storage (§8.7).
 
 ---
 
@@ -286,7 +288,8 @@ On entering an eligible cell:
   "keep": {
     "inherit": true,
     "rules": [
-      {"category": "ammo.arrows", "quota": 50}
+      {"category": "ammo.arrows", "quota": 50},
+      {"category": "alchemy.potions", "keywordsAny": ["MagicAlchRestoreHealth"], "quota": 10, "restock": true}  // §8.7
     ]
   },
 
@@ -710,6 +713,7 @@ download that drops into the same `Categories/` folder, not in the main archive.
 | **Distribute** | Master → destinations                 | `ContainerMenu` closes on the master; also a "Sort" button        |
 | **Sort all**   | Master + bound containers → correct one (see §16) | Manual (e.g. after changing bindings)                             |
 | **Retrieve**   | Destinations → player                 | Menu: by category, or everything                                  |
+| **Restock**    | Managed containers → player, up to the keep quotas marked *Restock* (§8.7) | Hotkey menu and panel; after every Deposit (`bRestockAfterDeposit`) |
 | **Fill displays** | Player + managed containers → the empty displays in use (§8.4) | Part of Deposit and Sort all (`bFillDisplays`); one display with *Fill now* in its menu |
 | **Crafting supply** | Managed containers → player, the unused rest back (§8.5) | Sitting down at a crafting station in an enabled home (`bCraftingSupply`); back when the crafting menu closes |
 | **Learn**      | Records item → container (§8.6)       | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
@@ -750,11 +754,14 @@ download that drops into the same `Categories/` folder, not in the main archive.
 "keep": {
   "always":  ["equipped", "favorited", "quest", "Skyrim.esm|0x0000000F" /* gold */, "Skyrim.esm|0x0000000A" /* lockpick */],
   "never":   ["misc.clutter"],
-  "quotas":  [ { "category": "alchemy.potions", "keywordsAny": ["MagicAlchRestoreHealth"], "quota": 5 } ]
+  "quotas":  [ { "category": "alchemy.potions", "keywordsAny": ["MagicAlchRestoreHealth"], "quota": 5, "restock": true } ]
 }
 ```
 
 Global defaults live in `DovaStash.ini`/`Settings.json`. A layout may override them or set `"inherit": true`.
+A quota says "Deposit leaves up to N on you". With `"restock": true` it also says "Restock brings you up to
+N" (§8.7). `restock` is optional and off when absent, so files written before it mean what they meant; it is
+written only when on, and an older DLL keeps it as an unknown key of the rule.
 
 ---
 
@@ -1073,6 +1080,62 @@ read for one thing only: an item a script hands back right after Dova Stash stor
 does not count: through the open ContainerMenu, or through QuickLoot IE's loot menu (`LootMenu` open at the
 time of the event, decided in the sink), which has no ContainerMenu.
 
+### 8.7 Restock
+
+"Always carry 10 health potions, 50 steel arrows, 5 lockpicks." A keep quota (§8.3) already says how many of
+something Deposit leaves on the player; Restock is the other half: it brings the player *up to* that many from
+the home's containers. It reuses the quota model instead of a list of its own, so one rule says both. Core:
+`KeepRules::RestockGoals` / `RestockRuleFor` and `SortPlanner::Restock` (pure, unit-tested,
+`tests/RestockTests.cpp`); the plugin snapshots, plans and moves in one main-thread task (`sort::Run`) with
+`ItemMover`, as every operation does.
+
+**Per rule.** A quota rule restocks when it has `"restock": true` (§8.3). Off when absent, so existing quotas
+keep meaning "at most N" and nothing starts moving after an update. A quota added in the panel's or the
+editor's keep-rule editor starts with *Restock* ticked (a new quota is usually something to carry); the
+checkbox is in the quota's row. Rules in the home's keep block and in the global defaults (Settings.json)
+both count, with the same layering as Deposit (the global ones only when the home's block inherits).
+
+**When.** *Restock* in the master's hotkey menu (UIExtensions list and message boxes, listed only when a
+quota in force restocks) and on the panel's *Actions* tab (greyed out with a hint otherwise). And after every
+Deposit, in the same pass, when `[Sorting] bRestockAfterDeposit` is on (the default; the Settings page has
+it): it only acts on quotas the player marked, so it moves nothing for anyone who did not ask. Not on entering
+a home: moving items into the player's pockets without a key press is too surprising (Storehouse does it; an
+option could come later).
+
+**How many.** Per restocking rule: N minus what the player carries of it, counted exactly as Deposit counts
+against the quota (stacks kept whole by `always` or the hard rules that match the rule's selectors, plus the
+stacks the rule claims). Never more than N. So a Deposit right after a Restock moves nothing back, and Restock
+after Deposit only takes what Deposit could not have left (it never takes back what was just deposited).
+Storage running short takes what there is; the debug log says so.
+
+**Which stored stacks belong to a rule.** The first quota rule that matches the stack (the home's rules, then
+the global ones; file order within each), as Deposit would claim it on the player. If that rule does not
+restock, the stack is not restocked by a later one either (a home's "keep 5 health potions" without
+*Restock* is not overridden by a global restocking potions rule). A `never` rule of that layer or an earlier
+one that matches the stack blocks it (unless an `always` rule of the same layer matches too, as in Deposit);
+`always` does not block (it only protects what you carry: the default `always` lockpicks plus a restocking
+lockpick quota tops you up to 5). Never taken: quest, non-playable and nameless items, items that come back
+when stored, and anything outside the managed, available containers: the master and the non-ignored
+containers of the layout, with the same reachability rules as Retrieve in a multi-cell home (§6.7); ignored
+containers, containers outside the layout and displays are never touched. Stolen, tempered or renamed copies
+in storage are the player's own: they may come, with their extra data (§8.2).
+
+**Picking order** (deterministic): the most valuable copies first (unit value; the same order Deposit keeps
+copies in, so what you carry is the best of its kind and a later Deposit agrees with it), plain copies before
+customized ones (tempered, renamed, enchanted by the player, poisoned), then the stack in the container the
+item belongs in (its destination, §7) before other containers, then container order (master, then the
+layout's containers in file order), then form, the larger stack, stack id. A stack may be taken in part.
+
+**After Deposit with displays.** Deposit plans what goes on display first (§8.4); stored copies the display
+plan takes are left out of the restock, and the restock moves run after the deposit's (different stacks:
+stored ones, never the player's).
+
+**Feedback.** One HUD line: *Dova Stash: restocked 10 items*; after a Deposit it is appended: *Dova Stash:
+deposited 12 items into 3 containers, restocked 10*. Nothing to do: *Dova Stash: nothing to restock*; no
+restocking quota (panel button only): *Dova Stash: no keep quota restocks*. Log: one info line per run, and at
+debug one line per rule (`Restock: quota alchemy.potions magicalchrestorehealth 10 (layout): carried 3,
+taking 7`) and one per stack taken.
+
 ## 9. Home eligibility & safety
 
 A cell can host a Dova Stash layout when **all** of the following hold:
@@ -1160,7 +1223,7 @@ struct IStashUI {
   generically (`core::DisplayKindName`, the picker's choices per kind), so a new display kind shows up with no
   change to the page.
 - **MessageBoxUI:** native `RE::MessageBoxData` chains with pagination. It covers every *essential* action
-  (enable, restore a saved setup, bind categories, deposit, retrieve, keep defaults, save as template). Advanced editing on VR is done by editing
+  (enable, restore a saved setup, bind categories, deposit, restock, retrieve, keep defaults, save as template). Advanced editing on VR is done by editing
   JSON or by using a flat-screen session.
 
 Header: [QTR-Modding/SKSE-Menu-Framework-3-API](https://github.com/QTR-Modding/SKSE-Menu-Framework-3-API).
@@ -1385,7 +1448,8 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
   (disabled refs).
 - **Explicit per-item bindings:** `"forms": [FormRef…]` on a container entry.
 - **Keep:** both `quotas` and `rules` are accepted. `inherit` defaults to true. Quotas keep the most
-  valuable stacks first. Quest and non-playable items are always kept.
+  valuable stacks first. Quest and non-playable items are always kept. A quota with `"restock": true` also
+  brings the player up to N, the most valuable stored copies first (Restock, §8.7).
 - **Learn:** an unknown container that passes the safety checks is added to the layout with no
   categories. Learning is skipped when the container is already the item's rule-based destination.
   A variant is learned as its family root (§7, §8.6); a learn can be undone for a few seconds, and after a

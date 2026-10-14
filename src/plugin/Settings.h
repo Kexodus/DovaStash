@@ -66,6 +66,9 @@ namespace dova
 			// DESIGN §8.4: Deposit and Sort all put gear on the home's empty weapon racks, shield plaques,
 			// mannequins, item plaques and display cases.
 			bool fillDisplays{ true };
+			// DESIGN §8.7: Deposit then tops you up to every keep quota marked "Restock" from the home's containers
+			// (nothing happens without such a quota).
+			bool restockAfterDeposit{ true };
 			// DESIGN §8.5: sitting down at a crafting station in an enabled home brings the stored materials
 			// its recipes use; what is left goes back when you get up (never what you just crafted).
 			bool craftingSupply{ true };
