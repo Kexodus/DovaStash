@@ -207,6 +207,8 @@ namespace dova::editor::ui::w
 	// ---- Added by the theme pass --------------------------------------------------------------------
 	void  Badge(const char* a_text, Kind a_kind = Kind::Accent);  // a tiny filled count pill ("3")
 	bool  Toggle(const char* a_label, bool& a_value);              // a small switch, accent when on; true when toggled
+	bool  Slider(const char* a_label, float& a_value, float a_min, float a_max, const char* a_format = "%.2f", bool a_log = false,
+		const char* a_tooltip = nullptr);  // label and value over a thin track, the item width wide; true while it changes
 	// A thin 3 px accent bar after "label done/total" in small muted text (the status row's background work).
 	// `a_total` 0: indeterminate. `a_width`: the bar's width (<= 0: 80 px).
 	void  Progress(const char* a_label, std::size_t a_done, std::size_t a_total, float a_width = 0.0f);

@@ -19,3 +19,18 @@ if(MSVC)
 	# Windows subsystem (no console flash under MO2) with a wmain entry point (Unicode arguments).
 	target_link_options(DovaStashEditor PRIVATE /ENTRY:wmainCRTStartup)
 endif()
+
+# ---- Deploy next to the plugin's copy ----------------------------------------------------------
+# The plugin build copies the editor into the MO2 mod's Tools folder too, but only when the DLL relinks;
+# the editor preset keeps that copy current on its own (the same option and folder as src/plugin).
+option(DOVASTASH_DEPLOY "Copy DovaStashEditor.exe into DOVASTASH_DEPLOY_DIR/Tools after build" ON)
+set(DOVASTASH_DEPLOY_DIR "E:/modding/Kexodus Skyrim/mods/Dova Stash"
+	CACHE PATH "Mod root to deploy into (the folder that maps onto Skyrim's Data/)")
+if(DOVASTASH_DEPLOY)
+	add_custom_command(TARGET DovaStashEditor POST_BUILD
+		COMMAND "${CMAKE_COMMAND}" -E make_directory "${DOVASTASH_DEPLOY_DIR}/Tools"
+		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:DovaStashEditor>" "${DOVASTASH_DEPLOY_DIR}/Tools/"
+		COMMENT "Deploying DovaStashEditor.exe to ${DOVASTASH_DEPLOY_DIR}/Tools"
+		VERBATIM
+	)
+endif()

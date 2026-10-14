@@ -43,8 +43,10 @@ namespace dova::editor::ui
 				}
 			}
 		}
-		const bool user = std::ranges::any_of(list, [](const home::KnownTemplate* t) { return t->user; });
-		const bool shipped = std::ranges::any_of(list, [](const home::KnownTemplate* t) { return !t->user; });
+		// The player's own: Templates/User, the "Dova Stash Templates" mod, or the mod picked under Save to.
+		auto       mine = [&](const home::KnownTemplate* t) { return t->user || (!_state.saveTarget.empty() && core::IEquals(t->origin, _state.saveTarget)); };
+		const bool user = std::ranges::any_of(list, mine);
+		const bool shipped = std::ranges::any_of(list, [&](const home::KnownTemplate* t) { return !mine(t); });
 		if (a_user) {
 			*a_user = user;
 		}

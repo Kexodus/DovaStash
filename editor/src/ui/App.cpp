@@ -882,12 +882,10 @@ namespace dova::editor::ui
 		}
 		if (threeD) {
 			w::SectionHead("Camera");
-			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
-			ImGui::SliderFloat("Fly speed", &_flySpeed, 50.0f, 8000.0f, "%.0f", ImGuiSliderFlags_Logarithmic);
-			w::Tip("Units per second (Shift: 4x, Alt: 1/4; the wheel with the right button held)");
-			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
-			ImGui::SliderFloat("Light", &_view.brightness, 0.4f, 2.5f, "%.1f");
-			w::Tip("The editor's light (the game's own lights are not used)");
+			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 13.0f);
+			w::Slider("Fly speed", _flySpeed, 50.0f, 8000.0f, "%.0f", true, "Units per second (Shift: 4x, Alt: 1/4; the wheel with the right button held)");
+			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 13.0f);
+			w::Slider("Light", _view.brightness, 0.4f, 2.5f, "%.1f", false, "The editor's light (the game's own lights are not used)");
 			w::Check("Outlines", _view.showMarkers, "A box around everything select mode can pick, in its plan colour");
 		}
 		bool anything = !_selectMode;

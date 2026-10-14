@@ -51,7 +51,8 @@ namespace dova::editor::ui
 			}
 			ImGui::Unindent(4.0f * t.scale);
 			w::Spacer(2.0f * t.scale);
-			ImGui::BeginChild("panelbody", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_None);
+			// Ends above the strip that holds the collapse chevron, so nothing scrolls under it.
+			ImGui::BeginChild("panelbody", ImVec2(0, -std::round(30.0f * t.scale)), ImGuiChildFlags_None, ImGuiWindowFlags_None);
 			ImGui::Indent(4.0f * t.scale);
 			ImGui::PushItemWidth(-FLT_MIN);
 			if (!_cell) {
@@ -75,7 +76,6 @@ namespace dova::editor::ui
 			}
 			ImGui::PopItemWidth();
 			ImGui::Unindent(4.0f * t.scale);
-			w::Spacer(28.0f * t.scale);  // clear of the collapse handle
 			ImGui::EndChild();
 		}
 		w::EndPadded();

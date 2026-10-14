@@ -131,7 +131,8 @@ namespace dova::editor::ui
 			bool        user = false;
 			const auto  existing = _cellDraft >= 0 && _homes ? HomeStatus(_homes->homes[static_cast<std::size_t>(_cellDraft)], &user) : std::string{};
 			if (!_cell->filePath.empty()) {
-				const bool mine = IContains(_cell->filePath, home::kTemplatesMod) || IContains(_cell->filePath, "Templates\\User") || IContains(_cell->filePath, "Templates/User");
+				const bool mine = IContains(_cell->filePath, home::kTemplatesMod) || IContains(_cell->filePath, "Templates\\User") || IContains(_cell->filePath, "Templates/User") ||
+				                  (!_state.saveTarget.empty() && IContains(_cell->filePath, "\\mods\\" + _state.saveTarget + "\\"));
 				chip = mine ? "yours" : "shipped";
 				kind = mine ? w::Kind::Ok : w::Kind::Info;
 			} else if (!_cell->savedPath.empty() && !_cell->dirty) {

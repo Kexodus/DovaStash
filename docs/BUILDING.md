@@ -81,7 +81,7 @@ cmake --preset editor
 cmake --build --preset editor-release        # or editor-debug
 ```
 
-Output: `build/editor/editor/Release/DovaStashEditor.exe` (not deployed by the build). Without arguments it
+Output: `build/editor/editor/Release/DovaStashEditor.exe`, copied into `<DOVASTASH_DEPLOY_DIR>/Tools/` after each build (the same option and folder as the plugin; `-DDOVASTASH_DEPLOY=OFF` to skip), so the copy MO2 runs is always the latest. Without arguments it
 opens the window (the start panel); commands print to the console instead. The window remembers the instance, the
 author, each home's to-do stage and its layout in `%LOCALAPPDATA%\DovaStashEditor\state.json`; set
 `DOVASTASH_EDITOR_STATE` to another file for test runs and screenshots:

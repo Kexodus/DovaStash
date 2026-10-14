@@ -736,11 +736,12 @@ namespace dova::editor::ui::w
 		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(0, 0, 0, 0));
 		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(0, 0, 0, 0));
 		ImGui::PushStyleColor(ImGuiCol_TextDisabled, t.muted);
+		ImGui::PushStyleColor(ImGuiCol_NavCursor, IM_COL32(0, 0, 0, 0));  // the box's own border is the focus ring
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, ImGui::GetStyle().FramePadding.y));
 		bool changed = ImGui::InputTextWithHint("##s", a_hint ? a_hint : "", a_buf, a_size, ImGuiInputTextFlags_EscapeClearsAll);
 		ImGui::PopStyleVar(2);
-		ImGui::PopStyleColor(4);
+		ImGui::PopStyleColor(5);
 		const bool active = ImGui::IsItemActive();
 		const bool hovered = ImGui::IsItemHovered();
 		DrawIcon(dl, Icon::Search, ImVec2(p.x + 8.0f * t.scale, std::round(p.y + (h - is) * 0.5f)), is, active || a_buf[0] ? t.text : t.muted);
@@ -875,6 +876,64 @@ namespace dova::editor::ui::w
 			return true;
 		}
 		return false;
+	}
+
+	bool Slider(const char* a_label, float& a_value, float a_min, float a_max, const char* a_format, bool a_log, const char* a_tooltip)
+	{
+		// Label left, value right, then a thin track with a round grab: drag or click it, or roll the wheel over it.
+		const Theme& t = Th();
+		ImGui::PushID(a_label);
+		const float lh = ImGui::GetTextLineHeight();
+		const float trackH = std::round(14.0f * t.scale);
+		const float w = std::max(ImGui::CalcItemWidth(), 40.0f * t.scale);
+		char        value[64]{};
+		std::snprintf(value, sizeof(value), a_format ? a_format : "%.2f", static_cast<double>(a_value));
+		ImRect head;
+		if (!Static(ImVec2(w, lh), head)) {
+			ImGui::PopID();
+			return false;
+		}
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		ImFont*     font = t.smallFont ? t.smallFont : ImGui::GetFont();
+		Text(dl, font, ImVec2(head.Min.x, std::round(head.Min.y + (lh - TextSize(font, a_label).y) * 0.5f)), t.muted, a_label);
+		const ImVec2 vs = TextSize(font, value);
+		Text(dl, font, ImVec2(std::round(head.Max.x - vs.x), std::round(head.Min.y + (lh - vs.y) * 0.5f)), t.text, value);
+		Hit hit;
+		if (!Item("track", ImVec2(w, trackH), hit, 0.0f)) {
+			ImGui::PopID();
+			return false;
+		}
+		Tip(a_tooltip);
+		const float lo = a_log ? std::log(std::max(a_min, 1e-6f)) : a_min;
+		const float hi = a_log ? std::log(std::max(a_max, 1e-6f)) : a_max;
+		auto        toT = [&](float v) { return std::clamp(((a_log ? std::log(std::max(v, 1e-6f)) : v) - lo) / std::max(hi - lo, 1e-6f), 0.0f, 1.0f); };
+		auto        fromT = [&](float f) {
+            const float v = lo + std::clamp(f, 0.0f, 1.0f) * (hi - lo);
+            return std::clamp(a_log ? std::exp(v) : v, a_min, a_max);
+		};
+		const float r = std::round(5.0f * t.scale);
+		const float x0 = hit.bb.Min.x + r, x1 = hit.bb.Max.x - r;
+		bool        changed = false;
+		if (hit.held) {
+			const float nv = fromT((ImGui::GetIO().MousePos.x - x0) / std::max(x1 - x0, 1.0f));
+			changed = nv != a_value;
+			a_value = nv;
+		} else if (hit.hovered && ImGui::GetIO().MouseWheel != 0.0f) {
+			a_value = fromT(toT(a_value) + ImGui::GetIO().MouseWheel * 0.02f);
+			changed = true;
+		}
+		if (changed) {
+			ImGui::MarkItemEdited(hit.id);
+		}
+		const float cy = std::round(hit.bb.GetCenter().y);
+		const float gx = std::round(x0 + toT(a_value) * (x1 - x0));
+		const bool  hot = hit.hovered || hit.held;
+		dl->AddRectFilled(ImVec2(x0, cy - 1.0f), ImVec2(x1, cy + 1.0f), t.bg3, 1.0f);
+		dl->AddRectFilled(ImVec2(x0, cy - 1.0f), ImVec2(gx, cy + 1.0f), hot ? t.accent : t.accentDim, 1.0f);
+		dl->AddCircleFilled(ImVec2(gx, cy), r, t.bg1, 20);
+		dl->AddCircle(ImVec2(gx, cy), r, hot ? t.accent : t.accentDim, 20, 1.5f);
+		ImGui::PopID();
+		return changed;
 	}
 
 	void Progress(const char* a_label, std::size_t a_done, std::size_t a_total, float a_width)
