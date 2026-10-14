@@ -56,6 +56,7 @@ namespace dova::editor::ui
 		std::string                author;
 		std::map<std::string, HomeRecord> homes;  // main cell form ref -> record
 		UiLayout                   ui;
+		std::optional<UiLayout>    uiOnDisk;  // set: written instead of `ui` (the command line's view and drawer are for one run)
 		std::string                saveTarget;  // the mod templates are saved into; empty: "Dova Stash Templates"
 
 		// Raises a home's stage (never lowers it, except `a_force`) and saves.

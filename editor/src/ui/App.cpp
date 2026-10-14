@@ -107,12 +107,11 @@ namespace dova::editor::ui
 		_templateAuthor = _state.author;
 		const auto& t = w::Th();
 		if (_state.ui.railWidth <= 0.0f) {
-			_state.ui.railWidth = 270.0f * t.scale;
+			_state.ui.railWidth = 280.0f * t.scale;  // docs/EDITOR-UX.md §2.2
 		}
 		if (_state.ui.inspectorWidth <= 0.0f) {
 			_state.ui.inspectorWidth = 340.0f * t.scale;
 		}
-		_savedUi = _state.ui;
 		// The instance remembered from last time, when none is given and none is found (asked once, ui/State).
 		if (!_options.mo2 && !_options.data && !mo2::DetectInstance() && _state.mo2) {
 			_options.mo2 = PathFromUtf8(*_state.mo2);
@@ -123,6 +122,9 @@ namespace dova::editor::ui
 		if (_options.mo2) {
 			std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", PathToUtf8(*_options.mo2).c_str());
 		}
+		// Before the command line's overrides: opening saves the state (the instance), and they are for this run.
+		OpenWorkspace();
+		const UiLayout remembered = _state.ui;
 		// --tab: the view, a drawer tab or the inspector's Template panel (docs/EDITOR-UX.md §4).
 		if (a_gui.tab) {
 			const auto& tab = *a_gui.tab;
@@ -176,7 +178,12 @@ namespace dova::editor::ui
 		}
 		_windowSize = a_gui.window;
 		_pendingPopover = a_gui.popover;
-		OpenWorkspace();
+		// The command line's view and drawer are for this run: the file keeps the remembered layout until the author
+		// changes a panel (SaveLayoutState).
+		if (!(remembered == _state.ui)) {
+			_state.uiOnDisk = remembered;
+		}
+		_savedUi = _state.ui;
 		if (_ws) {
 			ScanHomes();
 		}
@@ -188,6 +195,7 @@ namespace dova::editor::ui
 			_job.wait();
 		}
 		if (!(_state.ui == _savedUi)) {
+			_state.uiOnDisk.reset();
 			_state.Save();
 		}
 		_thumbs.reset();
@@ -668,6 +676,7 @@ namespace dova::editor::ui
 			return;
 		}
 		_savedUi = _state.ui;
+		_state.uiOnDisk.reset();
 		_state.Save();
 	}
 
@@ -697,6 +706,7 @@ namespace dova::editor::ui
 		if (_state.ui.drawerOpen && _cell) {
 			if (_state.ui.drawerHeight <= 0.0f) {
 				_state.ui.drawerHeight = size.y / 3.0f;
+				_savedUi.drawerHeight = _state.ui.drawerHeight;  // the default, not a change to write
 			}
 			drawerH = std::clamp(_state.ui.drawerHeight, 120.0f * t.scale, std::max(120.0f * t.scale, size.y * 0.6f));
 		}

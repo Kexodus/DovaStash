@@ -105,8 +105,9 @@ namespace dova::editor::ui
 		if (!saveTarget.empty()) {
 			j["saveTarget"] = saveTarget;
 		}
-		j["ui"] = { { "railOpen", ui.railOpen }, { "railWidth", ui.railWidth }, { "inspectorOpen", ui.inspectorOpen }, { "inspectorWidth", ui.inspectorWidth },
-			{ "drawerOpen", ui.drawerOpen }, { "drawerHeight", ui.drawerHeight }, { "view", ui.view } };
+		const UiLayout& u = uiOnDisk ? *uiOnDisk : ui;
+		j["ui"] = { { "railOpen", u.railOpen }, { "railWidth", u.railWidth }, { "inspectorOpen", u.inspectorOpen }, { "inspectorWidth", u.inspectorWidth },
+			{ "drawerOpen", u.drawerOpen }, { "drawerHeight", u.drawerHeight }, { "view", u.view } };
 		auto& hs = j["homes"] = nlohmann::ordered_json::object();
 		for (const auto& [cell, r] : homes) {
 			hs[cell] = { { "name", r.name }, { "stage", static_cast<int>(r.stage) }, { "saved", r.savedPath }, { "updated", r.updated } };
