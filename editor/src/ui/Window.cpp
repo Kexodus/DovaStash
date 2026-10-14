@@ -16,6 +16,7 @@
 #include "Util.h"
 #include "render/Image.h"
 #include "ui/App.h"
+#include "ui/Widgets.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -167,14 +168,7 @@ namespace dova::editor::ui
 		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 		io.IniFilename = nullptr;  // the layout is fixed; nothing to remember yet
-		ImGui::StyleColorsDark();
-		ImGuiStyle& style = ImGui::GetStyle();
-		style.ScaleAllSizes(scale);
-		style.FontScaleDpi = scale;
-		std::error_code ec;
-		if (std::filesystem::exists(L"C:\\Windows\\Fonts\\segoeui.ttf", ec)) {
-			io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 17.0f);
-		}
+		w::ApplyTheme(scale);  // style, colours and fonts (Widgets.h, docs/EDITOR-UX.md §3)
 		ImGui_ImplWin32_Init(hwnd);
 		ImGui_ImplDX11_Init(g_device, g_context);
 
