@@ -398,6 +398,7 @@ namespace dova::editor::ui
 		std::string                     _draftRulesSource;
 		std::string                     _templateAuthor;
 		bool                            _confirmSave{ false };
+		mutable std::optional<std::vector<std::string>> _saveTargets;  // per workspace
 		std::function<void()>           _pendingOpen;  // another home, waiting for "drop the changes?"
 		std::optional<std::pair<std::optional<std::filesystem::path>, std::optional<std::string>>> _pendingSetup;  // waiting for "drop changes?"
 

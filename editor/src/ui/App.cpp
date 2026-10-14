@@ -272,6 +272,7 @@ namespace dova::editor::ui
 		_catalogLo.reset();
 		_armorSets.reset();
 		_armorSetsLo.reset();
+		_saveTargets.reset();
 		_undo.clear();
 		_redo.clear();
 		if (!_ws->Open(_options, _wsError)) {

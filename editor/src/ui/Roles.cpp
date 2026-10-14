@@ -385,11 +385,8 @@ namespace dova::editor::ui
 	std::vector<std::string> EditorApp::SaveTargets() const
 	{
 		// The editor's own mod first, then the enabled mods that already hold templates (cached per workspace).
-		static const Workspace*         cachedFor = nullptr;
-		static std::vector<std::string> cached;
-		if (cachedFor != _ws.get()) {
-			cachedFor = _ws.get();
-			cached = { std::string{} };
+		if (!_saveTargets) {
+			auto& cached = _saveTargets.emplace(1, std::string{});
 			if (_ws && _ws->Instance()) {
 				std::error_code ec;
 				for (auto it = _ws->Mods().rbegin(); it != _ws->Mods().rend(); ++it) {
@@ -402,7 +399,7 @@ namespace dova::editor::ui
 				}
 			}
 		}
-		return cached;
+		return *_saveTargets;
 	}
 
 	fs::path EditorApp::SaveBase() const

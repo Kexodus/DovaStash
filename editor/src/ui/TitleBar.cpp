@@ -328,13 +328,15 @@ namespace dova::editor::ui
 			_pendingSetup = std::pair{ std::move(a_mo2), std::move(a_profile) };
 			return;
 		}
-		if (Busy()) {
-			_job.wait();  // a scan of the old setup: its result is dropped with the workspace
-			PollJob();
+		// A job of the old setup: waited for, its result dropped with the workspace (it may hold the old load order).
+		_queue.clear();
+		if (_job.valid()) {
+			_job.wait();
+			(void)_job.get();
+			_jobLabel.clear();
 		}
 		_options.mo2 = std::move(a_mo2);
 		_options.profile = std::move(a_profile);
-		_queue.clear();
 		OpenWorkspace();
 		if (_ws) {
 			ScanHomes();
