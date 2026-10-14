@@ -207,7 +207,7 @@ namespace dova::editor
 				if (a_args.author) {
 					draft.layout.author = *a_args.author;
 				}
-				const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), draft.layout, false);
+				const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), draft.layout, false, h.name);
 				if (r.ok) {
 					++total.saved;
 					Out(std::format("   saved version {} to {}{}\n", r.version, PathToUtf8(r.path), r.replaced ? " (old file kept as " + PathToUtf8(r.backup.filename()) + ")" : ""));

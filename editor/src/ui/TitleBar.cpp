@@ -131,8 +131,10 @@ namespace dova::editor::ui
 			// The template's status at a glance: no template, shipped, yours, draft.
 			std::string chip = "no template";
 			w::Kind     kind = w::Kind::Neutral;
-			bool        user = false;
-			const auto  existing = _cellDraft >= 0 && _homes ? HomeStatus(_homes->homes[static_cast<std::size_t>(_cellDraft)], &user) : std::string{};
+			const auto  all = TemplatesFor(*_cell);
+			const bool  user = std::ranges::any_of(all, [](const home::KnownTemplate* tp) { return tp->user; });
+			const bool  shipped = std::ranges::any_of(all, [](const home::KnownTemplate* tp) { return !tp->user; });
+			const auto  existing = user && shipped ? std::string("yours + shipped") : user ? std::string("yours") : shipped ? std::string("shipped") : std::string{};
 			if (!_cell->filePath.empty()) {
 				const bool mine = IContains(_cell->filePath, home::kTemplatesMod) || IContains(_cell->filePath, "Templates\\User") || IContains(_cell->filePath, "Templates/User") ||
 				                  (!_state.saveTarget.empty() && IContains(_cell->filePath, "\\mods\\" + _state.saveTarget + "\\"));
@@ -148,13 +150,21 @@ namespace dova::editor::ui
 				chip = user ? "yours" : "shipped";
 				kind = user ? w::Kind::Ok : w::Kind::Info;
 			}
+			if (all.size() > 1 && chip != "no template") {
+				chip += std::format(" +{}", all.size() - 1);  // more templates of this home: the Template panel lists them
+			}
 			ImGui::SameLine(0.0f, t.gap);
 			ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - 18.0f * t.scale) * 0.5f);
-			w::Chip(chip.c_str(), kind);
-			w::Tip(chip == "draft"         ? "Changed, not saved yet"
-			       : chip == "no template" ? "This home has no template yet"
-			       : chip == "shipped" ? (existing.empty() ? "Opened from a shipped template" : ("This home has a template: " + existing).c_str())
-			                           : "Your template");
+			if (w::ChipButton(chip.c_str(), kind, false) && _cell) {
+				_panel = Panel::Template;
+				_state.ui.inspectorOpen = true;
+			}
+			const auto tip = all.size() > 1 ? std::format("{} templates for this home: the Template panel lists them", all.size())
+			                 : chip == "draft"         ? std::string("Changed, not saved yet")
+			                 : chip == "no template" ? std::string("This home has no template yet")
+			                 : chip.starts_with("shipped") ? (existing.empty() ? std::string("Opened from a shipped template") : "This home has a template: " + existing)
+			                                               : std::string("Your template");
+			w::Tip(tip.c_str());
 		}
 		ImGui::SameLine();
 		_titleLeftW = ImGui::GetCursorScreenPos().x - leftStart;

@@ -416,7 +416,122 @@ namespace dova::editor::ui
 
 	fs::path EditorApp::TemplatePath(const OpenCell& a_cell) const
 	{
-		return home::TemplatePath(SaveBase(), a_cell.layout);
+		return home::TemplatePath(SaveBase(), a_cell.layout, HomeNameFor(a_cell));
+	}
+
+	std::string EditorApp::HomeNameFor(const OpenCell& a_cell) const
+	{
+		if (_homes) {
+			if (_cellDraft >= 0 && static_cast<std::size_t>(_cellDraft) < _homes->homes.size()) {
+				return _homes->homes[static_cast<std::size_t>(_cellDraft)].name;
+			}
+			// Opened from a file: the rail home whose main cell (or a joined cell) is the template's.
+			if (a_cell.layout.cell) {
+				const auto main = a_cell.layout.cell->ToString();
+				for (const auto& h : _homes->homes) {
+					if (core::IEquals(h.cellRef, main) || std::ranges::any_of(h.extra, [&](const auto& e) { return core::IEquals(e.cellRef, main); })) {
+						return h.name;
+					}
+				}
+			}
+		}
+		return a_cell.layout.name;
+	}
+
+	std::vector<const home::KnownTemplate*> EditorApp::TemplatesFor(const OpenCell& a_cell) const
+	{
+		std::vector<const home::KnownTemplate*> out;
+		if (!_homes || !_homes->lo) {
+			return out;
+		}
+		auto add = [&](const core::FormRef& a_ref) {
+			for (const auto* t : _homes->templates.ForCell(a_ref)) {
+				if (std::ranges::find(out, t) == out.end()) {
+					out.push_back(t);
+				}
+			}
+		};
+		if (a_cell.layout.cell) {
+			add(*a_cell.layout.cell);
+		}
+		for (const auto& c : a_cell.layout.cells) {
+			add(c.cell);
+		}
+		add(a_cell.lo->ToFormRef(a_cell.info.key));
+		// Yours first, then priority, then the newest version: the order the game offers them.
+		std::ranges::stable_sort(out, [](const home::KnownTemplate* a, const home::KnownTemplate* b) {
+			if (a->layout.priority != b->layout.priority) {
+				return a->layout.priority > b->layout.priority;
+			}
+			if (a->user != b->user) {
+				return a->user;
+			}
+			return core::CompareVersionStrings(a->layout.version, b->layout.version) == std::strong_ordering::greater;
+		});
+		return out;
+	}
+
+	void EditorApp::DrawTemplateList(OpenCell& a_cell)
+	{
+		// Every template this home has, yours and shipped, the open one marked: one home can have several
+		// (a shipped one, yours, another author's) and the game offers the first of this order.
+		const auto list = TemplatesFor(a_cell);
+		if (list.empty()) {
+			return;
+		}
+		const auto& th = w::Th();
+		auto        same = [](const fs::path& a, const std::string& b) {
+            std::error_code ec;
+            return !b.empty() && fs::equivalent(a, PathFromUtf8(b), ec);
+		};
+		w::SectionHead(list.size() == 1 ? "This home's template" : std::format("This home's templates  {}", list.size()).c_str(),
+			"Saved in one folder per home. In game the first of this list is offered: highest priority, then yours, then the newest version");
+		for (std::size_t i = 0; i < list.size(); ++i) {
+			const auto* tp = list[i];
+			const bool  open = same(tp->path, a_cell.filePath) || same(tp->path, a_cell.savedPath);
+			ImGui::PushID(static_cast<int>(i));
+			const ImVec2 p = ImGui::GetCursorScreenPos();
+			const float  wdt = ImGui::GetContentRegionAvail().x;
+			const float  h = th.rowH;
+			const bool   clicked = ImGui::InvisibleButton("row", ImVec2(std::max(wdt, 1.0f), h));
+			const bool   hovered = ImGui::IsItemHovered();
+			ImDrawList*  dl = ImGui::GetWindowDrawList();
+			if (open) {
+				dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), w::WithAlpha(th.accent, 0.14f), th.radius);
+				dl->AddRectFilled(p, ImVec2(p.x + std::round(2.0f * th.scale), p.y + h), th.accent);
+			} else if (hovered) {
+				dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), th.bg3, th.radius);
+			}
+			const char*  chip = tp->user ? "yours" : "shipped";
+			const float  chipW = w::ChipWidth(chip, false);
+			const auto   detail = std::format("{} · {} · {}", tp->layout.author.empty() ? "no author" : tp->layout.author, tp->layout.version.empty() ? "no version" : tp->layout.version, tp->origin);
+			const ImVec2 ns = ImGui::CalcTextSize(tp->layout.name.c_str());
+			ImGui::SetCursorScreenPos(ImVec2(p.x + th.pad, p.y + (h - ns.y) * 0.5f));
+			ImGui::PushClipRect(p, ImVec2(p.x + wdt - chipW - th.gap, p.y + h), true);
+			w::TextWithMuted(tp->layout.name.c_str(), detail.c_str());
+			ImGui::PopClipRect();
+			ImGui::SetCursorScreenPos(ImVec2(p.x + wdt - chipW, p.y + (h - th.chipH) * 0.5f));
+			w::Chip(chip, tp->user ? w::Kind::Ok : w::Kind::Info);
+			ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h));
+			ImGui::Dummy(ImVec2(0, 0));
+			if (ImGui::BeginItemTooltip()) {
+				ImGui::TextUnformatted(open ? "Open" : "Open this template");
+				w::Mono(tp->source.c_str());
+				w::Muted(PathToUtf8(tp->path).c_str());
+				if (tp->layout.priority != 0) {
+					w::Muted(std::format("Priority {}", tp->layout.priority).c_str());
+				}
+				ImGui::EndTooltip();
+			}
+			if (clicked && !open) {
+				OpenTemplateAt(PathToUtf8(tp->path));
+			}
+			ImGui::PopID();
+		}
+		if (a_cell.filePath.empty() && a_cell.savedPath.empty()) {
+			w::Small(a_cell.dirty ? "Open now: a draft, not saved yet." : "Open now: the editor's draft.");
+		}
+		w::Spacer(th.gap);
 	}
 
 	void EditorApp::RequestSave()
@@ -490,7 +605,7 @@ namespace dova::editor::ui
 	void EditorApp::SaveTemplate(OpenCell& a_cell)
 	{
 		const bool ownMod = _ws && _ws->Instance() && _state.saveTarget.empty();
-		const auto r = home::SaveTemplateFile(SaveBase(), a_cell.layout, ownMod);
+		const auto r = home::SaveTemplateFile(SaveBase(), a_cell.layout, ownMod, HomeNameFor(a_cell));
 		if (r.ok) {
 			a_cell.dirty = false;
 			a_cell.savedPath = PathToUtf8(r.path);
@@ -637,6 +752,7 @@ namespace dova::editor::ui
 		const float bodyH = std::max(ImGui::GetContentRegionAvail().y - footerH - 28.0f * th.scale, 80.0f * th.scale);
 		ImGui::BeginChild("tplbody", ImVec2(0, bodyH), ImGuiChildFlags_None, ImGuiWindowFlags_None);
 		ImGui::PushItemWidth(-FLT_MIN);
+		DrawTemplateList(a_cell);
 		w::SectionHead("Template");
 		w::FieldLabel("Name");
 		changed |= ImGui::InputText("##name", &t.name);

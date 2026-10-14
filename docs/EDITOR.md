@@ -123,7 +123,7 @@ The rail's, inspector's and drawer's sizes, which are open, and the view persist
    `set` is an ARMO, `requires` complete, §5.6). The status row counts errors and warnings; the Checks panel
    lists them, errors first, a click selects the object, and under *Still to do* what the template lacks (no
    master, 35 containers without a role).
-8. **Save.** *Save* (title row, Template panel, Ctrl+S) into `Data/SKSE/Plugins/DovaStash/Templates/<Author>/<Home>.json`
+8. **Save.** *Save* (title row, Template panel, Ctrl+S) into `Data/SKSE/Plugins/DovaStash/Templates/<Home>/<Author>.json`
    of a mod chosen by the author (§4.4): under MO2 a "Dova Stash Templates" mod by default (created when missing),
    else an existing mod the author picks (*Setup* or the Template panel). Never MO2's overwrite by default
    (cleaning it would delete the templates). An existing file is backed up first and its version raised, as the
@@ -451,7 +451,8 @@ directories per cell). Archives are opened on the 3D view's loader threads, in p
   in game (DESIGN §6.5). The file name comes from `core::TemplateFileStem`.
 - Target, chosen in the save dialog. **Decided: under MO2 the default is a dedicated "Dova Stash Templates"
   mod**, so clearing overwrite can never delete a template:
-  - **Under MO2:** `mods/Dova Stash Templates/SKSE/Plugins/DovaStash/Templates/<Author>/<Home>.json`, written
+  - **Under MO2:** `mods/Dova Stash Templates/SKSE/Plugins/DovaStash/Templates/<Home>/<Author>.json` (one folder per
+    home, so every template of a home sits together; the Template panel lists them, the open one marked), written
     straight into the mod folder (the editor knows `mod_directory` from the instance, §4.2), created with a
     `meta.ini` when missing; the author can pick another existing mod instead. Writing below the virtual
     `Data` is avoided on purpose: usvfs would route it to overwrite unless the executable's *Create files in
@@ -700,7 +701,7 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
    In the Selection panel press *Make master* or add categories.
 5. *Template* panel: type your name as *Author*. The status row says `0 errors · ...`; click it for the Checks panel
    (the same checks the DLL runs, and what is still to do). Press *Save* (Ctrl+S). It is written to the "Dova Stash
-   Templates" mod: `mods\Dova Stash Templates\SKSE\Plugins\DovaStash\Templates\<Author>\Whitepeak Tower.json`. In
+   Templates" mod: `mods\Dova Stash Templates\SKSE\Plugins\DovaStash\Templates\Whitepeak Tower\<Author>.json`. In
    MO2 press F5 and enable the new mod. Saving again asks first, keeps a `.bak` and raises the version.
 6. Drawer, *Doors* tab (Ctrl+2 opens the drawer): *Open* the exterior (*Tamriel (-9, -2)*): the tower on its rock
    with the terrain and the cells around it. *Back* (<, title row) returns to the interior.

@@ -184,7 +184,7 @@ namespace dova::editor
 					if (a_args.author) {
 						layout.author = *a_args.author;
 					}
-					const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), layout, false);
+					const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), layout, false, cell->name);
 					if (!r.ok) {
 						Err("error: " + r.error + "\n");
 						return 1;

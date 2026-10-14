@@ -299,6 +299,9 @@ namespace dova::editor::ui
 		[[nodiscard]] std::filesystem::path SaveBase() const;  // the chosen save target
 		[[nodiscard]] std::vector<std::string> SaveTargets() const;  // "" (Dova Stash Templates) and mods with templates
 		[[nodiscard]] std::filesystem::path TemplatePath(const OpenCell& a_cell) const;
+		[[nodiscard]] std::string           HomeNameFor(const OpenCell& a_cell) const;  // the rail home's name (the template folder), else the template's
+		[[nodiscard]] std::vector<const home::KnownTemplate*> TemplatesFor(const OpenCell& a_cell) const;  // every known template of the home (all its cells)
+		void                                DrawTemplateList(OpenCell& a_cell);  // Roles.cpp: the home's templates, the open one marked
 		void DrawRoleEditor(OpenCell& a_cell, int a_index);
 		void MakeMaster(OpenCell& a_cell, int a_index);  // the old master becomes a plain container
 		void DrawTemplate(OpenCell& a_cell);  // the inspector's Template panel
@@ -454,12 +457,14 @@ namespace dova::editor::ui
 		[[nodiscard]] int SaveableDrafts() const;
 		void SyncCellToDraft();
 		void OpenTemplateFile();
+		void OpenTemplateAt(std::string a_path);  // opens that template file on its home (asks about unsaved changes first)
 		void DrawDraftPanel(OpenCell& a_cell);
 		void DrawQuitPopup();
 		void DrawSaveDraftsPopup();
 		void DrawRescanPopup();
 		void DrawDraftAgainPopup();
 		[[nodiscard]] std::string HomeStatus(const home::HomeEntry& a_home, bool* a_user = nullptr) const;
+		[[nodiscard]] std::size_t TemplateCount(const home::HomeEntry& a_home) const;  // Rail.cpp: templates over all its cells
 		[[nodiscard]] bool AnyUnsaved() const;
 		[[nodiscard]] bool UnsavedDrafts() const;
 

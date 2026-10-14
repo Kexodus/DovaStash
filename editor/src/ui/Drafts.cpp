@@ -508,21 +508,31 @@ namespace dova::editor::ui
 			Queue([this] { OpenTemplateFile(); });
 			return;
 		}
-		const auto file = PickJsonFile();
-		if (!file) {
+		if (const auto file = PickJsonFile()) {
+			OpenTemplateAt(*file);
+		}
+	}
+
+	void EditorApp::OpenTemplateAt(std::string a_path)
+	{
+		if (!_ws) {
+			return;
+		}
+		if (Busy()) {
+			Queue([this, a_path] { OpenTemplateAt(a_path); });
 			return;
 		}
 		core::Diagnostics diags;
-		auto              layout = core::LoadLayoutFile(PathFromUtf8(*file), *file, diags);
+		auto              layout = core::LoadLayoutFile(PathFromUtf8(a_path), a_path, diags);
 		if (!layout || !layout->cell) {
-			SetStatus("Not a Dova Stash template or layout with a cell: " + *file, true);
+			SetStatus("Not a Dova Stash template or layout with a cell: " + a_path, true);
 			return;
 		}
 		const Workspace* ws = _ws.get();
 		auto             lo = _homes ? _homes->lo : nullptr;
 		const auto       cellRef = layout->cell->ToString();
 		auto             shared = std::make_shared<core::Layout>(std::move(*layout));
-		const auto       path = *file;
+		const auto       path = a_path;
 		auto             open = [this, ws, lo, cellRef, shared, path]() mutable {
             StartJob("Opening the template's home", [this, ws, lo, cellRef, shared, path]() mutable -> std::function<void()> {
                 std::vector<std::string> errors;
@@ -577,7 +587,7 @@ namespace dova::editor::ui
 		if (!_templateAuthor.empty()) {
 			e.draft->layout.author = _templateAuthor;
 		}
-		const auto r = home::SaveTemplateFile(SaveBase(), e.draft->layout, ownMod);
+		const auto r = home::SaveTemplateFile(SaveBase(), e.draft->layout, ownMod, h.name);
 		if (r.ok) {
 			e.saveMessage = std::format("Saved version {} to {}{}", r.version, PathToUtf8(r.path), r.replaced ? " (the old file is kept as .bak)" : "");
 			e.reviewed = false;
@@ -614,7 +624,7 @@ namespace dova::editor::ui
 				if (e.draft && HomeStatus(_homes->homes[i]).empty()) {
 					auto copy = e.draft->layout;
 					copy.author = _templateAuthor;
-					(fs::exists(home::TemplatePath(base, copy), ec) ? existing : fresh) += 1;
+					(fs::exists(home::TemplatePath(base, copy, _homes->homes[i].name), ec) ? existing : fresh) += 1;
 				}
 			}
 			ImGui::Text("Save %d drafts of homes without a template into", fresh + existing);

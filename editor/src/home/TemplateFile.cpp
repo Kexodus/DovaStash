@@ -12,18 +12,18 @@ namespace fs = std::filesystem;
 
 namespace dova::editor::home
 {
-	fs::path TemplatePath(const fs::path& a_base, const core::Layout& a_template)
+	fs::path TemplatePath(const fs::path& a_base, const core::Layout& a_template, std::string_view a_home)
 	{
-		const auto author = core::TemplateFileStem(a_template.author.empty() ? std::string("Unknown") : a_template.author);
-		const auto file = core::TemplateFileStem(a_template.name) + ".json";
-		return a_base / L"SKSE" / L"Plugins" / L"DovaStash" / L"Templates" / PathFromUtf8(author) / PathFromUtf8(file);
+		const auto home = core::TemplateFileStem(a_home.empty() ? a_template.name : std::string(a_home));
+		const auto file = core::TemplateFileStem(a_template.author.empty() ? std::string("Unknown") : a_template.author) + ".json";
+		return a_base / L"SKSE" / L"Plugins" / L"DovaStash" / L"Templates" / PathFromUtf8(home.empty() ? std::string("Home") : home) / PathFromUtf8(file);
 	}
 
-	SaveResult SaveTemplateFile(const fs::path& a_base, core::Layout& a_template, bool a_modMeta)
+	SaveResult SaveTemplateFile(const fs::path& a_base, core::Layout& a_template, bool a_modMeta, std::string_view a_home)
 	{
 		SaveResult      r;
 		std::error_code ec;
-		r.path = TemplatePath(a_base, a_template);
+		r.path = TemplatePath(a_base, a_template, a_home);
 		core::Layout out = a_template;
 		out.requiredPlugins = core::ReferencedPlugins(out);
 		if (out.version.empty()) {

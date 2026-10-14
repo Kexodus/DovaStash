@@ -130,6 +130,24 @@ namespace dova::editor::ui
 		return out;
 	}
 
+	std::size_t EditorApp::TemplateCount(const home::HomeEntry& a_home) const
+	{
+		// Over every cell of the home, each template once (the same set the Template panel lists).
+		std::vector<const home::KnownTemplate*> all;
+		auto add = [&](const esp::FormKey& a_cell) {
+			for (const auto* t : _homes->templates.ForCell(_homes->lo->ToFormRef(a_cell))) {
+				if (std::ranges::find(all, t) == all.end()) {
+					all.push_back(t);
+				}
+			}
+		};
+		add(a_home.cell);
+		for (const auto& e : a_home.extra) {
+			add(e.cell);
+		}
+		return all.size();
+	}
+
 	std::string EditorApp::HomeChip(int a_index, w::Kind* a_kind) const
 	{
 		const auto& h = _homes->homes[static_cast<std::size_t>(a_index)];
@@ -142,17 +160,22 @@ namespace dova::editor::ui
                 *a_kind = a_k;
             }
 		};
+		// "+N": the home has N more templates (the Template panel lists them).
+		const auto more = [&](const char* a_text) {
+			const auto n = TemplateCount(h);
+			return n > 1 ? std::format("{} +{}", a_text, n - 1) : std::string(a_text);
+		};
 		if (stage == HomeStage::Saved) {
 			set(w::Kind::Ok);
-			return "saved";
+			return more("saved");
 		}
 		if (user) {
 			set(w::Kind::Ok);
-			return "yours";
+			return more("yours");
 		}
 		if (!status.empty()) {
 			set(w::Kind::Info);
-			return "shipped";
+			return more("shipped");
 		}
 		if (e.draft || stage != HomeStage::None) {
 			set(w::Kind::Warn);
@@ -215,11 +238,14 @@ namespace dova::editor::ui
 			// What the row's chip means.
 			w::Kind     kind = w::Kind::Neutral;
 			const auto  chip = HomeChip(static_cast<int>(i), &kind);
-			const char* meaning = chip == "saved"     ? "Saved this session"
-			                      : chip == "yours"   ? "Your template"
-			                      : chip == "shipped" ? "A template ships with Dova Stash or a mod"
-			                      : chip == "drafted" ? "Drafted, not saved"
-			                                          : "No template yet";
+			const char* meaning = chip.starts_with("saved")     ? "Saved this session"
+			                      : chip.starts_with("yours")   ? "Your template"
+			                      : chip.starts_with("shipped") ? "A template ships with Dova Stash or a mod"
+			                      : chip == "drafted"           ? "Drafted, not saved"
+			                                                    : "No template yet";
+			if (const auto n = TemplateCount(a_home); n > 1) {
+				w::Muted(std::format("{} templates: the Template panel lists them", n).c_str());
+			}
 			w::Coloured(kind, meaning);
 		}
 		for (const auto& e : a_home.extra) {
