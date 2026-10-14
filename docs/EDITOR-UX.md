@@ -72,6 +72,10 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 - Right: **Draft ▾** (Draft this home, Accept all, Reject the weak ones, Draft again, Draft all homes…),
   **Save** (Ctrl+S; disabled with a tooltip when the checks have errors), `⚙` **Setup** popover (§2.7).
 
+> **Built:** the chip reads *no template* / *shipped* / *yours* / *draft* (neutral / info / ok / warn). Under
+> ~1400 px the title collapses to the emblem, and a long home name ends in "..." (the whole name in its tooltip),
+> so the row never runs into `3D | Plan`.
+
 ### 2.2 Left rail: Homes (Ctrl+1 toggles, remembers width)
 
 - A search box at the top: home or mod name, plugin, Nexus id. Instant filter.
@@ -88,6 +92,11 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 - Bottom of the rail: *Rescan (F5)* and the scan summary in one muted line (`124 homes · 302 plugins · 0.9 s`).
 - Collapsed, the rail is a 28 px strip with the `›` handle and the home count.
 
+> **Built:** the storage summary counts what a template can use over the home's cells: containers that do not
+> respawn, are nobody else's and are not removed by a house upgrade, and displays (counted on the scan worker;
+> the home finder's own counts include every container reference). A narrow rail drops the displays first, then
+> ends the summary in "...". The row's tooltip shows the counts with icons and what its chip means.
+
 ### 2.3 Centre: the viewport
 
 - The 3D view or the plan, never both; the segmented control in the title row switches (keys `1`/`2`).
@@ -100,6 +109,12 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 - Load progress of meshes and textures appears in the status row, not over the view.
 - Hovering an object shows its name in a small tooltip near the cursor; selection keeps the yellow frame.
 - The start panel (§2.6) draws **inside the viewport area** when no home is open.
+
+> **Built:** `S` is not a plain two-state key: in paint mode it leaves paint for select; in select mode it toggles
+> *Pick anything* (3D: walls and clutter too) or *Left drag pans* (plan), also in the Camera popover. The plan
+> fits to its references with 2 % trimmed per side (a stray marker far away no longer shrinks the home), keeping
+> the containers, displays and doors near the rest; it re-fits while the viewport settles until the author pans or
+> zooms, and on `Home`.
 
 ### 2.4 Right inspector (Ctrl+3 toggles, 340 px, remembers width)
 
@@ -124,11 +139,18 @@ A segmented control at the top: **Selection · Template · Draft · Checks**. Ea
 The inspector's panel switches automatically when it helps: selecting something switches to Selection;
 *Draft this home* switches to Draft; clicking the status row's problem count switches to Checks.
 
+> **Built:** the Selection panel shows the object's own mesh (96 px) at the left of its name once the scene has
+> loaded, and its kind with an icon. The Template panel's fields scroll and *Save* / *Save as…* / *Copy JSON*
+> stay pinned at its bottom like a form footer. The Draft panel's colour legend is a tooltip on its *Containers*
+> section head (an info mark).
+
 ### 2.5 Bottom drawer (Ctrl+2 toggles, `L`)
 
 Tabs: **Containers · Displays · Doors · Where items go**, the wide tables of today. The drawer opens at a
 third of the height, drag to resize, remembers. Rows select the same object as the view (and frame it on
 double click). *Where items go* keeps its sample picker and colour buttons in its own tab bar row.
+
+> **Built:** the tabs show their counts as small badges; the tables' first column has the object's icon.
 
 ### 2.6 Start panel
 
@@ -142,10 +164,15 @@ column, centred, in this order:
    (Ctrl+O). Short one-line descriptions, no paragraphs.
 4. *In progress*: the homes with a stage, as a compact table (home, stage chip, when, saved to).
 
+> **Built:** the header sits on `interface\cc_background.dds` from the player's *Skyrim - Interface.bsa* at 20 %,
+> warmed, cropped to cover and faded into the background on every side; without it the panel is flat.
+
 ### 2.7 Setup popover (`⚙`)
 
 MO2 instance path with *Browse…*, profile dropdown, *Author* name, *Save templates to* (the target list), 
 *Rescan*. The one-line summary of the current setup. Closing applies.
+
+> **Built:** the summary is one line ("N of M mods enabled"), the full description in its tooltip.
 
 ### 2.8 Draft all homes
 
@@ -154,6 +181,9 @@ when it is done the rail shows a *drafted* chip per home and a banner over the r
 (the existing confirmation dialog). Reviewing a draft means opening the home and using the Draft panel.
 `--drafts` on the command line opens the workspace with the bulk draft started and the rail filtered to
 homes without a template.
+
+> **Built:** the bulk draft does not advance the homes' stages (the start panel's *In progress*); a home's stage
+> starts when it is opened. The rail's *drafted* chip shows for every home with a draft.
 
 ### 2.9 Command palette (Ctrl+K)
 
@@ -245,6 +275,9 @@ Never read SWF (SkyUI's icons) and never copy art into the repo or the zip.
 | `Esc` | close popover or palette, then clear selection |
 | `F5` | rescan |
 | `Delete` | remove the selection from the template (asks when more than one) |
+
+> **Built:** the command line's `--tab` (view, drawer) applies to that run only: the state file keeps the
+> remembered layout until a panel is changed by hand.
 
 The command line keeps every flag (`--tab` maps: `3d`/`plan` to the view, `containers`/`displays`/`doors`/
 `preview` to the drawer tab, `template` to the inspector panel; `--drafts` per §2.8). `--screenshot` keeps
