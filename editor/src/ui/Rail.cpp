@@ -198,6 +198,21 @@ namespace dova::editor::ui
 		}
 		ImGui::TextUnformatted(a_home.name.c_str());
 		w::Mono((a_home.cellRef + "  " + a_home.editorId).c_str());
+		if (const auto i = static_cast<std::size_t>(&a_home - _homes->homes.data()); i < _homes->storage.size()) {
+			const auto& st = _homes->storage[i];
+			w::IconInline(w::Icon::Container, w::Th().muted);
+			ImGui::SameLine(0.0f, w::Th().gap);
+			ImGui::Text("%d", st.containers);
+			ImGui::SameLine(0.0f, 2.0f * w::Th().pad);
+			w::IconInline(w::Icon::Display, w::Th().muted);
+			ImGui::SameLine(0.0f, w::Th().gap);
+			ImGui::Text("%d", st.displays);
+			ImGui::SameLine(0.0f, 2.0f * w::Th().pad);
+			w::IconInline(w::Icon::Door, w::Th().muted);
+			ImGui::SameLine(0.0f, w::Th().gap);
+			ImGui::Text("%zu", a_home.doors.size());
+			w::Muted("chests and displays a template can use, load doors");
+		}
 		for (const auto& e : a_home.extra) {
 			w::Muted(std::format("+ {} ({}){}", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely ? "" : ": storage behind a door").c_str());
 		}

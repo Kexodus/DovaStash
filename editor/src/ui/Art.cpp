@@ -27,8 +27,9 @@ namespace dova::editor::ui
 		struct Loader
 		{
 			std::mutex  mutex;
-			std::thread thread;
-			bool        started{ false };
+			std::thread       thread;
+			bool              started{ false };
+			std::atomic<bool> loading{ false };
 
 			~Loader() { Release(); }
 
@@ -81,10 +82,12 @@ namespace dova::editor::ui
 				return;
 			}
 			l.started = true;
+			l.loading = true;
 			a_device->AddRef();
-			l.thread = std::thread([keep = std::move(a_keep), assets = &a_assets, a_device] {
+			l.thread = std::thread([keep = std::move(a_keep), assets = &a_assets, a_device, &l] {
 				Load(*assets, a_device);
 				a_device->Release();
+				l.loading = false;
 			});
 		}
 	}
@@ -111,6 +114,11 @@ namespace dova::editor::ui
 		default:
 			return IM_COL32(255, 236, 205, 51);  // parchment-warm, 20 %
 		}
+	}
+
+	bool ArtPending()
+	{
+		return L().loading.load();
 	}
 
 	void LoadArt(std::shared_ptr<Assets> a_assets, ID3D11Device* a_device)

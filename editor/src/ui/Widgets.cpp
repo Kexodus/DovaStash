@@ -167,6 +167,8 @@ namespace dova::editor::ui::w
 			bool        open{ false };     // its popover is open
 			bool        chevron{ false };
 			int         badge{ 0 };
+			bool        badgeNeutral{ false };  // a count (bg3, text) instead of an alert (accent)
+			bool        badgeZero{ false };     // draw "0" too
 			const char* tooltip{ nullptr };
 			const char* shortcut{ nullptr };
 		};
@@ -188,7 +190,7 @@ namespace dova::editor::ui::w
 			ImFont*      badgeFont = t.smallFont ? t.smallFont : font;
 			const float  badgePx = 11.0f * t.scale;
 			const float  badgeH = 15.0f * t.scale;
-			if (a_s.badge > 0) {
+			if (a_s.badge > 0 || (a_s.badgeZero && a_s.badge == 0)) {
 				std::snprintf(badge, sizeof(badge), "%d", a_s.badge);
 				badgeW = std::max(badgeH, badgeFont->CalcTextSizeA(badgePx, FLT_MAX, 0.0f, badge).x + 8.0f * t.scale);
 			}
@@ -232,9 +234,10 @@ namespace dova::editor::ui::w
 			if (badgeW > 0.0f) {
 				x += 5.0f * t.scale;
 				const ImVec2 bmin(x, std::round(bb.Min.y + (h - badgeH) * 0.5f));
-				dl->AddRectFilled(bmin, ImVec2(bmin.x + badgeW, bmin.y + badgeH), t.accent, badgeH * 0.5f);
+				dl->AddRectFilled(bmin, ImVec2(bmin.x + badgeW, bmin.y + badgeH), a_s.badgeNeutral ? (a_s.active ? t.accentDim : t.bg3) : t.accent, badgeH * 0.5f);
 				const ImVec2 bs = badgeFont->CalcTextSizeA(badgePx, FLT_MAX, 0.0f, badge);
-				dl->AddText(badgeFont, badgePx, ImVec2(std::floor(bmin.x + (badgeW - bs.x) * 0.5f), std::floor(bmin.y + (badgeH - bs.y) * 0.5f)), t.bg0, badge);
+				dl->AddText(badgeFont, badgePx, ImVec2(std::floor(bmin.x + (badgeW - bs.x) * 0.5f), std::floor(bmin.y + (badgeH - bs.y) * 0.5f)),
+					a_s.badgeNeutral ? (a_s.active ? t.bg0 : t.text) : t.bg0, badge);
 				x += badgeW;
 			}
 			if (a_s.chevron) {
@@ -537,6 +540,19 @@ namespace dova::editor::ui::w
 		FlatSpec s;
 		s.label = a_label;
 		s.active = a_active;
+		s.tooltip = a_tooltip;
+		s.shortcut = a_shortcut;
+		return FlatButton(s);
+	}
+
+	bool TabButton(const char* a_label, bool a_active, int a_count, const char* a_tooltip, const char* a_shortcut)
+	{
+		FlatSpec s;
+		s.label = a_label;
+		s.active = a_active;
+		s.badge = a_count;
+		s.badgeNeutral = true;
+		s.badgeZero = a_count == 0;
 		s.tooltip = a_tooltip;
 		s.shortcut = a_shortcut;
 		return FlatButton(s);

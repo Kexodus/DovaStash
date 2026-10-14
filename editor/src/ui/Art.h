@@ -28,6 +28,7 @@ namespace dova::editor::ui
 	[[nodiscard]] ImTextureID ArtTexture(Art a_art);  // 0 until loaded
 	[[nodiscard]] ImVec2      ArtSize(Art a_art);     // pixels; (0, 0) until loaded
 	[[nodiscard]] ImU32       ArtTint(Art a_art);     // the suggested AddImage tint (colour and opacity)
+	[[nodiscard]] bool        ArtPending();           // LoadArt started and not finished yet
 
 	// Starts loading every art texture on a background thread (once; later calls do nothing until
 	// ReleaseArt). The shared_ptr overload keeps the Assets alive for the load; with a reference the Assets

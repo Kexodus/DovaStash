@@ -20,6 +20,8 @@
 #include "Util.h"
 #include "data/Assets.h"
 #include "dova/core/Layout.h"
+#include "render/Thumbnail.h"
+#include "ui/Art.h"
 #include "ui/Common.h"
 
 namespace dova::editor::ui
@@ -188,6 +190,7 @@ namespace dova::editor::ui
 		if (!(_state.ui == _savedUi)) {
 			_state.Save();
 		}
+		_thumbs.reset();
 		_scene.reset();
 		::CoUninitialize();
 	}
@@ -200,7 +203,10 @@ namespace dova::editor::ui
 		if (!_homes || _job.valid() || !_queue.empty() || _pendingCell || _pendingHome || _pendingDrafts) {
 			return false;
 		}
-		return !_cell || _showStart || _state.ui.view != 0 || !_scene || _scene->Progress().finished;
+		if (!_cell || _showStart) {
+			return !ArtPending();  // the start panel's art
+		}
+		return _state.ui.view != 0 || !_scene || _scene->Progress().finished;
 	}
 
 	void EditorApp::SetStatus(std::string a_text, bool a_bad)
@@ -232,6 +238,9 @@ namespace dova::editor::ui
 
 	void EditorApp::StartScene()
 	{
+		if (_thumbs) {
+			_thumbs->Clear();
+		}
 		_scene.reset();
 		if (!_cell || !_device) {
 			return;
@@ -282,6 +291,12 @@ namespace dova::editor::ui
 			_state.mo2 = PathToUtf8(_ws->Instance()->root);
 			_state.profile = _ws->Profile();
 			_state.Save();
+		}
+		// The game-read art (the start panel's backdrop): the same Assets the 3D view uses.
+		ReleaseArt();
+		if (_ws && _device) {
+			_assets = std::make_shared<Assets>(_ws->Files().Roots(), Assets::ArchiveList(*_ws));
+			LoadArt(_assets, _device);
 		}
 	}
 

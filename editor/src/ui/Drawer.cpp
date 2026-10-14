@@ -39,15 +39,15 @@ namespace dova::editor::ui
 			containers += r.IsContainer() && !r.display ? 1 : 0;
 			displays += r.display ? 1 : 0;
 		}
-		const std::string labels[] = { std::format("Containers {}###c", containers), std::format("Displays {}###d", displays),
-			std::format("Doors {}###o", c.info.doors.size()), std::string("Where items go###p") };
+		static constexpr const char* labels[] = { "Containers", "Displays", "Doors", "Where items go" };
+		const int                    counts[] = { containers, displays, static_cast<int>(c.info.doors.size()), -1 };
 		ImGui::SetCursorPos(ImVec2(t.pad, ImGui::GetCursorPosY() + 1.0f * t.scale));
 		for (int i = 0; i < 4; ++i) {
 			if (i > 0) {
 				ImGui::SameLine(0.0f, 2.0f * t.scale);
 			}
 			const bool active = static_cast<int>(_drawerTab) == i;
-			if (w::ToolButton(labels[i].c_str(), active && open)) {
+			if (w::TabButton(labels[i], active && open, counts[i])) {
 				if (active && open) {
 					_state.ui.drawerOpen = false;
 				} else {
@@ -117,6 +117,8 @@ namespace dova::editor::ui
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::PushID(static_cast<int>(i));
+			w::IconInline(IconOf(r), w::Th().muted);
+			ImGui::SameLine(0.0f, w::Th().gap);
 			if (ImGui::Selectable(RefTitle(r).c_str(), IsSelected(static_cast<int>(i)), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
 				TableRowClick(static_cast<int>(i));
 			}
@@ -180,9 +182,12 @@ namespace dova::editor::ui
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::PushID(static_cast<int>(i));
+			w::IconInline(IconOf(r), w::Th().muted);
+			ImGui::SameLine(0.0f, w::Th().gap);
 			if (ImGui::Selectable(RefTitle(r).c_str(), IsSelected(static_cast<int>(i)), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
 				TableRowClick(static_cast<int>(i));
 			}
+			w::Tip("Click: select · Ctrl: add · Double-click: frame");
 			ImGui::PopID();
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(home::DisplayLabel(r).c_str());
@@ -242,6 +247,8 @@ namespace dova::editor::ui
 			ImGui::PushID(static_cast<int>(i));
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
+			w::IconInline(w::Icon::Door, w::Th().muted);
+			ImGui::SameLine(0.0f, w::Th().gap);
 			ImGui::Text("%s%s", d.destinationLabel.c_str(), count[i] > 1 ? std::format("  ({} doors)", count[i]).c_str() : "");
 			ImGui::SameLine();
 			w::Muted(d.destinationInterior ? "interior" : "exterior");
@@ -269,7 +276,7 @@ namespace dova::editor::ui
 			}
 			ImGui::TableNextColumn();
 			ImGui::BeginDisabled(busy || !d.destinationCell || !d.destinationCell->Valid());
-			if (ImGui::SmallButton("Open")) {
+			if (w::LinkButton("Open")) {
 				OpenCellAsync(a_cell.lo, *d.destinationCell, true, true);
 			}
 			ImGui::EndDisabled();

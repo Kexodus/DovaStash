@@ -11,6 +11,7 @@
 
 #include "esp/LoadOrder.h"
 #include "home/Cell.h"
+#include "ui/Widgets.h"
 
 namespace dova::editor::ui::detail
 {
@@ -85,6 +86,27 @@ namespace dova::editor::ui::detail
 	}
 
 	// The game's name for a container or display (the label a new binding gets).
+	// The icon of what a reference is: a door, a chest, a rack, a mannequin, a bookshelf, a plaque or case.
+	inline w::Icon IconOf(const home::PlacedRef& a_ref)
+	{
+		if (a_ref.display) {
+			switch (*a_ref.display) {
+			case core::DisplayKind::Rack:
+				return w::Icon::Rack;
+			case core::DisplayKind::Mannequin:
+				return w::Icon::Mannequin;
+			case core::DisplayKind::Bookshelf:
+				return w::Icon::Book;
+			default:
+				return w::Icon::Display;
+			}
+		}
+		if (a_ref.teleportDoor) {
+			return w::Icon::Door;
+		}
+		return a_ref.IsContainer() ? w::Icon::Container : w::Icon::Cube;
+	}
+
 	inline std::string GameName(const home::PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
 
 	// Windows file dialogs (App.cpp). nullopt: cancelled.

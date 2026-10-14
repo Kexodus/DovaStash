@@ -11,6 +11,7 @@
 #include <imgui.h>
 
 #include "Util.h"
+#include "render/Thumbnail.h"
 #include "ui/App.h"
 #include "ui/Common.h"
 
@@ -113,23 +114,46 @@ namespace dova::editor::ui
 
 	void EditorApp::DrawRefDetails(OpenCell& a_cell, int a_index)
 	{
+		const auto& t = w::Th();
 		const auto& r = a_cell.info.refs[static_cast<std::size_t>(a_index)];
-		// TODO(theme): use w::MeshThumbnail (the object's own mesh, 96 px) when available.
+		// The object's own mesh (docs/EDITOR-UX.md §3.4) at the left of its name, once the scene has loaded.
+		ImTextureID thumb{};
+		if (_scene && _device) {
+			if (!_thumbs) {
+				_thumbs = std::make_unique<render::Thumbnails>(_device, _context);
+				_thumbs->SetBackground(t.bg2);
+			}
+			thumb = _thumbs->For(*_scene, a_index);
+		}
+		if (thumb) {
+			const float  s = std::round(96.0f * t.scale);
+			const ImVec2 p = ImGui::GetCursorScreenPos();
+			ImGui::GetWindowDrawList()->AddImageRounded(ImTextureRef(thumb), p, ImVec2(p.x + s, p.y + s), ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, t.radius);
+			ImGui::GetWindowDrawList()->AddRect(p, ImVec2(p.x + s, p.y + s), t.line, t.radius);
+			ImGui::Dummy(ImVec2(s, s));
+			ImGui::SameLine(0.0f, t.pad);
+		}
+		ImGui::BeginGroup();
+		ImGui::PushTextWrapPos(0.0f);
 		w::Heading(RefTitle(r).c_str());
+		ImGui::PopTextWrapPos();
 		{
-			std::string kind = r.display ? "Display: " + home::DisplayLabel(r) : r.IsContainer() ? "Container" : esp::SigToString(r.baseType);
+			std::string kind = r.display ? home::DisplayLabel(r) : r.IsContainer() ? "Container" : esp::SigToString(r.baseType);
 			for (const auto& d : a_cell.info.doors) {
 				if (d.door == r.key) {
 					kind = "Door to " + d.destinationLabel;
 				}
 			}
+			w::IconInline(IconOf(r), t.muted);
+			ImGui::SameLine(0.0f, t.gap);
 			w::Muted(kind.c_str());
 		}
 		// Facts that matter for a template, as chips.
-		bool chips = false;
+		const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+		bool        chips = false;
 		auto chip = [&](const char* a_text, w::Kind a_kind, const char* a_tip) {
 			if (chips) {
-				ImGui::SameLine(0.0f, 4.0f);
+				w::FlowNext(w::ChipWidth(a_text), rightX);
 			}
 			w::Chip(a_text, a_kind);
 			w::Tip(a_tip);
@@ -151,9 +175,8 @@ namespace dova::editor::ui
 		if (r.ownedByOther) {
 			chip("owned", w::Kind::Warn, "Owned by someone else");
 		}
-		if (chips) {
-			w::Spacer(2.0f);
-		}
+		ImGui::EndGroup();
+		w::Spacer(chips || thumb ? t.gap : 2.0f);
 		// The reference and the base record: one muted block with a copy icon.
 		std::string lines = a_cell.refText[static_cast<std::size_t>(a_index)];
 		if (!r.editorId.empty()) {

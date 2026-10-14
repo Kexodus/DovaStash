@@ -39,6 +39,11 @@ namespace dova::editor
 	class Assets;
 }
 
+namespace dova::editor::render
+{
+	class Thumbnails;
+}
+
 namespace dova::editor::ui
 {
 	struct GuiOptions
@@ -378,6 +383,7 @@ namespace dova::editor::ui
 		ID3D11DeviceContext*           _context{ nullptr };
 		std::shared_ptr<Assets>        _assets;
 		std::unique_ptr<render::Scene> _scene;
+		std::unique_ptr<render::Thumbnails> _thumbs;  // the Selection panel's mesh pictures
 		render::RenderTarget           _target;
 		render::Camera                 _camera;
 		render::ViewOptions            _view;
