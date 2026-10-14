@@ -7,6 +7,7 @@
 #include <fstream>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #define WIN32_LEAN_AND_MEAN
@@ -26,8 +27,11 @@ namespace dova::editor::ui::w
 
 	namespace
 	{
-		Theme g_theme{};
-		bool  g_themeApplied{ false };
+		Theme                g_theme{};
+		bool                 g_themeApplied{ false };
+		float                g_autoText{ 1.0f };
+		float                g_textSetting{ 0.0f };
+		std::optional<float> g_pendingText;
 
 		// Resource ids in res/DovaStashEditor.rc.
 		constexpr int kCinzelResource = 101;
@@ -151,6 +155,7 @@ namespace dova::editor::ui::w
 
 		void LoadFonts(float a_scale)
 		{
+			ImGui::GetIO().Fonts->Clear();  // a second call (new text size or DPI) starts the atlas over
 			auto jost = Resource(kJostResource);
 			auto cinzel = Resource(kCinzelResource);
 			const char* jostName = "Jost";
@@ -345,16 +350,46 @@ namespace dova::editor::ui::w
 		}
 	}
 
-	void ApplyTheme(float a_dpiScale)
+	void ApplyTheme(float a_dpiScale, float a_textScale)
 	{
-		const float scale = a_dpiScale > 0.0f ? a_dpiScale : 1.0f;
+		const float dpi = a_dpiScale > 0.0f ? a_dpiScale : 1.0f;
+		const float text = a_textScale > 0.0f ? a_textScale : 1.0f;
+		const float scale = dpi * text;
 		InitTokens(scale);
+		g_theme.dpi = dpi;
+		g_theme.textScale = text;
 		ApplyStyle(scale);
 		LoadFonts(scale);
 		if (!g_themeApplied) {
 			InstallRimHook();
 		}
 		g_themeApplied = true;
+	}
+
+	void RequestTextScale(float a_setting)
+	{
+		g_textSetting = a_setting > 0.0f ? std::clamp(a_setting, 0.5f, 4.0f) : 0.0f;
+		g_pendingText = g_textSetting > 0.0f ? g_textSetting : g_autoText;
+	}
+
+	std::optional<float> TakePendingTextScale()
+	{
+		return std::exchange(g_pendingText, std::nullopt);
+	}
+
+	float AutoTextScale()
+	{
+		return g_autoText;
+	}
+
+	void SetAutoTextScale(float a_scale)
+	{
+		g_autoText = a_scale > 0.0f ? a_scale : 1.0f;
+	}
+
+	float TextScaleSetting()
+	{
+		return g_textSetting;
 	}
 
 	const Theme& Th()

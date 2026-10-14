@@ -5,6 +5,7 @@
 // the fonts and the ImGui style. The functions follow ImGui's conventions (return true when activated,
 // Begin*/End* pairs where End must be called only when Begin returned true).
 
+#include <optional>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -27,7 +28,9 @@ namespace dova::editor::ui::w
 		ImFont* smallFont{ nullptr };  // Jost 13 ("small" is a Windows macro)
 		ImFont* mono{ nullptr };     // Cascadia Mono / Consolas 13
 
-		float scale{ 1.0f };  // DPI scale; multiply every pixel size in the spec by it
+		float scale{ 1.0f };      // DPI scale x text size; multiply every pixel size in the spec by it
+		float dpi{ 1.0f };        // the monitor's DPI scale alone
+		float textScale{ 1.0f };  // the Text size in effect (Setup); Auto resolves to AutoTextScale()
 		float rowH{ 24.0f }, inputH{ 26.0f }, toolbarH{ 30.0f }, titleH{ 38.0f }, statusH{ 24.0f };  // already scaled
 		float pad{ 8.0f }, gap{ 6.0f };                                                           // already scaled
 
@@ -40,10 +43,20 @@ namespace dova::editor::ui::w
 		ImU32 shadow{ IM_COL32(0, 0, 0, 102) };  // the 1 px rim under popups and overlays (40 % black)
 	};
 
-	// Installs the style, colours and fonts on the current ImGui context. Call once after CreateContext
-	// (Window.cpp), before the backends' Init so the font atlas is built with our fonts.
-	void          ApplyTheme(float a_dpiScale);
+	// Installs the style, colours and fonts on the current ImGui context. Call after CreateContext (Window.cpp),
+	// before the backends' Init so the font atlas is built with our fonts; calling it again (a new text size or
+	// DPI) rebuilds the atlas, so only between frames.
+	void          ApplyTheme(float a_dpiScale, float a_textScale = 1.0f);
 	const Theme&  Th();
+
+	// Text size (Setup, Ctrl+= / Ctrl+-): a factor on top of the DPI, 0 = Auto. The window applies a request
+	// between frames (TakePendingTextScale) and sets the Auto value from the monitor at start.
+	constexpr float kTextScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
+	void                 RequestTextScale(float a_setting);
+	std::optional<float> TakePendingTextScale();
+	float                AutoTextScale();
+	void                 SetAutoTextScale(float a_scale);
+	float                TextScaleSetting();  // the current setting (0 = Auto)
 
 	// Font roles (EDITOR-UX.md §3.2). PushFont(Font) binds the font at its own size (ImGui 1.92's
 	// PushFont(font, 0) would keep the current size); pair with PopFont().

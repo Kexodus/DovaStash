@@ -229,7 +229,10 @@ Category colours (`CategoryColour`) are unchanged.
 | Mono | Cascadia Mono, else Consolas | 13 px, form refs and EditorIDs |
 
 Fonts are embedded as resources (`editor/res`, from `presskit/src/fonts`) so the look is identical on
-every machine. DPI: sizes scale with the window's DPI as today.
+every machine. DPI: sizes scale with the window's DPI, times a **Text size** (Setup; Ctrl+= / Ctrl+- / Ctrl+0,
+100–200 %, remembered in `state.json` as `ui.textScale`). *Auto* is 125 % on a 1440p and 150 % on a 4K monitor at
+100 % Windows scaling, where 15 px is too small to read at arm's length, else 100 %. A new size rebuilds the fonts
+between frames; moving the window to a monitor with another DPI does the same.
 
 ### 3.3 Shapes and ornament
 
@@ -273,6 +276,7 @@ Never read SWF (SkyUI's icons) and never copy art into the repo or the zip.
 | `Ctrl+Z` / `Ctrl+Y` | undo / redo |
 | `Ctrl+click`, drag | add to selection, box select |
 | `Esc` | close popover or palette, then clear selection |
+| `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | text size larger / smaller / auto |
 | `F5` | rescan |
 | `Delete` | remove the selection from the template (asks when more than one) |
 

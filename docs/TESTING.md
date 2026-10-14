@@ -958,3 +958,4 @@ own: `$env:DOVASTASH_EDITOR_STATE = "$env:TEMP\ds-test-state.json"`. Every row a
 | 8.17 | `⚙` (or `--popover setup`): change the profile | The rail scans the other profile's load order. |
 | 8.18 | Ctrl+1, Ctrl+3, drag the drawer taller; restart | The rail and inspector fold to strips; after the restart the layout and the view are as you left them. |
 | 8.19 | `--window 1280x720` | Still usable: the title row shortens the home's name ("..."), the rail ends its summaries in "...". |
+| 8.20 | Ctrl+= twice, Ctrl+-, `⚙` › *Text size* › *Auto*; restart | Every text and control grows a step at a time, nothing clips; Setup shows the size; Auto reads 125 % on a 1440p monitor at 100 % Windows scaling; the size survives the restart. |

@@ -44,6 +44,23 @@ namespace dova::editor::ui
 		UINT                    g_resizeW = 0, g_resizeH = 0;
 		EditorApp*              g_app = nullptr;
 		bool                    g_unclamped = false;  // --screenshot: the window may be larger than the screen
+		float                   g_dpi = 1.0f;         // the window's monitor; WM_DPICHANGED updates it
+		bool                    g_dpiChanged = false;
+
+		// Text size when the setting is Auto: at 100 % Windows scaling a 1440p or 4K monitor still shows the
+		// 15 px body too small to read at arm's length; Windows scaling above 100 % already handles it.
+		float AutoTextScaleFor(HMONITOR a_monitor, float a_dpi)
+		{
+			if (a_dpi > 1.05f) {
+				return 1.0f;
+			}
+			MONITORINFO mi{ sizeof(mi) };
+			if (!::GetMonitorInfoW(a_monitor, &mi)) {
+				return 1.0f;
+			}
+			const int h = mi.rcMonitor.bottom - mi.rcMonitor.top;
+			return h >= 2000 ? 1.5f : h >= 1300 ? 1.25f : 1.0f;
+		}
 
 		void CreateRenderTarget()
 		{
@@ -138,6 +155,14 @@ namespace dova::editor::ui
 				g_resizeW = LOWORD(a_lparam);
 				g_resizeH = HIWORD(a_lparam);
 				return 0;
+			case WM_DPICHANGED: {
+				// Moved to a monitor with another scale: take Windows' suggested size, rebuild fonts next frame.
+				g_dpi = static_cast<float>(HIWORD(a_wparam)) / 96.0f;
+				g_dpiChanged = true;
+				const RECT* r = reinterpret_cast<const RECT*>(a_lparam);
+				::SetWindowPos(a_hwnd, nullptr, r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOZORDER | SWP_NOACTIVATE);
+				return 0;
+			}
 			case WM_GETMINMAXINFO:
 				if (g_unclamped) {
 					// Screenshots keep their size on a small (or virtual) display.
@@ -172,14 +197,28 @@ namespace dova::editor::ui
 	{
 		const auto& a_screenshot = a_gui.screenshot;
 		ImGui_ImplWin32_EnableDpiAwareness();
-		float scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
+		const HMONITOR primary = ::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
+		g_dpi = ImGui_ImplWin32_GetDpiScaleForMonitor(primary);
 		// DOVASTASH_UI_SCALE=1.5 tries another DPI without changing the monitor's; DOVASTASH_WIDGETS_DEMO=1 draws
 		// the widget gallery (ui/WidgetsDemo.cpp) instead of the editor.
+		bool fixedScale = false;
 		if (const std::wstring v = EnvVar(L"DOVASTASH_UI_SCALE"); !v.empty()) {
 			if (const float s = std::wcstof(v.c_str(), nullptr); s >= 0.5f && s <= 4.0f) {
-				scale = s;
+				g_dpi = s;
+				fixedScale = true;
 			}
 		}
+		// Text size: the remembered setting (ui.textScale in state.json), or Auto from the monitor. Screenshots
+		// and DOVASTASH_UI_SCALE runs keep 100 % so their pixels mean the same on every machine.
+		w::SetAutoTextScale(a_screenshot || fixedScale ? 1.0f : AutoTextScaleFor(primary, g_dpi));
+		float textSetting = 0.0f;
+		if (!a_screenshot && !fixedScale) {
+			EditorState saved;
+			saved.Load();
+			textSetting = saved.ui.textScale;
+		}
+		w::RequestTextScale(textSetting);
+		float scale = g_dpi * *w::TakePendingTextScale();
 		const bool demo = EnvVar(L"DOVASTASH_WIDGETS_DEMO") == L"1";
 		g_unclamped = a_screenshot.has_value();
 
@@ -205,7 +244,7 @@ namespace dova::editor::ui
 		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 		io.IniFilename = nullptr;  // the layout is fixed; nothing to remember yet
-		w::ApplyTheme(scale);  // style, colours and fonts (Widgets.h, docs/EDITOR-UX.md §3)
+		w::ApplyTheme(g_dpi, scale / g_dpi);  // style, colours and fonts (Widgets.h, docs/EDITOR-UX.md §3)
 		ImGui_ImplWin32_Init(hwnd);
 		ImGui_ImplDX11_Init(g_device, g_context);
 
@@ -271,6 +310,13 @@ namespace dova::editor::ui
 					CreateRenderTarget();
 				}
 
+				// A new text size (Setup, Ctrl+= / Ctrl+-) or DPI: fonts and sizes are rebuilt between frames.
+				if (const auto text = w::TakePendingTextScale(); text || g_dpiChanged) {
+					g_dpiChanged = false;
+					w::ApplyTheme(g_dpi, text ? *text : w::Th().textScale);
+					ImGui_ImplDX11_InvalidateDeviceObjects();
+					ImGui_ImplDX11_CreateDeviceObjects();
+				}
 				ImGui_ImplDX11_NewFrame();
 				ImGui_ImplWin32_NewFrame();
 				ImGui::NewFrame();

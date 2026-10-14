@@ -76,6 +76,10 @@ namespace dova::editor::ui
 				ui.drawerOpen = u.value("drawerOpen", ui.drawerOpen);
 				ui.drawerHeight = u.value("drawerHeight", ui.drawerHeight);
 				ui.view = std::clamp(u.value("view", ui.view), 0, 1);
+				ui.textScale = u.value("textScale", ui.textScale);
+				if (ui.textScale != 0.0f && (ui.textScale < 0.5f || ui.textScale > 4.0f)) {
+					ui.textScale = 0.0f;
+				}
 			}
 			if (j.contains("homes") && j["homes"].is_object()) {
 				for (const auto& [cell, h] : j["homes"].items()) {
@@ -107,7 +111,7 @@ namespace dova::editor::ui
 		}
 		const UiLayout& u = uiOnDisk ? *uiOnDisk : ui;
 		j["ui"] = { { "railOpen", u.railOpen }, { "railWidth", u.railWidth }, { "inspectorOpen", u.inspectorOpen }, { "inspectorWidth", u.inspectorWidth },
-			{ "drawerOpen", u.drawerOpen }, { "drawerHeight", u.drawerHeight }, { "view", u.view } };
+			{ "drawerOpen", u.drawerOpen }, { "drawerHeight", u.drawerHeight }, { "view", u.view }, { "textScale", u.textScale } };
 		auto& hs = j["homes"] = nlohmann::ordered_json::object();
 		for (const auto& [cell, r] : homes) {
 			hs[cell] = { { "name", r.name }, { "stage", static_cast<int>(r.stage) }, { "saved", r.savedPath }, { "updated", r.updated } };

@@ -232,6 +232,8 @@ namespace dova::editor::ui
 		void DrawMainMenu();      // TitleBar.cpp: the ≡ popover
 		void DrawDraftMenu();     // TitleBar.cpp: Draft ▾
 		void DrawSetupPopover();  // TitleBar.cpp: ⚙
+		void SetTextScale(float a_setting);  // TitleBar.cpp: Text size (0 = Auto), remembered and applied next frame
+		void StepTextScale(int a_dir);       // Ctrl+= / Ctrl+-
 		void DrawSetupConfirm();  // TitleBar.cpp
 		void DrawHelpPopups();    // TitleBar.cpp: Shortcuts..., About
 		void ApplySetup(std::optional<std::filesystem::path> a_mo2, std::optional<std::string> a_profile);

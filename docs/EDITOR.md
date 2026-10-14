@@ -679,6 +679,7 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
 | Anywhere in a home | Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) / Ctrl+S / Delete / Esc | undo / redo / save the template (asks before overwriting) / remove the selection from the template / close a popover or the palette, then clear the selection |
 | Where items go | R | run the preview again (it re-runs by itself when the template changes) |
 | Everywhere | Ctrl+D / Ctrl+O / F5 | draft all homes / open a template file / rescan the load order |
+| Everywhere | Ctrl+= / Ctrl+- / Ctrl+0 | text size larger / smaller / auto (also under `⚙` Setup › *Text size*; remembered) |
 
 **A 2-minute test**
 

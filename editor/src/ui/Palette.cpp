@@ -108,6 +108,9 @@ namespace dova::editor::ui
 		add("Make the nearest chest the master", "", cell && idle, [this] { MakeNearestMaster(*_cell); });
 		add("Start", "", true, [this] { _showStart = true; });
 		add("Setup", "", true, [this] { w::OpenPopover("setup"); });
+		add("Text size: larger", "Ctrl+=", true, [this] { StepTextScale(1); });
+		add("Text size: smaller", "Ctrl+-", true, [this] { StepTextScale(-1); });
+		add("Text size: auto", "Ctrl+0", true, [this] { SetTextScale(0.0f); });
 		add("Shortcuts", "", true, [this] { _showShortcuts = true; });
 		return out;
 	}

@@ -271,6 +271,39 @@ namespace dova::editor::ui
 		}
 	}
 
+	void EditorApp::SetTextScale(float a_setting)
+	{
+		_state.ui.textScale = a_setting;
+		if (_state.uiOnDisk) {
+			_state.uiOnDisk->textScale = a_setting;  // a one-run layout (--tab) still remembers the size
+		}
+		_state.Save();
+		w::RequestTextScale(a_setting);
+	}
+
+	void EditorApp::StepTextScale(int a_dir)
+	{
+		const float current = w::Th().textScale;
+		float       next = current;
+		if (a_dir > 0) {
+			for (const float v : w::kTextScales) {
+				if (v > current + 0.01f) {
+					next = v;
+					break;
+				}
+			}
+		} else {
+			for (const float v : w::kTextScales) {
+				if (v < current - 0.01f) {
+					next = v;
+				}
+			}
+		}
+		if (next != current) {
+			SetTextScale(next);
+		}
+	}
+
 	void EditorApp::DrawSetupPopover()
 	{
 		const auto& t = w::Th();
@@ -319,6 +352,24 @@ namespace dova::editor::ui
 				ImGui::EndCombo();
 			}
 			w::Tip(PathToUtf8(SaveBase()).c_str());
+		}
+		w::FieldLabel("Text size");
+		{
+			const float setting = _state.ui.textScale;
+			auto        name = [](float a_v) { return std::format("{}%", static_cast<int>(std::lround(a_v * 100.0f))); };
+			const auto  shown = setting > 0.0f ? name(setting) : std::format("Auto ({})", name(w::AutoTextScale()));
+			if (ImGui::BeginCombo("##textsize", shown.c_str())) {
+				if (ImGui::Selectable(std::format("Auto ({})", name(w::AutoTextScale())).c_str(), setting <= 0.0f)) {
+					SetTextScale(0.0f);
+				}
+				for (const float v : w::kTextScales) {
+					if (ImGui::Selectable(name(v).c_str(), setting == v)) {
+						SetTextScale(v);
+					}
+				}
+				ImGui::EndCombo();
+			}
+			w::Tip("Auto picks a size for the monitor; Ctrl+= and Ctrl+- step through them (Ctrl+0: Auto)");
 		}
 		ImGui::PopItemWidth();
 		w::Spacer();
@@ -408,6 +459,7 @@ namespace dova::editor::ui
 				{ "S / P", "select / paint" }, { "C / V", "colours by category / by fill" }, { "F / Home", "frame selection / overview" }, { "L", "layers" },
 				{ "Ctrl+S / Ctrl+O / Ctrl+D", "save / open template / draft all" }, { "Ctrl+Z / Ctrl+Y", "undo / redo" }, { "Ctrl+click, drag", "add to selection, box select" },
 				{ "Esc", "close, then clear the selection" }, { "F5", "rescan" }, { "Delete", "remove the selection from the template" },
+				{ "Ctrl+= / Ctrl+- / Ctrl+0", "text size larger / smaller / auto" },
 				{ "Right mouse + WASD / QE", "fly (3D)" }, { "Alt + drag", "orbit (3D)" } };
 			if (ImGui::BeginTable("keys", 2, ImGuiTableFlags_SizingFixedFit)) {
 				for (const auto& k : keys) {
