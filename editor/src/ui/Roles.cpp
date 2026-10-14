@@ -24,7 +24,6 @@
 #include "home/TemplateFile.h"
 #include "ui/App.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace fs = std::filesystem;
 
@@ -78,14 +77,14 @@ namespace dova::editor::ui
 		bool changed = false;
 		ImGui::PushID(a_id);
 		if (a_title) {
-			wx::FieldLabel("Categories");
+			w::FieldLabel("Categories");
 		}
 		const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 		for (std::size_t i = 0; i < a_patterns.size(); ++i) {
 			ImGui::PushID(static_cast<int>(i));
 			const auto* cat = _categorySet ? _categorySet->Find(a_patterns[i]) : nullptr;
 			if (i > 0) {
-				wx::FlowNext(wx::ChipWidth(a_patterns[i].c_str(), true), rightX);
+				w::FlowNext(w::ChipWidth(a_patterns[i].c_str(), true), rightX);
 			}
 			const bool known = cat || a_patterns[i].ends_with("*");
 			if (w::ChipClose(a_patterns[i].c_str(), known ? w::Kind::Accent : w::Kind::Error)) {
@@ -137,7 +136,7 @@ namespace dova::editor::ui
 
 	bool EditorApp::ArmorSetEditor(OpenCell& a_cell, std::optional<core::FormRef>& a_set)
 	{
-		wx::FieldLabel("Armor set");
+		w::FieldLabel("Armor set");
 		if (Busy() && !(_armorSets && _armorSetsLo == a_cell.lo)) {
 			w::Muted("Reading the armor sets...");  // the load order is busy with a job
 			return false;
@@ -285,12 +284,11 @@ namespace dova::editor::ui
 					}
 					w::Muted("Not in the template");
 				} else {
-					wx::FieldLabel("Label");
+					w::FieldLabel("Label");
 					changed |= ImGui::InputText("##label", &b->label);
-					changed |= ImGui::Checkbox("Ignored", &b->ignored);
-					w::Tip("Never used");
+					changed |= w::Check("Ignored", b->ignored, "Never used");
 					if (r.respawns && !b->ignored) {
-						wx::Text(w::Kind::Error, "Respawns: ignore it");
+						w::Coloured(w::Kind::Error, "Respawns: ignore it");
 					}
 					if (!b->ignored) {
 						changed |= CategoryEditor("cats", b->categories);
@@ -298,7 +296,7 @@ namespace dova::editor::ui
 							w::Muted(std::format("{} fixed items (kept)", b->forms.size()).c_str());
 						}
 					}
-					wx::FieldLabel("Note");
+					w::FieldLabel("Note");
 					changed |= ImGui::InputTextMultiline("##note", &b->note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
 					w::Tip("For people reading the file");
 					ImGui::PushFont(w::Th().smallFont);
@@ -314,7 +312,7 @@ namespace dova::editor::ui
 			w::SectionHead("Role");
 			auto* d = layout.FindDisplay(ref);
 			bool  used = d != nullptr;
-			if (ImGui::Checkbox("Use this display", &used)) {
+			if (w::Check("Use this display", used)) {
 				if (used) {
 					core::DisplayBinding nd;
 					nd.ref = ref;
@@ -334,10 +332,9 @@ namespace dova::editor::ui
 			}
 			w::Tip("Listed displays are filled by Dova Stash; the others are left alone");
 			if (d) {
-				wx::FieldLabel("Label");
+				w::FieldLabel("Label");
 				changed |= ImGui::InputText("##label", &d->label);
-				changed |= ImGui::Checkbox("Ignored", &d->ignored);
-				w::Tip("Never filled");
+				changed |= w::Check("Ignored", d->ignored, "Never filled");
 				// A mannequin with a chosen set wears that set: its categories and "only" are not used (core::PlanDisplays).
 				const bool takesCategories = *r.display == core::DisplayKind::Rack || (*r.display == core::DisplayKind::Mannequin && !d->set) ||
 				                             *r.display == core::DisplayKind::Bookshelf;
@@ -355,10 +352,10 @@ namespace dova::editor::ui
 				if (!d->items.empty()) {
 					w::Muted(std::format("{} items{}", d->items.size(), takesCategories ? "" : " (from its script)").c_str());
 					if (takesCategories) {
-						changed |= ImGui::Checkbox("Only these items", &d->only);
+						changed |= w::Check("Only these items", d->only);
 					}
 				}
-				wx::FieldLabel("Note");
+				w::FieldLabel("Note");
 				changed |= ImGui::InputTextMultiline("##note", &d->note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
 			}
 		} else {
@@ -458,7 +455,7 @@ namespace dova::editor::ui
 			std::error_code ec;
 			const auto      path = TemplatePath(*_cell);
 			if (fs::exists(path, ec)) {
-				wx::Text(w::Kind::Warn, (PathToUtf8(path) + " exists.").c_str());
+				w::Coloured(w::Kind::Warn, (PathToUtf8(path) + " exists.").c_str());
 				ImGui::TextUnformatted("Overwrite it? The old file is kept as .bak and the version goes up.");
 			} else {
 				ImGui::Text("Save to %s?", PathToUtf8(path).c_str());
@@ -468,7 +465,7 @@ namespace dova::editor::ui
 				const auto  existing = _homes->templates.ForCell(_homes->lo->ToFormRef(h.cell));
 				for (const auto* tp : existing) {
 					if (tp->path != path) {
-						wx::Text(w::Kind::Info, std::format("This home already has a template: {} ({}).", tp->source, tp->origin).c_str());
+						w::Coloured(w::Kind::Info, std::format("This home already has a template: {} ({}).", tp->source, tp->origin).c_str());
 					}
 				}
 				if (std::ranges::any_of(existing, [&](const home::KnownTemplate* tp) { return tp->path != path; })) {
@@ -550,19 +547,19 @@ namespace dova::editor::ui
 		}
 		auto& k = *a_layout.keep;
 		bool  inherit = k.Inherits();
-		if (ImGui::Checkbox("Also the player's global rules", &inherit)) {
+		if (w::Check("Also the player's global rules", inherit)) {
 			k.inherit = inherit ? std::optional<bool>{} : std::optional<bool>{ false };
 			changed = true;
 		}
 		w::Tip("Off writes \"inherit\": false: only these rules apply in this home");
 		auto list = [&](const char* a_id, const char* a_label, std::vector<std::string>& a_items) {
 			ImGui::PushID(a_id);
-			wx::FieldLabel(a_label);
+			w::FieldLabel(a_label);
 			const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 			for (std::size_t i = 0; i < a_items.size(); ++i) {
 				ImGui::PushID(static_cast<int>(i));
 				if (i > 0) {
-					wx::FlowNext(wx::ChipWidth(a_items[i].c_str(), true), rightX);
+					w::FlowNext(w::ChipWidth(a_items[i].c_str(), true), rightX);
 				}
 				if (w::ChipClose(a_items[i].c_str(), w::Kind::Accent)) {
 					a_items.erase(a_items.begin() + static_cast<std::ptrdiff_t>(i));
@@ -584,7 +581,7 @@ namespace dova::editor::ui
 		};
 		list("always", "Always keep", k.always);
 		list("never", "Never keep", k.never);
-		wx::FieldLabel("Quotas");
+		w::FieldLabel("Quotas");
 		int remove = -1;
 		for (std::size_t i = 0; i < k.quotas.size(); ++i) {
 			auto& q = k.quotas[i];
@@ -635,9 +632,9 @@ namespace dova::editor::ui
 		auto& t = a_cell.layout;
 		bool  changed = false;
 		w::SectionHead("Template");
-		wx::FieldLabel("Name");
+		w::FieldLabel("Name");
 		changed |= ImGui::InputText("##name", &t.name);
-		wx::FieldLabel("Author");
+		w::FieldLabel("Author");
 		if (ImGui::InputText("##author", &t.author)) {
 			_templateAuthor = t.author;
 			_state.author = t.author;
@@ -648,17 +645,17 @@ namespace dova::editor::ui
 		}
 		const float half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
 		ImGui::BeginGroup();
-		wx::FieldLabel("Version");
+		w::FieldLabel("Version");
 		ImGui::SetNextItemWidth(half);
 		changed |= ImGui::InputText("##version", &t.version);
 		ImGui::EndGroup();
 		ImGui::SameLine();
 		ImGui::BeginGroup();
-		wx::FieldLabel("Priority");
+		w::FieldLabel("Priority");
 		ImGui::SetNextItemWidth(half);
 		changed |= ImGui::InputInt("##priority", &t.priority, 0);
 		ImGui::EndGroup();
-		wx::FieldLabel("Note");
+		w::FieldLabel("Note");
 		changed |= ImGui::InputTextMultiline("##note", &t.note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
 		{
 			const auto master = std::ranges::find_if(a_cell.info.refs, [&](const home::PlacedRef& p) { return t.master && a_cell.lo->ToFormRef(p.key) == *t.master; });
@@ -675,13 +672,13 @@ namespace dova::editor::ui
 		w::SectionHead("Cells");
 		{
 			const auto openRef = a_cell.lo->ToFormRef(a_cell.info.key);
-			wx::FieldLabel(t.cell && *t.cell == openRef ? "Main · open" : "Main");
+			w::FieldLabel(t.cell && *t.cell == openRef ? "Main · open" : "Main");
 			w::Mono((t.cell ? t.cell->ToString() : std::string("-")).c_str());
 			int remove = -1;
 			for (std::size_t i = 0; i < t.cells.size(); ++i) {
 				auto& c = t.cells[i];
 				ImGui::PushID(static_cast<int>(i));
-				wx::FieldLabel(c.cell == openRef ? "Joined · open" : "Joined");
+				w::FieldLabel(c.cell == openRef ? "Joined · open" : "Joined");
 				w::Mono(c.cell.ToString().c_str());
 				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x);
 				changed |= ImGui::InputTextWithHint("##label", "Label (what players see)", &c.label);
@@ -746,7 +743,7 @@ namespace dova::editor::ui
 		{
 			const auto targets = SaveTargets();
 			auto       name = [](const std::string& a_t) { return a_t.empty() ? std::string(home::kTemplatesMod) : a_t; };
-			wx::FieldLabel("Save to");
+			w::FieldLabel("Save to");
 			if (ImGui::BeginCombo("##target", name(_state.saveTarget).c_str())) {
 				for (const auto& tg : targets) {
 					if (ImGui::Selectable(name(tg).c_str(), tg == _state.saveTarget)) {
@@ -776,7 +773,7 @@ namespace dova::editor::ui
 		}
 		if (!a_cell.saveMessage.empty()) {
 			ImGui::PushTextWrapPos(0.0f);
-			wx::TextWrapped(a_cell.saveMessage.starts_with("Not saved") ? w::Kind::Error : w::Kind::Ok, a_cell.saveMessage.c_str());
+			w::ColouredWrapped(a_cell.saveMessage.starts_with("Not saved") ? w::Kind::Error : w::Kind::Ok, a_cell.saveMessage.c_str());
 			ImGui::PopTextWrapPos();
 		}
 		if (ImGui::CollapsingHeader("JSON")) {

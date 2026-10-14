@@ -18,7 +18,6 @@
 #include "Util.h"
 #include "ui/App.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace dova::editor::ui
 {
@@ -216,10 +215,10 @@ namespace dova::editor::ui
 			return;
 		}
 		const auto& h = _homes->homes[static_cast<std::size_t>(a_index)];
-		if (wx::MenuItem("Open")) {
+		if (w::MenuRow("Open")) {
 			OpenHome(a_index);
 		}
-		if (wx::MenuItem("Draft")) {
+		if (w::MenuRow("Draft")) {
 			if (IsOpenHome(a_index)) {
 				_panel = Panel::Draft;
 			} else {
@@ -236,12 +235,12 @@ namespace dova::editor::ui
 				file = tp;
 			}
 		}
-		if (wx::MenuItem("Open in Explorer", nullptr, file != nullptr)) {
+		if (w::MenuRow("Open in Explorer", nullptr, file != nullptr)) {
 			const auto args = L"/select,\"" + file->path.wstring() + L"\"";
 			::ShellExecuteW(nullptr, L"open", L"explorer.exe", args.c_str(), nullptr, SW_SHOWNORMAL);
 		}
 		w::Tip(file ? PathToUtf8(file->path).c_str() : "No template file yet");
-		if (wx::MenuItem("Copy form ref")) {
+		if (w::MenuRow("Copy form ref")) {
 			ImGui::SetClipboardText(h.cellRef.c_str());
 		}
 		ImGui::EndPopup();
@@ -254,7 +253,7 @@ namespace dova::editor::ui
 		if (!w::BeginRail("rail", w::Side::Left, _state.ui.railWidth, _state.ui.railOpen, 200.0f * t.scale, 560.0f * t.scale, collapsed.c_str())) {
 			return;
 		}
-		if (wx::BeginPadded("railpad", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+		if (w::BeginPadded("railpad", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
 			if (!_ws) {
 				w::EmptyState("No setup", "Point the editor at your MO2 instance (Start).");
 			} else {
@@ -264,7 +263,7 @@ namespace dova::editor::ui
 				// "Draft all homes" is done: offer to save the drafts of homes without a template.
 				const int saveable = SaveableDrafts();
 				if (_bulkDone && !_bannerClosed && saveable > 0) {
-					const int r = wx::Banner("drafted", std::format("{} draft{}", saveable, saveable == 1 ? "" : "s").c_str(), std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str());
+					const int r = w::Banner("drafted", std::format("{} draft{}", saveable, saveable == 1 ? "" : "s").c_str(), std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str());
 					if (r == 1) {
 						_confirmSaveAll = true;
 					} else if (r == 2) {
@@ -281,14 +280,13 @@ namespace dova::editor::ui
 				w::SearchBox("railsearch", _railSearch, "Home, mod, plugin, Nexus id", ImGui::GetContentRegionAvail().x - filterW - t.gap);
 				ImGui::SameLine(0.0f, t.gap);
 				if (w::BeginPopover("filter", nullptr, w::Icon::Filter, ActiveFilterCount(), "Filter")) {
-					wx::CheckItem("Only homes without a template", &_onlyWithoutTemplate);
-					wx::CheckItem("Only enabled mods", &_onlyEnabled, "Mods without homes found by the search: only the enabled ones");
-					if (wx::CheckItem("Likely homes only", &_likelyOnly, "All cells...: a player-house location, owned by the player, or mannequins where nothing respawns")) {
-					}
-					if (wx::CheckItem("Exteriors", &_exteriors, "All cells...: exterior cells with containers too (a balcony, a garden)") && _selectedMod >= -1) {
+					w::Check("Only homes without a template", _onlyWithoutTemplate);
+					w::Check("Only enabled mods", _onlyEnabled, "Mods without homes found by the search: only the enabled ones");
+					w::Check("Likely homes only", _likelyOnly, "All cells...: a player-house location, owned by the player, or mannequins where nothing respawns");
+					if (w::Check("Exteriors", _exteriors, "All cells...: exterior cells with containers too (a balcony, a garden)") && _selectedMod >= -1) {
 						Scan();
 					}
-					wx::CheckItem("Group by mod", &_groupByMod);
+					w::Check("Group by mod", _groupByMod);
 					w::EndPopover();
 				}
 				// The list, then the footer.
@@ -314,7 +312,7 @@ namespace dova::editor::ui
 				ImGui::PopFont();
 			}
 		}
-		wx::EndPadded();
+		w::EndPadded();
 		w::EndRail();
 	}
 
@@ -365,7 +363,7 @@ namespace dova::editor::ui
 			const auto  summary = a_compact ? std::string{} : Summary(st.containers, st.displays);
 			const auto  summaryShort = a_compact ? std::string{} : Summary(st.containers, st.displays, true);
 			ImGui::PushID(a_i);
-			if (wx::HomeRow("home", name.c_str(), summary.c_str(), summaryShort.c_str(), chip.c_str(), kind, IsOpenHome(a_i), _railCursor == a_i, HomeUnsaved(a_i))) {
+			if (w::HomeRow("home", name.c_str(), summary.c_str(), summaryShort.c_str(), chip.c_str(), kind, IsOpenHome(a_i), _railCursor == a_i, HomeUnsaved(a_i))) {
 				_railCursor = a_i;
 				OpenHome(a_i);
 				if (a_compact) {
@@ -407,7 +405,7 @@ namespace dova::editor::ui
 			bool            open = !_collapsedGroups.contains(g.mod) || !a_search.empty();
 			const auto      note = mod && mod->nexusId ? std::format("{}  ·  {}", *mod->nexusId, shown.size()) : std::to_string(shown.size());
 			ImGui::PushID(g.mod);
-			if (wx::GroupHeader("group", ModName(*_ws, g.mod).c_str(), note.c_str(), open) && a_search.empty()) {
+			if (w::GroupHeader("group", ModName(*_ws, g.mod).c_str(), note.c_str(), open) && a_search.empty()) {
 				if (open) {
 					_collapsedGroups.erase(g.mod);
 				} else {
@@ -459,7 +457,7 @@ namespace dova::editor::ui
 				ImGui::PushID(i);
 				bool       open = true;
 				const auto note = m.nexusId ? std::format("{}  ·  no homes", *m.nexusId) : std::string("no homes");
-				wx::GroupHeader("group", m.name.c_str(), note.c_str(), open);
+				w::GroupHeader("group", m.name.c_str(), note.c_str(), open);
 				ImGui::PushFont(t.smallFont);
 				ImGui::Indent(t.pad);
 				const bool anyCells = _selectedMod == i;
@@ -496,7 +494,7 @@ namespace dova::editor::ui
 			auto& scan = _scans[s];
 			ImGui::PushID(static_cast<int>(s));
 			for (const auto& e : scan.errors) {
-				wx::Text(w::Kind::Warn, e.c_str());
+				w::Coloured(w::Kind::Warn, e.c_str());
 			}
 			for (std::size_t i = 0; i < scan.homes.size(); ++i) {
 				const auto& h = scan.homes[i];
@@ -509,7 +507,7 @@ namespace dova::editor::ui
 				const bool open = _cell && _cell->info.key == h.cell && _cell->lo == scan.lo;
 				const auto score = std::format("score {}", h.score);
 				const int  usable = h.containers - h.respawning;
-				if (wx::HomeRow("cell", label.c_str(), Summary(usable, h.racks + h.mannequins + h.plaques).c_str(), Summary(usable, 0, true).c_str(), score.c_str(),
+				if (w::HomeRow("cell", label.c_str(), Summary(usable, h.racks + h.mannequins + h.plaques).c_str(), Summary(usable, 0, true).c_str(), score.c_str(),
 						h.Likely() ? w::Kind::Accent : w::Kind::Neutral, open, false, false, !h.Likely()) &&
 					scan.lo) {
 					RequestNewHome(scan.lo, h.cell);

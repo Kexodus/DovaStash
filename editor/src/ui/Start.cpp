@@ -10,7 +10,6 @@
 #include "Util.h"
 #include "ui/App.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace dova::editor::ui
 {
@@ -39,8 +38,8 @@ namespace dova::editor::ui
 	{
 		const auto& t = w::Th();
 		ImGui::SetCursorScreenPos(a_min);
-		if (!wx::BeginPadded("start", ImVec2(a_max.x - a_min.x, a_max.y - a_min.y))) {
-			wx::EndPadded();
+		if (!w::BeginPadded("start", ImVec2(a_max.x - a_min.x, a_max.y - a_min.y))) {
+			w::EndPadded();
 			return;
 		}
 		const float avail = ImGui::GetContentRegionAvail().x;
@@ -79,14 +78,14 @@ namespace dova::editor::ui
 				ApplySetup(_mo2Path[0] ? std::optional(PathFromUtf8(_mo2Path)) : std::nullopt, std::nullopt);
 			}
 			if (!_wsError.empty()) {
-				wx::TextWrapped(w::Kind::Error, _wsError.c_str());
+				w::ColouredWrapped(w::Kind::Error, _wsError.c_str());
 			}
 			ImGui::EndChild();
 			ImGui::PopStyleVar();
 			ImGui::PopStyleColor();
 			ImGui::PopTextWrapPos();
 			ImGui::EndGroup();
-			wx::EndPadded();
+			w::EndPadded();
 			return;
 		}
 		{
@@ -182,6 +181,6 @@ namespace dova::editor::ui
 		}
 		ImGui::PopTextWrapPos();
 		ImGui::EndGroup();
-		wx::EndPadded();
+		w::EndPadded();
 	}
 }

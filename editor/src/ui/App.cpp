@@ -21,7 +21,6 @@
 #include "data/Assets.h"
 #include "dova/core/Layout.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace dova::editor::ui
 {
@@ -742,7 +741,7 @@ namespace dova::editor::ui
 		_viewportMax = mx;
 		if (!_ws || !_cell || _showStart) {
 			if (_ws && !_cell && Busy() && _jobLabel == "Opening cell") {
-				wx::CentredMessage(mn, mx, "Opening the home", nullptr);
+				w::CentredMessage(mn, mx, "Opening the home", nullptr);
 			} else {
 				DrawStart(mn, mx);
 			}
@@ -826,20 +825,20 @@ namespace dova::editor::ui
 	void EditorApp::DrawLayersPopover(OpenCell& a_cell)
 	{
 		w::SectionHead("Layers");
-		wx::CheckItem("Structure", &_view.showStructure);
-		wx::CheckItem("Containers", &_view.showContainers);
-		wx::CheckItem("Displays", &_view.showDisplays);
-		wx::CheckItem("Doors", &_view.showDoors);
-		wx::CheckItem("Furniture", &_view.showFurniture);
-		wx::CheckItem("People", &_view.showActors, "Actors (3D view)");
-		wx::CheckItem("Disabled", &_view.showDisabled, "Initially disabled references: house upgrades, things a quest adds later (3D view)");
-		wx::CheckItem("Effects", &_view.showEffects, "Glows, flames, fog and light rays (3D view)");
-		wx::CheckItem("Other", &_showMarkers, "Markers and references without bounds (plan)");
+		w::Check("Structure", _view.showStructure);
+		w::Check("Containers", _view.showContainers);
+		w::Check("Displays", _view.showDisplays);
+		w::Check("Doors", _view.showDoors);
+		w::Check("Furniture", _view.showFurniture);
+		w::Check("People", _view.showActors, "Actors (3D view)");
+		w::Check("Disabled", _view.showDisabled, "Initially disabled references: house upgrades, things a quest adds later (3D view)");
+		w::Check("Effects", _view.showEffects, "Glows, flames, fog and light rays (3D view)");
+		w::Check("Other", _showMarkers, "Markers and references without bounds (plan)");
 		if (!a_cell.info.interior) {
-			wx::CheckItem(std::format("Terrain (+{} cells around)", a_cell.context.size()).c_str(), &_view.showTerrain);
+			w::Check(std::format("Terrain (+{} cells around)", a_cell.context.size()).c_str(), _view.showTerrain);
 		}
 		w::SectionHead("Height cut");
-		wx::CheckItem("Only between", &_heightCut, "Only references between these heights, in both views: one floor of a tower");
+		w::Check("Only between", _heightCut, "Only references between these heights, in both views: one floor of a tower");
 		ImGui::BeginDisabled(!_heightCut);
 		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
 		ImGui::DragFloatRange2("##height", &_zLo, &_zHi, 4.0f, std::floor(_zMin) - 1.0f, std::ceil(_zMax) + 1.0f, "%.0f", "%.0f", ImGuiSliderFlags_AlwaysClamp);
@@ -850,10 +849,10 @@ namespace dova::editor::ui
 	{
 		(void)a_cell;
 		const bool threeD = _state.ui.view == 0;
-		if (wx::MenuItem(threeD ? "Overview" : "Fit", "Home")) {
+		if (w::MenuRow(threeD ? "Overview" : "Fit", "Home")) {
 			Overview();
 		}
-		if (wx::MenuItem(threeD ? "Frame selection" : "Centre on selection", "F", _selectedRef >= 0)) {
+		if (w::MenuRow(threeD ? "Frame selection" : "Centre on selection", "F", _selectedRef >= 0)) {
 			FrameSelected();
 		}
 		if (threeD) {
@@ -864,10 +863,10 @@ namespace dova::editor::ui
 			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
 			ImGui::SliderFloat("Light", &_view.brightness, 0.4f, 2.5f, "%.1f");
 			w::Tip("The editor's light (the game's own lights are not used)");
-			wx::CheckItem("Outlines", &_view.showMarkers, "A box around everything select mode can pick, in its plan colour");
+			w::Check("Outlines", _view.showMarkers, "A box around everything select mode can pick, in its plan colour");
 		}
 		bool anything = !_selectMode;
-		if (wx::CheckItem(threeD ? "Pick anything" : "Left drag pans", &anything, threeD ? "The left button picks walls and clutter too  S" : "Left drag moves the plan instead of box selecting  S")) {
+		if (w::Check(threeD ? "Pick anything" : "Left drag pans", anything, threeD ? "The left button picks walls and clutter too  S" : "Left drag moves the plan instead of box selecting  S")) {
 			_selectMode = !anything;
 		}
 		if (threeD && _scene) {

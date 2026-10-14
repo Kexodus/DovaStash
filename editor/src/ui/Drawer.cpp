@@ -10,7 +10,6 @@
 #include "Util.h"
 #include "ui/App.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace dova::editor::ui
 {
@@ -29,7 +28,7 @@ namespace dova::editor::ui
 		ImGui::BeginChild("drawer", ImVec2(W, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 		ImGui::PopStyleColor();
 		if (open) {
-			wx::SplitterTop("drawersplit", _state.ui.drawerHeight, 120.0f * t.scale, 4000.0f);
+			w::SplitterTop("drawersplit", _state.ui.drawerHeight, 120.0f * t.scale, 4000.0f);
 		} else {
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			ImGui::GetWindowDrawList()->AddLine(p, ImVec2(p.x + W, p.y), t.line);
@@ -68,7 +67,7 @@ namespace dova::editor::ui
 			_state.ui.drawerOpen = !open;
 		}
 		if (open) {
-			wx::BeginPadded("drawerbody", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar);
+			w::BeginPadded("drawerbody", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar);
 			switch (_drawerTab) {
 			case DrawerTab::Containers:
 				DrawContainers(c);
@@ -83,7 +82,7 @@ namespace dova::editor::ui
 				DrawPreview(c);
 				break;
 			}
-			wx::EndPadded();
+			w::EndPadded();
 		}
 		ImGui::EndChild();
 	}
@@ -126,7 +125,7 @@ namespace dova::editor::ui
 			ImGui::TableNextColumn();
 			const auto ref = a_cell.lo->ToFormRef(r.key);
 			if (a_cell.layout.IsMaster(ref)) {
-				wx::Text(w::Kind::Accent, "master");
+				w::Coloured(w::Kind::Accent, "master");
 			} else if (const auto* b = a_cell.layout.FindContainer(ref)) {
 				if (b->ignored) {
 					w::Muted("ignored");
@@ -254,7 +253,7 @@ namespace dova::editor::ui
 				const bool main = layout.cell && *layout.cell == ref;
 				bool       in = main || std::ranges::any_of(layout.cells, [&](const core::HomeCell& c) { return c.cell == ref; });
 				ImGui::BeginDisabled(main);
-				if (ImGui::Checkbox("##in", &in)) {
+				if (w::Check("##in", in)) {
 					if (in) {
 						core::HomeCell hc;
 						hc.cell = ref;

@@ -12,7 +12,6 @@
 #include "home/TemplateFile.h"
 #include "ui/App.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace dova::editor::ui
 {
@@ -194,38 +193,38 @@ namespace dova::editor::ui
 	void EditorApp::DrawMainMenu()
 	{
 		const bool busy = Busy();
-		if (wx::MenuItem("Open template file...", "Ctrl+O", _ws && !busy)) {
+		if (w::MenuRow("Open template file...", "Ctrl+O", _ws && !busy)) {
 			OpenTemplateFile();
 		}
-		if (wx::MenuItem("Rescan load order", "F5", _ws != nullptr)) {
+		if (w::MenuRow("Rescan load order", "F5", _ws != nullptr)) {
 			Rescan();
 		}
 		ImGui::Separator();
-		if (wx::MenuItem("Draft all homes", "Ctrl+D", _ws != nullptr)) {
+		if (w::MenuRow("Draft all homes", "Ctrl+D", _ws != nullptr)) {
 			StartBulkDraft();
 		}
 		const int saveable = SaveableDrafts();
-		if (wx::MenuItem(std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str(), nullptr, saveable > 0)) {
+		if (w::MenuRow(std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str(), nullptr, saveable > 0)) {
 			_confirmSaveAll = true;
 		}
 		ImGui::Separator();
-		if (wx::MenuItem("Undo", "Ctrl+Z", !_undo.empty())) {
+		if (w::MenuRow("Undo", "Ctrl+Z", !_undo.empty())) {
 			Undo();
 		}
-		if (wx::MenuItem("Redo", "Ctrl+Y", !_redo.empty())) {
+		if (w::MenuRow("Redo", "Ctrl+Y", !_redo.empty())) {
 			Redo();
 		}
 		ImGui::Separator();
-		if (wx::MenuItem("Commands...", "Ctrl+K")) {
+		if (w::MenuRow("Commands...", "Ctrl+K")) {
 			_paletteOpen = true;
 			_paletteFocus = true;
 			_palette.clear();
 			_paletteSel = 0;
 		}
-		if (wx::MenuItem("Shortcuts...")) {
+		if (w::MenuRow("Shortcuts...")) {
 			_showShortcuts = true;
 		}
-		if (wx::MenuItem("About")) {
+		if (w::MenuRow("About")) {
 			_showAbout = true;
 		}
 	}
@@ -233,27 +232,27 @@ namespace dova::editor::ui
 	void EditorApp::DrawDraftMenu()
 	{
 		const bool canEdit = _cell && !Busy();
-		if (wx::MenuItem("Draft this home", nullptr, _cell != nullptr)) {
+		if (w::MenuRow("Draft this home", nullptr, _cell != nullptr)) {
 			DraftThisHome();
 		}
-		if (wx::MenuItem("Accept all", nullptr, canEdit)) {
+		if (w::MenuRow("Accept all", nullptr, canEdit)) {
 			AcceptAll();
 		}
 		w::Tip("Every suggestion no other container has a stronger claim on");
-		if (wx::MenuItem("Reject the weak ones", nullptr, canEdit)) {
+		if (w::MenuRow("Reject the weak ones", nullptr, canEdit)) {
 			RejectWeak();
 		}
 		w::Tip("Every suggestion under 50%");
-		if (wx::MenuItem("Draft again", nullptr, canEdit)) {
+		if (w::MenuRow("Draft again", nullptr, canEdit)) {
 			DraftAgain();
 		}
 		w::Tip("Make the draft again from the plugins (after editing DraftRules.json)");
 		ImGui::Separator();
-		if (wx::MenuItem("Draft all homes", "Ctrl+D", _ws != nullptr)) {
+		if (w::MenuRow("Draft all homes", "Ctrl+D", _ws != nullptr)) {
 			StartBulkDraft();
 		}
 		const int saveable = SaveableDrafts();
-		if (wx::MenuItem(std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str(), nullptr, saveable > 0)) {
+		if (w::MenuRow(std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str(), nullptr, saveable > 0)) {
 			_confirmSaveAll = true;
 		}
 	}
@@ -262,7 +261,7 @@ namespace dova::editor::ui
 	{
 		const auto& t = w::Th();
 		ImGui::PushItemWidth(360.0f * t.scale);
-		wx::FieldLabel("MO2 instance");
+		w::FieldLabel("MO2 instance");
 		ImGui::InputTextWithHint("##mo2", "Folder with ModOrganizer.ini", _mo2Path, sizeof(_mo2Path));
 		ImGui::SameLine();
 		if (ImGui::Button("Browse...")) {
@@ -271,7 +270,7 @@ namespace dova::editor::ui
 			}
 		}
 		if (_ws && _ws->Instance() && !_ws->Instance()->profiles.empty()) {
-			wx::FieldLabel("Profile");
+			w::FieldLabel("Profile");
 			if (ImGui::BeginCombo("##profile", _ws->Profile().c_str())) {
 				for (const auto& p : _ws->Instance()->profiles) {
 					if (ImGui::Selectable(p.c_str(), p == _ws->Profile()) && p != _ws->Profile()) {
@@ -282,7 +281,7 @@ namespace dova::editor::ui
 				ImGui::EndCombo();
 			}
 		}
-		wx::FieldLabel("Author");
+		w::FieldLabel("Author");
 		if (ImGui::InputTextWithHint("##author", "Your name (the template folder)", &_templateAuthor)) {
 			_state.author = _templateAuthor;
 			_state.Save();
@@ -292,7 +291,7 @@ namespace dova::editor::ui
 				Revalidate(*_cell);
 			}
 		}
-		wx::FieldLabel("Save templates to");
+		w::FieldLabel("Save templates to");
 		{
 			const auto targets = SaveTargets();
 			auto       name = [](const std::string& a_t) { return a_t.empty() ? std::string(home::kTemplatesMod) + " (its own mod)" : a_t; };
@@ -317,7 +316,7 @@ namespace dova::editor::ui
 		if (_ws) {
 			w::MutedWrapped(_ws->Describe().c_str());
 		} else if (!_wsError.empty()) {
-			wx::TextWrapped(w::Kind::Error, _wsError.c_str());
+			w::ColouredWrapped(w::Kind::Error, _wsError.c_str());
 		}
 		ImGui::PopTextWrapPos();
 	}
@@ -461,7 +460,7 @@ namespace dova::editor::ui
 		ImGui::SameLine();
 		ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX() + t.pad, mid));
 		if (!_status.empty() && ImGui::GetTime() - _statusTime < 8.0) {
-			wx::Text(_statusBad ? w::Kind::Error : w::Kind::Ok, _status.c_str());
+			w::Coloured(_statusBad ? w::Kind::Error : w::Kind::Ok, _status.c_str());
 			w::Tip(_status.c_str());
 		} else if (_cell) {
 			const int  errors = ErrorCount(*_cell);
@@ -481,8 +480,9 @@ namespace dova::editor::ui
 		}
 
 		// Right: background work, then the one most useful shortcut.
-		std::string hint = !_cell ? "Ctrl+K commands" : _cell->dirty ? "Ctrl+S save" : _paint ? "P paint off" : "Ctrl+K commands";
-		const float hintW = ImGui::CalcTextSize(hint.c_str()).x;
+		const char* hintKey = _cell && _cell->dirty ? "Ctrl+S" : _cell && _paint ? "P" : "Ctrl+K";
+		const char* hintText = _cell && _cell->dirty ? "save" : _cell && _paint ? "paint off" : "commands";
+		const float hintW = ImGui::CalcTextSize(hintKey).x + 10.0f * t.scale + t.gap + ImGui::CalcTextSize(hintText).x;
 		float       workW = 0.0f;
 		std::string work;
 		std::size_t done = 0, total = 0;
@@ -514,8 +514,9 @@ namespace dova::editor::ui
 				}
 			}
 		}
+		const float barW = 80.0f * t.scale;
 		if (!work.empty()) {
-			workW = std::max(ImGui::CalcTextSize(std::format("{} {}/{}", work, done, total).c_str()).x, 160.0f * t.scale);
+			workW = ImGui::CalcTextSize(total > 0 ? std::format("{} {}/{}", work, done, total).c_str() : work.c_str()).x + 8.0f * t.scale + barW;
 		}
 		float x = W - t.pad - hintW;
 		// Missing meshes or textures of the open cell (the list in the tooltip).
@@ -527,7 +528,7 @@ namespace dova::editor::ui
 				x -= mw + 2.0f * t.pad;
 				ImGui::SameLine();
 				ImGui::SetCursorPosX(x);
-				wx::Text(w::Kind::Warn, miss.c_str());
+				w::Coloured(w::Kind::Warn, miss.c_str());
 				if (ImGui::BeginItemTooltip()) {
 					ImGui::Text("%zu meshes, %zu textures missing: boxes and a gray checker", p.missingModels, p.missingTextures);
 					const auto problems = _scene->Problems();
@@ -544,12 +545,15 @@ namespace dova::editor::ui
 		if (!work.empty()) {
 			x -= workW + 2.0f * t.pad;
 			ImGui::SameLine();
-			ImGui::SetCursorPos(ImVec2(x, y - 1.0f * t.scale));
-			wx::StatusProgress(work.c_str(), done, total, workW);
+			ImGui::SetCursorPos(ImVec2(x, y));
+			w::Progress(work.c_str(), done, total, barW);
 		}
 		ImGui::SameLine();
 		ImGui::SetCursorPos(ImVec2(W - t.pad - hintW, y));
-		wx::KeyHint(hint.c_str());
+		w::KeyCap(hintKey);
+		ImGui::SameLine(0.0f, t.gap);
+		ImGui::SetCursorPosY(y);
+		w::Muted(hintText);
 		ImGui::PopFont();
 		ImGui::EndChild();
 	}

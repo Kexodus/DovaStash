@@ -11,7 +11,6 @@
 #include "Util.h"
 #include "ui/App.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace dova::editor::ui
 {
@@ -359,7 +358,7 @@ namespace dova::editor::ui
 			ImGui::PushID(static_cast<int>(k));
 			const auto text = std::format("{} {}/{}", c, n, containers);
 			if (k > 0) {
-				wx::FlowNext(wx::ChipWidth(text.c_str(), true), rightX);
+				w::FlowNext(w::ChipWidth(text.c_str(), true), rightX);
 			}
 			if (w::ChipClose(text.c_str(), w::Kind::Accent)) {
 				const std::string cat = c;
@@ -369,7 +368,7 @@ namespace dova::editor::ui
 			ImGui::PopID();
 		}
 		std::vector<std::string> add;
-		wx::FieldLabel("Give all of them");
+		w::FieldLabel("Give all of them");
 		if (CategoryEditor("bulkadd", add, false) && !add.empty()) {
 			forEach([&](core::ContainerBinding& b) {
 				if (!b.ignored && std::ranges::find(b.categories, add.back()) == b.categories.end()) {

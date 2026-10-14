@@ -13,7 +13,6 @@
 #include "Util.h"
 #include "home/Preview.h"
 #include "ui/App.h"
-#include "ui/WidgetsExtra.h"
 
 namespace dova::editor::ui
 {
@@ -115,24 +114,18 @@ namespace dova::editor::ui
 	void EditorApp::DrawColourLegend(OpenCell& a_cell)
 	{
 		int mode = static_cast<int>(_colours);
-		if (wx::MenuItem("None", nullptr, true, mode == 0)) {
-			mode = 0;
-		}
-		if (wx::MenuItem("By category", "C", true, mode == 1)) {
-			mode = mode == 1 ? 0 : 1;
-		}
-		w::Tip("Each container in the colour of its first category; the master in its own colour");
-		if (wx::MenuItem("By fill", "V", true, mode == 2)) {
-			mode = mode == 2 ? 0 : 2;
-		}
-		w::Tip("How much of the sample each container would receive (Where items go)");
+		w::Radio("None", mode, 0);
+		w::Radio("By category", mode, 1);
+		w::TipShortcut("Each container in the colour of its first category; the master in its own colour", "C");
+		w::Radio("By fill", mode, 2);
+		w::TipShortcut("How much of the sample each container would receive (Where items go)", "V");
 		_colours = static_cast<Colours>(mode);
 		w::SectionHead("Legend");
 		if (_colours == Colours::Fill) {
-			wx::Swatch(kFillEmpty, "receives nothing");
-			wx::Swatch(kFillLight, std::format("a few (< {})", kHeavyAt).c_str());
-			wx::Swatch(kFillHeavy, "many");
-			wx::Swatch(kFillMaster, "master: what has no place");
+			w::Swatch(kFillEmpty, "receives nothing");
+			w::Swatch(kFillLight, std::format("a few (< {})", kHeavyAt).c_str());
+			w::Swatch(kFillHeavy, "many");
+			w::Swatch(kFillMaster, "master: what has no place");
 			w::Small(_sampleKind == 0 ? "Sample: typical haul" : _sampleKind == 1 ? ("Sample: " + _samplePattern).c_str() : "Sample: every item");
 		} else if (_colours == Colours::Category) {
 			std::vector<std::string> used;
@@ -141,22 +134,22 @@ namespace dova::editor::ui
 					used.push_back(c.categories.front());
 				}
 			}
-			wx::Swatch(kMasterColour, "master");
+			w::Swatch(kMasterColour, "master");
 			for (const auto& u : used) {
-				wx::Swatch(CategoryColour(u), u.c_str());
+				w::Swatch(CategoryColour(u), u.c_str());
 			}
 			if (used.empty()) {
 				w::Muted("No container has categories yet");
 			}
 		} else {
 			// The plan's own colours.
-			wx::Swatch(IM_COL32(90, 200, 110, 255), "container");
-			wx::Swatch(IM_COL32(230, 70, 60, 255), "respawning container");
-			wx::Swatch(IM_COL32(80, 190, 230, 255), "weapon rack");
-			wx::Swatch(IM_COL32(220, 110, 220, 255), "mannequin");
-			wx::Swatch(IM_COL32(240, 170, 60, 255), "plaque, case, bookshelf");
-			wx::Swatch(IM_COL32(240, 220, 80, 255), "door");
-			wx::Swatch(IM_COL32(140, 150, 220, 200), "furniture, activators");
+			w::Swatch(IM_COL32(90, 200, 110, 255), "container");
+			w::Swatch(IM_COL32(230, 70, 60, 255), "respawning container");
+			w::Swatch(IM_COL32(80, 190, 230, 255), "weapon rack");
+			w::Swatch(IM_COL32(220, 110, 220, 255), "mannequin");
+			w::Swatch(IM_COL32(240, 170, 60, 255), "plaque, case, bookshelf");
+			w::Swatch(IM_COL32(240, 220, 80, 255), "door");
+			w::Swatch(IM_COL32(140, 150, 220, 200), "furniture, activators");
 		}
 	}
 	const esp::ItemCatalog& EditorApp::Catalog(OpenCell& a_cell)
@@ -269,7 +262,7 @@ namespace dova::editor::ui
 		}
 		const auto empty = std::ranges::count_if(p.result.byContainer, [](const core::PreviewContainer& c) { return !c.master && c.items.empty(); });
 		if (p.items.empty()) {
-			wx::Text(w::Kind::Warn, "The sample is empty: no item of the loaded plugins is in that category.");
+			w::Coloured(w::Kind::Warn, "The sample is empty: no item of the loaded plugins is in that category.");
 			return;
 		}
 		ImGui::Text("%d items in %zu stacks", copies, p.items.size());
@@ -277,14 +270,14 @@ namespace dova::editor::ui
 		w::Muted(std::format("{} by category or item · {} to the master · {} on displays", p.result.toContainers, p.result.toMaster, p.result.onDisplays.size()).c_str());
 		if (empty > 0) {
 			ImGui::SameLine();
-			wx::Text(w::Kind::Warn, std::format("· {} receive nothing", empty).c_str());
+			w::Coloured(w::Kind::Warn, std::format("· {} receive nothing", empty).c_str());
 		}
 		if (!p.result.noDestination.empty()) {
 			ImGui::SameLine();
-			wx::Text(w::Kind::Error, std::format("· {} stacks have nowhere to go (no master)", p.result.noDestination.size()).c_str());
+			w::Coloured(w::Kind::Error, std::format("· {} stacks have nowhere to go (no master)", p.result.noDestination.size()).c_str());
 		} else if (!a_cell.layout.master) {
 			ImGui::SameLine();
-			wx::Text(w::Kind::Error, "· no master: what no container takes stays with the player");
+			w::Coloured(w::Kind::Error, "· no master: what no container takes stays with the player");
 		}
 
 		std::int32_t maxTotal = 1;
@@ -401,14 +394,14 @@ namespace dova::editor::ui
 			return;
 		}
 		if (c->items.empty()) {
-			wx::Text(w::Kind::Warn, c->master ? "Nothing falls to the master" : "Nothing from this sample");
+			w::Coloured(w::Kind::Warn, c->master ? "Nothing falls to the master" : "Nothing from this sample");
 			return;
 		}
 		ImGui::Text("%d items%s", c->total, c->master ? " with no other place" : "");
 		std::vector<std::pair<std::string, std::int32_t>> per(c->perCategory.begin(), c->perCategory.end());
 		std::ranges::sort(per, [](const auto& a, const auto& b) { return a.second > b.second; });
 		for (const auto& [cat, n] : per) {
-			wx::Swatch(CategoryColour(cat), cat.empty() ? "(no category)" : cat.c_str());
+			w::Swatch(CategoryColour(cat), cat.empty() ? "(no category)" : cat.c_str());
 			ImGui::SameLine();
 			w::Muted(std::to_string(n).c_str());
 		}

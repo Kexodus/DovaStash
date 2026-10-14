@@ -18,7 +18,6 @@
 #include "home/TemplateFile.h"
 #include "ui/App.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace fs = std::filesystem;
 
@@ -620,7 +619,7 @@ namespace dova::editor::ui
 			w::Mono(PathToUtf8(base).c_str());
 			ImGui::Text("%d new files, %d that exist already (each backed up as .bak first, its version raised).", fresh, existing);
 			if (_templateAuthor.empty()) {
-				wx::Text(w::Kind::Warn, "No author name: the files go under \"Unknown\" (Setup).");
+				w::Coloured(w::Kind::Warn, "No author name: the files go under \"Unknown\" (Setup).");
 			}
 			w::Spacer();
 			if (w::PrimaryButton("Save them", fresh + existing > 0)) {
@@ -683,7 +682,7 @@ namespace dova::editor::ui
 				const auto cmp = home::CompareToTemplate(a_cell.layout, tp->layout, *_categorySet);
 				ImGui::PushFont(t.smallFont);
 				ImGui::PushTextWrapPos(0.0f);
-				wx::TextWrapped(tp->user ? w::Kind::Ok : w::Kind::Info,
+				w::ColouredWrapped(tp->user ? w::Kind::Ok : w::Kind::Info,
 					std::format("{} template: {} of {} categories agree, master {}", tp->user ? "Your" : "A", cmp.sameDestination, cmp.categories, cmp.sameMaster ? "the same" : "differs").c_str());
 				ImGui::PopTextWrapPos();
 				ImGui::PopFont();
@@ -764,11 +763,11 @@ namespace dova::editor::ui
 		}
 		w::SectionHead(std::format("Containers  {} of {}", accepted, d->plan.containers.size()).c_str());
 		ImGui::PushFont(t.smallFont);
-		wx::Text(w::Kind::Ok, "name");
+		w::Coloured(w::Kind::Ok, "name");
 		ImGui::SameLine(0.0f, t.gap);
-		wx::Text(w::Kind::Warn, "nearby");
+		w::Coloured(w::Kind::Warn, "nearby");
 		ImGui::SameLine(0.0f, t.gap);
-		wx::Text(w::Kind::Error, "hint");
+		w::Coloured(w::Kind::Error, "hint");
 		ImGui::SameLine(0.0f, t.gap);
 		w::Muted("· click a chip to accept or reject");
 		ImGui::PopFont();
@@ -828,9 +827,9 @@ namespace dova::editor::ui
 				const auto text = std::format("{} {:.0f}%", s.pattern, s.confidence * 100.0f);
 				ImGui::PushID(static_cast<int>(si));
 				if (si > 0) {
-					wx::FlowNext(wx::ChipWidth(text.c_str()), rightX);
+					w::FlowNext(w::ChipWidth(text.c_str()), rightX);
 				}
-				if (w::ChipButton(text.c_str(), wx::ConfidenceKind(s.confidence), on) && !busy) {
+				if (w::ChipButton(text.c_str(), w::ConfidenceKind(s.confidence), on) && !busy) {
 					SetSuggestionOn(a_cell, *d, ci, si, !on);
 					changed = true;
 				}

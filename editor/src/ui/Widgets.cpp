@@ -830,14 +830,15 @@ namespace dova::editor::ui::w
 		}
 	}
 
-	bool Check(const char* a_label, bool& a_value)
+	bool Check(const char* a_label, bool& a_value, const char* a_tooltip)
 	{
-		if (MarkItem(a_label, a_value, false)) {
+		const bool pressed = MarkItem(a_label, a_value, false);
+		Tip(a_tooltip);
+		if (pressed) {
 			a_value = !a_value;
 			ImGui::MarkItemEdited(ImGui::GetItemID());
-			return true;
 		}
-		return false;
+		return pressed;
 	}
 
 	bool Radio(const char* a_label, int& a_value, int a_option)
@@ -1449,5 +1450,282 @@ namespace dova::editor::ui::w
 	void EndPanel()
 	{
 		ImGui::EndChild();
+	}
+
+	// ---- Workspace pieces ----
+
+	void Coloured(Kind a_kind, const char* a_text)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Text, a_kind == Kind::Neutral ? Th().muted : Colour(a_kind));
+		ImGui::TextUnformatted(a_text);
+		ImGui::PopStyleColor();
+	}
+
+	void ColouredWrapped(Kind a_kind, const char* a_text)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Text, a_kind == Kind::Neutral ? Th().muted : Colour(a_kind));
+		ImGui::TextWrapped("%s", a_text);
+		ImGui::PopStyleColor();
+	}
+
+	void FieldLabel(const char* a_text)
+	{
+		PushFont(Font::Small);
+		ImGui::PushStyleColor(ImGuiCol_Text, Th().muted);
+		ImGui::TextUnformatted(a_text);
+		ImGui::PopStyleColor();
+		PopFont();
+	}
+
+	Kind ConfidenceKind(float a_confidence)
+	{
+		return a_confidence >= 0.75f ? Kind::Ok : a_confidence >= 0.5f ? Kind::Warn : Kind::Error;
+	}
+
+	namespace
+	{
+		float ChipW(const char* a_text)
+		{
+			const Theme& t = Th();
+			return std::round(TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), a_text).x + 16.0f * t.scale);
+		}
+
+		// A chip drawn at `a_min` without an item (rows that draw their own content), as Chip() draws it.
+		void DrawChipAt(ImDrawList* a_dl, ImVec2 a_min, const char* a_text, Kind a_kind)
+		{
+			const Theme& t = Th();
+			ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
+			const ImVec2 ts = TextSize(font, a_text);
+			const float  h = t.chipH;
+			const ImU32  col = Colour(a_kind);
+			const ImVec2 mn = detail::Floor(a_min), mx(mn.x + ChipW(a_text), mn.y + h);
+			a_dl->AddRectFilled(mn, mx, t.bg2, h * 0.5f);
+			a_dl->AddRect(mn, mx, WithAlpha(col, 0.8f), h * 0.5f, 0, 1.0f);
+			Text(a_dl, font, ImVec2(mn.x + 8.0f * t.scale, mn.y + (h - ts.y) * 0.5f), col, a_text);
+		}
+	}
+
+	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
+		bool a_cursor, bool a_unsaved, bool a_dim)
+	{
+		const Theme& t = Th();
+		ImGui::PushID(a_id);
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		const float  wdt = std::max(ImGui::GetContentRegionAvail().x, 1.0f);
+		const float  h = t.rowH;
+		const bool   clicked = ImGui::InvisibleButton("row", ImVec2(wdt, h));
+		const bool   hovered = ImGui::IsItemHovered();
+		ImDrawList*  dl = ImGui::GetWindowDrawList();
+		const ImVec2 q(p.x + wdt, p.y + h);
+		if (a_selected) {
+			dl->AddRectFilled(p, q, WithAlpha(t.accent, hovered ? 0.26f : 0.20f), t.radius);
+			dl->AddRectFilled(p, ImVec2(p.x + std::round(2.0f * t.scale), q.y), t.accent);
+		} else if (hovered) {
+			dl->AddRectFilled(p, q, t.bg3, t.radius);
+		}
+		if (a_cursor && !a_selected) {
+			dl->AddRect(p, q, t.accentDim, t.radius);
+		}
+		float right = q.x - t.pad * 0.5f;
+		if (a_chip && *a_chip) {
+			const float cw = ChipW(a_chip);
+			DrawChipAt(dl, ImVec2(right - cw, p.y + (h - t.chipH) * 0.5f), a_chip, a_chipKind);
+			right -= cw + t.gap;
+		}
+		// Name, dot, summary (the short form, then an ellipsis, when it does not fit before the chip).
+		const float maxX = std::max(right, p.x + 1.0f);
+		dl->PushClipRect(p, ImVec2(maxX, q.y), true);
+		const ImVec2 ns = TextSize(ImGui::GetFont(), a_name);
+		float        x = p.x + t.pad;
+		ImGui::PushStyleColor(ImGuiCol_Text, a_dim ? t.muted : t.text);
+		ImGui::RenderTextEllipsis(dl, ImVec2(x, std::floor(p.y + (h - ns.y) * 0.5f)), ImVec2(maxX, q.y), maxX, a_name, nullptr, &ns);
+		ImGui::PopStyleColor();
+		x += ns.x;
+		if (a_unsaved) {
+			const float r = 3.0f * t.scale;
+			dl->AddCircleFilled(ImVec2(x + r + 3.0f * t.scale, p.y + h * 0.5f), r, t.warn, 16);
+			x += 2.0f * r + 4.0f * t.scale;
+		}
+		if (a_summary && *a_summary && x + t.gap < maxX) {
+			PushFont(Font::Small);
+			const char* text = a_summary;
+			if (ImGui::CalcTextSize(text).x > maxX - x - t.gap && a_summaryShort && *a_summaryShort) {
+				text = a_summaryShort;
+			}
+			const ImVec2 ss = ImGui::CalcTextSize(text);
+			ImGui::PushStyleColor(ImGuiCol_Text, t.muted);
+			ImGui::RenderTextEllipsis(dl, ImVec2(x + t.gap, std::floor(p.y + (h - ss.y) * 0.5f)), ImVec2(maxX, q.y), maxX, text, nullptr, &ss);
+			ImGui::PopStyleColor();
+			PopFont();
+		}
+		dl->PopClipRect();
+		ImGui::PopID();
+		return clicked;
+	}
+
+	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open)
+	{
+		const Theme& t = Th();
+		ImGui::PushID(a_id);
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		const float  wdt = std::max(ImGui::GetContentRegionAvail().x, 1.0f);
+		const float  h = t.rowH;
+		const bool   clicked = ImGui::InvisibleButton("group", ImVec2(wdt, h));
+		const bool   hovered = ImGui::IsItemHovered();
+		ImDrawList*  dl = ImGui::GetWindowDrawList();
+		if (hovered) {
+			dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), t.bg2, t.radius);
+		}
+		const float is = std::round(12.0f * t.scale);
+		DrawIcon(dl, a_open ? Icon::ChevronDown : Icon::ChevronRight, detail::Floor(ImVec2(p.x + 2.0f * t.scale, p.y + (h - is) * 0.5f)), is, t.muted);
+		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
+		const ImVec2 ls = TextSize(font, a_label);
+		const float  x = p.x + is + 6.0f * t.scale;
+		const float  ty = p.y + (h - ls.y) * 0.5f;
+		dl->PushClipRect(p, ImVec2(p.x + wdt, p.y + h), true);
+		Text(dl, font, ImVec2(x, ty), t.accent, a_label);
+		if (a_note && *a_note) {
+			Text(dl, font, ImVec2(x + ls.x + t.gap, ty), t.muted, a_note);
+		}
+		dl->PopClipRect();
+		if (clicked) {
+			a_open = !a_open;
+		}
+		ImGui::PopID();
+		return clicked;
+	}
+
+	int Banner(const char* a_id, const char* a_text, const char* a_action)
+	{
+		const Theme& t = Th();
+		int          result = 0;
+		ImGui::PushID(a_id);
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		const float  wdt = ImGui::GetContentRegionAvail().x;
+		const float  h = t.rowH + 2.0f * t.gap;
+		ImDrawList*  dl = ImGui::GetWindowDrawList();
+		dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), WithAlpha(t.accent, 0.16f), t.radius);
+		dl->AddRect(p, ImVec2(p.x + wdt, p.y + h), t.accentDim, t.radius);
+		ImGui::SetCursorScreenPos(ImVec2(p.x + t.pad, p.y + t.gap + (t.rowH - ImGui::GetTextLineHeight()) * 0.5f));
+		ImGui::TextUnformatted(a_text);
+		ImGui::SameLine(0.0f, t.gap);
+		if (LinkButton(a_action)) {
+			result = 1;
+		}
+		const float b = t.iconSize;
+		ImGui::SetCursorScreenPos(ImVec2(p.x + wdt - b - t.gap, p.y + (h - b) * 0.5f));
+		if (ImGui::InvisibleButton("close", ImVec2(b, b))) {
+			result = 2;
+		}
+		DrawIcon(dl, Icon::Close, ImGui::GetItemRectMin(), b, ImGui::IsItemHovered() ? t.text : t.muted);
+		Tip("Close");
+		ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h + t.gap));
+		ImGui::Dummy(ImVec2(0, 0));
+		ImGui::PopID();
+		return result;
+	}
+
+	void Swatch(std::uint32_t a_colour, const char* a_label)
+	{
+		const Theme& t = Th();
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		const float  s = std::round(ImGui::GetFontSize() * 0.75f);
+		const float  y = std::round(p.y + (ImGui::GetTextLineHeight() - s) * 0.5f);
+		ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(p.x, y), ImVec2(p.x + s, y + s), a_colour, t.radius);
+		ImGui::Dummy(ImVec2(s, ImGui::GetTextLineHeight()));
+		ImGui::SameLine(0.0f, t.gap);
+		ImGui::TextUnformatted(a_label);
+	}
+
+	void RefBlock(const char* a_id, const std::string& a_lines, const std::string& a_copy)
+	{
+		const Theme& t = Th();
+		ImGui::PushID(a_id);
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		const float  wdt = ImGui::GetContentRegionAvail().x;
+		const float  icon = t.inputH;
+		ImFont*      mono = t.mono ? t.mono : ImGui::GetFont();
+		const float  wrap = std::max(wdt - icon - 2.0f * t.pad, 1.0f);
+		const ImVec2 sz = mono->CalcTextSizeA(mono->LegacySize, FLT_MAX, wrap, a_lines.c_str());
+		const float  h = std::max(sz.y + 2.0f * t.gap, icon);
+		ImDrawList*  dl = ImGui::GetWindowDrawList();
+		dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), t.bg2, t.radius);
+		dl->AddText(mono, mono->LegacySize, detail::Floor(ImVec2(p.x + t.pad, p.y + t.gap)), t.muted, a_lines.c_str(), nullptr, wrap);
+		ImGui::SetCursorScreenPos(ImVec2(p.x + wdt - icon, p.y));
+		if (IconButton("copy", Icon::Copy, "Copy")) {
+			ImGui::SetClipboardText(a_copy.c_str());
+		}
+		ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h));
+		ImGui::Dummy(ImVec2(wdt, 1.0f));
+		ImGui::PopID();
+	}
+
+	bool BeginPadded(const char* a_id, ImVec2 a_size, ImGuiWindowFlags a_flags)
+	{
+		const Theme& t = Th();
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(t.pad, t.gap));
+		ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 0));
+		const bool open = ImGui::BeginChild(a_id, a_size, ImGuiChildFlags_AlwaysUseWindowPadding, a_flags);
+		ImGui::PopStyleColor();
+		ImGui::PopStyleVar();
+		return open;
+	}
+
+	void EndPadded()
+	{
+		ImGui::EndChild();
+	}
+
+	bool SplitterTop(const char* a_id, float& a_size, float a_min, float a_max)
+	{
+		const Theme& t = Th();
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		const float  wdt = std::max(ImGui::GetContentRegionAvail().x, 1.0f);
+		const float  h = std::round(5.0f * t.scale);
+		ImGui::InvisibleButton(a_id, ImVec2(wdt, h));
+		const bool  active = ImGui::IsItemActive();
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		if (ImGui::IsItemHovered() || active) {
+			ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+			dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + std::round(2.0f * t.scale)), active ? t.accent : t.accentDim);
+		} else {
+			dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + 1.0f), t.line);
+		}
+		if (active) {
+			a_size = std::clamp(a_size - ImGui::GetIO().MouseDelta.y, a_min, a_max);
+		}
+		return active;
+	}
+
+	float ChipWidth(const char* a_text, bool a_close)
+	{
+		const Theme& t = Th();
+		// ChipImpl's size: the text, 8 px each side, the close x.
+		const float w = TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), a_text, LabelEnd(a_text)).x + 16.0f * t.scale;
+		return std::round(a_close ? w + t.chipH - 5.0f * t.scale : w);
+	}
+
+	void FlowNext(float a_width, float a_rightX)
+	{
+		const float gap = 4.0f * Th().scale;
+		if (ImGui::GetItemRectMax().x + gap + a_width <= a_rightX) {
+			ImGui::SameLine(0.0f, gap);
+		}
+	}
+
+	void CentredMessage(ImVec2 a_min, ImVec2 a_max, const char* a_text, const char* a_sub)
+	{
+		const Theme& t = Th();
+		ImDrawList*  dl = ImGui::GetWindowDrawList();
+		ImFont*      heading = t.heading ? t.heading : ImGui::GetFont();
+		ImFont*      smallF = t.smallFont ? t.smallFont : ImGui::GetFont();
+		const ImVec2 sz = TextSize(heading, a_text);
+		const float  cx = (a_min.x + a_max.x) * 0.5f;
+		const float  cy = (a_min.y + a_max.y) * 0.5f;
+		Text(dl, heading, ImVec2(cx - sz.x * 0.5f, cy - sz.y), t.muted, a_text);
+		if (a_sub && *a_sub) {
+			const ImVec2 s2 = TextSize(smallF, a_sub);
+			Text(dl, smallF, ImVec2(cx - s2.x * 0.5f, cy + t.gap), t.muted, a_sub);
+		}
 	}
 }

@@ -13,7 +13,6 @@
 
 #include "Util.h"
 #include "ui/App.h"
-#include "ui/WidgetsExtra.h"
 
 using namespace DirectX;
 
@@ -44,7 +43,7 @@ namespace dova::editor::ui
 		ImDrawList* dl = ImGui::GetWindowDrawList();
 
 		if (!_scene) {
-			wx::CentredMessage(origin, ImVec2(origin.x + size.x, origin.y + size.y), "The 3D view needs Direct3D 11", "The plan (2) works without it.");
+			w::CentredMessage(origin, ImVec2(origin.x + size.x, origin.y + size.y), "The 3D view needs Direct3D 11", "The plan (2) works without it.");
 			return;
 		}
 		const float scale = io.DisplayFramebufferScale.x > 0.0f ? io.DisplayFramebufferScale.x : 1.0f;

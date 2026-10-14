@@ -13,7 +13,6 @@
 #include "Util.h"
 #include "ui/App.h"
 #include "ui/Common.h"
-#include "ui/WidgetsExtra.h"
 
 namespace dova::editor::ui
 {
@@ -37,7 +36,7 @@ namespace dova::editor::ui
 		if (!w::BeginRail("inspector", w::Side::Right, _state.ui.inspectorWidth, _state.ui.inspectorOpen, 280.0f * t.scale, maxW, "Inspector")) {
 			return;
 		}
-		if (wx::BeginPadded("inspad", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
+		if (w::BeginPadded("inspad", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
 			ImGui::Indent(4.0f * t.scale);  // clear of the resize handle on the left edge
 			int        panel = static_cast<int>(_panel);
 			const int  problems = _cell ? ErrorCount(*_cell) + WarningCount(*_cell) : 0;
@@ -76,7 +75,7 @@ namespace dova::editor::ui
 			w::Spacer(28.0f * t.scale);  // clear of the collapse handle
 			ImGui::EndChild();
 		}
-		wx::EndPadded();
+		w::EndPadded();
 		w::EndRail();
 	}
 
@@ -171,7 +170,7 @@ namespace dova::editor::ui
 		for (const auto& s : r.scripts) {
 			lines += "\n" + s;
 		}
-		wx::RefBlock("ref", lines, a_cell.refText[static_cast<std::size_t>(a_index)]);
+		w::RefBlock("ref", lines, a_cell.refText[static_cast<std::size_t>(a_index)]);
 		DrawRoleEditor(a_cell, a_index);
 		DrawPreviewDetails(a_cell, a_index);
 	}
@@ -186,7 +185,7 @@ namespace dova::editor::ui
 		std::ranges::stable_sort(sorted, [](const std::string* a, const std::string* b) { return a->starts_with("error") && !b->starts_with("error"); });
 		if (sorted.empty()) {
 			w::Spacer();
-			wx::Text(w::Kind::Ok, "No problems");
+			w::Coloured(w::Kind::Ok, "No problems");
 			w::Muted("The same checks as the DLL's.");
 		}
 		// The object a problem is about: "containers[3]", "displays[2]" or a form ref in the text.

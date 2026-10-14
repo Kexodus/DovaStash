@@ -219,10 +219,41 @@ namespace dova::editor::ui::w
 	// An icon and a label in one flat button (ToolButton look); `a_active` as ToolButton.
 	bool  IconTextButton(const char* a_label, Icon a_icon, bool a_active = false, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
 	// A 16 px checkbox / radio button (accent mark on bg2). ImGui's own are as tall as an input (26 px).
-	bool  Check(const char* a_label, bool& a_value);
+	bool  Check(const char* a_label, bool& a_value, const char* a_tooltip = nullptr);
 	bool  Radio(const char* a_label, int& a_value, int a_option);  // true when it selected `a_option`
 	// A tooltip with the shortcut shown as a key cap, when the last item is hovered.
 	void  TipShortcut(const char* a_text, const char* a_shortcut);
 	// The widget gallery (ui/WidgetsDemo.cpp): every widget, icon, font and chip kind. DOVASTASH_WIDGETS_DEMO=1.
 	void  DrawDemo();
+
+	// ---- Workspace pieces (the rail, the inspector, the drawer) -------------------------------------
+	void Coloured(Kind a_kind, const char* a_text);         // a line in a status colour (Neutral: muted)
+	void ColouredWrapped(Kind a_kind, const char* a_text);
+	void FieldLabel(const char* a_text);                    // a small muted label above an input ("Label", "Note")
+	// A suggestion's confidence as a status: green (the name says so), yellow (a station or items nearby), orange (a hint).
+	[[nodiscard]] Kind ConfidenceKind(float a_confidence);
+	// A row of the homes rail: name, a muted summary after it, a status chip at the right and the unsaved dot.
+	// The summary falls back to `a_summaryShort` when it does not fit, then ends in "...". `a_selected` (the open
+	// home) is drawn in accent, `a_cursor` (keyboard) with an outline. True on a left click; right-click it with
+	// ImGui::BeginPopupContextItem() after.
+	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
+		bool a_cursor, bool a_unsaved, bool a_dim = false);
+	// A collapsible group heading in a list (a mod): chevron, name, muted note. Toggles `a_open` on click.
+	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open);
+	// An accent banner with one action and a close x: 1 when the action is clicked, 2 when closed.
+	int  Banner(const char* a_id, const char* a_text, const char* a_action);
+	void Swatch(std::uint32_t a_colour, const char* a_label);  // a colour square and a label (legends)
+	// A muted block of mono lines with a copy icon at its right that copies `a_copy`.
+	void RefBlock(const char* a_id, const std::string& a_lines, const std::string& a_copy);
+	// A child with the theme's padding (BeginChild without borders has none). Always pair with EndPadded.
+	bool BeginPadded(const char* a_id, ImVec2 a_size = ImVec2(0, 0), ImGuiWindowFlags a_flags = ImGuiWindowFlags_None);
+	void EndPadded();
+	// A horizontal drag handle across the window at the cursor (the drawer's top edge): dragging up grows `a_size`.
+	bool SplitterTop(const char* a_id, float& a_size, float a_min, float a_max);
+	// Chip flow: the width a chip takes, and SameLine() when the next item of `a_width` still fits before
+	// `a_rightX` (the row's right edge in screen space, taken before the first item).
+	[[nodiscard]] float ChipWidth(const char* a_text, bool a_close = false);
+	void FlowNext(float a_width, float a_rightX);
+	// A centred heading with a muted second line in a fixed area (the viewport while loading).
+	void CentredMessage(ImVec2 a_min, ImVec2 a_max, const char* a_text, const char* a_sub = nullptr);
 }
