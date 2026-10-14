@@ -24,11 +24,11 @@ No ESP is needed.
 - **Restocks you:** mark a keep quota *Restock* ("10 health potions", "50 steel arrows") and every Deposit
   tops you back up to it from the home's containers, the most valuable copies first and never more; *Restock*
   is in the hotkey menu too.
-- **Materials at the workbench:** at a home's forge, smelter, tanning rack, cooking pot, alchemy lab or
-  enchanter, the materials stored in the home come to you, and what you don't use goes back afterwards.
-  Never what you just crafted; modded recipes and materials work too.
+- **Materials at the workbench:** at a home's forge, smelter, tanning rack, cooking pot or alchemy lab, you
+  craft from what the home's containers hold, without moving anything when you sit down (no lag with big
+  stores); each craft takes only what you lack. Enchanters bring your soul gems. Modded recipes work too.
 - **Homes over several cells:** add the cellar or the grounds outside to a home (walk out of it, press the
-  hotkey: *Add this area*, give it a name), so the forge outside brings what is stored inside and Deposit
+  hotkey: *Add this area*, give it a name), so the forge outside crafts from what is stored inside and Deposit
   works in every area. Existing setups and templates, cellar templates included, work exactly as before.
 - **Templates:** a ready-made setup per home, as shareable JSON. 22 are included (vanilla, Hearthfire and
   Creation Club homes). Save your own from inside the game (hotkey menu → Save as template...), learned

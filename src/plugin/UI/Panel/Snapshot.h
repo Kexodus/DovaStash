@@ -239,6 +239,11 @@ namespace dova::ui::panel
 		bool        isVR{ false };
 		bool        quickLootReady{ false };
 		bool        uiExtensions{ false };
+
+		// Materials at the workbench as resolved now (sort::crafting::Mode): what Auto means here, and why.
+		std::string craftingMode;  // core::crafting::SupplyModeName
+		std::string craftingWhy;   // "" when nothing needs saying
+		bool        craftingFromStorage{ false };  // the hooks are available on this runtime
 	};
 
 	struct ExportState

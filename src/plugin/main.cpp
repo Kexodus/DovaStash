@@ -14,6 +14,7 @@
 #include "Integrations/QuickLoot.h"
 #include "Log.h"
 #include "Settings.h"
+#include "Sort/CraftingStorage.h"
 #include "Sort/CraftingSupply.h"
 #include "Sort/DisplayFiller.h"
 #include "Sort/SellChest.h"
@@ -68,6 +69,7 @@ namespace
 			dova::events::RegisterSinks();
 			dova::sort::crafting::RegisterSinks();
 			dova::sort::selling::RegisterSinks();
+			dova::sort::crafting::ResolveMode("game data loaded");  // after InitFormUtil: reads the loaded plugins
 			dova::ui::uiext::RegisterSinks();
 			dova::input::RegisterInputSink();
 			dova::hooks::InstallActivatePrompt();

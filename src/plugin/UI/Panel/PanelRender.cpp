@@ -4,6 +4,8 @@
 
 #include "Controller.h"
 #include "Sort/SortEngine.h"
+
+#include <dova/core/CraftingStorage.h>
 #include "UI/Labels.h"
 #include "UI/Panel/ArmorSetsPage.h"
 #include "UI/Panel/DisplaysPage.h"
@@ -1581,12 +1583,23 @@ namespace dova::ui::panel
 			Help("Deposit and Sort all fill the displays you turned on with the hotkey (weapon racks, mannequins, bookshelves, plaques made for one item such as masks, claws, Elder Scrolls) with your best gear and books, one of each. Nothing is taken off a display.", "[Sorting] bFillDisplays");
 			apply |= ImGui::Checkbox("Restock after Deposit", &v.sorting.restockAfterDeposit);
 			Help("After a Deposit, the home's containers top you up to every keep quota marked Restock (10 health potions, 50 arrows...), never more. Without such a quota nothing happens. Restock is also in the menus on its own.", "[Sorting] bRestockAfterDeposit");
-			apply |= ImGui::Checkbox("Materials at the workbench", &v.sorting.craftingSupply);
-			Help("Sit down at a forge, smelter, tanning rack, cooking pot, alchemy lab, enchanter or any modded station in your home: the stored materials its recipes use come to you, and what you didn't use goes back when you get up. What you just made stays with you.", "[Sorting] bCraftingSupply");
-			ImGui::BeginDisabled(!v.sorting.craftingSupply);
+			{
+				const auto autoLabel = v.sorting.craftingSupply == 0 && !global->craftingMode.empty() ? std::format("Auto (now: {})", global->craftingMode) : std::string("Auto");
+				const std::array<const char*, 4> kSupply{ autoLabel.c_str(), "Off", "Move: bring them, put the rest back", "Craft from storage: nothing moves" };
+				apply |= IndexCombo("Materials at the workbench", v.sorting.craftingSupply, kSupply);
+				Help("At a forge, smelter, tanning rack, cooking pot, alchemy lab, enchanter or any modded station in your home, what your containers hold counts as yours.\n"
+					 "Craft from storage: the menu sees the materials where they are, and crafting takes what you lack from the containers. Nothing moves when you sit down or get up.\n"
+					 "Move: the materials come to you when you sit down; what you didn't use goes back when you get up. What you just made stays with you.\n"
+					 "Enchanters always bring your filled soul gems. Auto is Craft from storage, or Off when another mod that crafts from storage is installed.",
+					"[Sorting] iCraftingSupply");
+				if (!global->craftingWhy.empty()) {
+					Unavailable(std::format("Now {}: {}.", global->craftingMode, global->craftingWhy));
+				}
+			}
+			ImGui::BeginDisabled(global->craftingMode == core::crafting::SupplyModeName(core::crafting::SupplyMode::Off));
 			ImGui::Indent();
 			apply |= ImGui::Checkbox("Weapons and armor used as materials too", &v.sorting.craftingSupplyGear);
-			Help("Also brings gear that recipes use up (breakdown recipes at the smelter, the Enhanced Crossbow). Off: a breakdown mod would bring out every piece of gear you store. Tempered or enchanted copies never come.", "[Sorting] bCraftingSupplyGear");
+			Help("Stored gear that recipes use up counts too (breakdown recipes at the smelter, the Enhanced Crossbow). Off: a breakdown mod would offer every piece of gear you store. Tempered or enchanted copies never count.", "[Sorting] bCraftingSupplyGear");
 			ImGui::Unindent();
 			ImGui::EndDisabled();
 			apply |= ImGui::Checkbox("Enable a home's template automatically on first visit", &v.templates.autoEnable);
