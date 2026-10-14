@@ -21,6 +21,7 @@
 #include "render/Image.h"
 #include "render/Nif.h"
 #include "render/Scene.h"
+#include "ui/Tables.h"
 #include "ui/Themes.h"
 
 namespace dova::editor
@@ -556,6 +557,11 @@ namespace dova::editor
 		       "                        camera, paintcat) for a screenshot\n"
 		       "  --window WxH          the window's client size (e.g. 1280x720)\n"
 		       "  --theme <name>        a colour theme for this run (Setup's Theme list, e.g. \"Windows10 Dark\")\n"
+		       "  --sort <t>:<col>[:desc]  sort a drawer table (containers, displays, doors, preview) by a column\n"
+		       "                        (its header or number); repeat it to add columns\n"
+		       "  --filter <text>       the drawer tab's filter box (every word must match)\n"
+		       "  --quick <chip>        turn a quick filter of the drawer tab on (e.g. Ignored, Respawning, Used,\n"
+		       "                        \"Receives nothing\"); repeatable\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
 		       "  (no --mod/--cell/--home/--drafts: the start panel)\n"
 		       "  --help\n";
@@ -652,6 +658,20 @@ namespace dova::editor
 					}
 					a.theme = std::move(v);
 				}
+			} else if (s == "--sort") {
+				if (auto v = value()) {
+					std::string why;
+					if (!ui::ParseSortArg(*v, &why)) {
+						a.errors.push_back(why);
+					}
+					a.sort.push_back(std::move(*v));
+				}
+			} else if (s == "--filter") {
+				a.tableFilter = value();
+			} else if (s == "--quick") {
+				if (auto v = value()) {
+					a.quick.push_back(std::move(*v));
+				}
 			} else if (s == "--window") {
 				if (auto v = value()) {
 					const auto n = Numbers(*v);
@@ -711,6 +731,19 @@ namespace dova::editor
 				a.screenshot = value();
 			} else {
 				a.errors.push_back("unknown option " + s);
+			}
+		}
+		// --quick names a chip of the drawer tab --tab shows (the Containers tab without one).
+		const auto table = a.tab ? ui::ParseTableName(*a.tab) : std::optional<ui::DrawerTable>{};
+		for (const auto& q : a.quick) {
+			const auto t = table.value_or(ui::DrawerTable::Containers);
+			if (!ui::QuickFilterBit(t, q)) {
+				std::string chips;
+				for (const auto& f : ui::TableQuickFilters(t)) {
+					chips += (chips.empty() ? "" : ", ") + std::string(f.label);
+				}
+				a.errors.push_back("--quick: the " + std::string(ui::TableName(t)) + " table has no quick filter \"" + q + "\"" +
+				                   (chips.empty() ? std::string(" (it has none)") : " (" + chips + ")"));
 			}
 		}
 		return a;

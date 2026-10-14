@@ -154,6 +154,22 @@ namespace dova::editor::ui
 				}
 			}
 		}
+		// --sort, --filter, --quick: the drawer tables' sort, and the drawer tab's filter (ui/Tables.h).
+		for (const auto& s : a_gui.sort) {
+			if (const auto arg = ParseSortArg(s)) {
+				auto& view = _tables[static_cast<std::size_t>(arg->table)];
+				view.sort.push_back(arg->key);
+				view.synced = false;
+			}
+		}
+		if (a_gui.filter) {
+			Table(_drawerTab).filter = *a_gui.filter;
+		}
+		for (const auto& q : a_gui.quick) {
+			if (const auto bit = QuickFilterBit(static_cast<DrawerTable>(_drawerTab), q)) {
+				Table(_drawerTab).quick |= *bit;
+			}
+		}
 		_pendingSelect = a_gui.select;
 		_pendingMulti = a_gui.multi;
 		if (a_gui.colours) {

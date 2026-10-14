@@ -1,8 +1,11 @@
 // The bottom drawer (docs/EDITOR-UX.md §2.5): Containers · Displays · Doors · Where items go, the wide tables.
-// Rows select the same object as the view (Ctrl adds, a double click frames it); the Doors tab opens the cells
-// the home's doors lead to and joins them to the home. Collapsed it is its tab row; drag the top edge to resize.
+// Rows select the same object as the view (Ctrl adds, a double click frames it); on the Doors tab a double click
+// opens the cell a door leads to, and the tick joins that cell to the home. Collapsed it is its tab row; drag the top edge to resize.
+// Every table sorts by any column (Shift+click adds one) and has a filter box with quick filters (ui/Tables.h);
+// rows keep their reference's index, so selection works on the filtered, sorted list.
 
 #include <algorithm>
+#include <cstdint>
 #include <format>
 
 #include <imgui.h>
@@ -75,8 +78,16 @@ namespace dova::editor::ui
 			ImGui::SameLine(0.0f, 3.0f * t.pad);
 			DrawPreviewControls(c);
 		}
-		ImGui::SameLine();
 		const float b = t.toolbarH - 4.0f * t.scale;
+		if (open) {
+			// The table's filter at the right, before the chevron: "N of M", the quick filters, the box.
+			const auto table = static_cast<DrawerTable>(_drawerTab);
+			auto&      view = Table(_drawerTab);
+			ImGui::SameLine();
+			ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX() + 2.0f * t.pad, W - b - 2.0f * t.pad - FilterBarWidth(view, table)));
+			DrawFilterBar(view, table);
+		}
+		ImGui::SameLine();
 		ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), W - b - t.pad));
 		if (w::IconButton("toggle", open ? w::Icon::ChevronDown : w::Icon::ChevronUp, open ? "Hide the drawer" : "Show the drawer", "Ctrl+2")) {
 			_state.ui.drawerOpen = !open;
@@ -114,56 +125,111 @@ namespace dova::editor::ui
 		}
 	}
 
+	namespace
+	{
+		constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | kSortableTable;
+
+		// The columns of a drawer table (ui/Tables.h names them); `a_setup` gives a column its flags and width.
+		template <class F>
+		void SetupColumns(DrawerTable a_table, F&& a_setup)
+		{
+			ImGui::TableSetupScrollFreeze(0, 1);
+			int n = 0;
+			for (const char* name : TableColumns(a_table)) {
+				ImGuiTableColumnFlags flags = ImGuiTableColumnFlags_None;
+				float                 width = 0.0f;
+				a_setup(n++, flags, width);
+				ImGui::TableSetupColumn(name, flags, width);
+			}
+		}
+
+		// A value in a role-like column: group -1 in accent (the master), 1 muted (ignored, not listed), else text.
+		void RoleText(const TableCell& a_cell)
+		{
+			if (a_cell.group < 0) {
+				w::Coloured(w::Kind::Accent, a_cell.text.c_str());
+			} else if (a_cell.group > 0) {
+				w::Muted(a_cell.text.c_str());
+			} else {
+				ImGui::TextUnformatted(a_cell.text.c_str());
+			}
+		}
+
+		TableCell Height(const home::PlacedRef& a_ref)
+		{
+			return { std::format("{:.0f}", a_ref.position[2]), static_cast<double>(a_ref.position[2]) };
+		}
+
+		// The table has rows but the filters hide them all.
+		void NoMatch(const TableView& a_view)
+		{
+			if (a_view.total > 0 && a_view.shown == 0) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				w::Muted("No row matches the filter");
+			}
+		}
+
+		// The quick filters' bits (ui/Tables.cpp lists the chips).
+		enum ContainerTag : std::uint32_t
+		{
+			kMaster = 1u << 0,
+			kWithCategories = 1u << 1,
+			kNoCategories = 1u << 2,
+			kIgnored = 1u << 3,
+			kNotListed = 1u << 4,
+			kRespawning = 1u << 5
+		};
+		enum DisplayTag : std::uint32_t
+		{
+			kRack = 1u << 0,  // DisplayKind order: rack, mannequin, item (plaque), case, bookshelf
+			kUsed = 1u << 5,
+			kUnused = 1u << 6
+		};
+	}
+
 	void EditorApp::DrawContainers(OpenCell& a_cell)
 	{
-		if (!ImGui::BeginTable("containers", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
-			return;
-		}
-		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn("Container");
-		ImGui::TableSetupColumn("Role");
-		ImGui::TableSetupColumn("Reference");
-		ImGui::TableSetupColumn("Height", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.5f);
-		ImGui::TableSetupColumn("Notes");
-		ImGui::TableHeadersRow();
+		auto& view = Table(DrawerTab::Containers);
+		std::vector<TableRow> rows;
 		for (std::size_t i = 0; i < a_cell.info.refs.size(); ++i) {
 			const auto& r = a_cell.info.refs[i];
 			if (!r.IsContainer()) {
 				continue;
 			}
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			ImGui::PushID(static_cast<int>(i));
-			w::IconInline(IconOf(r), w::Th().muted);
-			ImGui::SameLine(0.0f, w::Th().gap);
-			if (ImGui::Selectable(RefTitle(r).c_str(), IsSelected(static_cast<int>(i)), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
-				TableRowClick(static_cast<int>(i));
-			}
-			w::Tip("Click: select · Ctrl: add · Double-click: frame");
-			ImGui::PopID();
-			ImGui::TableNextColumn();
+			TableRow row;
+			row.index = static_cast<int>(i);
+			row.cells.resize(6);
+			row.cells[0].text = RefTitle(r);
+			row.cells[1].text = ContainerKind(r);
+			row.cells[1].group = row.cells[1].text == "Other" ? 1 : 0;
+			row.kind = row.cells[1].text;
+			auto&      role = row.cells[2];
 			const auto ref = a_cell.lo->ToFormRef(r.key);
 			if (a_cell.layout.IsMaster(ref)) {
-				w::Coloured(w::Kind::Accent, "master");
+				role = Grouped("master", -1);
+				row.tags |= kMaster;
 			} else if (const auto* b = a_cell.layout.FindContainer(ref)) {
 				if (b->ignored) {
-					w::Muted("ignored");
+					role = Grouped("ignored", 1);
+					row.tags |= kIgnored;
 				} else if (b->categories.empty() && b->forms.empty()) {
-					w::Muted("no categories");
+					role = Grouped("no categories", 1);
+					row.tags |= kNoCategories;
 				} else {
-					ImGui::TextUnformatted(Join(b->categories).c_str());
+					role.text = Join(b->categories);
+					row.tags |= kWithCategories;
 				}
 			} else {
-				w::Muted("not listed");
+				role = Grouped("not listed", 1);
+				row.tags |= kNotListed;
 			}
-			ImGui::TableNextColumn();
-			w::Mono(a_cell.refText[i].c_str());
-			ImGui::TableNextColumn();
-			ImGui::Text("%.0f", r.position[2]);
-			ImGui::TableNextColumn();
+			row.cells[3].text = a_cell.refText[i];
+			row.cells[4] = Height(r);
 			std::vector<std::string> notes;
 			if (r.respawns) {
 				notes.emplace_back("respawns");
+				row.tags |= kRespawning;
 			}
 			if (r.initiallyDisabled) {
 				notes.emplace_back("initially disabled");
@@ -174,55 +240,117 @@ namespace dova::editor::ui
 			for (const auto& s : r.scripts) {
 				notes.push_back(s);
 			}
-			w::Muted(Join(notes, "; ").c_str());
+			row.cells[5].text = Join(notes, "; ");
+			row.cells[5].group = notes.empty() ? 1 : 0;
+			rows.push_back(std::move(row));
 		}
+		if (!ImGui::BeginTable("containers", 6, kTableFlags | ImGuiTableFlags_Resizable)) {
+			return;
+		}
+		SetupColumns(DrawerTable::Containers, [](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
+			if (a_n == 1 || a_n == 4) {
+				a_flags = ImGuiTableColumnFlags_WidthFixed;
+				a_width = ImGui::GetFontSize() * (a_n == 1 ? 6.0f : 3.5f);
+			}
+		});
+		SyncSort(view);
+		FilterAndSort(view, rows, DrawerTable::Containers);
+		ImGui::TableHeadersRow();
+		for (const auto& row : rows) {
+			const int   i = row.index;
+			const auto& r = a_cell.info.refs[static_cast<std::size_t>(i)];
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::PushID(i);
+			w::IconInline(IconOf(r), w::Th().muted);
+			ImGui::SameLine(0.0f, w::Th().gap);
+			if (ImGui::Selectable(row.cells[0].text.c_str(), IsSelected(i), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+				TableRowClick(i);
+			}
+			w::Tip("Click: select · Ctrl: add · Double-click: frame");
+			ImGui::PopID();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(row.cells[1].text.c_str());
+			ImGui::TableNextColumn();
+			RoleText(row.cells[2]);
+			ImGui::TableNextColumn();
+			w::Mono(row.cells[3].text.c_str());
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(row.cells[4].text.c_str());
+			ImGui::TableNextColumn();
+			w::Muted(row.cells[5].text.c_str());
+		}
+		NoMatch(view);
 		ImGui::EndTable();
 	}
 
 	void EditorApp::DrawDisplays(OpenCell& a_cell)
 	{
-		if (!ImGui::BeginTable("displays", 5, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV)) {
-			return;
-		}
-		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn("Display");
-		ImGui::TableSetupColumn("Kind");
-		ImGui::TableSetupColumn("In the template");
-		ImGui::TableSetupColumn("Reference");
-		ImGui::TableSetupColumn("Height", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.5f);
-		ImGui::TableHeadersRow();
+		auto& view = Table(DrawerTab::Displays);
+		std::vector<TableRow> rows;
 		for (std::size_t i = 0; i < a_cell.info.refs.size(); ++i) {
 			const auto& r = a_cell.info.refs[i];
 			if (!r.display) {
 				continue;
 			}
+			TableRow row;
+			row.index = static_cast<int>(i);
+			row.cells.resize(5);
+			row.cells[0].text = RefTitle(r);
+			row.cells[1].text = home::DisplayLabel(r);
+			row.tags |= kRack << static_cast<std::uint32_t>(*r.display);
+			auto& used = row.cells[2];
+			if (const auto* d = a_cell.layout.FindDisplay(a_cell.lo->ToFormRef(r.key))) {
+				if (d->ignored) {
+					used = Grouped("ignored", 1);
+					row.tags |= kUnused;
+				} else {
+					used.text = d->categories.empty() ? "used" : Join(d->categories);
+					row.tags |= kUsed;
+				}
+			} else {
+				used = Grouped("-", 1);
+				row.tags |= kUnused;
+			}
+			row.cells[3].text = a_cell.refText[i];
+			row.cells[4] = Height(r);
+			rows.push_back(std::move(row));
+		}
+		if (!ImGui::BeginTable("displays", 5, kTableFlags | ImGuiTableFlags_Resizable)) {
+			return;
+		}
+		SetupColumns(DrawerTable::Displays, [](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
+			if (a_n == 4) {
+				a_flags = ImGuiTableColumnFlags_WidthFixed;
+				a_width = ImGui::GetFontSize() * 3.5f;
+			}
+		});
+		SyncSort(view);
+		FilterAndSort(view, rows, DrawerTable::Displays);
+		ImGui::TableHeadersRow();
+		for (const auto& row : rows) {
+			const int   i = row.index;
+			const auto& r = a_cell.info.refs[static_cast<std::size_t>(i)];
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::PushID(static_cast<int>(i));
+			ImGui::PushID(i);
 			w::IconInline(IconOf(r), w::Th().muted);
 			ImGui::SameLine(0.0f, w::Th().gap);
-			if (ImGui::Selectable(RefTitle(r).c_str(), IsSelected(static_cast<int>(i)), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
-				TableRowClick(static_cast<int>(i));
+			if (ImGui::Selectable(row.cells[0].text.c_str(), IsSelected(i), ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+				TableRowClick(i);
 			}
 			w::Tip("Click: select · Ctrl: add · Double-click: frame");
 			ImGui::PopID();
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(home::DisplayLabel(r).c_str());
+			ImGui::TextUnformatted(row.cells[1].text.c_str());
 			ImGui::TableNextColumn();
-			if (const auto* d = a_cell.layout.FindDisplay(a_cell.lo->ToFormRef(r.key))) {
-				if (d->ignored) {
-					w::Muted("ignored");
-				} else {
-					ImGui::TextUnformatted(d->categories.empty() ? "used" : Join(d->categories).c_str());
-				}
-			} else {
-				w::Muted("-");
-			}
+			RoleText(row.cells[2]);
 			ImGui::TableNextColumn();
-			w::Mono(a_cell.refText[i].c_str());
+			w::Mono(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
-			ImGui::Text("%.0f", r.position[2]);
+			ImGui::TextUnformatted(row.cells[4].text.c_str());
 		}
+		NoMatch(view);
 		ImGui::EndTable();
 	}
 
@@ -250,32 +378,79 @@ namespace dova::editor::ui
 				++count[*same];
 			}
 		}
-		if (!ImGui::BeginTable("doors", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV)) {
-			return;
-		}
-		ImGui::TableSetupScrollFreeze(0, 1);
-		ImGui::TableSetupColumn("Leads to", ImGuiTableColumnFlags_WidthStretch, 0.45f);
-		ImGui::TableSetupColumn("Cell", ImGuiTableColumnFlags_WidthStretch, 0.3f);
-		ImGui::TableSetupColumn("In the home", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6.0f);
-		ImGui::TableSetupColumn("##open", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 4.0f);
-		ImGui::TableHeadersRow();
+		auto& view = Table(DrawerTab::Doors);
+		std::vector<TableRow> rows;
 		for (const auto i : shown) {
 			const auto& d = a_cell.info.doors[i];
+			TableRow    row;
+			row.index = static_cast<int>(i);
+			row.cells.resize(4);
+			row.cells[0].text = d.destinationLabel + (count[i] > 1 ? std::format("  ({} doors)", count[i]) : std::string{});
+			row.cells[1].text = a_cell.doorText[i];
+			// In the home: the main cell, the template's cells, then the others (a tick, so no text).
+			double in = 0.0;
+			if (d.destinationCell) {
+				const auto ref = a_cell.lo->ToFormRef(*d.destinationCell);
+				in = layout.cell && *layout.cell == ref ? 2.0 : std::ranges::any_of(layout.cells, [&](const core::HomeCell& c) { return c.cell == ref; }) ? 1.0 : 0.0;
+			}
+			row.cells[2].number = in;
+			row.cells[3].text = d.destinationInterior ? "interior" : "exterior";  // shown after the name; the box finds it
+			rows.push_back(std::move(row));
+		}
+		if (!ImGui::BeginTable("doors", 3, kTableFlags)) {
+			return;
+		}
+		SetupColumns(DrawerTable::Doors, [](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
+			static constexpr float stretch[] = { 0.55f, 0.45f };
+			if (a_n < 2) {
+				a_flags = ImGuiTableColumnFlags_WidthStretch;
+				a_width = stretch[a_n];
+			} else {
+				a_flags = ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending;
+				a_width = ImGui::GetFontSize() * 6.0f;
+			}
+		});
+		SyncSort(view);
+		FilterAndSort(view, rows, DrawerTable::Doors);
+		ImGui::TableHeadersRow();
+		for (const auto& row : rows) {
+			const auto  i = static_cast<std::size_t>(row.index);
+			const auto& d = a_cell.info.doors[i];
+			// The door's own reference: a click selects it (Ctrl adds), a double click opens the cell behind it.
+			int door = -1;
+			for (std::size_t k = 0; k < a_cell.info.refs.size() && door < 0; ++k) {
+				door = a_cell.info.refs[k].key == d.door ? static_cast<int>(k) : -1;
+			}
+			const bool openable = d.destinationCell && d.destinationCell->Valid();
 			ImGui::PushID(static_cast<int>(i));
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			w::IconInline(w::Icon::Door, w::Th().muted);
 			ImGui::SameLine(0.0f, w::Th().gap);
-			ImGui::Text("%s%s", d.destinationLabel.c_str(), count[i] > 1 ? std::format("  ({} doors)", count[i]).c_str() : "");
+			if (ImGui::Selectable(row.cells[0].text.c_str(), door >= 0 && IsSelected(door),
+					ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_AllowOverlap)) {
+				if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+					if (openable && !busy) {
+						OpenCellAsync(a_cell.lo, *d.destinationCell, true, true);
+					}
+				} else if (door >= 0) {
+					if (ImGui::GetIO().KeyCtrl) {
+						ToggleMulti(door);
+					} else {
+						SelectInView(door);
+					}
+				}
+			}
+			w::Tip(openable ? "Click: select · Ctrl: add · Double-click: open the cell (the template comes along; Back returns)" : "Click: select · Ctrl: add");
 			ImGui::SameLine();
-			w::Muted(d.destinationInterior ? "interior" : "exterior");
+			w::Muted(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
-			w::Mono(a_cell.doorText[i].c_str());
+			w::Mono(row.cells[1].text.c_str());
 			ImGui::TableNextColumn();
 			if (d.destinationCell) {
 				const auto ref = a_cell.lo->ToFormRef(*d.destinationCell);
-				const bool main = layout.cell && *layout.cell == ref;
-				bool       in = main || std::ranges::any_of(layout.cells, [&](const core::HomeCell& c) { return c.cell == ref; });
+				const bool main = row.cells[2].number == 2.0;
+				bool       in = row.cells[2].number > 0.0;
 				ImGui::BeginDisabled(main);
 				if (w::Check("##in", in)) {
 					if (in) {
@@ -291,15 +466,9 @@ namespace dova::editor::ui
 				ImGui::EndDisabled();
 				w::Tip(main ? "The home's main cell" : "Part of the home: its containers and displays can be used (the template's cells)");
 			}
-			ImGui::TableNextColumn();
-			ImGui::BeginDisabled(busy || !d.destinationCell || !d.destinationCell->Valid());
-			if (w::LinkButton("Open")) {
-				OpenCellAsync(a_cell.lo, *d.destinationCell, true, true);
-			}
-			ImGui::EndDisabled();
-			w::Tip("The template comes along; Back returns");
 			ImGui::PopID();
 		}
+		NoMatch(view);
 		ImGui::EndTable();
 	}
 }

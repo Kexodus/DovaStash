@@ -151,7 +151,11 @@ Tabs: **Containers · Displays · Doors · Where items go**, the wide tables of 
 third of the height, drag to resize, remembers. Rows select the same object as the view (and frame it on
 double click). *Where items go* keeps its sample picker and colour buttons in its own tab bar row.
 
-> **Built:** the tabs show their counts as small badges; the tables' first column has the object's icon.
+> **Built:** the tabs show their counts as small badges; the tables' first column has the object's icon. Every
+> column sorts (header click, Shift+click adds a column, a third click returns to the table's order); the tab row
+> ends with the table's quick filters (toggle chips; Containers also a *Kind* ▾ list and a *Kind* column) and a
+> *Filter rows* box, "N of M" when rows are hidden; per table, for the session. Doors has no *Open* column: a
+> double click on a row opens the cell, a click selects the door.
 
 ### 2.6 Start panel
 

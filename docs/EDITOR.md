@@ -83,7 +83,13 @@ one workspace.
   this home's draft (§3.4). *Checks*: the problems, then what the template still lacks. Selecting switches to
   Selection, *Draft this home* to Draft, a click on the status row's problem count to Checks.
 - **Drawer** (bottom, Ctrl+2; drag to resize): *Containers* · *Displays* · *Doors* · *Where items go*, the wide
-  tables, with counts on the tabs.
+  tables, with counts on the tabs. Every column sorts: click its header (again: descending, a third time: the
+  table's own order), Shift+click adds a column; *ignored*, *not listed* and *no categories* sort after real
+  categories, the master first. At the tab row's right: quick filters (Containers: *Master*, *With categories*,
+  *No categories*, *Ignored*, *Not listed*, *Respawning* and a *Kind* ▾ list: chest, sack, barrel, satchel,
+  bookshelf...; Displays: their kinds, *Used*, *Unused*; Where items go: *Master*, *Receives items*, *Receives
+  nothing*; one of a set is enough, sets combine) and a *Filter rows* box (every word must be in some column; Esc
+  clears it), with "N of M" when rows are hidden. Sort and filters last for the session, per table.
 - **Status row:** home · cell and the unsaved dot; `errors · warnings` (click: Checks); background work (scan,
   drafts, archives, meshes, textures) as `label n/m`, then missing meshes or textures; one shortcut for the moment.
 - **Command palette** (Ctrl+K): commands, homes (opens), the open home's containers and displays (selects and frames),
@@ -110,7 +116,8 @@ The rail's, inspector's and drawer's sizes, which are open, and the view persist
 4. **Open its cells.** A click opens the home with its draft (§3.4; every cell of a multi-cell home, §3.3) in the
    viewport. The drawer's *Doors* tab lists where its load doors lead: the home's other interiors (a cellar, a
    cave) and the exterior cells outside (resolved through the worldspace grid, e.g. *Tamriel (-9, -2)
-   WhitepeakTowerExterior01*). Each opens with one click (*Back* returns) and can join the home.
+   WhitepeakTowerExterior01*). A double click on a row opens that cell (*Back* returns); its tick joins it to the
+   home.
 5. **Select.** A click in the plan or the 3D view selects the object under the cursor: containers first, then
    displays, doors, furniture, structure; Ctrl+click adds, a drag boxes. The Selection panel shows what it is and
    lets the author give it a role (§3.1). The drawer's tables (Containers, Displays) select the same objects, so a
@@ -191,7 +198,8 @@ file per home** (`cell` + `cells`, DESIGN §6.7), never one file per cell; the s
 as they are for players who use them, and the DLL keeps loading either shape.
 
 Built: the drawer's Doors tab lists each place the home's doors lead to once (a Hearthfire home has a door per
-building stage) with *Open* and *In the home*. Opening a door's cell (the tab, a double click on the door in 3D,
+building stage) with *In the home*; a click selects the door, a double click opens the cell. Opening a door's
+cell (a double click on the tab's row or on the door in 3D,
 *Open that cell* in the Selection panel) takes the template along, and *Back* (title row) returns. A home of the
 rail opens with the cells its draft joined (the home finder's door graph, §3.4). Picking another home in the rail
 keeps this home's unsaved draft (its row keeps the dot; *Save N drafts...* and the quit guard cover it); a template
@@ -581,7 +589,10 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    `--inspector selection|template|draft|checks` (the inspector's panel), `--select <ref>` / `--multi <ref>`,
    `--paint <category>`, `--colours category|fill`, `--palette` (the command palette open), `--popover <id>` (`menu`,
    `setup`, `switcher`, `filter`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`), `--window WxH` (the
-   client size) and `--theme <name>` (a colour theme for this run, EDITOR-UX.md §3.1; the remembered one stays);
+   client size), `--theme <name>` (a colour theme for this run, EDITOR-UX.md §3.1; the remembered one stays),
+   `--sort <table>:<column>[:desc]` (a drawer table sorted by a column, its header or number; repeat it for more
+   columns), `--filter <text>` and `--quick <chip>` (the drawer tab's filter box and quick filters, `--popover kind`
+   opens the Kind list); like `--tab` they apply once, for that run;
    `--screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit).
    `--draft-all` drafts every home of the active load order and prints the master with its reason and each container's
    accepted and rejected suggestions (`--verbose`: every reason); `--compare` measures the drafts against the existing
@@ -678,7 +689,8 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
 | Floor plan | wheel, right or middle drag, left click | zoom, pan, select (*Left drag pans*: left drag pans too) |
 | 3D view, plan | Ctrl + click / left drag | add to or remove from the selection / box select (Ctrl: add) |
 | 3D view, plan | S / P / C / V / L | *Pick anything* (3D) or *Left drag pans* (plan), in paint mode back to Select / paint mode on or off / colours by category / colours by fill (the preview) / the Layers popover |
-| Drawer tables | click / Ctrl + click / double click | select / add to the selection / select and frame it in the 3D view |
+| Drawer tables | click / Ctrl + click / double click | select / add to the selection / select and frame it in the 3D view (*Doors*: open the cell behind the door) |
+| Drawer tables | header click / Shift + header click / *Filter rows*, Esc | sort by the column (again: descending, then the table's order) / add the column to the sort / filter the rows, clear the box |
 | Homes rail | Up/Down, Enter / right-click | walk the list, open the home / Open, Draft, Open in Explorer, Copy form ref |
 | Title row | *Back* (<), home switcher, `3D | Plan`, *Draft* ▾, *Save*, `⚙` | the cell opened before / another home / the view / draft this home, accept, reject the weak ones, draft again, draft all homes, save N drafts / save the template / Setup |
 | Workspace | Ctrl+K / Ctrl+1 / Ctrl+2 / Ctrl+3 / 1 / 2 | command palette / homes rail / drawer / inspector / 3D view / plan |
@@ -703,7 +715,7 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
    (the same checks the DLL runs, and what is still to do). Press *Save* (Ctrl+S). It is written to the "Dova Stash
    Templates" mod: `mods\Dova Stash Templates\SKSE\Plugins\DovaStash\Templates\Whitepeak Tower\<Author>.json`. In
    MO2 press F5 and enable the new mod. Saving again asks first, keeps a `.bak` and raises the version.
-6. Drawer, *Doors* tab (Ctrl+2 opens the drawer): *Open* the exterior (*Tamriel (-9, -2)*): the tower on its rock
+6. Drawer, *Doors* tab (Ctrl+2 opens the drawer): double-click the exterior (*Tamriel (-9, -2)*): the tower on its rock
    with the terrain and the cells around it. *Back* (<, title row) returns to the interior.
 7. Drawer, *Where items go*: the typical haul against your template: which chest gets what, which get nothing, what
    falls to the master. Press V: the chests in the view above are coloured (grey: nothing, green: a few, orange:

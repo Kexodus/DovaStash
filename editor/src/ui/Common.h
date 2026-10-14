@@ -5,6 +5,8 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include <imgui.h>
@@ -108,6 +110,43 @@ namespace dova::editor::ui::detail
 	}
 
 	inline std::string GameName(const home::PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
+
+	// What kind of object a container is (the Containers table's Kind): chest, sack, barrel, satchel, bookshelf...
+	// From the mesh's file name first (what it looks like), then the base EditorID, then the game's name; "Other".
+	inline std::string ContainerKind(const home::PlacedRef& a_ref)
+	{
+		static constexpr std::pair<const char*, const char*> words[] = { { "bookshel", "Bookshelf" }, { "bookcase", "Bookshelf" }, { "book shelf", "Bookshelf" },
+			{ "satchel", "Satchel" }, { "knapsack", "Backpack" }, { "backpack", "Backpack" }, { "strongbox", "Strongbox" }, { "strong box", "Strongbox" },
+			{ "barrel", "Barrel" }, { "sack", "Sack" }, { "basket", "Basket" }, { "coffin", "Coffin" }, { "sarcophag", "Coffin" }, { "crate", "Crate" },
+			{ "wardrobe", "Wardrobe" }, { "armoire", "Wardrobe" }, { "dresser", "Dresser" }, { "drawer", "Dresser" }, { "cupboard", "Cupboard" },
+			{ "cabinet", "Cupboard" }, { "endtable", "End table" }, { "end table", "End table" }, { "nightstand", "End table" }, { "displaycase", "Display case" },
+			{ "display case", "Display case" }, { "chest", "Chest" }, { "pouch", "Pouch" }, { "jar", "Jar" }, { "urn", "Urn" } };
+		auto lower = [](std::string_view a_text) {
+			std::string s(a_text);
+			for (auto& c : s) {
+				c = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+			}
+			return s;
+		};
+		const auto slash = a_ref.model.find_last_of("\\/");
+		const std::string sources[] = { lower(slash == std::string::npos ? a_ref.model : a_ref.model.substr(slash + 1)), lower(a_ref.baseEditorId),
+			lower(a_ref.baseName) };
+		for (const auto& s : sources) {
+			for (const auto& [word, kind] : words) {
+				const auto at = s.find(word);
+				// "urn" only as a word's start (not "furniture", "burnt").
+				if (at != std::string::npos && (std::string_view(word) != "urn" || at == 0 || !(s[at - 1] >= 'a' && s[at - 1] <= 'z'))) {
+					return kind;
+				}
+			}
+		}
+		if (a_ref.display) {
+			std::string s(core::DisplayKindName(*a_ref.display));
+			s[0] = static_cast<char>(s[0] - 'a' + 'A');
+			return s;
+		}
+		return "Other";
+	}
 
 	// Windows file dialogs (App.cpp). nullopt: cancelled.
 	[[nodiscard]] std::optional<std::string> PickFolder();

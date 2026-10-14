@@ -8,6 +8,7 @@
 // and the status row. Parsing runs on a worker thread; the UI only reads finished results. The 3D view loads its
 // meshes and textures on its own threads (render::Scene).
 
+#include <array>
 #include <atomic>
 #include <deque>
 #include <future>
@@ -32,6 +33,7 @@
 #include "home/Drafts.h"
 #include "render/Scene.h"
 #include "ui/State.h"
+#include "ui/Tables.h"
 #include "ui/Widgets.h"
 
 namespace dova::editor
@@ -63,6 +65,9 @@ namespace dova::editor::ui
 		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat
 		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
 		std::optional<std::string> theme;     // a colour theme for this run (ui/Themes.h); the remembered one stays
+		std::vector<std::string>   sort;      // drawer tables' sort for this run: "table:column[:desc]" (ui/Tables.h)
+		std::optional<std::string> filter;    // the drawer tab's filter box
+		std::vector<std::string>   quick;     // the drawer tab's quick filters on (chip labels)
 	};
 
 	// Win32 + Direct3D 11 + Dear ImGui host (Window.cpp). Returns the process exit code.
@@ -284,6 +289,9 @@ namespace dova::editor::ui
 		void DrawDisplays(OpenCell& a_cell);
 		void DrawDoors(OpenCell& a_cell);
 		void TableRowClick(int a_index);  // a row of a table: select (Ctrl: add), double click frames
+		// Each table's sort and filter for the session (ui/Tables.h), by DrawerTab; not in state.json.
+		std::array<TableView, static_cast<std::size_t>(DrawerTable::Count_)> _tables;
+		TableView& Table(DrawerTab a_tab) { return _tables[static_cast<std::size_t>(a_tab)]; }
 
 		// ---- Command palette (Palette.cpp) ----
 		void DrawPalette();

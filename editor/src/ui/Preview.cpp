@@ -24,6 +24,9 @@ namespace dova::editor::ui
 		constexpr std::uint32_t kFillMaster = IM_COL32(230, 90, 210, 255);
 		constexpr std::uint32_t kMasterColour = IM_COL32(230, 90, 210, 255);  // as the fill colours' master
 		constexpr std::int32_t  kHeavyAt = 20;  // copies: "many items"
+		constexpr std::uint32_t kPreviewNothing = 1u << 0;  // the quick filters (ui/Tables.cpp): Receives nothing, Master, Receives items
+		constexpr std::uint32_t kPreviewMaster = 1u << 1;
+		constexpr std::uint32_t kPreviewItems = 1u << 2;
 
 		std::string RefName(const home::PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
 	}
@@ -284,32 +287,67 @@ namespace dova::editor::ui
 		for (const auto& c : p.result.byContainer) {
 			maxTotal = std::max(maxTotal, c.total);
 		}
-		if (ImGui::BeginTable("preview", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable)) {
-			ImGui::TableSetupScrollFreeze(0, 1);
-			ImGui::TableSetupColumn("Container", ImGuiTableColumnFlags_WidthStretch, 0.3f);
-			ImGui::TableSetupColumn("Fill", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 7.0f);
-			ImGui::TableSetupColumn("Items", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 3.0f);
-			ImGui::TableSetupColumn("What it receives", ImGuiTableColumnFlags_WidthStretch, 0.7f);
-			ImGui::TableHeadersRow();
-			std::vector<const core::PreviewContainer*> rows;
-			for (const auto& c : p.result.byContainer) {
-				rows.push_back(&c);
+		// The table's own order: the master first, then by items. A sort (any column, ui/Tables.h) starts from it.
+		std::vector<const core::PreviewContainer*> order;
+		for (const auto& c : p.result.byContainer) {
+			order.push_back(&c);
+		}
+		std::ranges::stable_sort(order, [](const core::PreviewContainer* a, const core::PreviewContainer* b) {
+			if (a->master != b->master) {
+				return a->master;
 			}
-			std::ranges::stable_sort(rows, [](const core::PreviewContainer* a, const core::PreviewContainer* b) {
-				if (a->master != b->master) {
-					return a->master;
+			return a->total > b->total;
+		});
+		auto&                 view = Table(DrawerTab::Preview);
+		std::vector<TableRow> rows;
+		for (std::size_t k = 0; k < order.size(); ++k) {
+			const auto* c = order[k];
+			const auto  it = p.refIndex.find(c->ref);
+			const int   index = it == p.refIndex.end() ? -1 : it->second;
+			std::string name = c->ref.ToString();
+			if (const auto* b = a_cell.layout.FindContainer(c->ref); b && !b->label.empty()) {
+				name = b->label;
+			} else if (index >= 0) {
+				name = RefName(a_cell.info.refs[static_cast<std::size_t>(index)]);
+			}
+			TableRow row;
+			row.index = static_cast<int>(k);
+			row.cells.resize(4);
+			row.cells[0].text = std::format("{}{}", c->master ? "master: " : "", name);
+			// Fill: by its colour (nothing, a few, many, the master), then by items.
+			const int level = c->master ? 3 : c->total == 0 ? 0 : c->total >= kHeavyAt ? 2 : 1;
+			row.cells[1].number = level * 1e7 + c->total;
+			row.cells[2] = { std::to_string(c->total), static_cast<double>(c->total) };
+			if (c->items.empty()) {
+				const auto* b = a_cell.layout.FindContainer(c->ref);
+				row.cells[3] = Grouped(c->master                                        ? "nothing falls to the master"
+				                       : b && b->categories.empty() && b->forms.empty() ? "nothing: no categories (give it some, or ignore it)"
+				                                                                        : "nothing of the sample is in its categories",
+					1);
+			} else {
+				std::vector<std::pair<std::string, std::int32_t>> per(c->perCategory.begin(), c->perCategory.end());
+				std::ranges::sort(per, [](const auto& a, const auto& b) { return a.second > b.second; });
+				for (const auto& [cat, n] : per) {
+					row.cells[3].text += std::format("{}{} {}", row.cells[3].text.empty() ? "" : ", ", cat.empty() ? "(no category)" : cat, n);
 				}
-				return a->total > b->total;
-			});
-			for (const auto* c : rows) {
-				const auto it = p.refIndex.find(c->ref);
-				const int  index = it == p.refIndex.end() ? -1 : it->second;
-				std::string name = c->ref.ToString();
-				if (const auto* b = a_cell.layout.FindContainer(c->ref); b && !b->label.empty()) {
-					name = b->label;
-				} else if (index >= 0) {
-					name = RefName(a_cell.info.refs[static_cast<std::size_t>(index)]);
-				}
+			}
+			row.tags = c->master ? kPreviewMaster : c->items.empty() ? kPreviewNothing : kPreviewItems;
+			rows.push_back(std::move(row));
+		}
+		if (ImGui::BeginTable("preview", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | kSortableTable)) {
+			ImGui::TableSetupScrollFreeze(0, 1);
+			const auto columns = TableColumns(DrawerTable::Preview);
+			ImGui::TableSetupColumn(columns[0], ImGuiTableColumnFlags_WidthStretch, 0.3f);
+			ImGui::TableSetupColumn(columns[1], ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, ImGui::GetFontSize() * 7.0f);
+			ImGui::TableSetupColumn(columns[2], ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_PreferSortDescending, ImGui::GetFontSize() * 3.0f);
+			ImGui::TableSetupColumn(columns[3], ImGuiTableColumnFlags_WidthStretch, 0.7f);
+			SyncSort(view);
+			FilterAndSort(view, rows, DrawerTable::Preview);
+			ImGui::TableHeadersRow();
+			for (const auto& row : rows) {
+				const auto* c = order[static_cast<std::size_t>(row.index)];
+				const auto  it = p.refIndex.find(c->ref);
+				const int   index = it == p.refIndex.end() ? -1 : it->second;
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
 				ImGui::PushID(c->ref.ToString().c_str());
@@ -317,7 +355,7 @@ namespace dova::editor::ui
 				if (c->total == 0 && !c->master) {
 					ImGui::PushStyleColor(ImGuiCol_Text, w::Th().warn);
 				}
-				if (ImGui::Selectable(std::format("{}{}", c->master ? "master: " : "", name).c_str(), index >= 0 && _selectedRef == index,
+				if (ImGui::Selectable(row.cells[0].text.c_str(), index >= 0 && IsSelected(index),
 						ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick) &&
 					index >= 0) {
 					TableRowClick(index);
@@ -338,21 +376,12 @@ namespace dova::editor::ui
 					ImVec2(pos.x + std::max(wdt * static_cast<float>(c->total) / static_cast<float>(maxTotal), c->total > 0 ? 3.0f : 0.0f), pos.y + 3.0f + h), colour, 2.0f);
 				ImGui::Dummy(ImVec2(wdt, ImGui::GetTextLineHeight()));
 				ImGui::TableNextColumn();
-				ImGui::Text("%d", c->total);
+				ImGui::TextUnformatted(row.cells[2].text.c_str());
 				ImGui::TableNextColumn();
 				if (c->items.empty()) {
-					const auto* b = a_cell.layout.FindContainer(c->ref);
-					w::Muted(c->master                                   ? "nothing falls to the master"
-					         : b && b->categories.empty() && b->forms.empty() ? "nothing: no categories (give it some, or ignore it)"
-					                                                         : "nothing of the sample is in its categories");
+					w::Muted(row.cells[3].text.c_str());
 				} else {
-					std::vector<std::pair<std::string, std::int32_t>> per(c->perCategory.begin(), c->perCategory.end());
-					std::ranges::sort(per, [](const auto& a, const auto& b) { return a.second > b.second; });
-					std::string text;
-					for (const auto& [cat, n] : per) {
-						text += std::format("{}{} {}", text.empty() ? "" : ", ", cat.empty() ? "(no category)" : cat, n);
-					}
-					ImGui::TextUnformatted(text.c_str());
+					ImGui::TextUnformatted(row.cells[3].text.c_str());
 					if (ImGui::BeginItemTooltip()) {
 						for (std::size_t k = 0; k < c->items.size() && k < 25; ++k) {
 							const auto& e = c->items[k];
@@ -365,6 +394,11 @@ namespace dova::editor::ui
 						ImGui::EndTooltip();
 					}
 				}
+			}
+			if (view.total > 0 && view.shown == 0) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				w::Muted("No row matches the filter");
 			}
 			ImGui::EndTable();
 		}
