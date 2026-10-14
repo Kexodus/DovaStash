@@ -1604,16 +1604,22 @@ namespace dova::editor::ui::w
 		}
 		const float is = std::round(12.0f * t.scale);
 		DrawIcon(dl, a_open ? Icon::ChevronDown : Icon::ChevronRight, detail::Floor(ImVec2(p.x + 2.0f * t.scale, p.y + (h - is) * 0.5f)), is, t.muted);
-		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
-		const ImVec2 ls = TextSize(font, a_label);
-		const float  x = p.x + is + 6.0f * t.scale;
-		const float  ty = p.y + (h - ls.y) * 0.5f;
+		// Label, then the note (Nexus id and count); the note always shows, a long label gets an ellipsis.
+		PushFont(Font::Small);
+		ImVec2      ls = ImGui::CalcTextSize(a_label);
+		const float x = p.x + is + 6.0f * t.scale;
+		const float ty = std::floor(p.y + (h - ls.y) * 0.5f);
+		const float nw = a_note && *a_note ? ImGui::CalcTextSize(a_note).x + t.gap : 0.0f;
+		const float maxX = std::max(x + 1.0f, p.x + wdt - t.pad * 0.5f - nw);
 		dl->PushClipRect(p, ImVec2(p.x + wdt, p.y + h), true);
-		Text(dl, font, ImVec2(x, ty), t.accent, a_label);
-		if (a_note && *a_note) {
-			Text(dl, font, ImVec2(x + ls.x + t.gap, ty), t.muted, a_note);
+		ImGui::PushStyleColor(ImGuiCol_Text, t.accent);
+		ImGui::RenderTextEllipsis(dl, ImVec2(x, ty), ImVec2(maxX, p.y + h), maxX, a_label, nullptr, &ls);
+		ImGui::PopStyleColor();
+		if (nw > 0.0f) {
+			Text(dl, ImGui::GetFont(), ImVec2(std::min(x + ls.x, maxX) + t.gap, ty), t.muted, a_note);
 		}
 		dl->PopClipRect();
+		PopFont();
 		if (clicked) {
 			a_open = !a_open;
 		}

@@ -179,9 +179,8 @@ namespace dova::editor::ui
 				rows.emplace_back(cell, &r);
 			}
 			std::ranges::sort(rows, [](const auto& a, const auto& b) { return a.second->updated > b.second->updated; });
-			const float h = std::min(ImGui::GetTextLineHeightWithSpacing() * (static_cast<float>(rows.size()) + 1.5f), std::max(ImGui::GetContentRegionAvail().y - t.pad, 120.0f * t.scale));
-			if (ImGui::BeginTable("todo", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp, ImVec2(colW, h))) {
-				ImGui::TableSetupScrollFreeze(0, 1);
+			// Sized to its rows: the start panel scrolls, the table never does.
+			if (ImGui::BeginTable("todo", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp, ImVec2(colW, 0.0f))) {
 				ImGui::TableSetupColumn("Home", ImGuiTableColumnFlags_WidthStretch, 0.32f);
 				ImGui::TableSetupColumn("Stage", ImGuiTableColumnFlags_WidthFixed, 80.0f * t.scale);
 				ImGui::TableSetupColumn("When", ImGuiTableColumnFlags_WidthFixed, 120.0f * t.scale);
