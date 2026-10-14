@@ -16,7 +16,9 @@ Design principles, in priority order:
 
 1. **Never lose an item.** Every move is a real `RemoveItem(... moveToRef)` that preserves extra data
    (enchantments, tempering, custom names, stolen flags, soul charge). If anything is ambiguous, the item
-   stays where it is.
+   stays where it is. The one place items leave the game is the sell chest (§8.7): a container the player
+   marks, sold only after a trigger the player chose (a confirmed *Sell now*, or timed selling they turned
+   on), every sale logged and the last one of the session bought back on request.
 2. **Zero-config for the common case.** Drop-in install; homes with a template just work.
 3. **Works anywhere it's safe.** Not limited to a hardcoded list of homes. Eligibility is decided by
    runtime safety checks (ownership, respawn), not by a whitelist.
@@ -105,7 +107,7 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
    - **Save as template…** (§6.5)
    - **Reset**
 3. Look at any other container and press the hotkey to open its binding menu: assign categories, set
-   it as ignored, rename it, or promote it to master.
+   it as ignored, rename it, make it the sell chest (§8.7), or promote it to master.
 4. Or skip binding entirely: just **put items into containers by hand**. Each placement teaches Dova Stash
    where that item belongs (learned destinations).
 
@@ -248,7 +250,7 @@ On entering an eligible cell:
    template in this order and switches to any of them. Switching is applying (`HomeRegistry::ApplyTemplate`,
    as *Use template*): unsaved changes are written, the layout file is copied to a timestamped `.bak` and the
    copy outside Data (§6.6) moves to its history with the save, so *Saved setups* can bring the old setup
-   back; the template is merged over the layout (`core::ApplyTemplate`: the master and category bindings
+   back; the template is merged over the layout (`core::ApplyTemplate`: the master, sell chest and category bindings
    come from the template; learned items, keep rules, ignored containers, explicit item bindings, the
    player's own containers and displays stay). Only the setup changes: no item is taken out of a container
    or off a display, and the next Deposit or Sort all follows the new setup. When the layout has changes of
@@ -274,7 +276,8 @@ On entering an eligible cell:
   "containers": [
     {"ref": "Skyrim.esm|0x000BBBBB", "label": "Armory chest",    "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields"]},
     {"ref": "Skyrim.esm|0x000CCCCC", "label": "Alchemy satchel", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
-    {"ref": "Skyrim.esm|0x000DDDDD", "label": "Barrel",          "ignored": true, "note": "Respawns: what you store here can disappear."}
+    {"ref": "Skyrim.esm|0x000DDDDD", "label": "Barrel",          "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "Skyrim.esm|0x000DDDDE", "label": "Junk crate",      "categories": ["misc.clutter"], "sell": true}  // the sell chest (§8.7); optional
   ],
   "displays": [                        // optional: the displays this home fills (§8.4)
     {"ref": "Skyrim.esm|0x000EEEEE", "label": "Bow rack", "categories": ["weapons.bows"]},
@@ -297,7 +300,9 @@ On entering an eligible cell:
 }
 ```
 
-`label` is the name the player sees for a container (the panel, menus); `note` (top level, containers,
+`label` is the name the player sees for a container (the panel, menus); `"sell": true` makes it the sell
+chest (§8.7; written only when true, inert on the master or an ignored container, an optional field of schema
+1 that an older DLL keeps as an unknown key); `note` (top level, containers,
 displays) is free text for people reading the file. Dova Stash never acts on a note; the panel shows a
 container's note under its name, so that is where a template says why it ignores a container.
 
@@ -713,6 +718,7 @@ download that drops into the same `Categories/` folder, not in the main archive.
 | **Fill displays** | Player + managed containers → the empty displays in use (§8.4) | Part of Deposit and Sort all (`bFillDisplays`); one display with *Fill now* in its menu |
 | **Crafting supply** | Managed containers → player, the unused rest back (§8.5) | Sitting down at a crafting station in an enabled home (`bCraftingSupply`); back when the crafting menu closes |
 | **Learn**      | Records item → container (§8.6)       | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
+| **Sell**       | Sell chest → gold for the player (§8.7) | *Sell now* (hotkey menus, panel) after a confirmation with the total; timed selling when `[Selling] iAutoSellHours` > 0 |
 
 ### 8.2 Moving items safely (`ItemMover`)
 
@@ -1073,6 +1079,91 @@ read for one thing only: an item a script hands back right after Dova Stash stor
 does not count: through the open ContainerMenu, or through QuickLoot IE's loot menu (`LootMenu` open at the
 time of the event, decided in the sink), which has no ContainerMenu.
 
+### 8.7 The sell chest
+
+A container the player marks as the **sell chest** turns what lands in it into gold, like the sell piles and
+autosale chests of other home mods (Player houses overhaul's merchant chest, Handy Crafting, I.M.P.S. Autosale
+Chests). It is the only feature that destroys items, so it is opt-in at every step: nothing is ever sold from any
+other container, and nothing is sold before a trigger the player chose. Core: `core/Sell.h` (unit-tested:
+`tests/SellTests.cpp`); plugin: `sort::selling` (`Sort/SellChest.*`) and `Controller::SetSellChest` / `SellNow` /
+`SellConfirmed` / `BuyBack`.
+
+**The role.** `"sell": true` on a container entry (§6.3; `ContainerBinding::sell`, `Layout::IsSellChest`). Set from
+the container's hotkey menu (*Make sell chest...*, after a message box that says what it means; *Not the sell
+chest* turns it off), the panel's container page (the same two buttons, the first with an inline confirmation),
+a template, or the editor (*Sell chest* checkbox under the container's role). Inert on the master (a warning when
+a file says so) and on an ignored container; *Make master* and *Remove* drop it with the entry. A home may have
+several; *Sell now* from the master menu or the panel covers all of them, from a sell chest's own menu only that
+one. Marking a container that has no categories, fixed items or learned items yet also binds the junk category
+`misc.clutter` when the category set has it (HUD: *Dova Stash: Crate is now the sell chest (Clutter)*); no new
+taxonomy. Names in game: *sell chest*; the activate prompt (*Crate (Sell: Clutter)*), the Browse list and
+QuickLoot's info bar text say *Sell: ...*; the panel's table tags it *[Sell]*.
+
+**What reaches it.** The category engine, as for any container: its categories, fixed items, and learned items
+(putting something in by hand teaches it, so one copy of a junk item sends every later copy there). Deposit and
+Sort all route to it. It is a **target only**: Sort all never empties it (`SortPlanner::IsSortSource`), Retrieve,
+the Retrieve counts, display filling and the workbench never take from it (`SortPlanner::Retrieve`,
+`SortEngine`'s `SnapshotManaged`, `crafting::SnapshotStored`). What the player put there stays until it is sold
+or taken out by hand. The category question after a few learns (§8.6) is never asked for it: a *Yes* there would
+sell a whole category.
+
+**Triggers.**
+- **Sell now** (the default and only trigger out of the box): the sell chest's hotkey menu (*Sell now (862
+  gold)...*, shown when there is something to sell), the master menu (every sell chest of the home), and the
+  panel's *Actions > Sell chest*. The hotkey menus ask in a message box: *Sell 14 items for 862 gold?* with the
+  items that bring the most gold (*Iron Dagger x5, Silver Goblet x2 +6 more*) and what stays (*3 stay: 2 stolen,
+  1 quest item*); the panel shows the same above an inline *Yes*/*No*. *Yes* plans the sale again and sells only
+  if it is still the same number of items for the same gold; otherwise *the sell chest changed; sell again*.
+  Waits for an open container menu to close.
+- **Timed selling** (`[Selling] iAutoSellHours`, 0 = off by default, up to 168): what has been in a sell chest for
+  that many game hours is sold by itself when the player comes home (`OnCellMaybeChanged`), closes a container in
+  the home, or stops sleeping or waiting there (`TESSleepStopEvent`, `TESWaitStopEvent`). There is no co-save, so
+  arrival times are not known: per chest, Dova Stash keeps in memory the sellable copies per item it first saw and
+  when (game days), keeps the smaller count at each later look (taken out = gone; arrived since = not counted),
+  and once the period has passed sells the copies still there (`core::sell::StepAging`). An item is therefore
+  never sold sooner than the period after Dova Stash first saw it; after loading a game the period starts again.
+  Never while a container menu is open. Making a container the sell chest says when timed selling is on.
+
+**Never sold** (`core::sell::Judge`; they stay in the chest and the confirmation counts them): quest items,
+non-playable and nameless items, items that come back when stored (§8.2), worn or favorited copies, gold itself,
+forms without a load-order identity (potions and poisons the player made), customized copies (tempered, enchanted
+by the player, renamed, poisoned), soul-trapped gems and copies with any extra data besides a count or a unique id,
+stolen copies (any owner), anything an `always` keep rule protects (`KeepRules::AlwaysKeeps`, the layers decide as
+for Deposit: by default gold, lockpicks and torches; quotas say how many to carry, not what may be sold, so they
+do not protect), and items worth nothing. Only plain copies are sold, so a buy-back gives back exactly what went.
+
+**Price** (`core::sell::UnitPrice`), the vanilla barter formula without a merchant:
+`factor = fBarterMax - (fBarterMax - fBarterMin) × clamp(Speech, 0, 100) / 100` (3.3 at Speech 0, 2.0 at 100
+with vanilla GMSTs), `mult = min(fBarterSellMax, perks × (1 + FortifyBarter / 100) / factor) × iSellPricePercent / 100`,
+`price = floor(value × mult)`, at least 1 for an item worth anything. `value` is the game's own value of one item
+(`InventoryEntryData::GetValue`: base value plus a base enchantment); `perks` is what the player's *Mod Sell
+Prices* perk entries make of 1.0 for that item (`BGSEntryPoint::HandleEntryPoint`, with the player standing in for
+the merchant, so a perk that needs a merchant of the other sex never applies); Fortify Barter is the
+`SpeechcraftModifier` actor value. The GMSTs are read from the game (`fBarterSellMax` caps at the item's value when
+absent or above 1; the values are logged once at info). `[Selling] iSellPricePercent` (100, 10-200) is the
+player's own adjustment. Non-finite or out-of-range inputs fall back to vanilla.
+
+**Selling** (main thread): the chest is snapshotted (`ItemAdapter`), planned (`core::sell::PlanSale`), and each
+planned stack is checked against the live inventory (the same extra-data list, enough copies, not protected)
+before `RemoveItem(..., kRemove, extraList, nullptr)` removes it; what really went is measured (counts before and
+after). The gold for what went goes to the **player** (`AddObjectToContainer`; gold in the chest would be one more
+thing to fetch and could itself be swept by Deposit rules), under `ItemMover::SuppressScope` so nothing is learned
+or taken for a returning item. HUD: *Dova Stash: sold 14 items for 862 gold*. Log: one info line per stack (*Sell
+chest: sold Iron Dagger [Skyrim.esm|0x0001397E] x5 for 40 gold (8 each) from Crate [...]*) and a summary.
+
+**Sale log and buy-back.** The panel's *Actions* tab lists the session's sales, newest first (the last 20: game
+time, chests, items, gold, *(timed)*, *(bought back)*; each opens to its items). The last sale of the session can
+be **bought back** once, for the same gold, while the player is in that home and every chest it came from can be
+used: *Buy back (862 gold)...* in the sell chest's and the master's hotkey menus and in the panel, after a
+confirmation. It takes the gold (the player must have it: *buying back takes 862 gold*) and puts the same items
+back into the chests they came from (`AddObjectToContainer`; plain copies, so nothing is lost by recreating them).
+Loading a game or starting a new one forgets the log, the buy-back and what timed selling saw.
+
+**Templates.** A template may name a sell chest; applying or switching to a template takes the sell chest from
+the template, like the master and the categories (`core::ApplyTemplate` drops the player's own `sell` flags, since
+the template's categories could otherwise send other items to a container that sells). The shipped templates have
+none. `ExportAsTemplate` keeps it. `esm_dump.py check` knows the key.
+
 ## 9. Home eligibility & safety
 
 A cell can host a Dova Stash layout when **all** of the following hold:
@@ -1134,7 +1225,7 @@ struct IStashUI {
   `basedOn` names, and a button, **Use** (**Re-apply** for the one in use). On a home with a setup that has
   changes of the player's own (`HomeSnapshot::ownChanges`, `core::HasOwnChanges` with the plugin's
   `RecordDisplayItems` run quietly on the copy) the button asks first, inline (*Use the template "X"? Your
-  changes to this setup are replaced: the master and category bindings come from the template. Your learned
+  changes to this setup are replaced: the master, sell chest and category bindings come from the template. Your learned
   items, keep rules and ignored containers stay. Your setup is backed up first (Saved setups); no items are
   moved.* **Yes**/**No**); otherwise it switches at once. `ownChanges` is worked out on the main thread when the
   snapshot is rebuilt: on a full refresh, or when the setup (as serialized) or the template list changed;

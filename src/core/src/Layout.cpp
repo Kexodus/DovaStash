@@ -170,6 +170,8 @@ namespace dova::core
 					c.note = value.get<std::string>();
 				} else if (key == "ignored" && value.is_boolean()) {
 					c.ignored = value.get<bool>();
+				} else if (key == "sell" && value.is_boolean()) {
+					c.sell = value.get<bool>();
 				} else if (key == "categories" && (value.is_array() || value.is_string())) {
 					if (auto list = detail::ReadStringList(value, a_source, where, a_diags)) {
 						c.categories = std::move(*list);
@@ -191,7 +193,7 @@ namespace dova::core
 						}
 					}
 				} else {
-					if (key == "label" || key == "note" || key == "ignored" || key == "categories" || key == "forms") {
+					if (key == "label" || key == "note" || key == "ignored" || key == "sell" || key == "categories" || key == "forms") {
 						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
 						a_diags.Warn(a_source, where + ": unknown field (preserved)");
@@ -224,6 +226,9 @@ namespace dova::core
 			}
 			if (a_c.ignored) {
 				out["ignored"] = true;
+			}
+			if (a_c.sell) {
+				out["sell"] = true;
 			}
 			if (!a_c.note.empty()) {
 				out["note"] = a_c.note;
@@ -400,6 +405,17 @@ namespace dova::core
 	{
 		const auto it = std::ranges::find_if(displays, [&](const DisplayBinding& d) { return d.ref == a_ref; });
 		return it == displays.end() ? nullptr : &*it;
+	}
+
+	bool Layout::IsSellChest(const FormRef& a_ref) const
+	{
+		const auto* c = FindContainer(a_ref);
+		return c && c->sell && !c->ignored && !IsMaster(a_ref);
+	}
+
+	bool Layout::HasSellChest() const
+	{
+		return std::ranges::any_of(containers, [&](const ContainerBinding& c) { return c.sell && !c.ignored && !IsMaster(c.ref); });
 	}
 
 	// --- Keep config -------------------------------------------------------------------------------
@@ -667,6 +683,9 @@ namespace dova::core
 		if (layout.master) {
 			if (const auto* c = layout.FindContainer(*layout.master); c && c->ignored) {
 				a_diags.Warn(source, "the master container is also listed as ignored");
+			}
+			if (const auto* c = layout.FindContainer(*layout.master); c && c->sell) {
+				a_diags.Warn(source, "the master container can't be the sell chest (\"sell\" ignored)");
 			}
 		}
 		return layout;

@@ -25,10 +25,11 @@
 // - SortAll:    every sort source (available master, or available non-ignored container with at
 //               least one category binding or explicit "forms" entry) -> its destination. Homeless
 //               items found outside the master go to the master. Containers without bindings (e.g.
-//               ones added by Learn: keepsake chests) are targets only and are never emptied. Ignored
-//               containers and containers not in the layout are neither sources nor targets.
+//               ones added by Learn: keepsake chests) and the sell chest (Layout::IsSellChest) are targets
+//               only and are never emptied. Ignored containers and containers not in the layout are
+//               neither sources nor targets.
 // - Retrieve:   items in managed containers whose primary category matches the pattern -> player.
-//               "*" retrieves everything, including homeless items.
+//               "*" retrieves everything, including homeless items. Never from the sell chest.
 // Moves never have from == to. Output order follows input order (containers, then stacks).
 
 #include <cstdint>
@@ -151,7 +152,8 @@ namespace dova::core
 		[[nodiscard]] bool IsManaged(const FormRef& a_container) const;
 		[[nodiscard]] bool IsAvailable(const FormRef& a_container) const;
 
-		// Master, or a non-ignored container with category bindings or explicit forms (SortAll sources).
+		// Master, or a non-ignored container with category bindings or explicit forms that is not the sell chest
+		// (SortAll sources).
 		[[nodiscard]] bool IsSortSource(const FormRef& a_container) const;
 
 		// Quest items, non-playable items, nameless items and empty stacks are never moved.

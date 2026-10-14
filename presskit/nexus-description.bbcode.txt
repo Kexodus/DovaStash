@@ -18,10 +18,11 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin, bookshelf or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor, a shelf for skill books. Your best weapons go up on the racks, your books on the shelves (as many as each holds, never more), and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down. The Menu Framework's [b]Displays[/b] page lists every display in the home and can use all the racks at once.
 [*][b]Dresses your mannequins.[/b] Each one wears your best matching armor set, or the set you pick from a searchable list of every set in your load order, modded sets included.
 [*][b]Materials at the workbench.[/b] At a home's forge, smelter, tanning rack, cooking pot, alchemy lab or enchanter, the materials stored in the home come to you, and what you don't use goes back when you're done. What you just made stays with you. Modded recipes and materials work too.
+[*][b]A sell chest for your junk.[/b] Make any container the sell chest: Clutter goes there, plus whatever you put in by hand. Nothing is sold until you choose [b]Sell now[/b] and confirm the total ("Sell 14 items for 862 gold?"), at the price a merchant would pay you. Stolen, improved, quest and favorited items, potions you made and what your keep rules keep never sell, and [b]Buy back[/b] undoes your last sale. Optional: sell by itself after a number of game hours.
 [*][b]Homes over several areas.[/b] Add the cellar or the grounds outside to a home: walk out of it and press [b]K[/b]. The forge outside then brings what is stored inside, and Deposit works in every area. Your existing setups don't change.
 [*][b]22 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and Creation Club homes. Save your own from the hotkey menu, learned items included, to share or to restore after a reset.
 [*][b]Your setups are backed up.[/b] Every change is also copied outside the Data folder, where cleaning MO2's overwrite folder can't reach it. Walk into a home whose setup is gone and press [b]K[/b]: [b]Restore your last setup[/b] brings it back.
-[*][b]Never loses an item.[/b] Enchantments, tempering, custom names, stolen flags and souls survive every move. Equipped, favorited and quest items stay with you. Containers that empty themselves when the area resets are refused.
+[*][b]Never loses an item.[/b] Enchantments, tempering, custom names, stolen flags and souls survive every move. Equipped, favorited and quest items stay with you. Containers that empty themselves when the area resets are refused. The only items that ever leave the game are the ones you sell from the sell chest, after you confirm.
 [*][b]Your UI, not ours.[/b] In-world menus are UIExtensions lists (any skin), with the game's message boxes as the fallback. Settings and the full editor live in SKSE Menu Framework.
 [*][b]QuickLoot IE support.[/b] A container's categories show as your own SkyUI icons, and items that belong elsewhere read "Iron Sword > Weapon Rack".
 [*][b]Live settings.[/b] Every option changes in game without a restart.
@@ -99,12 +100,13 @@ Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right
 [*]What the hotkey opens: UIExtensions lists, message boxes or the panel
 [*]Sort on arrival, sort when the master closes, learning (undo time, when to suggest a category), filling displays
 [*]Enable templates automatically
+[*]Sell chest: price, and selling by itself after a number of game hours (off)
 [*]QuickLoot IE: item tags and category icons
 [*]Activate prompt and floating icons
 [*]Log detail
 [*]Keep rules for every home
 [/list]
-[*][b]This home:[/b] actions, switching between the home's templates, containers and their categories, learned items, this home's keep rules, saving the home as a template, and restoring a saved copy of its setup.
+[*][b]This home:[/b] actions, the sell chest and this session's sales, switching between the home's templates, containers and their categories, learned items, this home's keep rules, saving the home as a template, and restoring a saved copy of its setup.
 [/list]
 [b]Keep rules[/b] decide what Deposit leaves in your inventory: equipped, favorited and quest items, gold, lockpicks and torches by default.
 

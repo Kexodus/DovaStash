@@ -279,7 +279,8 @@ namespace dova::core
 			}
 		};
 
-		// Containers in both: template categories win; the player's ignored flag, explicit forms,
+		// Containers in both: template categories and its sell chest win (the player's "sell" is not kept: the
+		// template's categories could otherwise send other items there); the player's ignored flag, explicit forms,
 		// label and note (when the template has none) and extra keys are kept.
 		for (auto& c : layout.containers) {
 			const auto* old = a_existing->FindContainer(c.ref);
@@ -315,6 +316,7 @@ namespace dova::core
 			}
 			ContainerBinding c = old;
 			c.categories.clear();
+			c.sell = false;  // a role, like the master: it comes from the template (DESIGN §8.7)
 			layout.containers.push_back(std::move(c));
 		}
 		// The previous master, if the template uses another one, stays known as a plain container.

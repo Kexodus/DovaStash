@@ -62,7 +62,7 @@ namespace dova::ui::panel::text
 	inline constexpr std::string_view kNodeCount = "{} ({})";  // name, count
 	inline constexpr auto             kRetrieve = "Retrieve";
 	inline constexpr auto             kNoTemplate = "No template matches this home.";
-	inline constexpr auto             kTemplatesTip = "Every template made for this home whose plugins are loaded, the one offered first at the top. Use switches this home's setup to it: the master and category bindings come from the template; your learned items, keep rules and ignored containers stay. Nothing is taken out of containers or off displays; Sort all then follows the new setup.";
+	inline constexpr auto             kTemplatesTip = "Every template made for this home whose plugins are loaded, the one offered first at the top. Use switches this home's setup to it: the master, sell chest and category bindings come from the template; your learned items, keep rules and ignored containers stay. Nothing is taken out of containers or off displays; Sort all then follows the new setup.";
 	inline constexpr std::string_view kTemplateLine = "{} v{} by {}";  // name, version, author
 	inline constexpr auto             kTemplateBest = "(recommended)";
 	inline constexpr auto             kTemplateApplied = "(in use)";
@@ -71,7 +71,21 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kUseTemplate = "Use";
 	inline constexpr auto             kReapplyTemplate = "Re-apply";
 	// Asked only when the setup has changes of the player's own (HomeSnapshot::ownChanges).
-	inline constexpr std::string_view kConfirmTemplate = "Use the template \"{}\"? Your changes to this setup are replaced: the master and category bindings come from the template. Your learned items, keep rules and ignored containers stay. Your setup is backed up first (Saved setups); no items are moved.";
+	inline constexpr std::string_view kConfirmTemplate = "Use the template \"{}\"? Your changes to this setup are replaced: the master, sell chest and category bindings come from the template. Your learned items, keep rules and ignored containers stay. Your setup is backed up first (Saved setups); no items are moved.";
+	// Sell chest (DESIGN §8.7; the hotkey menus use the ui:: strings in UI/Labels.h)
+	inline constexpr auto             kSellHeader = "Sell chest";
+	inline constexpr auto             kSellTip = "What is in the sell chest is sold for gold when you choose Sell now and confirm (or by timed selling, on the Settings page). The price is what a merchant would pay you: your Speech, Haggling and Fortify Barter. Stolen, improved, enchanted-by-you, renamed and quest items, potions you made, and what your keep rules always keep, stay. Nothing else is ever taken out of it.";
+	inline constexpr auto             kSellNotHere = "No sell chest can be reached from here.";
+	inline constexpr auto             kSellNothing = "Nothing to sell.";
+	inline constexpr std::string_view kSellQuote = "{} for {} gold: {}";  // "14 items", gold, what
+	inline constexpr std::string_view kBuyBackInfo = "Last sale: {} for {} gold ({}).";  // "14 items", gold, what
+	inline constexpr auto             kSalesHeader = "Sales this session";
+	inline constexpr std::string_view kSaleLine = "{}  {}: {} for {} gold{}";  // time, chests, "14 items", gold, tags
+	inline constexpr auto             kSaleTimed = " (timed)";
+	inline constexpr auto             kSaleBoughtBack = " (bought back)";
+	inline constexpr std::string_view kSaleItem = "{} x{}: {} gold";  // name, count, gold
+	inline constexpr auto             kSellTag = "[Sell] ";
+	inline constexpr auto             kSellChestInfo = "This is the sell chest. Items reach it like any container; nothing is taken out of it but by selling (Actions > Sell chest).";
 	inline constexpr auto             kResetHeader = "Reset";
 	inline constexpr auto             kResetHome = "Reset home...";
 	inline constexpr std::string_view kConfirmReset = "Reset Dova Stash for {}? Your setup is backed up (.bak); no items are moved.";

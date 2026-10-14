@@ -69,6 +69,23 @@ bCraftingSupply = true
 ; smelter would otherwise bring out every piece of gear you store. Tempered or enchanted copies never come.
 bCraftingSupplyGear = false
 
+[Selling]
+; The sell chest: look at a container, press the hotkey and choose "Make sell chest". Items reach it like
+; any container (its categories, or what you put in by hand), and nothing else is ever taken out of it.
+; What is in it is sold for gold only when you choose "Sell now" and confirm the total (or with timed
+; selling below). Stolen, improved, enchanted-by-you, renamed, quest and favorited items, potions you
+; made, and what your keep rules always keep (gold, lockpicks, torches) are never sold. Your last sale of
+; the session can be bought back for the same gold.
+
+; What a sale pays, in percent of the game's barter price for you (your Speech, Haggling and Fortify
+; Barter, as a merchant would pay). 100 = the game's price. 10 - 200.
+iSellPricePercent = 100
+
+; Timed selling: what has been in the sell chest for this many game hours is sold by itself when you
+; come home, close a container or wake up there (one HUD line says what it brought). Counted from when
+; Dova Stash first saw it this session, so never sooner. 0 = off: only "Sell now" sells. 0 - 168.
+iAutoSellHours = 0
+
 [UI]
 ; What the hotkey opens in the world. Dova Stash draws no menus of its own art: every option below
 ; uses a menu you already have, so whatever UI skin you use applies (any UIExtensions skin, or none).

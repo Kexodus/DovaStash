@@ -645,6 +645,58 @@ satchels, barrels and strong boxes are not (`esm_dump.py cell "HearthFires.esm|0
    another cell is filled, a single-cell home behaves differently from before, or a file without `cells` gains
    one.
 
+### 3.10 The sell chest (DESIGN §8.7)
+
+Breezehome set up (a master plus a chest bound to `weapons.*`), `iLogLevel = 0`, `[Selling]` at its defaults
+(`iSellPricePercent = 100`, `iAutoSellHours = 0`). Pick a spare container (a sack or an end table) as the sell
+chest. Find two clutter items' ids with `help "Tankard" 4` and `help "Silver Goblet" 4`.
+
+1. **Mark it.** Hotkey at the spare container → *Make sell chest...*. **Expected:** a message box explains it
+   (sold only on Sell now, after you confirm; stolen, improved, quest and kept items stay; nothing sold now).
+   *Yes* → HUD *Dova Stash: Sack is now the sell chest (Clutter)*; the setup file has `"sell": true` and
+   `"categories": ["misc.clutter"]` on it; the activate prompt reads *Sack (Sell: Clutter)*. Nothing was sold.
+   Startup log once a sale is planned: `Sell chest: barter settings fBarterMin 2 fBarterMax 3.3 fBarterSellMax ...`
+   (send the fBarterSellMax value back).
+2. **Routing.** `player.additem <tankard> 5`, `player.additem <goblet> 2`, `player.additem 0001397E 2` (Iron
+   Dagger), Deposit. **Expected:** the tankards and goblets go to the sell chest, the daggers to the weapons chest.
+   Put one Iron Dagger into the sell chest by hand: HUD *Iron Dagger now goes to Sack (K: undo)*; no category
+   question is ever asked for the sell chest. **Sort all**: the dagger stays in the sell chest. **Retrieve >
+   Everything**: nothing comes out of the sell chest. Sit at the forge: nothing comes from the sell chest.
+3. **Never sold.** Into the sell chest by hand: a stolen item (take something from a shop while unseen), an
+   improved weapon (grindstone), a potion you made, 10 lockpicks, a quest item if you have one (it will not go in:
+   fine). Then hotkey at the sell chest. **Expected:** *Sell now (N gold)...* is in its menu (above Rename).
+4. **Price.** Note the gold for the tankards and the dagger, then compare with a merchant (Belethor) for the same
+   items, Speech unchanged and no Allure: the same per-item price (the vanilla formula: value / (3.3 - 1.3 ×
+   Speech / 100), times Haggling and Fortify Barter). `player.setav speechcraft 100` → the sell chest's price
+   rises to half the value. `player.addperk 000BE128` (Haggling) → 10% more.
+5. **Sell now.** *Sell now (N gold)...* → message box *Sell 8 items for N gold?* with the items (*Silver Goblet
+   x2, Tankard x5 +1 more*) and what stays (*13 stay: 1 made by you, 1 customized, 1 stolen, 10 kept by a keep
+   rule*). *No*: nothing happens. *Yes*: HUD *Dova Stash: sold 8 items for N gold*; your gold rose by N; the
+   chest holds only what stays. Log: one `Sell chest: sold <item> xN for G gold (g each) from Sack [...]` per
+   stack and `Sell chest (sell now): sold 8 items for N gold in Breezehome` at info.
+6. **Buy back.** Hotkey at the sell chest (or the master) → *Buy back (N gold)...* → *Buy back 8 items for N
+   gold?* → *Yes*: HUD *bought back 8 items for N gold*, the items are back in the sell chest, your gold is down
+   by N. The entry is gone afterwards (one buy-back per sale). Drop your gold below N after a sale (`player.removeitem
+   0000000F <n>`): *buying back takes N gold*, nothing changes. Load a save: no buy-back is offered.
+7. **Changed meanwhile.** Panel → Actions → Sell chest shows *8 items for N gold: ...*. Click *Sell now
+   (N gold)...*, then before *Yes* put another tankard into the sell chest via the hotkey's Open (or Deposit).
+   **Expected:** *Yes* sells nothing: *the sell chest changed; sell again*. Click again: the new total.
+8. **Panel.** Containers tab: the sell chest is tagged *[Sell]*, its page says what it is, *Not the sell chest*
+   turns it off (HUD), *Make sell chest...* asks inline. Actions tab: *Sales this session* lists each sale (game
+   time, chest, items, gold, *(bought back)*); each opens to its items.
+9. **Timed selling.** Settings → *Sell by itself after* = 1 h. Put 3 tankards in the sell chest, close it.
+   **Expected:** nothing sold yet (log at debug: `timed selling (a container closed): 1 kinds of item seen since
+   day ...`). Wait 1 hour in the home (T): HUD *Dova Stash: sold 3 items for N gold*; the log says `(timed)`.
+   Put 2 more in, wait 30 minutes: nothing; wait another hour: they go. Leave the home for a day and come back:
+   what was there when you left is sold on entering. Load a save and wait 30 minutes: nothing (the period starts
+   again after a load). Set it back to *off*: nothing sells by itself any more.
+10. **Template switch.** With a sell chest of your own, switch to the home's template (panel *Use*): the sell
+    chest is no longer one (the role comes from the template); its items stay in it.
+11. **Fail if** anything is sold without a *Yes* (or timed selling off), anything leaves any other container, a
+    stolen / improved / enchanted-by-you / renamed / quest / favorited item or a potion you made is sold, the gold
+    differs from the confirmation, a buy-back gives back other items, or items appear on the floor next to the
+    chest instead of disappearing (then `RemoveItem` without a target drops rather than removes: send the log).
+
 ## 4. Robustness
 
 | # | Steps | Expected |

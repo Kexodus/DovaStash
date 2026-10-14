@@ -90,7 +90,8 @@ namespace dova::core
 			return true;
 		}
 		const auto* c = _layout.FindContainer(a_container);
-		return c && !c->ignored && (!c->categories.empty() || !c->forms.empty());
+		// The sell chest is a target only: what the player put there by hand stays until it is sold (DESIGN §8.7).
+		return c && !c->ignored && !_layout.IsSellChest(a_container) && (!c->categories.empty() || !c->forms.empty());
 	}
 
 	bool SortPlanner::IsAvailable(const FormRef& a_container) const
@@ -276,7 +277,7 @@ namespace dova::core
 			return moves;
 		}
 		for (const auto& contents : a_containers) {
-			if (!IsManaged(contents.ref) || !IsAvailable(contents.ref)) {
+			if (!IsManaged(contents.ref) || _layout.IsSellChest(contents.ref) || !IsAvailable(contents.ref)) {
 				continue;
 			}
 			for (const auto& item : contents.items) {

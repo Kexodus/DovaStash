@@ -54,6 +54,12 @@ namespace dova::core
 		[[nodiscard]] std::vector<std::int32_t> ComputeKeepCounts(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories,
 			std::vector<std::string>* a_why = nullptr) const;
 
+		// The sell chest's protection (DESIGN §8.7): true when an `always` entry keeps the item (quest items,
+		// non-playable items and items that come back when stored always count). Layers decide as above (a
+		// layout's `never` overrides a global `always`); quotas say how many to carry, not what may be sold, so
+		// they are not consulted. `a_why` receives the rule ("always misc.gems (layout)").
+		[[nodiscard]] bool AlwaysKeeps(const ItemInfo& a_item, const CategorySet& a_categories, std::string* a_why = nullptr) const;
+
 		struct Quota
 		{
 			std::optional<std::string>              category;

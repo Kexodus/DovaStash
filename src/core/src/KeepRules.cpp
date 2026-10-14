@@ -154,6 +154,37 @@ namespace dova::core
 		return rules;
 	}
 
+	bool KeepRules::AlwaysKeeps(const ItemInfo& a_item, const CategorySet& a_categories, std::string* a_why) const
+	{
+		auto why = [&](std::string a_text) {
+			if (a_why) {
+				*a_why = std::move(a_text);
+			}
+			return true;
+		};
+		if (a_item.questItem) {
+			return why("quest item");
+		}
+		if (!a_item.playable) {
+			return why("non-playable");
+		}
+		if (a_item.returns) {
+			return why("comes back when stored");
+		}
+		ItemView view;
+		view.item = &a_item;
+		view.primary = a_categories.Classify(a_item);
+		for (const auto& layer : _layers) {
+			if (const auto it = std::ranges::find_if(layer.always, [&](const KeepSelector& s) { return SelectorMatches(s, view); }); it != layer.always.end()) {
+				return why(std::format("always {} ({})", SelectorLabel(*it), layer.name));
+			}
+			if (std::ranges::any_of(layer.never, [&](const KeepSelector& s) { return SelectorMatches(s, view); })) {
+				return false;
+			}
+		}
+		return false;
+	}
+
 	std::vector<std::int32_t> KeepRules::ComputeKeepCounts(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories,
 		std::vector<std::string>* a_why) const
 	{

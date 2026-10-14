@@ -117,7 +117,7 @@ namespace dova::sort::crafting
 				add(*layout.master);
 			}
 			for (const auto& c : layout.containers) {
-				if (!c.ignored) {
+				if (!c.ignored && !layout.IsSellChest(c.ref)) {  // nothing leaves the sell chest but by selling (DESIGN §8.7)
 					add(c.ref);
 				}
 			}

@@ -78,7 +78,9 @@ namespace dova::sort
 				add(*a_layout.master);
 			}
 			for (const auto& c : a_layout.containers) {
-				if (!c.ignored) {
+				// The sell chest is a target only: nothing is taken out of it but by selling (DESIGN §8.7), so it is
+				// no source for Sort all, Retrieve, its counts or the displays.
+				if (!c.ignored && !a_layout.IsSellChest(c.ref)) {
 					add(c.ref);
 				}
 			}

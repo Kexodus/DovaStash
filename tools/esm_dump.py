@@ -1139,7 +1139,7 @@ MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms"
 CELLS_KEYS = {"cell", "label", "note"}
 LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "cells", "master", "containers", "displays",
                "keep", "learned", "declined", "basedOn"}
-CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
+CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms", "sell"}
 DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "only", "set", "ignored"}
 DISPLAY_KINDS = {"rack", "mannequin", "item", "case", "bookshelf"}
 
@@ -1275,6 +1275,11 @@ def check_layout(lo, doc, errors, warnings, category_ids):
             warnings.append(f"{where}: no label")
         if c.get("ignored") and c.get("categories"):
             warnings.append(f"{where}: ignored container also has categories")
+        # The sell chest (DESIGN 8.7): a boolean; inert on an ignored container or the master.
+        if "sell" in c and not isinstance(c["sell"], bool):
+            errors.append(f"{where}: sell must be true or false")
+        elif c.get("sell") and (c.get("ignored") or (mk and kl(key) == kl(mk))):
+            warnings.append(f"{where}: sell has no effect on an ignored container or the master")
         for cat in c.get("categories", []):
             if cat in cats_seen:
                 warnings.append(f"{where}: category {cat!r} also bound at {cats_seen[cat]}")

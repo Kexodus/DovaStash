@@ -66,6 +66,8 @@ namespace dova
 				DOVA_BOOL("Sorting", "bFillDisplays", sorting.fillDisplays),
 				DOVA_BOOL("Sorting", "bCraftingSupply", sorting.craftingSupply),
 				DOVA_BOOL("Sorting", "bCraftingSupplyGear", sorting.craftingSupplyGear),
+				DOVA_INT("Selling", "iSellPricePercent", selling.pricePercent),
+				DOVA_INT("Selling", "iAutoSellHours", selling.autoSellHours),
 				DOVA_INT("UI", "iMode", ui.mode),
 				DOVA_BOOL("UI", "bCenterMenus", ui.centerMenus),
 				DOVA_BOOL("Integrations", "bQuickLoot", integrations.quickLoot),
@@ -114,6 +116,8 @@ namespace dova
 		}
 		v.sorting.suggestCategoryAfter = std::clamp(v.sorting.suggestCategoryAfter, 0, 20);  // same ranges as the settings page
 		v.sorting.learnUndoSeconds = std::clamp(v.sorting.learnUndoSeconds, 0, 30);
+		v.selling.pricePercent = std::clamp(v.selling.pricePercent, 10, 200);
+		v.selling.autoSellHours = std::clamp(v.selling.autoSellHours, 0, 168);
 		// "nan"/"inf" in the INI parse as floats that std::clamp passes through: back to the defaults.
 		if (!std::isfinite(v.overlay.radius)) {
 			v.overlay.radius = def.overlay.radius;

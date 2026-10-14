@@ -16,6 +16,7 @@
 #include "Settings.h"
 #include "Sort/CraftingSupply.h"
 #include "Sort/DisplayFiller.h"
+#include "Sort/SellChest.h"
 #include "UI/MenuFramework.h"
 #include "UI/Overlay.h"
 #include "UI/UIExtensions.h"
@@ -66,6 +67,7 @@ namespace
 			dova::Controller::Get().Init();
 			dova::events::RegisterSinks();
 			dova::sort::crafting::RegisterSinks();
+			dova::sort::selling::RegisterSinks();
 			dova::ui::uiext::RegisterSinks();
 			dova::input::RegisterInputSink();
 			dova::hooks::InstallActivatePrompt();
@@ -74,6 +76,7 @@ namespace
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
 			dova::sort::crafting::Reset("loading a game");
+			dova::sort::selling::Reset("loading a game");
 			dova::display::Reset("loading a game");
 			dova::home::HomeRegistry::Get().ForgetVisits();
 			dova::Controller::Get().OnPreLoadGame();
@@ -81,6 +84,7 @@ namespace
 		case SKSE::MessagingInterface::kNewGame:
 			logger::info("kNewGame");
 			dova::sort::crafting::Reset("new game");
+			dova::sort::selling::Reset("new game");
 			dova::display::Reset("new game");
 			dova::home::HomeRegistry::Get().ForgetVisits();
 			dova::Controller::Get().OnPreLoadGame();

@@ -42,8 +42,8 @@ namespace dova::core
 			return std::nullopt;
 		}
 		const auto* binding = a_layout.FindContainer(a_container);
-		if (!binding || binding->ignored) {
-			return std::nullopt;
+		if (!binding || binding->ignored || binding->sell) {
+			return std::nullopt;  // never "send all Books to the sell chest?": a Yes there would sell them (DESIGN §8.7)
 		}
 		for (const auto& [category, count] : a_learned) {
 			if (count < a_threshold) {
