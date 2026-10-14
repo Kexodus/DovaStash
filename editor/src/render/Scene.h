@@ -156,6 +156,8 @@ namespace dova::editor::render
 		// fill. Tinted and outlined, the outline drawn through walls.
 		std::vector<std::uint32_t> tint;
 		std::vector<int>           multi;  // more selected references (multi-select): outlined like the selection
+		int                        only{ -1 };        // >= 0: draw just this reference (SceneRef::index), for thumbnails
+		std::uint32_t              background{ 0 };  // clear colour (RGBA8, 0 = the view's own)
 	};
 
 	struct PickResult

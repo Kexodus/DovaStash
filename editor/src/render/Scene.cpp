@@ -1067,6 +1067,9 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 
 		bool RefShown(const SceneRef& a_ref, const ViewOptions& o)
 		{
+			if (o.only >= 0 && a_ref.index != o.only) {
+				return false;
+			}
 			if (!KindShown(a_ref.kind, o) || (!o.showDisabled && a_ref.initiallyDisabled)) {
 				return false;
 			}
@@ -1097,7 +1100,12 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 	{
 		EnsurePipeline();
 		auto& s = *_shared;
-		const float clear[4] = { 0.11f, 0.12f, 0.14f, 1.0f };
+		float clear[4] = { 0.11f, 0.12f, 0.14f, 1.0f };
+		if (const std::uint32_t b = a_options.background; b != 0) {
+			for (int i = 0; i < 4; ++i) {
+				clear[i] = static_cast<float>((b >> (8 * i)) & 0xFF) / 255.0f;
+			}
+		}
 		a_ctx->ClearRenderTargetView(a_target._rtv.Get(), clear);
 		a_ctx->ClearDepthStencilView(a_target._dsv.Get(), D3D11_CLEAR_DEPTH, 0.0f, 0);
 		_drawCalls = 0;
