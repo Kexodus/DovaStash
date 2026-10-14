@@ -209,7 +209,6 @@ namespace dova::editor::ui
 		if (sorted.empty()) {
 			w::Spacer();
 			w::Coloured(w::Kind::Ok, "No problems");
-			w::Muted("The same checks as the DLL's.");
 		}
 		// The object a problem is about: "containers[3]", "displays[2]" or a form ref in the text.
 		auto refOf = [&](const std::string& a_text) -> int {

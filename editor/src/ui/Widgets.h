@@ -67,7 +67,8 @@ namespace dova::editor::ui::w
 	void MutedWrapped(const char* a_text);
 	void Small(const char* a_text);
 	void Mono(const char* a_text);     // a form ref or an EditorID
-	void SectionHead(const char* a_text);  // small caps heading, thin line, diamond at the left (EDITOR-UX.md §3.3)
+	// Small caps heading, thin line, diamond at the left (EDITOR-UX.md §3.3); `a_tooltip` adds an info mark.
+	void SectionHead(const char* a_text, const char* a_tooltip = nullptr);
 	void Tip(const char* a_text);          // tooltip when the last item is hovered (nullptr/empty: nothing)
 	void Spacer(float a_px = 0.0f);        // vertical space (default: the theme gap)
 

@@ -211,7 +211,16 @@ namespace dova::editor::ui
 			w::IconInline(w::Icon::Door, w::Th().muted);
 			ImGui::SameLine(0.0f, w::Th().gap);
 			ImGui::Text("%zu", a_home.doors.size());
-			w::Muted("chests and displays a template can use, load doors");
+			w::Muted("usable chests · displays · load doors");
+			// What the row's chip means.
+			w::Kind     kind = w::Kind::Neutral;
+			const auto  chip = HomeChip(static_cast<int>(i), &kind);
+			const char* meaning = chip == "saved"     ? "Saved this session"
+			                      : chip == "yours"   ? "Your template"
+			                      : chip == "shipped" ? "A template ships with Dova Stash or a mod"
+			                      : chip == "drafted" ? "Drafted, not saved"
+			                                          : "No template yet";
+			w::Coloured(kind, meaning);
 		}
 		for (const auto& e : a_home.extra) {
 			w::Muted(std::format("+ {} ({}){}", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely ? "" : ": storage behind a door").c_str());

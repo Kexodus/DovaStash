@@ -654,22 +654,20 @@ namespace dova::editor::ui
 		}
 		const bool busy = Busy();
 		ImGui::BeginDisabled(busy);
-		if (ImGui::Button("Accept all")) {
+		const float rowRight = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+		if (w::ToolButton("Accept all", false, "Every suggestion no other container has a stronger claim on")) {
 			AcceptAll();
 		}
-		w::Tip("Every suggestion no other container has a stronger claim on");
-		ImGui::SameLine(0.0f, 4.0f);
-		if (ImGui::Button("Reject the weak ones")) {
+		ImGui::SameLine(0.0f, 2.0f * t.scale);
+		if (w::ToolButton("Reject the weak ones", false, "Every suggestion under 50%")) {
 			RejectWeak();
 		}
-		w::Tip("Every suggestion under 50%");
-		if (ImGui::GetItemRectMax().x + 4.0f + ImGui::CalcTextSize("Draft again").x + 2.0f * ImGui::GetStyle().FramePadding.x <= ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - ImGui::GetStyle().ScrollbarSize) {
-			ImGui::SameLine(0.0f, 4.0f);
+		if (ImGui::GetItemRectMax().x + 2.0f * t.scale + ImGui::CalcTextSize("Draft again").x + 20.0f * t.scale <= rowRight) {
+			ImGui::SameLine(0.0f, 2.0f * t.scale);
 		}
-		if (ImGui::Button("Draft again")) {
+		if (w::ToolButton("Draft again", false, "Make the draft again from the plugins (after editing DraftRules.json)")) {
 			DraftAgain();
 		}
-		w::Tip("Make the draft again from the plugins (after editing DraftRules.json)");
 		ImGui::EndDisabled();
 
 		// The templates this home already has, and how far the draft agrees.
@@ -761,17 +759,8 @@ namespace dova::editor::ui
 			const auto* b = ref ? a_cell.layout.FindContainer(*ref) : nullptr;
 			accepted += b && !b->ignored && !b->categories.empty() ? 1 : 0;
 		}
-		w::SectionHead(std::format("Containers  {} of {}", accepted, d->plan.containers.size()).c_str());
-		ImGui::PushFont(t.smallFont);
-		w::Coloured(w::Kind::Ok, "name");
-		ImGui::SameLine(0.0f, t.gap);
-		w::Coloured(w::Kind::Warn, "nearby");
-		ImGui::SameLine(0.0f, t.gap);
-		w::Coloured(w::Kind::Error, "hint");
-		ImGui::SameLine(0.0f, t.gap);
-		w::Muted("· click a chip to accept or reject");
-		ImGui::PopFont();
-		w::Spacer(2.0f);
+		w::SectionHead(std::format("Containers  {} of {}", accepted, d->plan.containers.size()).c_str(),
+			"Suggested categories, coloured by where they come from:\n  green: the container's name says so\n  yellow: a station or items nearby\n  orange: a hint\nClick a chip to accept or reject it; hover it for the reason.");
 
 		std::vector<std::size_t> order(d->plan.containers.size());
 		for (std::size_t k = 0; k < order.size(); ++k) {
@@ -818,7 +807,8 @@ namespace dova::editor::ui
 				ImGui::PopFont();
 			} else if (c.suggestions.empty()) {
 				ImGui::PushFont(t.smallFont);
-				w::Muted("nothing: its things go to the master");
+				w::Muted("no categories");
+				w::Tip("Receives nothing: the master takes what has no place");
 				ImGui::PopFont();
 			}
 			for (std::size_t si = 0; si < c.suggestions.size() && !c.ignored && !master; ++si) {

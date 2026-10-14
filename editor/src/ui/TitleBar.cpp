@@ -51,22 +51,26 @@ namespace dova::editor::ui
 		// Emblem and name: the start panel.
 		ImGui::SameLine(0.0f, t.gap);
 		{
+			// Narrow windows (under ~1400 px) keep the emblem only.
+			const bool   named = W >= 1400.0f * t.scale;
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			const float  es = 18.0f * t.scale;
 			ImGui::PushFont(t.title);
-			const ImVec2 ts = ImGui::CalcTextSize("Dova Stash Editor");
+			const ImVec2 ts = named ? ImGui::CalcTextSize("Dova Stash Editor") : ImVec2(0, 0);
 			ImGui::PopFont();
 			const float h = ImGui::GetFrameHeight();
-			if (ImGui::InvisibleButton("emblem", ImVec2(es + t.gap + ts.x, h))) {
+			if (ImGui::InvisibleButton("emblem", ImVec2(es + (named ? t.gap + ts.x : 0.0f), h))) {
 				_showStart = _cell ? !_showStart : true;
 			}
 			const bool hov = ImGui::IsItemHovered();
-			w::Tip("Start");
+			w::Tip(named ? "Start" : "Dova Stash Editor: start");
 			ImDrawList* dl = ImGui::GetWindowDrawList();
-			w::DrawIcon(dl, w::Icon::Emblem, ImVec2(p.x, p.y + (h - es) * 0.5f), es, t.accent);
-			ImGui::PushFont(t.title);
-			dl->AddText(ImVec2(p.x + es + t.gap, p.y + (h - ts.y) * 0.5f), hov ? t.select : t.text, "Dova Stash Editor");
-			ImGui::PopFont();
+			w::DrawIcon(dl, w::Icon::Emblem, ImVec2(p.x, p.y + (h - es) * 0.5f), es, hov && !named ? t.select : t.accent);
+			if (named) {
+				ImGui::PushFont(t.title);
+				dl->AddText(ImVec2(p.x + es + t.gap, p.y + (h - ts.y) * 0.5f), hov ? t.select : t.text, "Dova Stash Editor");
+				ImGui::PopFont();
+			}
 		}
 		ImGui::SameLine(0.0f, t.pad);
 		Divider();
@@ -94,7 +98,19 @@ namespace dova::editor::ui
 				homeName += " · " + (_cell->info.name.empty() ? _cell->info.editorId : _cell->info.name);  // another cell of the home
 			}
 		}
-		if (w::BeginPopover("switcher", homeName.c_str(), w::Icon::Home, 0, "Homes  (type to filter)")) {
+		// A long name ends in "..." so the row never runs into 3D | Plan and the right group.
+		const std::string fullName = homeName;
+		const float       maxNameW = std::clamp(W * 0.22f, 120.0f * t.scale, 360.0f * t.scale);
+		if (ImGui::CalcTextSize(homeName.c_str()).x > maxNameW) {
+			while (homeName.size() > 4 && ImGui::CalcTextSize((homeName + "...").c_str()).x > maxNameW) {
+				homeName.pop_back();
+				while (!homeName.empty() && (static_cast<unsigned char>(homeName.back()) & 0xC0) == 0x80) {
+					homeName.pop_back();  // a whole UTF-8 character
+				}
+			}
+			homeName += "...";
+		}
+		if (w::BeginPopover("switcher", (homeName + "###switcher").c_str(), w::Icon::Home, 0, fullName != homeName ? fullName.c_str() : "Homes  (type to filter)")) {
 			if (ImGui::IsWindowAppearing()) {
 				_switcherSearch.clear();
 			}
@@ -107,13 +123,10 @@ namespace dova::editor::ui
 			if (_cell->dirty || AnyUnsaved()) {
 				ImGui::SameLine(0.0f, t.gap);
 				ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - ImGui::GetTextLineHeight()) * 0.5f);
-				w::StatusDot(w::Kind::Warn, _cell->dirty ? "The template has unsaved changes" : "Reviewed drafts are not saved");
-				ImGui::SameLine(0.0f, 3.0f * t.scale);
-				ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - ImGui::GetTextLineHeight()) * 0.5f);
-				w::Muted("unsaved");
+				w::StatusDot(w::Kind::Warn, _cell->dirty ? "Unsaved changes" : "Reviewed drafts not saved");
 			}
-			// The template's status: none, shipped, yours, draft.
-			std::string chip = "none";
+			// The template's status at a glance: no template, shipped, yours, draft.
+			std::string chip = "no template";
 			w::Kind     kind = w::Kind::Neutral;
 			bool        user = false;
 			const auto  existing = _cellDraft >= 0 && _homes ? HomeStatus(_homes->homes[static_cast<std::size_t>(_cellDraft)], &user) : std::string{};
@@ -134,8 +147,8 @@ namespace dova::editor::ui
 			ImGui::SameLine(0.0f, t.gap);
 			ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - 18.0f * t.scale) * 0.5f);
 			w::Chip(chip.c_str(), kind);
-			w::Tip(chip == "draft"     ? "A draft: not saved yet"
-			       : chip == "none"    ? "No template yet: the draft is untouched"
+			w::Tip(chip == "draft"         ? "Changed, not saved yet"
+			       : chip == "no template" ? "This home has no template yet"
 			       : chip == "shipped" ? (existing.empty() ? "Opened from a shipped template" : ("This home has a template: " + existing).c_str())
 			                           : "Your template");
 		}
@@ -148,7 +161,7 @@ namespace dova::editor::ui
 		{
 			static constexpr const char* views[] = { "3D", "Plan" };
 			static constexpr const char* tips[] = { "3D view  1", "Floor plan  2" };
-			const float segW = ImGui::CalcTextSize("3D").x + ImGui::CalcTextSize("Plan").x + 4.0f * ImGui::GetStyle().FramePadding.x + 2.0f;
+			const float segW = ImGui::CalcTextSize("3D").x + ImGui::CalcTextSize("Plan").x + 48.0f * t.scale;  // Segmented: 12 px each side
 			float       x = (W - segW) * 0.5f;
 			x = std::max(x, _titleLeftW + t.pad * 1.5f);
 			if (x + segW < rightX - t.pad) {
@@ -308,17 +321,26 @@ namespace dova::editor::ui
 		}
 		ImGui::PopItemWidth();
 		w::Spacer();
-		if (ImGui::Button("Rescan  F5")) {
+		if (w::IconTextButton("Rescan", w::Icon::Refresh, false, "Read the load order again after a change in MO2", "F5")) {
 			Rescan();
 		}
-		w::Spacer();
-		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 440.0f * t.scale);
 		if (_ws) {
-			w::MutedWrapped(_ws->Describe().c_str());
+			int enabled = 0, total = 0;
+			for (const auto& m : _ws->Mods()) {
+				if (!m.separator && !m.unmanaged) {
+					++total;
+					enabled += m.enabled ? 1 : 0;
+				}
+			}
+			ImGui::SameLine(0.0f, t.pad);
+			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (t.inputH - ImGui::GetTextLineHeight()) * 0.5f);
+			w::Muted(_ws->Instance() ? std::format("{} of {} mods enabled", enabled, total).c_str() : "Data folder only");
+			w::Tip(_ws->Describe().c_str());
 		} else if (!_wsError.empty()) {
+			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 440.0f * t.scale);
 			w::ColouredWrapped(w::Kind::Error, _wsError.c_str());
+			ImGui::PopTextWrapPos();
 		}
-		ImGui::PopTextWrapPos();
 	}
 
 	void EditorApp::ApplySetup(std::optional<std::filesystem::path> a_mo2, std::optional<std::string> a_profile)

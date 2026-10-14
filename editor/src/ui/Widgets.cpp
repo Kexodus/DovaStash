@@ -368,7 +368,7 @@ namespace dova::editor::ui::w
 		PopFont();
 	}
 
-	void SectionHead(const char* a_text)
+	void SectionHead(const char* a_text, const char* a_tooltip)
 	{
 		const Theme& t = Th();
 		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
@@ -388,7 +388,17 @@ namespace dova::editor::ui::w
 		dl->AddQuadFilled(ImVec2(dx, cy - d), ImVec2(dx + d, cy), ImVec2(dx, cy + d), ImVec2(dx - d, cy), t.accentDim);
 		const float tx = bb.Min.x + 2.0f * d + 6.0f * t.scale;
 		const float tw = Tracked(dl, font, ImVec2(tx, bb.Min.y + (h - font->LegacySize) * 0.5f), t.muted, a_text, tracking, true);
-		const float x0 = std::round(tx + tw + 8.0f * t.scale);
+		float       x0 = std::round(tx + tw + 8.0f * t.scale);
+		if (a_tooltip && *a_tooltip) {
+			const float  is = std::round(12.0f * t.scale);
+			const ImVec2 ip(x0 - 2.0f * t.scale, std::round(bb.Min.y + (h - is) * 0.5f));
+			const bool   over = ImGui::IsMouseHoveringRect(bb.Min, ImVec2(ip.x + is, bb.Max.y)) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+			DrawIcon(dl, Icon::Info, ip, is, over ? t.text : t.muted);
+			if (over) {
+				ImGui::SetTooltip("%s", a_tooltip);
+			}
+			x0 = ip.x + is + 6.0f * t.scale;
+		}
 		if (x0 < bb.Max.x) {
 			dl->AddRectFilled(ImVec2(x0, std::floor(cy)), ImVec2(bb.Max.x, std::floor(cy) + 1.0f), t.line);
 		}

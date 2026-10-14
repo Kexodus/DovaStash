@@ -629,8 +629,14 @@ namespace dova::editor::ui
 
 	void EditorApp::DrawTemplate(OpenCell& a_cell)
 	{
-		auto& t = a_cell.layout;
-		bool  changed = false;
+		auto&       t = a_cell.layout;
+		bool        changed = false;
+		const auto& th = w::Th();
+		// The fields scroll; Save stays pinned under them like a form's footer (clear of the rail's collapse handle).
+		const float footerH = th.inputH + 2.0f * th.gap + 1.0f;
+		const float bodyH = std::max(ImGui::GetContentRegionAvail().y - footerH - 28.0f * th.scale, 80.0f * th.scale);
+		ImGui::BeginChild("tplbody", ImVec2(0, bodyH), ImGuiChildFlags_None, ImGuiWindowFlags_None);
+		ImGui::PushItemWidth(-FLT_MIN);
 		w::SectionHead("Template");
 		w::FieldLabel("Name");
 		changed |= ImGui::InputText("##name", &t.name);
@@ -756,30 +762,39 @@ namespace dova::editor::ui
 			w::Tip(_state.saveTarget.empty() ? "A mod of its own, never MO2's overwrite folder: clearing overwrite cannot delete it" : "An existing mod that holds templates");
 			ImGui::PushTextWrapPos(0.0f);
 			w::MutedWrapped(PathToUtf8(TemplatePath(a_cell)).c_str());
-			ImGui::PopTextWrapPos();
-		}
-		const int errors = ErrorCount(a_cell);
-		if (w::PrimaryButton("Save", errors == 0, "The checks find errors: see Checks")) {
-			RequestSave();
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Save as...")) {
-			SaveTemplateAs(a_cell);
-		}
-		w::Tip("A copy anywhere (the template stays where it is saved)");
-		ImGui::SameLine();
-		if (ImGui::Button("Copy JSON")) {
-			ImGui::SetClipboardText(a_cell.json.c_str());
-		}
-		if (!a_cell.saveMessage.empty()) {
-			ImGui::PushTextWrapPos(0.0f);
-			w::ColouredWrapped(a_cell.saveMessage.starts_with("Not saved") ? w::Kind::Error : w::Kind::Ok, a_cell.saveMessage.c_str());
+			if (!a_cell.saveMessage.empty()) {
+				w::ColouredWrapped(a_cell.saveMessage.starts_with("Not saved") ? w::Kind::Error : w::Kind::Ok, a_cell.saveMessage.c_str());
+			}
 			ImGui::PopTextWrapPos();
 		}
 		if (ImGui::CollapsingHeader("JSON")) {
-			ImGui::PushFont(w::Th().mono);
+			ImGui::PushFont(th.mono);
 			ImGui::InputTextMultiline("##json", a_cell.json.data(), a_cell.json.size() + 1, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16.0f), ImGuiInputTextFlags_ReadOnly);
 			ImGui::PopFont();
+		}
+		ImGui::PopItemWidth();
+		ImGui::EndChild();
+
+		// The footer: Save, Save as..., Copy JSON.
+		{
+			const ImVec2 p = ImGui::GetCursorScreenPos();
+			ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + ImGui::GetContentRegionAvail().x, p.y + 1.0f), th.line);
+			ImGui::Dummy(ImVec2(0.0f, th.gap));
+			const int errors = ErrorCount(a_cell);
+			if (w::PrimaryButton("Save", errors == 0, "The checks find errors: see Checks")) {
+				RequestSave();
+			}
+			if (errors == 0) {
+				w::TipShortcut(PathToUtf8(TemplatePath(a_cell)).c_str(), "Ctrl+S");
+			}
+			ImGui::SameLine(0.0f, th.gap);
+			if (w::ToolButton("Save as...", false, "A copy anywhere; the template stays where it is saved")) {
+				SaveTemplateAs(a_cell);
+			}
+			ImGui::SameLine(0.0f, 2.0f * th.scale);
+			if (w::ToolButton("Copy JSON", false, "The template as JSON, to the clipboard")) {
+				ImGui::SetClipboardText(a_cell.json.c_str());
+			}
 		}
 		if (changed) {
 			a_cell.dirty = true;

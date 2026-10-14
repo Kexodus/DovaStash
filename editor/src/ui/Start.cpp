@@ -141,7 +141,6 @@ namespace dova::editor::ui
 			w::Muted(std::format("{} plugins read in {:.1f} s", _homes->lo ? _homes->lo->PluginCount() : 0, static_cast<double>(_homes->ms) / 1000.0).c_str());
 		} else {
 			w::Heading("Finding the player homes...");
-			w::Muted("Every cell of the active load order, read once.");
 		}
 		if (art) {
 			dl->ChannelsSetCurrent(0);
