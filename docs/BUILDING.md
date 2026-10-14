@@ -100,7 +100,7 @@ $exe = 'build\editor\editor\Release\DovaStashEditor.exe'
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all                                  # every home: status, master + reason, suggestions
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all --only Aldamar --verbose         # one home, every reason
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all --compare --base-game            # accuracy against the shipped templates
-& $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all --save-to C:\Temp\Drafts --author Me   # save the drafts of homes without a template
+& $exe --mo2 'E:\modding\Kexodus Skyrim' --draft-all --save-to C:\Temp\Drafts --author Me   # save the drafts of homes without a template as auto-drafts (never over someone's)
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --preview WhiterunBreezehome --sample haul   # per container: what it would receive
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --screenshot start.png                 # the start panel
 & $exe --mo2 'E:\modding\Kexodus Skyrim' --gui --drafts --home Breezehome --screenshot drafts.png   # Draft all homes, Breezehome's Draft panel

@@ -217,8 +217,8 @@ runtime via `TESDataHandler::LookupForm(localID, plugin)`.
   into `���.esp`.
 - A second `containers` or `displays` entry for the same `ref` is a warning: the first entry is the
   binding everywhere (menus, prompts, the planner), the duplicate is kept verbatim and never used. A
-  `name`, `author`, `version` or `priority` of the wrong type is an error kept verbatim as well: it is
-  written back unchanged until the field gets a real value.
+  `name`, `author`, `version`, `priority` or `autoDraft` of the wrong type is an error kept verbatim as well:
+  it is written back unchanged until the field gets a real value.
 
 ### 6.2 Layout resolution (per cell)
 
@@ -231,8 +231,10 @@ On entering an eligible cell:
    that layout is used, and the cell's own templates are not offered.
 2. Otherwise, use every template in `Templates/**` whose `cell` matches:
    - With one match, offer it.
-   - With several, pick the one with the highest `priority`, then the player's own saved templates
-     (`Templates/User/`, §6.5) before the others, then the newest `version`. The UI lists the
+   - With several, pick the one with the highest `priority`, then templates someone made before
+     auto-drafts (`"autoDraft": true`, §6.8: an auto-draft never takes the place of a person's template,
+     whatever its version), then the player's own saved templates (`Templates/User/`, §6.5) before the
+     others, then the newest `version`. The UI lists the
      alternatives. A template is offered when its `cell` matches and every plugin in `requires` is
      loaded; player exports follow the same rules.
 3. Applying a template **copies** it into `Layouts/`, with a `"basedOn"` back-reference. Later edits
@@ -245,6 +247,7 @@ On entering an eligible cell:
 ```jsonc
 {
   "$schema": "dovastash-layout-1",
+  // "autoDraft": true,                // only in files the editor's "Draft all homes" wrote and nobody saved since (§6.8)
   "name": "Breezehome",
   "note": "Each container takes the item categories listed...",  // optional, for people reading the file
   "author": "Dova Stash",
@@ -527,6 +530,32 @@ HUD: *Dova Stash: Grounds is now part of Lakeview Manor* (*this area is now part
 **Feedback.** The log names the home's areas and, per container, its area and whether the other areas reach it
 (debug, once per load of the home). The panel's header says *in Grounds* in an extra area; container rows in
 another area show it (*In Cellar*, and *(Cellar)* next to *available* when used from here).
+
+### 6.8 Auto-drafts (the editor's "Draft all homes")
+
+The Dova Stash Editor (`docs/EDITOR.md` §3.4) can draft every home of a load order at once and save the
+drafts as templates (*Save N drafts...* in the window, `--draft-all --save-to` on the command line). Those
+files are machine-made, and a person may already have a template for the same home, so they carry a mark and
+a bulk save never replaces anyone's work:
+
+- **The mark.** A template written by the bulk save from a draft nobody changed has `"autoDraft": true` at
+  the top (`core::Layout::autoDraft`; written right after `$schema`, only when true). A draft the author
+  reviewed before the bulk save is theirs: it is saved without the mark.
+- **Never over a person's template** (`core::CheckAutoDraftTarget`, given the destination's template files
+  from `core::ScanTemplateFiles`): an auto-draft is written only where there is no file, or where the file is
+  that home's own earlier auto-draft (its `cell` or `cells` among the home's cells), which it refreshes (old
+  file kept as `.bak`, version raised, as any save). The file at the target is read again from disk just before
+  writing. Left alone, and said so: a file without the mark (hand-made, downloaded, or an auto-draft someone
+  has since saved), a file that cannot be read (in doubt, it is a person's), another home's auto-draft (two
+  homes with the same name share a folder), and any home that already has a template someone made anywhere in
+  the destination's `Templates/` (another author's file in the home's folder, or the older
+  `Templates/<Author>/<Name>.json` layout). Homes with a template elsewhere in the load order are not
+  drafted into files at all unless asked (`--include-templated`), and never over one.
+- **Taking it over.** Saving the file as a person (the editor's *Save*, *Save as...*, a single home's draft)
+  writes it without the mark: from then on no bulk draft touches it.
+- **In game** an auto-draft loads like any template. It ranks below a template someone made at the same
+  priority (§6.2), and applying it gives a player layout without the mark (`ApplyTemplate`; `ExportAsTemplate`
+  never writes it either). There is no in-game UI for it.
 
 ---
 

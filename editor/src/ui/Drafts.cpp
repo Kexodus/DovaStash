@@ -30,7 +30,7 @@ namespace dova::editor::ui
 		std::string Label(const core::DraftObject& a_o) { return a_o.name.empty() ? (a_o.editorId.empty() ? a_o.id : a_o.editorId) : a_o.name; }
 	}
 
-	std::string EditorApp::HomeStatus(const home::HomeEntry& a_home, bool* a_user) const
+	std::string EditorApp::HomeStatus(const home::HomeEntry& a_home, bool* a_user, bool* a_autoDraft) const
 	{
 		if (!_homes) {
 			return {};
@@ -43,12 +43,17 @@ namespace dova::editor::ui
 				}
 			}
 		}
-		// The player's own: Templates/User, the "Dova Stash Templates" mod, or the mod picked under Save to.
+		// The player's own: Templates/User, the "Dova Stash Templates" mod, or the mod picked under Save to. An
+		// auto-draft (DESIGN §6.8) is nobody's yet: the home still counts as without a template.
 		auto       mine = [&](const home::KnownTemplate* t) { return t->user || (!_state.saveTarget.empty() && core::IEquals(t->origin, _state.saveTarget)); };
-		const bool user = std::ranges::any_of(list, mine);
-		const bool shipped = std::ranges::any_of(list, [&](const home::KnownTemplate* t) { return !mine(t); });
+		auto       auto_ = [](const home::KnownTemplate* t) { return t->layout.autoDraft; };
+		const bool user = std::ranges::any_of(list, [&](const home::KnownTemplate* t) { return !auto_(t) && mine(t); });
+		const bool shipped = std::ranges::any_of(list, [&](const home::KnownTemplate* t) { return !auto_(t) && !mine(t); });
 		if (a_user) {
 			*a_user = user;
+		}
+		if (a_autoDraft) {
+			*a_autoDraft = std::ranges::any_of(list, auto_);
 		}
 		return user && shipped ? "yours + shipped" : user ? "yours" : shipped ? "shipped" : "";
 	}
@@ -579,7 +584,7 @@ namespace dova::editor::ui
 		}
 	}
 
-	void EditorApp::SaveDraft(int a_index)
+	home::SaveResult EditorApp::SaveDraft(int a_index, bool a_autoDraft)
 	{
 		auto&      e = EnsureDraft(a_index);
 		const auto& h = _homes->homes[static_cast<std::size_t>(a_index)];
@@ -587,11 +592,15 @@ namespace dova::editor::ui
 		if (!_templateAuthor.empty()) {
 			e.draft->layout.author = _templateAuthor;
 		}
-		const auto r = home::SaveTemplateFile(SaveBase(), e.draft->layout, ownMod, h.name);
+		// A bulk save never replaces a template someone made; an unreviewed draft goes out marked as an auto-draft.
+		const auto r = home::SaveTemplateFile(SaveBase(), e.draft->layout, { .modMeta = ownMod, .autoDraft = a_autoDraft, .onlyOverAutoDrafts = true }, h.name);
 		if (r.ok) {
-			e.saveMessage = std::format("Saved version {} to {}{}", r.version, PathToUtf8(r.path), r.replaced ? " (the old file is kept as .bak)" : "");
+			e.saveMessage = std::format("Saved {}version {} to {}{}", a_autoDraft ? "as an auto-draft, " : "", r.version, PathToUtf8(r.path),
+				r.replaced ? " (the old file is kept as .bak)" : "");
 			e.reviewed = false;
-			_state.Advance(h.cellRef, h.name, HomeStage::Saved, PathToUtf8(r.path));
+			if (!a_autoDraft) {
+				_state.Advance(h.cellRef, h.name, HomeStage::Saved, PathToUtf8(r.path));  // an auto-draft is not the author's save (EDITOR-UX.md §2.8)
+			}
 			if (_cellDraft == a_index && _cell) {
 				_cell->layout = e.draft->layout;
 				_cell->dirty = false;
@@ -601,12 +610,44 @@ namespace dova::editor::ui
 		} else {
 			e.saveMessage = "Not saved: " + r.error;
 		}
+		return r;
+	}
+
+	void EditorApp::PlanBulkSave()
+	{
+		_bulkSave.clear();
+		if (!_homes || !_ws) {
+			return;
+		}
+		const auto            base = SaveBase();
+		const auto            files = core::ScanTemplateFiles(home::TemplatesDir(base));
+		std::vector<fs::path> planned;
+		for (std::size_t i = 0; i < _homes->homes.size(); ++i) {
+			const auto& e = _homes->entries[i];
+			if (!e.draft || !HomeStatus(_homes->homes[i]).empty()) {
+				continue;
+			}
+			auto copy = e.draft->layout;
+			if (!_templateAuthor.empty()) {
+				copy.author = _templateAuthor;
+			}
+			const auto target = home::TemplatePath(base, copy, _homes->homes[i].name);
+			auto       check = core::CheckAutoDraftTarget(files, target, home::HomeCellRefs(*_homes->lo, _homes->homes[i]));
+			// Two homes with the same name share a file: the first one listed gets it (SaveTemplateFile refuses the second).
+			if (const auto earlier = std::ranges::find_if(planned, [&](const fs::path& p) { return core::IEquals(PathToUtf8(p), PathToUtf8(target)); });
+				earlier != planned.end() && (check.verdict == core::AutoDraftVerdict::New || check.verdict == core::AutoDraftVerdict::Refresh)) {
+				check = { core::AutoDraftVerdict::OtherHome, target };
+			}
+			planned.push_back(target);
+			_bulkSave.push_back({ static_cast<int>(i), std::move(check), e.reviewed });
+		}
 	}
 
 	void EditorApp::DrawSaveDraftsPopup()
 	{
 		if (_confirmSaveAll && !ImGui::IsPopupOpen("Save drafts")) {
 			SyncCellToDraft();
+			PlanBulkSave();
 			ImGui::OpenPopup("Save drafts");
 		}
 		if (ImGui::BeginPopupModal("Save drafts", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -616,34 +657,62 @@ namespace dova::editor::ui
 				ImGui::EndPopup();
 				return;
 			}
-			const auto      base = SaveBase();
-			int             fresh = 0, existing = 0;
-			std::error_code ec;
-			for (std::size_t i = 0; i < _homes->homes.size(); ++i) {
-				auto& e = _homes->entries[i];
-				if (e.draft && HomeStatus(_homes->homes[i]).empty()) {
-					auto copy = e.draft->layout;
-					copy.author = _templateAuthor;
-					(fs::exists(home::TemplatePath(base, copy, _homes->homes[i].name), ec) ? existing : fresh) += 1;
+			const auto base = SaveBase();
+			const auto blocked = [](const BulkSaveItem& a_item) {
+				return a_item.check.verdict == core::AutoDraftVerdict::Person || a_item.check.verdict == core::AutoDraftVerdict::OtherHome;
+			};
+			int fresh = 0, refresh = 0, reviewed = 0;
+			for (const auto& item : _bulkSave) {
+				fresh += item.check.verdict == core::AutoDraftVerdict::New ? 1 : 0;
+				refresh += item.check.verdict == core::AutoDraftVerdict::Refresh ? 1 : 0;
+				reviewed += item.reviewed && !blocked(item) ? 1 : 0;
+			}
+			const int skipped = static_cast<int>(_bulkSave.size()) - fresh - refresh;
+			ImGui::Text("Save %d drafts of homes without a template into", fresh + refresh);
+			w::Mono(PathToUtf8(base).c_str());
+			ImGui::Text("%d new files, %d earlier auto-drafts refreshed (each backed up as .bak first, its version raised).", fresh, refresh);
+			w::Muted("Marked as auto-drafts: the next Draft all homes may refresh them. Save one (Ctrl+S) to make it yours.");
+			if (reviewed > 0) {
+				w::Muted(std::format("{} reviewed draft{} {} saved as yours, without the mark.", reviewed, reviewed == 1 ? "" : "s", reviewed == 1 ? "is" : "are").c_str());
+			}
+			if (skipped > 0) {
+				// The homes left alone, by name; the file in the way in the tooltip.
+				const auto others = std::ranges::count_if(_bulkSave, [](const BulkSaveItem& a_item) { return a_item.check.verdict == core::AutoDraftVerdict::OtherHome; });
+				w::Coloured(w::Kind::Warn, std::format("{} home{} left alone: {}.", skipped, skipped == 1 ? "" : "s",
+											   others == 0        ? "a template someone made is there"
+											   : others == skipped ? "another home of the same name has the file"
+																   : "a template someone made, or another home of the same name, has the file")
+											   .c_str());
+				int shown = 0;
+				for (const auto& item : _bulkSave) {
+					if (!blocked(item)) {
+						continue;
+					}
+					if (++shown > 8) {
+						w::Muted(std::format("and {} more", skipped - 8).c_str());
+						break;
+					}
+					ImGui::BulletText("%s", _homes->homes[static_cast<std::size_t>(item.home)].name.c_str());
+					w::Tip((PathToUtf8(item.check.blocker) + (item.check.verdict == core::AutoDraftVerdict::Person ? "\na template someone made" : "\nanother home of the same name")).c_str());
 				}
 			}
-			ImGui::Text("Save %d drafts of homes without a template into", fresh + existing);
-			w::Mono(PathToUtf8(base).c_str());
-			ImGui::Text("%d new files, %d that exist already (each backed up as .bak first, its version raised).", fresh, existing);
 			if (_templateAuthor.empty()) {
 				w::Coloured(w::Kind::Warn, "No author name: the files go under \"Unknown\" (Setup).");
 			}
 			w::Spacer();
-			if (w::PrimaryButton("Save them", fresh + existing > 0)) {
-				int saved = 0, failed = 0;
-				for (std::size_t i = 0; i < _homes->homes.size(); ++i) {
-					if (_homes->entries[i].draft && HomeStatus(_homes->homes[i]).empty()) {
-						SaveDraft(static_cast<int>(i));
-						(_homes->entries[i].saveMessage.starts_with("Saved") ? saved : failed) += 1;
+			if (w::PrimaryButton("Save them", fresh + refresh > 0)) {
+				int saved = 0, left = skipped, failed = 0;
+				for (const auto& item : _bulkSave) {
+					if (blocked(item)) {
+						continue;
 					}
+					const auto r = SaveDraft(item.home, !item.reviewed);
+					(r.ok ? saved : r.skipped ? left : failed) += 1;
 				}
 				_homes->templates = home::LoadTemplateIndex(*_ws);
-				SetStatus(std::format("Saved {} drafts{}", saved, failed ? std::format(", {} not saved", failed) : std::string{}), failed > 0);
+				SetStatus(std::format("Saved {} drafts{}{}", saved, left ? std::format(", {} homes left alone", left) : std::string{},
+							  failed ? std::format(", {} not saved", failed) : std::string{}),
+					failed > 0);
 				_confirmSaveAll = false;
 				ImGui::CloseCurrentPopup();
 			}
@@ -692,8 +761,9 @@ namespace dova::editor::ui
 				const auto cmp = home::CompareToTemplate(a_cell.layout, tp->layout, *_categorySet);
 				ImGui::PushFont(t.smallFont);
 				ImGui::PushTextWrapPos(0.0f);
-				w::ColouredWrapped(tp->user ? w::Kind::Ok : w::Kind::Info,
-					std::format("{} template: {} of {} categories agree, master {}", tp->user ? "Your" : "A", cmp.sameDestination, cmp.categories, cmp.sameMaster ? "the same" : "differs").c_str());
+				w::ColouredWrapped(tp->layout.autoDraft ? w::Kind::Warn : tp->user ? w::Kind::Ok : w::Kind::Info,
+					std::format("{}: {} of {} categories agree, master {}", tp->layout.autoDraft ? "An auto-draft" : tp->user ? "Your template" : "A template", cmp.sameDestination,
+						cmp.categories, cmp.sameMaster ? "the same" : "differs").c_str());
 				ImGui::PopTextWrapPos();
 				ImGui::PopFont();
 				if (ImGui::BeginItemTooltip()) {

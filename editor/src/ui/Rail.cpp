@@ -154,7 +154,8 @@ namespace dova::editor::ui
 		const auto& e = _homes->entries[static_cast<std::size_t>(a_index)];
 		const auto  stage = _state.StageOf(h.cellRef);
 		bool        user = false;
-		const auto  status = HomeStatus(h, &user);
+		bool        autoDraft = false;
+		const auto  status = HomeStatus(h, &user, &autoDraft);
 		auto        set = [&](w::Kind a_k) {
             if (a_kind) {
                 *a_kind = a_k;
@@ -176,6 +177,10 @@ namespace dova::editor::ui
 		if (!status.empty()) {
 			set(w::Kind::Info);
 			return more("shipped");
+		}
+		if (autoDraft) {
+			set(w::Kind::Warn);  // saved by Draft all homes, nobody's yet (DESIGN §6.8)
+			return more("auto-draft");
 		}
 		if (e.draft || stage != HomeStage::None) {
 			set(w::Kind::Warn);
@@ -241,6 +246,7 @@ namespace dova::editor::ui
 			const char* meaning = chip.starts_with("saved")     ? "Saved this session"
 			                      : chip.starts_with("yours")   ? "Your template"
 			                      : chip.starts_with("shipped") ? "A template ships with Dova Stash or a mod"
+			                      : chip.starts_with("auto")    ? "An auto-draft saved by Draft all homes; Save makes it yours"
 			                      : chip == "drafted"           ? "Drafted, not saved"
 			                                                    : "No template yet";
 			if (const auto n = TemplateCount(a_home); n > 1) {

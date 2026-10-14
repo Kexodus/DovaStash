@@ -44,7 +44,7 @@ namespace dova::editor
 		bool                       draftAll{ false };   // --draft-all: every home of the load order, a draft each
 		bool                       compare{ false };    // --draft-all --compare: drafts against the existing templates
 		std::optional<std::string> only;                // --draft-all --only <text>: homes whose name, EditorID or plugin contains it
-		bool                       includeTemplated{ false };  // --draft-all --save-to: also homes that have a template
+		bool                       includeTemplated{ false };  // --draft-all --save-to: also homes that have a template elsewhere (never over one in the folder)
 		std::optional<std::string> preview;             // --preview <cell>: where items go
 		std::string                sample{ "haul" };    // --sample haul | all | <category pattern>
 		bool                       useDraft{ false };   // --preview --draft: the draft, not the existing template

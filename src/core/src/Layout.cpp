@@ -525,6 +525,13 @@ namespace dova::core
 				} else {
 					layout.basedOn = std::move(s);
 				}
+			} else if (key == "autoDraft") {
+				if (value.is_boolean()) {
+					layout.autoDraft = value.get<bool>();
+				} else {
+					a_diags.Error(source, "autoDraft: expected true or false (kept verbatim)");
+					layout.extra[key] = value;
+				}
 			} else if (key == "priority") {
 				if (auto p = ReadInt32(value)) {
 					layout.priority = *p;
@@ -681,6 +688,9 @@ namespace dova::core
 		// A scalar of the wrong type was kept verbatim in `extra` (ParseLayout): while the field is still at its
 		// default it is written back as it was (AppendExtra, at the end), not replaced by the empty default.
 		const auto verbatim = [&](const char* a_key) { return a_layout.extra.is_object() && a_layout.extra.contains(a_key); };
+		if (a_layout.autoDraft) {
+			out["autoDraft"] = true;  // first, so a person opening the file sees it (DESIGN §6.8)
+		}
 		if (!a_layout.name.empty() || !verbatim("name")) {
 			out["name"] = a_layout.name;
 		}

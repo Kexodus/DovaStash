@@ -8,11 +8,15 @@
 // Serialization decisions:
 // - Output is indented with tabs and kept compact so people can read it: a short list or an entry without
 //   nested objects stays on one line (one line per container), and the fields of such lines are lined up
-//   in columns (detail::Dump). Fixed key order: $schema, name, note, author, version, priority, requires,
+//   in columns (detail::Dump). Fixed key order: $schema, autoDraft, name, note, author, version, priority, requires,
 //   cell, cells, master, containers, displays, keep, learned, declined, basedOn, then any unknown keys
 //   (sorted). `cells` (more cells of a multi-cell home, HomeCells.h) and `declined` (turned-down category
 //   suggestions, Learning.h) are only written when the layout has any.
-//   name/author/version/priority are always written; optional parts only when set.
+//   name/author/version/priority are always written; optional parts only when set (autoDraft only when true).
+// - `autoDraft` (templates only, DESIGN §6.8): true marks a file written by the editor's bulk "Draft all homes"
+//   that no person has saved since. Such a file may be replaced by the next bulk draft; any other template file
+//   never is (CheckAutoDraftTarget, Template.h). Saving it as a person drops the mark. The game loads it as any
+//   template; a player layout never carries it (ApplyTemplate and ExportAsTemplate clear it).
 // - `note` (top level, containers, displays) is free text for people reading the file; Dova Stash never
 //   uses it (the panel shows a container's note).
 // - Unknown keys at the top level, in container entries, in keep, and in quota rules are preserved
@@ -132,6 +136,7 @@ namespace dova::core
 
 	struct Layout
 	{
+		bool                          autoDraft{ false };  // "autoDraft": true: written by "Draft all homes", no person saved it since
 		std::string                   name;
 		std::string                   note;  // what the file is, for people reading it
 		std::string                   author;

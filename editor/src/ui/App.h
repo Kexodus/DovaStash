@@ -26,11 +26,13 @@
 #include "dova/core/Category.h"
 #include "dova/core/Layout.h"
 #include "dova/core/Preview.h"
+#include "dova/core/Template.h"
 #include "esp/Items.h"
 #include "home/ArmorSets.h"
 #include "home/Cell.h"
 #include "home/DovaData.h"
 #include "home/Drafts.h"
+#include "home/TemplateFile.h"
 #include "render/Scene.h"
 #include "ui/State.h"
 #include "ui/Tables.h"
@@ -62,7 +64,7 @@ namespace dova::editor::ui
 		std::vector<std::string>   multi;       // more references to select (multi-select)
 		std::optional<std::string> inspector;   // selection, template, draft or checks: the inspector's panel
 		bool                       palette{ false };  // open the command palette (Ctrl+K)
-		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat
+		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat, savedrafts (a dialog)
 		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
 		std::optional<std::string> theme;     // a colour theme for this run (ui/Themes.h); the remembered one stays
 		std::optional<std::string> layers;    // Layers popover toggles for this run: "effects,-structure" (names, - turns off)
@@ -260,7 +262,7 @@ namespace dova::editor::ui
 		void GroupHomes();
 		[[nodiscard]] std::vector<int> VisibleHomes(const std::string& a_search) const;  // rows in list order (keyboard)
 		[[nodiscard]] bool HomeMatches(const home::HomeEntry& a_home, const std::string& a_search, bool a_modMatch) const;
-		[[nodiscard]] std::string HomeChip(int a_index, w::Kind* a_kind) const;  // none / shipped / yours / drafted / saved
+		[[nodiscard]] std::string HomeChip(int a_index, w::Kind* a_kind) const;  // none / shipped / yours / auto-draft / drafted / saved
 		[[nodiscard]] bool IsOpenHome(int a_index) const;
 		[[nodiscard]] bool HomeUnsaved(int a_index) const;
 		[[nodiscard]] int  ActiveFilterCount() const;
@@ -446,6 +448,14 @@ namespace dova::editor::ui
 		std::shared_ptr<Progress>   _progress;
 		bool                        _homesRequested{ false };  // the scan ran (or runs) for this workspace
 		bool                        _confirmSaveAll{ false };
+		// *Save N drafts...*: what saving does per home, worked out from the files on disk when the dialog opens.
+		struct BulkSaveItem
+		{
+			int                  home{ -1 };
+			core::AutoDraftCheck check;              // New / Refresh: saved; Person / OtherHome: left alone
+			bool                 reviewed{ false };  // the author changed it: saved as theirs, without the auto-draft mark
+		};
+		std::vector<BulkSaveItem>   _bulkSave;
 		bool                        _confirmRescan{ false };
 		bool                        _confirmDraftAgain{ false };
 		bool                        _bulkDone{ false };       // "Draft all homes" finished: the banner offers to save
@@ -468,7 +478,8 @@ namespace dova::editor::ui
 		void AcceptAll();
 		void RejectWeak();
 		void SetSuggestionOn(OpenCell& a_cell, home::HomeDraft& a_draft, std::size_t a_container, std::size_t a_suggestion, bool a_on);
-		void SaveDraft(int a_index);
+		void PlanBulkSave();  // _bulkSave for the drafts *Save N drafts...* covers
+		home::SaveResult SaveDraft(int a_index, bool a_autoDraft);  // the bulk save of one draft (never over a template someone made)
 		[[nodiscard]] int SaveableDrafts() const;
 		void SyncCellToDraft();
 		void OpenTemplateFile();
@@ -478,7 +489,9 @@ namespace dova::editor::ui
 		void DrawSaveDraftsPopup();
 		void DrawRescanPopup();
 		void DrawDraftAgainPopup();
-		[[nodiscard]] std::string HomeStatus(const home::HomeEntry& a_home, bool* a_user = nullptr) const;
+		// "yours" / "shipped" / both, from the templates someone made (auto-drafts do not count: *Save N drafts...* may
+		// refresh them); `a_autoDraft`: the home has an auto-draft.
+		[[nodiscard]] std::string HomeStatus(const home::HomeEntry& a_home, bool* a_user = nullptr, bool* a_autoDraft = nullptr) const;
 		[[nodiscard]] std::size_t TemplateCount(const home::HomeEntry& a_home) const;  // Rail.cpp: templates over all its cells
 		[[nodiscard]] bool AnyUnsaved() const;
 		[[nodiscard]] bool UnsavedDrafts() const;

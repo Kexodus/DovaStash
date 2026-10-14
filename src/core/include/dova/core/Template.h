@@ -8,14 +8,20 @@
 // - A template is a candidate when its `cell` equals the requested cell. It is eligible when every
 //   plugin in `requires` is loaded (case-insensitive). The cell's own plugin is implied by the cell
 //   match, so it is not checked separately.
-// - Ranking: priority (desc), then the player's own exports (`source` under kUserTemplatePrefix) before
-//   the others, then semantic `version` (desc; unparseable versions rank lowest), then `source` path
-//   (case-insensitive asc) as a deterministic tie-break. The player's own saved setup is what they
-//   want back in their game, as their layout always wins over templates.
+// - Ranking: priority (desc), then templates a person made before auto-drafts (`autoDraft`, DESIGN §6.8: the
+//   editor's "Draft all homes" output nobody saved since), then the player's own exports (`source` under
+//   kUserTemplatePrefix) before the others, then semantic `version` (desc; unparseable versions rank lowest),
+//   then `source` path (case-insensitive asc) as a deterministic tie-break. The player's own saved setup is
+//   what they want back in their game, as their layout always wins over templates; an auto-draft never takes
+//   the place of a template someone made, whatever its version.
+// - Auto-drafts (DESIGN §6.8): the bulk draft writes an auto-draft only where CheckAutoDraftTarget allows it: no
+//   file at the target, or that home's own earlier auto-draft there. A file someone made (no `autoDraft`, or a
+//   file that cannot be read: in doubt it is a person's) is never replaced, and a home that already has one in
+//   the destination is left alone.
 // - ExportAsTemplate (player layout -> template) carries everything a template can hold: master, the
 //   home's extra cells, containers (categories, explicit forms, label, note, ignored, unknown keys), displays (kind, label,
 //   note, categories, items, only, set, ignored), keep rules, the top-level note and unknown keys, and entries
-//   that could not be parsed (kept verbatim, as in the layout). It deliberately drops `learned` (the
+//   that could not be parsed (kept verbatim, as in the layout). It is never an auto-draft. It deliberately drops `learned` (the
 //   player's own item-by-item habits: personal, and often hundreds of entries), `declined` (the player's
 //   answers to category suggestions, Learning.h) and `basedOn`, and lists
 //   every plugin the result references in `requires` (ReferencedPlugins), so it passes ValidateTemplate
@@ -27,7 +33,7 @@
 //   some container already binds explicitly (that binding wins over learned, so nothing changes). A
 //   container the layout does not list gets a plain entry. Their plugins join `requires` like any form.
 // - ApplyTemplate copies the template, sets basedOn = "<source>@<version>" and drops any learned data
-//   carried by the template. When applied over an existing player layout, only the category bindings
+//   carried by the template, and its `autoDraft` mark (a player layout is the player's). When applied over an existing player layout, only the category bindings
 //   (and master, name, requires) come from the template; the player's data is merged in, never dropped:
 //     * containers in both: template categories; ignored = template OR player; explicit forms are
 //       united; the player's label is used when the template has none; unknown keys merged;
@@ -46,6 +52,7 @@
 //   The plugin backs up the player file before applying (HomeRegistry::ApplyBestTemplate).
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <span>
@@ -141,4 +148,42 @@ namespace dova::core
 
 	// "<source>@<version>"
 	[[nodiscard]] std::string MakeBasedOn(std::string_view a_source, std::string_view a_version);
+
+	// --- Auto-drafts (DESIGN §6.8): "Draft all homes" never replaces a template someone made ---------------------
+
+	// A template file as the bulk draft sees it before writing.
+	struct TemplateFileInfo
+	{
+		std::filesystem::path path;
+		bool                  parsed{ false };     // read and parsed as a layout (one that is not counts as a person's)
+		bool                  autoDraft{ false };  // "autoDraft": true
+		std::vector<FormRef>  cells;               // its `cell`, then the cells of `cells`
+	};
+
+	// nullopt: there is no file at `a_path`.
+	[[nodiscard]] std::optional<TemplateFileInfo> ReadTemplateFileInfo(const std::filesystem::path& a_path);
+	// Every *.json below `a_dir`, recursively (a missing directory: none), sorted by path.
+	[[nodiscard]] std::vector<TemplateFileInfo> ScanTemplateFiles(const std::filesystem::path& a_dir);
+
+	enum class AutoDraftVerdict : std::uint8_t
+	{
+		New,        // nothing in the way: write it
+		Refresh,    // the file at the target is this home's own earlier auto-draft: replace it
+		Person,     // a template someone made is at the target, or is in the destination for one of the home's cells
+		OtherHome   // the file at the target is another home's auto-draft (two homes with the same name)
+	};
+
+	struct AutoDraftCheck
+	{
+		AutoDraftVerdict      verdict{ AutoDraftVerdict::New };
+		std::filesystem::path blocker;  // Person / OtherHome: the file in the way
+	};
+
+	// May an auto-draft of the home whose cells are `a_cells` be written to `a_target`? `a_files`: the template files
+	// already in the destination (ScanTemplateFiles of its Templates folder). The file at the target is read again
+	// from disk (a stale list never lets a write through): it must be missing, or an auto-draft for one of
+	// `a_cells`. Every other file of `a_files` that is not an auto-draft must be for none of `a_cells`; files that
+	// cannot be parsed only count at the target (in doubt: a person's).
+	[[nodiscard]] AutoDraftCheck CheckAutoDraftTarget(std::span<const TemplateFileInfo> a_files, const std::filesystem::path& a_target,
+		std::span<const FormRef> a_cells);
 }

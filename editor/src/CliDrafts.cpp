@@ -1,6 +1,9 @@
 // Headless bulk drafts and the "where items go" preview (docs/EDITOR.md §3.4, §3.5, §5.6):
 //   --draft-all [--only <text>] [--compare] [--save-to <folder> [--author <name>] [--include-templated]]
 //   --preview <cell> [--sample haul|all|<pattern>] [--draft]
+// --draft-all --save-to writes auto-drafts ("autoDraft": true, DESIGN §6.8): a home's own earlier auto-draft is
+// refreshed, a template someone made in the folder is never replaced (core::CheckAutoDraftTarget), and the
+// output says which homes were left alone and why.
 
 #include <algorithm>
 #include <chrono>
@@ -42,9 +45,10 @@ namespace dova::editor
 			if (a_templates.empty()) {
 				return "no template";
 			}
-			const bool user = std::ranges::any_of(a_templates, [](const home::KnownTemplate* t) { return t->user; });
-			const bool shipped = std::ranges::any_of(a_templates, [](const home::KnownTemplate* t) { return !t->user; });
-			return user && shipped ? "user + shipped template" : user ? "user template" : "shipped template";
+			// Auto-drafts are not a person's template: the next --draft-all --save-to may refresh them.
+			const bool user = std::ranges::any_of(a_templates, [](const home::KnownTemplate* t) { return t->user && !t->layout.autoDraft; });
+			const bool shipped = std::ranges::any_of(a_templates, [](const home::KnownTemplate* t) { return !t->user && !t->layout.autoDraft; });
+			return user && shipped ? "user + shipped template" : user ? "user template" : shipped ? "shipped template" : "auto-draft only";
 		}
 
 		// The templates of a home: its main cell's, and those of its other cells.
@@ -129,10 +133,16 @@ namespace dova::editor
 		struct Totals
 		{
 			int homes{ 0 }, compared{ 0 }, containers{ 0 }, exact{ 0 }, overlap{ 0 }, different{ 0 }, missing{ 0 }, categories{ 0 }, sameDest{ 0 }, masters{ 0 },
-				ignoredT{ 0 }, ignoredAgree{ 0 }, saved{ 0 }, suggestions{ 0 }, accepted{ 0 };
+				ignoredT{ 0 }, ignoredAgree{ 0 }, saved{ 0 }, refreshed{ 0 }, leftAlone{ 0 }, suggestions{ 0 }, accepted{ 0 };
 		} total;
+		// The template files already in the destination: a home that has one someone made is never written over.
+		std::vector<core::TemplateFileInfo> existing;
+		if (a_args.saveTo) {
+			existing = core::ScanTemplateFiles(home::TemplatesDir(PathFromUtf8(*a_args.saveTo)));
+		}
 		for (const auto& h : homes) {
 			const auto tmpl = TemplatesOf(templates, *lo, h, false);
+			const bool personsTemplate = std::ranges::any_of(tmpl, [](const home::KnownTemplate* t) { return !t->layout.autoDraft; });
 			const auto start1 = Clock::now();
 			auto       draft = home::DraftHome(*lo, h, ctx);
 			++total.homes;
@@ -143,7 +153,7 @@ namespace dova::editor
 			Out(std::format("== {}  [{}]  {}  {}\n   cells: {}\n   {} containers, {} displays; draft in {} ms\n", h.name, Status(tmpl), h.plugin,
 				h.lastPlugin != h.plugin ? "(last edited by " + h.lastPlugin + ")" : "", cells, h.containers, h.displays, Ms(start1)));
 			for (const auto* t : tmpl) {
-				Out(std::format("   template: {} ({}, {})\n", t->source, t->origin, t->user ? "user" : "shipped"));
+				Out(std::format("   template: {} ({}, {}{})\n", t->source, t->origin, t->user ? "user" : "shipped", t->layout.autoDraft ? ", auto-draft" : ""));
 			}
 			Out("   master: " + draft.plan.masterReason + "\n");
 			if (!draft.plan.masterRunnersUp.empty()) {
@@ -203,14 +213,32 @@ namespace dova::editor
 					}
 				}
 			}
-			if (a_args.saveTo && (tmpl.empty() || a_args.includeTemplated)) {
+			if (a_args.saveTo && personsTemplate && !a_args.includeTemplated) {
+				++total.leftAlone;
+				Out("   not saved: this home has a template (--include-templated drafts it anyway, never over a template in the folder)\n");
+			} else if (a_args.saveTo) {
 				if (a_args.author) {
 					draft.layout.author = *a_args.author;
 				}
-				const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), draft.layout, false, h.name);
-				if (r.ok) {
+				const auto base = PathFromUtf8(*a_args.saveTo);
+				const auto target = home::TemplatePath(base, draft.layout, h.name);
+				const auto check = core::CheckAutoDraftTarget(existing, target, home::HomeCellRefs(*lo, h));
+				if (check.verdict == core::AutoDraftVerdict::Person || check.verdict == core::AutoDraftVerdict::OtherHome) {
+					++total.leftAlone;
+					Out(std::format("   not saved: {} is {}; left as it is\n", PathToUtf8(check.blocker),
+						check.verdict == core::AutoDraftVerdict::Person ? "a template someone made (not an auto-draft)" : "another home's auto-draft (same home name)"));
+				} else if (const auto r = home::SaveTemplateFile(base, draft.layout, { .autoDraft = true }, h.name); r.ok) {
 					++total.saved;
-					Out(std::format("   saved version {} to {}{}\n", r.version, PathToUtf8(r.path), r.replaced ? " (old file kept as " + PathToUtf8(r.backup.filename()) + ")" : ""));
+					total.refreshed += r.replaced ? 1 : 0;
+					Out(std::format("   saved auto-draft version {} to {}{}\n", r.version, PathToUtf8(r.path),
+						r.replaced ? " (refreshed the earlier auto-draft, kept as " + PathToUtf8(r.backup.filename()) + ")" : ""));
+					std::erase_if(existing, [&](const core::TemplateFileInfo& f) { return f.path == r.path; });
+					if (auto info = core::ReadTemplateFileInfo(r.path)) {
+						existing.push_back(std::move(*info));  // a second home of the same name sees it
+					}
+				} else if (r.skipped) {
+					++total.leftAlone;
+					Out("   not saved: " + r.error + "\n");
 				} else {
 					Err("error: " + r.error + "\n");
 				}
@@ -218,7 +246,9 @@ namespace dova::editor
 			Out("\n");
 		}
 		Out(std::format("{} homes drafted, {} suggestions ({} accepted){}\n", total.homes, total.suggestions, total.accepted,
-			a_args.saveTo ? std::format(", {} saved to {}", total.saved, *a_args.saveTo) : std::string{}));
+			a_args.saveTo ? std::format(", {} auto-drafts saved to {} ({} refreshed), {} homes left alone (each \"not saved\" above says why)", total.saved, *a_args.saveTo,
+								total.refreshed, total.leftAlone)
+						  : std::string{}));
 		if (a_args.compare && total.compared > 0) {
 			Out(std::format("Against {} templates: masters {}/{} same; containers with categories {}: {} same, {} overlap, {} different, {} missing; "
 			                "categories to the same container {}/{} ({:.0f}%); ignored {}/{} agree\n",

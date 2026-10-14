@@ -65,7 +65,7 @@ one workspace.
 - **Title row:** `≡` menu (Open template file..., Rescan load order, Draft all homes, Save N drafts..., Undo, Redo,
   Commands..., Shortcuts..., About), the emblem (the start panel), *Back* to the cell opened before, the **home
   switcher** (the rail's list in compact form, type to filter) with the unsaved dot and the template's chip (*no
-  template*, *shipped*, *yours*, *draft*), `3D | Plan` (keys `1`/`2`), *Draft* ▾ (Draft this home, Accept all,
+  template*, *shipped*, *yours*, *auto-draft*, *draft*), `3D | Plan` (keys `1`/`2`), *Draft* ▾ (Draft this home, Accept all,
   Reject the weak ones, Draft again, Draft all homes, Save N drafts...), *Save* (Ctrl+S; disabled while the checks
   find errors) and `⚙` *Setup* (MO2 instance, profile, author, save target, theme, UI size, Rescan; closing applies;
   *Theme* picks the window's colours: Dova Stash, the default, or a dark or light palette inspired by xEdit's UI
@@ -103,7 +103,7 @@ The rail's, inspector's and drawer's sizes, which are open, and the view persist
    homes*, §3.4, read once and shared) under the mod whose plugin defines its cell: the enabled mod with the
    highest priority that has the plugin, as MO2 resolves it, in MO2's order (its Nexus id muted); *Game Data folder*
    holds the base game, the DLCs and Creation Club. A row is the home's name, its storage (containers a template can
-   use · displays, over its cells), a status chip (*none*, *shipped*, *yours*, *drafted*, *saved*) and the unsaved
+   use · displays, over its cells), a status chip (*none*, *shipped*, *yours*, *auto-draft*, *drafted*, *saved*) and the unsaved
    dot. One search box takes part of a home or mod name, a plugin, or a Nexus id (`92177` finds Whitepeak Tower);
    the filter popover (a count badge when one is on) has *Only homes without a template*, *Only enabled mods*,
    *Likely homes only*, *Exteriors*, *Group by mod*. Up/Down and Enter walk it; right-click: *Open*, *Draft*, *Open
@@ -135,7 +135,7 @@ The rail's, inspector's and drawer's sizes, which are open, and the view persist
    else an existing mod the author picks (*Setup* or the Template panel). Never MO2's overwrite by default
    (cleaning it would delete the templates). An existing file is backed up first and its version raised, as the
    DLL does (`core::NextPatchVersion`). A home over several cells is one file (§3.3). *Save as...* writes a copy
-   anywhere.
+   anywhere. Both are a person's save: an auto-draft opened and saved loses its `"autoDraft"` mark (§3.4).
 
 The editor also **opens existing files** (*Open a template...*, Ctrl+O): a shipped or downloaded template, a player
 layout from `Layouts/` or from the backups in Documents (DESIGN §6.6). That is the path from "I set it up in game" to a template
@@ -221,7 +221,8 @@ doors lead to each other and are homes too are **one home** (a hall and its cell
 that nothing respawns in and nobody owns joins it (the main cell is the one whose name is not "cellar", "basement",
 "cave"..., then the best score). Status per home (the rail's chip): *none*, *shipped* (Dova Stash's or another
 mod's), *yours* (`Templates/User`, the "Dova Stash Templates" mod, overwrite), from every `Templates/**.json` of the
-merged Data folder (`home::LoadTemplateIndex`); *drafted* (a draft not saved), *saved* (saved this session).
+merged Data folder (`home::LoadTemplateIndex`); *auto-draft* (only a file *Save N drafts...* wrote, nobody saved it
+since), *drafted* (a draft not saved), *saved* (saved this session).
 
 **The suggestions are core code** (`core::SuggestDraft`, `DraftSuggest.h`, unit-tested in `tests/DraftSuggestTests.cpp`)
 over plain facts the editor extracts (`home::BuildDraftObjects`): containers, displays, load doors, loose items (each
@@ -279,7 +280,19 @@ The review **edits the template being made directly**: an accepted chip is the c
 preview and the checks at once, and undo covers it. *Save* (Ctrl+S) writes it into the "Dova Stash Templates" mod and
 asks first when the file exists (backup, version raised) or the home already has a template. Switching homes in the
 rail keeps each home's draft; *Save N drafts...* (≡ or *Draft* ▾ menu, the banner after *Draft all homes*) saves the
-drafts of homes without a template after one confirmation listing new and replaced files. Headless: `--draft-all [--only <text>] [--compare] [--save-to <folder>] [--base-game]` (§5.6).
+drafts of homes without a template after one confirmation listing new files and refreshed auto-drafts. Headless: `--draft-all [--only <text>] [--compare] [--save-to <folder>] [--base-game]` (§5.6).
+
+**Auto-drafts** (DESIGN §6.8). What *Save N drafts...* and `--draft-all --save-to` write is marked `"autoDraft": true`
+(a draft the author reviewed first is saved as theirs, without it), so a bulk save never overwrites anyone's template:
+before writing, `core::ScanTemplateFiles` reads the destination's `Templates/` and `core::CheckAutoDraftTarget` allows
+a missing file or that home's own earlier auto-draft (refreshed: `.bak`, version raised); `home::SaveTemplateFile`
+reads the target again just before writing. A file without the mark (hand-made, downloaded, an auto-draft saved since),
+one that cannot be read, another home's auto-draft (two homes of the same name share `Templates/<Home>/`), and any
+home with a template someone made anywhere in the destination are left alone: the dialog lists those homes by name
+(the file in the tooltip) and the command line prints a *not saved* line for each. A home whose only template is an
+auto-draft counts as without one (the rail's *auto-draft* chip, the *Only homes without a template* filter). Opening
+it and saving (Ctrl+S, *Save as...*) drops the mark: the template is yours, and no bulk draft touches it again. The
+Template panel's list marks auto-drafts; in game they rank below a template someone made at the same priority.
 
 **Accuracy** (`--draft-all --compare --base-game`: the game's own plugins, the homes as the shipped templates were
 written for them; 17 shipped templates). Masters: 11 of 17 the same. Of 245 template containers with categories, 20
@@ -598,7 +611,8 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    3d|plan` (the view), `--tab containers|displays|doors|preview` (the drawer on that tab), `--tab template` or
    `--inspector selection|template|draft|checks` (the inspector's panel), `--select <ref>` / `--multi <ref>`,
    `--paint <category>`, `--colours category|fill`, `--palette` (the command palette open), `--popover <id>` (`menu`,
-   `setup`, `switcher`, `filter`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`), `--layers <names>` (layers
+   `setup`, `switcher`, `filter`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`; `savedrafts` is the *Save N
+   drafts...* dialog, with `--drafts` once the bulk draft is done), `--layers <names>` (layers
    on, or off with a leading `-`, comma separated: `structure`, `containers`, `displays`, `doors`, `furniture`,
    `people`, `disabled`, `effects` (the view's own), `other`, `terrain`; e.g. `--tab plan --layers effects,-structure`),
    `--window WxH` (the client size), `--theme <name>` (a colour theme for this run, EDITOR-UX.md §3.1; the
@@ -609,8 +623,9 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    `--screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit).
    `--draft-all` drafts every home of the active load order and prints the master with its reason and each container's
    accepted and rejected suggestions (`--verbose`: every reason); `--compare` measures the drafts against the existing
-   templates (§3.4); `--save-to <folder> [--author <name>]` saves the drafts of homes without a template
-   (`--include-templated`: all); `--base-game` reads only the game's own plugins. `--preview <cell> [--sample haul|all|<pattern>]
+   templates (§3.4); `--save-to <folder> [--author <name>]` saves the drafts of homes without a template as
+   auto-drafts, never over a template someone made in the folder, with a *not saved* line naming the file in the way
+   (`--include-templated`: also homes with a template elsewhere); `--base-game` reads only the game's own plugins. `--preview <cell> [--sample haul|all|<pattern>]
    [--draft]` prints where items go per container. Window smoke tests: `--gui` alone (start panel), `--gui --drafts`
    (Draft all homes started, the rail showing the homes without a template; with `--home <home>`, or `--only`, that
    home's Draft panel), `--gui --home <home> --tab preview`, `--inspector checks`, `--colours fill|category`, `--paint

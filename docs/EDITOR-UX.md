@@ -68,12 +68,13 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 - Emblem + "Dova Stash Editor" in Cinzel. Clicking the emblem opens the start panel (§2.6).
 - **Home switcher**: the open home's name as a dropdown. The dropdown is the same searchable list as the rail
   (§2.2) in compact form; typing filters it. Next to it: the unsaved dot and the template status chip
-  (*none*, *shipped*, *yours*, *draft*).
+  (*none*, *shipped*, *yours*, *auto-draft*, *draft*).
 - Centre: `3D | Plan` segmented control (keys `1` / `2`).
 - Right: **Draft ▾** (Draft this home, Accept all, Reject the weak ones, Draft again, Draft all homes…),
   **Save** (Ctrl+S; disabled with a tooltip when the checks have errors), `⚙` **Setup** popover (§2.7).
 
-> **Built:** the chip reads *no template* / *shipped* / *yours* / *draft* (neutral / info / ok / warn). Under
+> **Built:** the chip reads *no template* / *shipped* / *yours* / *auto-draft* / *draft* (neutral / info / ok / warn /
+> warn; *auto-draft*: the home's template, or the open file, is one *Save N drafts...* wrote, §2.8). Under
 > ~1400 px the title collapses to the emblem, and a long home name ends in "..." (the whole name in its tooltip),
 > so the row never runs into `3D | Plan`.
 
@@ -85,7 +86,7 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 - One list that replaces **By mod**, **Any cell** and the drafts list:
   - Grouped by mod (MO2 name, Nexus id muted), the game's Data folder last.
   - A home row: name, muted storage summary (`89 chests · 170 displays`), a status chip at the right
-    (*none* / *shipped* / *yours* / *drafted* / *saved*), the unsaved dot when it is open and dirty.
+    (*none* / *shipped* / *yours* / *auto-draft* / *drafted* / *saved*), the unsaved dot when it is open and dirty.
   - A mod group's footer link *All cells…* turns on the scored "any cell" listing for that mod only
     (what *Any cell* does today), with its evidence in the tooltip and *Likely homes only* respected.
   - Right-click: Open, Draft, Open in Explorer (its template file), Copy form ref.
@@ -197,6 +198,13 @@ homes without a template.
 
 > **Built:** the bulk draft does not advance the homes' stages (the start panel's *In progress*); a home's stage
 > starts when it is opened. The rail's *drafted* chip shows for every home with a draft.
+
+> **Built:** *Save N drafts...* writes auto-drafts: each file is marked `"autoDraft": true` (DESIGN §6.8; a draft
+> the author reviewed first is saved as theirs, unmarked) and never replaces a template someone made. The dialog
+> counts new files and refreshed auto-drafts, then lists the homes left alone by name in `warn` (the file in the way
+> in the tooltip); an auto-draft is not the author's save, so it does not advance the stage. A home whose only
+> template is an auto-draft shows an *auto-draft* chip (`warn`, like *drafted*) in the rail, the title row and the
+> Template panel's list, and still counts as without a template. Saving it (Ctrl+S) drops the mark.
 
 ### 2.9 Command palette (Ctrl+K)
 

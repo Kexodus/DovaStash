@@ -458,10 +458,14 @@ namespace dova::editor::ui
 			add(c.cell);
 		}
 		add(a_cell.lo->ToFormRef(a_cell.info.key));
-		// Yours first, then priority, then the newest version: the order the game offers them.
+		// Priority, then made by a person before auto-drafts, then yours, then the newest version: the order the game
+		// offers them (core::ResolveLayout).
 		std::ranges::stable_sort(out, [](const home::KnownTemplate* a, const home::KnownTemplate* b) {
 			if (a->layout.priority != b->layout.priority) {
 				return a->layout.priority > b->layout.priority;
+			}
+			if (a->layout.autoDraft != b->layout.autoDraft) {
+				return !a->layout.autoDraft;
 			}
 			if (a->user != b->user) {
 				return a->user;
@@ -502,7 +506,7 @@ namespace dova::editor::ui
 			} else if (hovered) {
 				dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), th.bg3, th.radius);
 			}
-			const char*  chip = tp->user ? "yours" : "shipped";
+			const char*  chip = tp->layout.autoDraft ? "auto-draft" : tp->user ? "yours" : "shipped";
 			const float  chipW = w::ChipWidth(chip, false);
 			const auto   detail = std::format("{} · {} · {}", tp->layout.author.empty() ? "no author" : tp->layout.author, tp->layout.version.empty() ? "no version" : tp->layout.version, tp->origin);
 			const ImVec2 ns = ImGui::CalcTextSize(tp->layout.name.c_str());
@@ -511,7 +515,7 @@ namespace dova::editor::ui
 			w::TextWithMuted(tp->layout.name.c_str(), detail.c_str());
 			ImGui::PopClipRect();
 			ImGui::SetCursorScreenPos(ImVec2(p.x + wdt - chipW, p.y + (h - th.chipH) * 0.5f));
-			w::Chip(chip, tp->user ? w::Kind::Ok : w::Kind::Info);
+			w::Chip(chip, tp->layout.autoDraft ? w::Kind::Warn : tp->user ? w::Kind::Ok : w::Kind::Info);
 			ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h));
 			ImGui::Dummy(ImVec2(0, 0));
 			if (ImGui::BeginItemTooltip()) {
@@ -520,6 +524,9 @@ namespace dova::editor::ui
 				w::Muted(PathToUtf8(tp->path).c_str());
 				if (tp->layout.priority != 0) {
 					w::Muted(std::format("Priority {}", tp->layout.priority).c_str());
+				}
+				if (tp->layout.autoDraft) {
+					w::Muted("Saved by Draft all homes, not by a person: open it and Save to make it yours");
 				}
 				ImGui::EndTooltip();
 			}
@@ -572,6 +579,9 @@ namespace dova::editor::ui
 			if (fs::exists(path, ec)) {
 				w::Coloured(w::Kind::Warn, (PathToUtf8(path) + " exists.").c_str());
 				ImGui::TextUnformatted("Overwrite it? The old file is kept as .bak and the version goes up.");
+				if (_homes && std::ranges::any_of(_homes->templates.templates, [&](const home::KnownTemplate& tp) { return tp.layout.autoDraft && fs::equivalent(tp.path, path, ec); })) {
+					w::Muted("It is an auto-draft (Draft all homes): saved, it is yours.");
+				}
 			} else {
 				ImGui::Text("Save to %s?", PathToUtf8(path).c_str());
 			}
@@ -580,7 +590,7 @@ namespace dova::editor::ui
 				const auto  existing = _homes->templates.ForCell(_homes->lo->ToFormRef(h.cell));
 				for (const auto* tp : existing) {
 					if (tp->path != path) {
-						w::Coloured(w::Kind::Info, std::format("This home already has a template: {} ({}).", tp->source, tp->origin).c_str());
+						w::Coloured(w::Kind::Info, std::format("This home already has {}: {} ({}).", tp->layout.autoDraft ? "an auto-draft" : "a template", tp->source, tp->origin).c_str());
 					}
 				}
 				if (std::ranges::any_of(existing, [&](const home::KnownTemplate* tp) { return tp->path != path; })) {
@@ -605,7 +615,7 @@ namespace dova::editor::ui
 	void EditorApp::SaveTemplate(OpenCell& a_cell)
 	{
 		const bool ownMod = _ws && _ws->Instance() && _state.saveTarget.empty();
-		const auto r = home::SaveTemplateFile(SaveBase(), a_cell.layout, ownMod, HomeNameFor(a_cell));
+		const auto r = home::SaveTemplateFile(SaveBase(), a_cell.layout, { .modMeta = ownMod }, HomeNameFor(a_cell));  // a person's save: no auto-draft mark
 		if (r.ok) {
 			a_cell.dirty = false;
 			a_cell.savedPath = PathToUtf8(r.path);
@@ -640,7 +650,9 @@ namespace dova::editor::ui
 			return;
 		}
 		a_cell.layout.requiredPlugins = core::ReferencedPlugins(a_cell.layout);
-		if (core::SaveLayoutFile(PathFromUtf8(*file), a_cell.layout)) {
+		auto copy = a_cell.layout;
+		copy.autoDraft = false;  // a person's copy (DESIGN §6.8)
+		if (core::SaveLayoutFile(PathFromUtf8(*file), copy)) {
 			a_cell.saveMessage = "Saved a copy to " + *file;
 			SetStatus("Saved a copy");
 		} else {

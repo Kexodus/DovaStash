@@ -185,7 +185,7 @@ namespace dova::editor
 					if (a_args.author) {
 						layout.author = *a_args.author;
 					}
-					const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), layout, false, cell->name);
+					const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), layout, {}, cell->name);
 					if (!r.ok) {
 						Err("error: " + r.error + "\n");
 						return 1;
@@ -533,7 +533,8 @@ namespace dova::editor
 		       "                        --only <text>: homes whose name, EditorID or plugin contains it;\n"
 		       "                        --compare: drafts against the existing templates (how many agree);\n"
 		       "                        --save-to <folder> [--author <name>]: save the drafts of homes without a\n"
-		       "                        template (--include-templated: all), as the window saves (backup, version);\n"
+		       "                        template (--include-templated: all) as auto-drafts (\"autoDraft\": true;\n"
+		       "                        backup, version); a template someone made there is never replaced\n"
 		       "                        --base-game: only the game's own plugins (homes as shipped templates see them)\n"
 		       "  --preview <cell>      where items go: run Dova Stash's planner over a sample (--sample haul, all or\n"
 		       "                        a category pattern such as \"alchemy.*\") against the cell's template, or its\n"
@@ -554,7 +555,7 @@ namespace dova::editor
 		       "  --colours <mode>      category or fill: colour the containers\n"
 		       "  --palette             open the command palette (Ctrl+K)\n"
 		       "  --popover <id>        open a popover (menu, setup, switcher, filter, draftmenu, layers, colours,\n"
-		       "                        camera, paintcat) for a screenshot\n"
+		       "                        camera, paintcat; savedrafts: the Save N drafts dialog) for a screenshot\n"
 		       "  --window WxH          the window's client size (e.g. 1280x720)\n"
 		       "  --theme <name>        a colour theme for this run (Setup's Theme list, e.g. \"Windows10 Dark\")\n"
 		       "  --layers <names>      turn layers on, or off with a leading -, comma separated: structure, containers,\n"

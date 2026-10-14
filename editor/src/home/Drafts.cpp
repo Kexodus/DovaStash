@@ -622,4 +622,13 @@ namespace dova::editor::home
 		}
 		return options;
 	}
+
+	std::vector<core::FormRef> HomeCellRefs(const esp::LoadOrder& a_lo, const HomeEntry& a_home)
+	{
+		std::vector<core::FormRef> out{ a_lo.ToFormRef(a_home.cell) };
+		for (const auto& e : a_home.extra) {
+			out.push_back(a_lo.ToFormRef(e.cell));
+		}
+		return out;
+	}
 }

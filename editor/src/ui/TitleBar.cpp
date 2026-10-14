@@ -132,10 +132,14 @@ namespace dova::editor::ui
 			std::string chip = "no template";
 			w::Kind     kind = w::Kind::Neutral;
 			const auto  all = TemplatesFor(*_cell);
-			const bool  user = std::ranges::any_of(all, [](const home::KnownTemplate* tp) { return tp->user; });
-			const bool  shipped = std::ranges::any_of(all, [](const home::KnownTemplate* tp) { return !tp->user; });
+			const bool  user = std::ranges::any_of(all, [](const home::KnownTemplate* tp) { return tp->user && !tp->layout.autoDraft; });
+			const bool  shipped = std::ranges::any_of(all, [](const home::KnownTemplate* tp) { return !tp->user && !tp->layout.autoDraft; });
+			const bool  autoDraft = std::ranges::any_of(all, [](const home::KnownTemplate* tp) { return tp->layout.autoDraft; });
 			const auto  existing = user && shipped ? std::string("yours + shipped") : user ? std::string("yours") : shipped ? std::string("shipped") : std::string{};
-			if (!_cell->filePath.empty()) {
+			if (_cell->layout.autoDraft && !_cell->dirty && (!_cell->filePath.empty() || existing.empty())) {
+				chip = "auto-draft";  // the open file, or the home's only template, is Draft all homes' (DESIGN §6.8)
+				kind = w::Kind::Warn;
+			} else if (!_cell->filePath.empty()) {
 				const bool mine = IContains(_cell->filePath, home::kTemplatesMod) || IContains(_cell->filePath, "Templates\\User") || IContains(_cell->filePath, "Templates/User") ||
 				                  (!_state.saveTarget.empty() && IContains(_cell->filePath, "\\mods\\" + _state.saveTarget + "\\"));
 				chip = mine ? "yours" : "shipped";
@@ -149,6 +153,9 @@ namespace dova::editor::ui
 			} else if (!existing.empty()) {
 				chip = user ? "yours" : "shipped";
 				kind = user ? w::Kind::Ok : w::Kind::Info;
+			} else if (autoDraft) {
+				chip = "auto-draft";
+				kind = w::Kind::Warn;
 			}
 			if (all.size() > 1 && chip != "no template") {
 				chip += std::format(" +{}", all.size() - 1);  // more templates of this home: the Template panel lists them
@@ -161,6 +168,7 @@ namespace dova::editor::ui
 			}
 			const auto tip = all.size() > 1 ? std::format("{} templates for this home: the Template panel lists them", all.size())
 			                 : chip == "draft"         ? std::string("Changed, not saved yet")
+			                 : chip == "auto-draft"    ? std::string("Saved by Draft all homes, not by a person: Save makes it yours")
 			                 : chip == "no template" ? std::string("This home has no template yet")
 			                 : chip.starts_with("shipped") ? (existing.empty() ? std::string("Opened from a shipped template") : "This home has a template: " + existing)
 			                                               : std::string("Your template");

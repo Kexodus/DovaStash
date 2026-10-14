@@ -23,6 +23,9 @@ namespace dova::core
 			if (a_lhs.layout.priority != a_rhs.layout.priority) {
 				return a_lhs.layout.priority > a_rhs.layout.priority;
 			}
+			if (a_lhs.layout.autoDraft != a_rhs.layout.autoDraft) {
+				return !a_lhs.layout.autoDraft;  // a template someone made before an auto-draft (DESIGN §6.8)
+			}
 			if (const bool lhsUser = IsUserTemplate(a_lhs.source); lhsUser != IsUserTemplate(a_rhs.source)) {
 				return lhsUser;
 			}
@@ -228,6 +231,7 @@ namespace dova::core
 		layout.declined.clear();
 		layout.unparsedDeclined = nlohmann::json::object();
 		layout.basedOn = MakeBasedOn(a_template.source, a_template.layout.version);
+		layout.autoDraft = false;  // the player's layout now, not a file "Draft all homes" may refresh
 
 		if (!a_existing) {
 			return layout;
@@ -464,6 +468,7 @@ namespace dova::core
 		out.declined.clear();  // the player's answers, not part of a shared setup
 		out.unparsedDeclined = nlohmann::json::object();
 		out.basedOn.reset();
+		out.autoDraft = false;  // the player's own setup
 		for (auto& plugin : ReferencedPlugins(out)) {
 			if (!PluginLoaded(plugin, out.requiredPlugins)) {
 				out.requiredPlugins.push_back(std::move(plugin));
@@ -501,5 +506,76 @@ namespace dova::core
 			out.insert(name.size(), 1, '_');
 		}
 		return out.empty() ? std::string("Template") : out;
+	}
+
+	std::optional<TemplateFileInfo> ReadTemplateFileInfo(const std::filesystem::path& a_path)
+	{
+		std::error_code ec;
+		if (!std::filesystem::exists(a_path, ec)) {
+			return std::nullopt;
+		}
+		TemplateFileInfo info;
+		info.path = a_path;
+		if (const auto text = detail::ReadTextFile(a_path)) {
+			Diagnostics diags;  // the file's own problems are not the bulk draft's business
+			if (const auto layout = ParseLayoutText(*text, detail::PathToUtf8(a_path), diags)) {
+				info.parsed = true;
+				info.autoDraft = layout->autoDraft;
+				if (layout->cell) {
+					info.cells.push_back(*layout->cell);
+				}
+				for (const auto& c : layout->cells) {
+					info.cells.push_back(c.cell);
+				}
+			}
+		}
+		return info;
+	}
+
+	std::vector<TemplateFileInfo> ScanTemplateFiles(const std::filesystem::path& a_dir)
+	{
+		std::vector<TemplateFileInfo> out;
+		std::error_code               ec;
+		if (!std::filesystem::is_directory(a_dir, ec)) {
+			return out;
+		}
+		for (auto it = std::filesystem::recursive_directory_iterator(a_dir, std::filesystem::directory_options::skip_permission_denied, ec);
+			 !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
+			if (it->is_regular_file(ec) && IEquals(detail::PathToUtf8(it->path().extension()), ".json")) {
+				if (auto info = ReadTemplateFileInfo(it->path())) {
+					out.push_back(std::move(*info));
+				}
+			}
+		}
+		std::ranges::sort(out, [](const auto& a_lhs, const auto& a_rhs) { return ICompare(detail::PathToUtf8(a_lhs.path), detail::PathToUtf8(a_rhs.path)) < 0; });
+		return out;
+	}
+
+	AutoDraftCheck CheckAutoDraftTarget(std::span<const TemplateFileInfo> a_files, const std::filesystem::path& a_target, std::span<const FormRef> a_cells)
+	{
+		const auto forHome = [&](const TemplateFileInfo& a_file) {
+			return std::ranges::any_of(a_file.cells, [&](const FormRef& c) { return std::ranges::find(a_cells, c) != a_cells.end(); });
+		};
+		const auto isTarget = [&](const std::filesystem::path& a_path) {
+			std::error_code ec;
+			return std::filesystem::equivalent(a_path, a_target, ec) ||
+			       IEquals(detail::PathToUtf8(a_path.lexically_normal()), detail::PathToUtf8(a_target.lexically_normal()));
+		};
+		AutoDraftCheck out;
+		if (const auto there = ReadTemplateFileInfo(a_target)) {
+			if (!there->parsed || !there->autoDraft) {
+				return { AutoDraftVerdict::Person, a_target };
+			}
+			if (!forHome(*there)) {
+				return { AutoDraftVerdict::OtherHome, a_target };
+			}
+			out.verdict = AutoDraftVerdict::Refresh;
+		}
+		for (const auto& f : a_files) {
+			if (f.parsed && !f.autoDraft && forHome(f) && !isTarget(f.path)) {
+				return { AutoDraftVerdict::Person, f.path };
+			}
+		}
+		return out;
 	}
 }

@@ -93,6 +93,9 @@ namespace dova::editor::home
 
 	[[nodiscard]] HomeDraft DraftHome(esp::LoadOrder& a_lo, const HomeEntry& a_home, const DraftContext& a_context);
 
+	// The home's cells as form references: the main cell, then the others (core::CheckAutoDraftTarget's home).
+	[[nodiscard]] std::vector<core::FormRef> HomeCellRefs(const esp::LoadOrder& a_lo, const HomeEntry& a_home);
+
 	// The template the plan describes: name, cell, cells, master, every container (accepted categories, ignored
 	// with notes), every display (plaques and cases with the items their script is made for; shield and dagger
 	// racks with their category), a note, `requires`.

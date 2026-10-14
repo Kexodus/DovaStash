@@ -723,7 +723,11 @@ namespace dova::editor::ui
 		ApplyWindowSize();
 		if (_pendingPopover && _homes && !Busy() && _queue.empty() && !_pendingCell && !_pendingHome) {
 			const auto id = *std::exchange(_pendingPopover, std::nullopt);  // --popover
-			w::OpenPopover(id.c_str());
+			if (id == "savedrafts") {
+				_confirmSaveAll = true;  // the *Save N drafts...* dialog (with --drafts: once the bulk draft is done)
+			} else {
+				w::OpenPopover(id.c_str());
+			}
 		}
 		const auto&          t = w::Th();
 		const ImGuiViewport* vp = ImGui::GetMainViewport();
