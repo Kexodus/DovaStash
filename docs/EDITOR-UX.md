@@ -24,10 +24,11 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
    every problem the checks find: one line, click goes to the object.
 5. **Keyboard parity.** Everything in the toolbar has a key. `Ctrl+K` opens a palette that finds a home, a
    container, a category or a command by typing.
-6. **Looks like it belongs next to the game.** Dark, warm, parchment text on slate, a gold accent, Cinzel for
-   titles and Jost for text (the press kit's own fonts, already in the repo under the OFL), thin ornamental
-   dividers drawn in code. Nothing copyrighted ships; art the editor can read from the player's own
-   install (DDS in the game's archives, the home's own meshes as thumbnails) is a bonus, never a dependency.
+6. **Looks like the art set.** The press kit's brand (`presskit/README.md`, Style): black, white and neutral
+   grays only, Cinzel capitals tracked wide for the wordmark and titles, Jost for text (the kit's own fonts,
+   in the repo under the OFL), the emblem as the only ornament, no game assets. The home's own meshes as
+   thumbnails are data, not decoration, and stay; so do the viewport's data colours (categories, fill, the
+   see-through boxes).
 7. **Terse text.** Labels are nouns, buttons are verbs, no prefixes ("Suggested categories:" is just the
    list), no sentences that restate what the control already shows. The user's rule for in-game text applies
    here too.
@@ -164,8 +165,7 @@ column, centred, in this order:
    (Ctrl+O). Short one-line descriptions, no paragraphs.
 4. *In progress*: the homes with a stage, as a compact table (home, stage chip, when, saved to).
 
-> **Built:** the header sits on `interface\cc_background.dds` from the player's *Skyrim - Interface.bsa* at 20 %,
-> warmed, cropped to cover and faded into the background on every side; without it the panel is flat.
+> **Built:** the header sits on plain ink: the brand pass (2026-10-14) took the game texture out again, as the art set has no game assets.
 
 ### 2.7 Setup popover (`⚙`)
 
@@ -202,28 +202,32 @@ background work (scan, meshes, preview) as `label n/m`, then the one most useful
 
 ### 3.1 Tokens (`ui/Theme.h`)
 
+The art set's palette (`presskit/README.md`, Style; `presskit/src/style.css`): every gray has R = G = B.
+
 | Token | Value | Use |
 |---|---|---|
-| `bg0` | `#111113` | window |
-| `bg1` | `#19191d` | rail, inspector, drawer |
-| `bg2` | `#222228` | rows, inputs, popovers |
-| `bg3` | `#2b2b33` | hover |
-| `line` | `#33333c` | borders, dividers |
-| `text` | `#e8e2d6` | parchment: primary text |
-| `muted` | `#9b968d` | secondary text |
-| `accent` | `#c9a84c` | gold: active control, selected row, links |
-| `accentDim` | `#8a7334` | accent on dark |
-| `select` | `#ffd84a` | the 3D frame and plan highlight (unchanged) |
-| `ok` / `warn` / `error` / `info` | `#7fbf7f` / `#e0b04a` / `#d9634c` / `#6fa8dc` | status |
+| `bg0` | `#000000` | ink: the window |
+| `bg1` | `#0e0e0e` | rail, inspector, drawer |
+| `bg2` | `#1e1e1e` | gray-5: rows, inputs, popovers |
+| `bg3` | `#2a2a2a` | hover |
+| `line` | `#3c3c3c` | gray-4: borders, rules |
+| `text` | `#d4d4d4` | gray-1: text |
+| `muted` | `#9c9c9c` | gray-2: captions, section heads |
+| disabled | `#6a6a6a` | gray-3 |
+| `accent` | `#ffffff` | paper: wordmark, titles, icons, the active control, the selected row, links, the primary button |
+| `accentDim` | `#9c9c9c` | a pressed primary button, the slider track |
+| `select` | `#ffffff` | the 3D frame and plan highlight |
+| `ok` / `warn` / `error` / `info` | `#d4d4d4` / `#ffffff` / `#ffffff` / `#9c9c9c` | status: the words and icons carry the meaning, not a hue |
 
-Category colours (`CategoryColour`) are unchanged.
+Data keeps its colours: category colours (`CategoryColour`), *Colours by fill*, and the see-through boxes in
+the 3D view and on the plan. Those are the picture, as the in-game screenshots are in the press kit.
 
 ### 3.2 Type
 
 | Role | Font | Size at 100 % |
 |---|---|---|
-| Title | Cinzel | 22 px |
-| Heading | Jost | 16 px, letter-spaced caps for section heads |
+| Title | Cinzel capitals, tracked 0.30 em | 22 px on the start panel and About, 15 px as the title row's wordmark |
+| Heading | Jost | 16 px; section heads are 13 px capitals tracked 0.24 em in `muted` |
 | Body | Jost | 15 px |
 | Small | Jost | 13 px |
 | Mono | Cascadia Mono, else Consolas | 13 px, form refs and EditorIDs |
@@ -237,22 +241,22 @@ between frames; moving the window to a monitor with another DPI does the same.
 ### 3.3 Shapes and ornament
 
 - Corners 3 px, borders 1 px `line`, no shadows except the floating toolbar and popovers (a 1 px darker rim).
-- Section head: small caps heading in `muted` with a thin line and a small diamond `◆` at its left end,
-  drawn with the draw list (the Skyrim menu divider feel, no bitmap).
-- Chips: 18 px pills with `bg2` fill and a 1 px border in the status colour; text in the same colour.
-- Buttons: flat, `bg2`, hover `bg3`, active `accent` text on `bg2` with an accent underline. Primary (Save)
-  is filled accent with `bg0` text.
+- Section head: tracked capitals in `muted`, then a hairline rule to the right edge. No diamonds or other
+  ornament; the one divider (empty states, the start panel) is the art set's: the emblem between two hairlines.
+- Chips: 18 px pills with `bg2` fill and a 1 px border in the status gray; text in the same gray.
+- Buttons: flat, `bg2`, hover `bg3`, active `accent` text on `bg2` with an underline. Primary (Save) is
+  filled paper with ink text, gray-1 on hover.
 - Icons: drawn with draw-list primitives at 16 px (menu, search, funnel, layers, palette, camera, gear,
   chevrons, check, warning, error, undo, redo, save, close, pin). No icon font.
 - Row height 24 px, inputs 26 px, toolbar 30 px, title row 38 px, status row 24 px, padding 8/6.
 
 ### 3.4 Art the editor reads from the player's install (optional)
 
-`Assets::Read` already serves any DDS in the merged Data folder and archives. Where it helps and the file
-exists, the editor may use it; where it does not, the flat theme is the design, not a degraded version:
+`Assets::Read` already serves any DDS in the merged Data folder and archives. The art set rules out game
+assets as decoration, so the editor draws none (the start panel's header sits on plain ink; `ui/Art` stays
+for the thumbnails' textures). What it reads is data:
 
-- A soft paper or stone texture behind the start panel's title (candidates in `Skyrim - Interface.bsa` under
-  `textures\interface\`; pick one that reads well at 20 % opacity, else none).
+- No texture behind the start panel's title.
 - The selected object's **own mesh** rendered as a 96 px thumbnail at the top of the Selection panel
   (`render::Scene` already loads it; render the one model to a small offscreen target with a fixed camera).
 - The home's main cell as a thumbnail in the switcher dropdown is out of scope for now (cost).

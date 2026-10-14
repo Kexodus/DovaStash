@@ -34,26 +34,6 @@ namespace dova::editor::ui
 			}
 		}
 
-		// The art behind the header (docs/EDITOR-UX.md §3.4): the texture cropped to cover the band at its tint,
-		// fading into bg0 on every side so it has no edge.
-		void ArtBand(ImDrawList* a_dl, ImTextureID a_art, ImVec2 a_min, ImVec2 a_max)
-		{
-			const ImVec2 size = ArtSize(Art::Paper);
-			const float  w = a_max.x - a_min.x, h = a_max.y - a_min.y;
-			if (size.x <= 0.0f || size.y <= 0.0f || w <= 0.0f || h <= 0.0f) {
-				return;
-			}
-			const float  s = std::max(w / size.x, h / size.y);
-			const ImVec2 uv(w / (size.x * s), h / (size.y * s));
-			const ImVec2 uv0((1.0f - uv.x) * 0.5f, (1.0f - uv.y) * 0.5f);
-			a_dl->AddImage(ImTextureRef(a_art), a_min, a_max, uv0, ImVec2(uv0.x + uv.x, uv0.y + uv.y), ArtTint(Art::Paper));
-			const ImU32 bg = w::Th().bg0, clear = w::WithAlpha(bg, 0.0f);
-			const float side = w * 0.22f, top = h * 0.2f, bottom = h * 0.55f;
-			a_dl->AddRectFilledMultiColor(a_min, ImVec2(a_min.x + side, a_max.y), bg, clear, clear, bg);
-			a_dl->AddRectFilledMultiColor(ImVec2(a_max.x - side, a_min.y), a_max, clear, bg, bg, clear);
-			a_dl->AddRectFilledMultiColor(a_min, ImVec2(a_max.x, a_min.y + top), bg, bg, clear, clear);
-			a_dl->AddRectFilledMultiColor(ImVec2(a_min.x, a_max.y - bottom), a_max, clear, clear, bg, bg);
-		}
 	}
 
 	void EditorApp::DrawStart(ImVec2 a_min, ImVec2 a_max)
@@ -71,13 +51,6 @@ namespace dova::editor::ui
 		ImGui::SetCursorPosX(x0);
 		ImGui::BeginGroup();
 		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + colW);
-		// The art goes under the header once its height is known: drawn on a channel below.
-		ImDrawList*       dl = ImGui::GetWindowDrawList();
-		const ImTextureID art = _ws ? ArtTexture(Art::Paper) : ImTextureID{};
-		if (art) {
-			dl->ChannelsSplit(2);
-			dl->ChannelsSetCurrent(1);
-		}
 		{
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			const float  es = 26.0f * t.scale;
@@ -141,11 +114,6 @@ namespace dova::editor::ui
 			w::Muted(std::format("{} plugins read in {:.1f} s", _homes->lo ? _homes->lo->PluginCount() : 0, static_cast<double>(_homes->ms) / 1000.0).c_str());
 		} else {
 			w::Heading("Finding the player homes...");
-		}
-		if (art) {
-			dl->ChannelsSetCurrent(0);
-			ArtBand(dl, art, a_min, ImVec2(a_max.x, ImGui::GetCursorScreenPos().y + 3.0f * t.pad));
-			dl->ChannelsMerge();
 		}
 		w::Spacer(2.0f * t.gap);
 

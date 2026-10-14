@@ -260,8 +260,8 @@ classified by the real category engine through `esp::ReadItem`) and furniture, w
 container has a stronger claim on), *Reject the weak ones* (under 50%), *Draft again* (from the plugins, after
 editing `DraftRules.json`; asks when the template has changes). Then the master with the first clause of its reason
 (the whole reason and the runners-up in the tooltip; *Use this one* when the template uses another), and per
-container its suggestions as chips coloured by confidence (green: the name says so, yellow: a station or items
-nearby, orange: a hint; the legend is the tooltip of the *Containers N of M* head), the source and reason in the
+container its suggestions as chips shaded by confidence (white: the name says so, light gray: a station or items
+nearby, gray: a hint; the number is the confidence, the legend is the tooltip of the *Containers N of M* head), the source and reason in the
 tooltip; a click accepts or rejects. A click on a container's name selects it in the view (one in another cell of
 the home opens that cell). The draft's displays are a folded list at the end. For a home that has a template: how
 many categories the draft sends to the same container and whether the master is the same (details in the tooltip).

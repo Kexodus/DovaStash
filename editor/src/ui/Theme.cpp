@@ -39,20 +39,22 @@ namespace dova::editor::ui::w
 
 		void InitTokens(float a_scale)
 		{
-			g_theme.bg0 = Rgb(0x111113);
-			g_theme.bg1 = Rgb(0x19191d);
-			g_theme.bg2 = Rgb(0x222228);
-			g_theme.bg3 = Rgb(0x2b2b33);
-			g_theme.line = Rgb(0x33333c);
-			g_theme.text = Rgb(0xe8e2d6);
-			g_theme.muted = Rgb(0x9b968d);
-			g_theme.accent = Rgb(0xc9a84c);
-			g_theme.accentDim = Rgb(0x8a7334);
-			g_theme.select = Rgb(0xffd84a);
-			g_theme.ok = Rgb(0x7fbf7f);
-			g_theme.warn = Rgb(0xe0b04a);
-			g_theme.error = Rgb(0xd9634c);
-			g_theme.info = Rgb(0x6fa8dc);
+			// The art set's palette (presskit/README.md, Style): black, white and neutral grays only, every
+			// gray with R = G = B. Surfaces step through the darkest grays; text uses the set's five.
+			g_theme.bg0 = Rgb(0x000000);  // ink
+			g_theme.bg1 = Rgb(0x0e0e0e);
+			g_theme.bg2 = Rgb(0x1e1e1e);  // gray-5: faint frames
+			g_theme.bg3 = Rgb(0x2a2a2a);
+			g_theme.line = Rgb(0x3c3c3c);  // gray-4: rules
+			g_theme.text = Rgb(0xd4d4d4);  // gray-1: secondary text (titles and marks are paper)
+			g_theme.muted = Rgb(0x9c9c9c);  // gray-2: captions
+			g_theme.accent = Rgb(0xffffff);  // paper: primary marks, the active control, the selected row
+			g_theme.accentDim = Rgb(0x9c9c9c);
+			g_theme.select = Rgb(0xffffff);
+			g_theme.ok = Rgb(0xd4d4d4);
+			g_theme.warn = Rgb(0xffffff);
+			g_theme.error = Rgb(0xffffff);
+			g_theme.info = Rgb(0x9c9c9c);
 			g_theme.scale = a_scale;
 			g_theme.rowH = 24.0f * a_scale;
 			g_theme.inputH = 26.0f * a_scale;
@@ -287,7 +289,7 @@ namespace dova::editor::ui::w
 			const ImVec4 none(0, 0, 0, 0);
 			ImVec4*      c = s.Colors;
 			c[ImGuiCol_Text] = V4(t.text);
-			c[ImGuiCol_TextDisabled] = V4(Rgb(0x6e6a63));
+			c[ImGuiCol_TextDisabled] = V4(Rgb(0x6a6a6a));  // gray-3
 			c[ImGuiCol_WindowBg] = V4(t.bg0);
 			c[ImGuiCol_ChildBg] = none;
 			c[ImGuiCol_PopupBg] = V4(t.bg2);
@@ -301,8 +303,8 @@ namespace dova::editor::ui::w
 			c[ImGuiCol_TitleBgCollapsed] = V4(t.bg0);
 			c[ImGuiCol_MenuBarBg] = V4(t.bg1);
 			c[ImGuiCol_ScrollbarBg] = none;
-			c[ImGuiCol_ScrollbarGrab] = V4(Rgb(0x3b3b45));
-			c[ImGuiCol_ScrollbarGrabHovered] = V4(Rgb(0x4d4d58));
+			c[ImGuiCol_ScrollbarGrab] = V4(Rgb(0x3c3c3c));
+			c[ImGuiCol_ScrollbarGrabHovered] = V4(Rgb(0x6a6a6a));
 			c[ImGuiCol_ScrollbarGrabActive] = V4(t.accentDim);
 			c[ImGuiCol_CheckMark] = V4(t.accent);
 			c[ImGuiCol_CheckboxSelectedBg] = V4(t.bg2);
@@ -311,9 +313,9 @@ namespace dova::editor::ui::w
 			c[ImGuiCol_Button] = V4(t.bg2);
 			c[ImGuiCol_ButtonHovered] = V4(t.bg3);
 			c[ImGuiCol_ButtonActive] = V4(detail::Mix(t.accentDim, t.bg3, 0.35f));
-			c[ImGuiCol_Header] = V4(WithAlpha(t.accent, 0.20f));
+			c[ImGuiCol_Header] = V4(WithAlpha(t.accent, 0.14f));
 			c[ImGuiCol_HeaderHovered] = V4(t.bg3);
-			c[ImGuiCol_HeaderActive] = V4(WithAlpha(t.accent, 0.28f));
+			c[ImGuiCol_HeaderActive] = V4(WithAlpha(t.accent, 0.20f));
 			c[ImGuiCol_Separator] = V4(t.line);
 			c[ImGuiCol_SeparatorHovered] = V4(t.accentDim);
 			c[ImGuiCol_SeparatorActive] = V4(t.accent);

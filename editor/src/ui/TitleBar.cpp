@@ -55,21 +55,18 @@ namespace dova::editor::ui
 			const bool   named = W >= 1400.0f * t.scale;
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			const float  es = 18.0f * t.scale;
-			ImGui::PushFont(t.title);
-			const ImVec2 ts = named ? ImGui::CalcTextSize("Dova Stash Editor") : ImVec2(0, 0);
-			ImGui::PopFont();
-			const float h = ImGui::GetFrameHeight();
-			if (ImGui::InvisibleButton("emblem", ImVec2(es + (named ? t.gap + ts.x : 0.0f), h))) {
+			const float  px = 15.0f * t.scale;  // the wordmark's size in the title row
+			const ImVec2 ts = named ? ImVec2(w::Wordmark(nullptr, ImVec2(0, 0), px, 0, "Dova Stash Editor"), px) : ImVec2(0, 0);
+			const float  h = ImGui::GetFrameHeight();
+			if (ImGui::InvisibleButton("emblem", ImVec2(es + (named ? t.pad + ts.x : 0.0f), h))) {
 				_showStart = _cell ? !_showStart : true;
 			}
 			const bool hov = ImGui::IsItemHovered();
 			w::Tip(named ? "Start" : "Dova Stash Editor: start");
 			ImDrawList* dl = ImGui::GetWindowDrawList();
-			w::DrawIcon(dl, w::Icon::Emblem, ImVec2(p.x, p.y + (h - es) * 0.5f), es, hov && !named ? t.select : t.accent);
+			w::DrawIcon(dl, w::Icon::Emblem, ImVec2(p.x, p.y + (h - es) * 0.5f), es, hov ? t.text : t.accent);
 			if (named) {
-				ImGui::PushFont(t.title);
-				dl->AddText(ImVec2(p.x + es + t.gap, p.y + (h - ts.y) * 0.5f), hov ? t.select : t.text, "Dova Stash Editor");
-				ImGui::PopFont();
+				w::Wordmark(dl, ImVec2(p.x + es + t.pad, std::floor(p.y + (h - ts.y) * 0.5f)), px, hov ? t.text : t.accent, "Dova Stash Editor");
 			}
 		}
 		ImGui::SameLine(0.0f, t.pad);

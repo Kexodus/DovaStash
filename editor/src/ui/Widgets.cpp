@@ -326,11 +326,50 @@ namespace dova::editor::ui::w
 
 	// ---- Text ----
 
+	float Wordmark(ImDrawList* a_dl, ImVec2 a_pos, float a_px, ImU32 a_col, const char* a_text)
+	{
+		// Cinzel capitals tracked 0.30 em, as the art set's wordmark; width without drawing when a_dl is null.
+		const Theme& t = Th();
+		ImFont*      font = t.title ? t.title : ImGui::GetFont();
+		const float  px = a_px > 0.0f ? a_px : font->LegacySize;
+		const float  tracking = std::round(px * 0.30f);
+		ImFontBaked* baked = font->GetFontBaked(px);
+		float        x = std::floor(a_pos.x);
+		const char*  s = a_text;
+		const char*  end = a_text + std::strlen(a_text);
+		bool         first = true;
+		while (s < end) {
+			unsigned int c = 0;
+			s += ImTextCharFromUtf8(&c, s, end);
+			if (c == 0) {
+				break;
+			}
+			if (c < 0x250) {
+				c = static_cast<unsigned int>(std::towupper(static_cast<wint_t>(c)));
+			}
+			if (!first) {
+				x += tracking;
+			}
+			first = false;
+			if (a_dl) {
+				font->RenderChar(a_dl, px, ImVec2(x, std::floor(a_pos.y)), a_col, static_cast<ImWchar>(c));
+			}
+			x += baked->GetCharAdvance(static_cast<ImWchar>(c));
+		}
+		return x - std::floor(a_pos.x);
+	}
+
 	void Title(const char* a_text)
 	{
-		PushFont(Font::Title);
-		ImGui::TextUnformatted(a_text);
-		PopFont();
+		const Theme& t = Th();
+		ImFont*      font = t.title ? t.title : ImGui::GetFont();
+		const float  px = font->LegacySize;
+		const float  w = Wordmark(nullptr, ImVec2(0, 0), px, 0, a_text);
+		ImRect       bb;
+		if (!Static(ImVec2(w, px), bb, 0.0f)) {
+			return;
+		}
+		Wordmark(ImGui::GetWindowDrawList(), bb.Min, px, t.accent, a_text);
 	}
 
 	void Heading(const char* a_text)
@@ -372,7 +411,7 @@ namespace dova::editor::ui::w
 	{
 		const Theme& t = Th();
 		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
-		const float  tracking = 1.1f * t.scale;
+		const float  tracking = std::round(font->LegacySize * 0.24f);  // the art set's caps tracking
 		const float  avail = ImGui::GetContentRegionAvail().x;
 		const float  h = std::round(font->LegacySize + 2.0f * t.scale);
 		ImGui::Dummy(ImVec2(0.0f, 4.0f * t.scale));
@@ -383,11 +422,8 @@ namespace dova::editor::ui::w
 		}
 		ImDrawList*  dl = ImGui::GetWindowDrawList();
 		const float  cy = std::floor(bb.Min.y + h * 0.5f) + 0.5f;
-		const float  d = 3.5f * t.scale;
-		const float  dx = std::floor(bb.Min.x + d) + 0.5f;
-		dl->AddQuadFilled(ImVec2(dx, cy - d), ImVec2(dx + d, cy), ImVec2(dx, cy + d), ImVec2(dx - d, cy), t.accentDim);
-		const float tx = bb.Min.x + 2.0f * d + 6.0f * t.scale;
-		const float tw = Tracked(dl, font, ImVec2(tx, bb.Min.y + (h - font->LegacySize) * 0.5f), t.muted, a_text, tracking, true);
+		const float  tx = bb.Min.x;
+		const float  tw = Tracked(dl, font, ImVec2(tx, bb.Min.y + (h - font->LegacySize) * 0.5f), t.muted, a_text, tracking, true);
 		float       x0 = std::round(tx + tw + 8.0f * t.scale);
 		if (a_tooltip && *a_tooltip) {
 			const float  is = std::round(12.0f * t.scale);
@@ -598,7 +634,7 @@ namespace dova::editor::ui::w
 		ImDrawList*   dl = ImGui::GetWindowDrawList();
 		const ImRect& bb = hit.bb;
 		if (a_enabled) {
-			const ImU32 fill = hit.held ? Mix(t.accent, t.accentDim, 0.5f) : hit.hovered ? t.select : t.accent;
+			const ImU32 fill = hit.held ? t.accentDim : hit.hovered ? t.text : t.accent;
 			dl->AddRectFilled(bb.Min, bb.Max, fill, t.radius);
 			Text(dl, font, ImVec2(bb.Min.x + (size.x - ts.x) * 0.5f, bb.Min.y + (h - ts.y) * 0.5f), t.bg0, a_label, end);
 		} else {
@@ -632,7 +668,7 @@ namespace dova::editor::ui::w
 		bool       hovered = false, held = false;
 		const bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held);
 		ImDrawList* dl = ImGui::GetWindowDrawList();
-		const ImU32 col = hovered ? t.select : t.accent;
+		const ImU32 col = hovered ? t.text : t.accent;
 		Text(dl, font, bb.Min, col, a_label, end);
 		if (hovered) {
 			const float y = std::floor(bb.Max.y);
@@ -1056,30 +1092,24 @@ namespace dova::editor::ui::w
 
 	void Ornament(float a_width)
 	{
+		// The art set's divider: the emblem as a small bullet with a hairline rule on each side.
 		const Theme& t = Th();
 		const float  avail = ImGui::GetContentRegionAvail().x;
 		const float  w = std::min(avail, a_width > 0.0f ? a_width : 160.0f * t.scale);
-		const float  h = 12.0f * t.scale;
+		const float  e = std::round(14.0f * t.scale);
+		const float  h = e + 2.0f * t.scale;
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, std::floor((avail - w) * 0.5f)));
 		ImRect bb;
 		if (!Static(ImVec2(w, h), bb, 0.0f)) {
 			return;
 		}
 		ImDrawList*  dl = ImGui::GetWindowDrawList();
-		const ImVec2 c(std::floor(bb.GetCenter().x) + 0.5f, std::floor(bb.GetCenter().y) + 0.5f);
-		const float  d = 3.5f * t.scale;
-		const float  gap = 7.0f * t.scale;
+		const ImVec2 c(std::floor(bb.GetCenter().x), std::floor(bb.GetCenter().y));
+		const float  gap = 10.0f * t.scale;
 		const float  y = std::floor(c.y);
-		// The lines fade out towards their ends.
-		const ImU32 lineCol = t.line, clear = WithAlpha(t.line, 0.0f);
-		dl->AddRectFilledMultiColor(ImVec2(bb.Min.x, y), ImVec2(c.x - d - gap, y + 1.0f), clear, lineCol, lineCol, clear);
-		dl->AddRectFilledMultiColor(ImVec2(c.x + d + gap, y), ImVec2(bb.Max.x, y + 1.0f), lineCol, clear, clear, lineCol);
-		dl->AddQuadFilled(ImVec2(c.x, c.y - d), ImVec2(c.x + d, c.y), ImVec2(c.x, c.y + d), ImVec2(c.x - d, c.y), t.accentDim);
-		const float e = 1.6f * t.scale;
-		dl->AddQuadFilled(ImVec2(c.x - d - gap * 0.5f, c.y - e), ImVec2(c.x - d - gap * 0.5f + e, c.y), ImVec2(c.x - d - gap * 0.5f, c.y + e),
-			ImVec2(c.x - d - gap * 0.5f - e, c.y), t.line);
-		dl->AddQuadFilled(ImVec2(c.x + d + gap * 0.5f, c.y - e), ImVec2(c.x + d + gap * 0.5f + e, c.y), ImVec2(c.x + d + gap * 0.5f, c.y + e),
-			ImVec2(c.x + d + gap * 0.5f - e, c.y), t.line);
+		dl->AddRectFilled(ImVec2(bb.Min.x, y), ImVec2(c.x - e * 0.5f - gap, y + 1.0f), t.line);
+		dl->AddRectFilled(ImVec2(c.x + e * 0.5f + gap, y), ImVec2(bb.Max.x, y + 1.0f), t.line);
+		DrawIcon(dl, Icon::Emblem, ImVec2(c.x - e * 0.5f, c.y - e * 0.5f), e, t.muted);
 	}
 
 	void TextWithMuted(const char* a_text, const char* a_muted)

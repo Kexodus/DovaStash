@@ -74,7 +74,8 @@ namespace dova::editor::ui::w
 	ImU32   WithAlpha(ImU32 a_colour, float a_alpha);  // the colour with its alpha multiplied by `a_alpha` (0..1)
 
 	// ---- Text ---------------------------------------------------------------------------------------
-	void Title(const char* a_text);    // Cinzel
+	void Title(const char* a_text);    // Cinzel capitals, tracked 0.30 em (the art set's wordmark)
+	float Wordmark(ImDrawList* a_dl, ImVec2 a_pos, float a_px, ImU32 a_col, const char* a_text);  // draws it (a_dl null: width only)
 	void Heading(const char* a_text);  // Jost 16
 	void Muted(const char* a_text);    // body in `muted`
 	void MutedWrapped(const char* a_text);
