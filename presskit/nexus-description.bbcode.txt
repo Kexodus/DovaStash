@@ -93,7 +93,7 @@ Not required: PapyrusUtil, KID, or any patch.
 
 Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right away. Hover any option to see its INI key.
 [list]
-[*][b]Settings (all homes):[/b]
+[*][b]Settings:[/b]
 [list]
 [*]Hotkeys, keyboard and gamepad
 [*]What the hotkey opens: UIExtensions lists, message boxes or the panel
@@ -102,7 +102,7 @@ Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right
 [*]QuickLoot IE: item tags and category icons
 [*]Activate prompt and floating icons
 [*]Log detail
-[*]Keep rules for every home
+[*]Default keep rules for every home
 [/list]
 [*][b]This home:[/b] actions, containers and their categories, learned items, this home's keep rules, saving the home as a template, and restoring a saved copy of its setup.
 [/list]

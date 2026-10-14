@@ -16,21 +16,21 @@
 
 #include <SKSEMenuFramework.h>
 
+#include "UI/Panel/Widgets.h"  // needs ImGuiMCP from the header above
+
 // RENDER THREAD ONLY: read DisplaysModel / ArmorSetsModel snapshots, post Controller actions to the main
-// thread (they re-check the captured cell id, as the hotkey's display menu does).
+// thread (they re-check the captured cell id, as the hotkey's display menu does). Layout, wording and widget
+// conventions: UI/Panel/Strings.h.
 
 namespace dova::ui::panel
 {
 	namespace
 	{
 		namespace ImGui = ImGuiMCP;
+		using namespace widgets;
 
-		constexpr ImGui::ImVec4 kGrey{ 0.62f, 0.62f, 0.62f, 1.0f };
-		constexpr ImGui::ImVec4 kGreen{ 0.5f, 0.9f, 0.5f, 1.0f };
-		constexpr ImGui::ImVec4 kYellow{ 1.0f, 0.82f, 0.35f, 1.0f };
-		constexpr ImGui::ImVec4 kAccent{ 0.55f, 0.8f, 1.0f, 1.0f };
-		constexpr std::size_t   kMaxRows = 500;
-		constexpr std::size_t   kMaxSets = 100;
+		constexpr std::size_t kMaxRows = 500;
+		constexpr std::size_t kMaxSets = 100;
 
 		enum Status : int
 		{
@@ -78,36 +78,6 @@ namespace dova::ui::panel
 		};
 		PageState g_page;
 
-		void Text(std::string_view a_text)
-		{
-			ImGui::TextUnformatted(a_text.data(), a_text.data() + a_text.size());
-		}
-
-		void Disabled(const std::string& a_text)
-		{
-			ImGui::TextDisabled("%s", a_text.c_str());
-		}
-
-		void Colored(const ImGui::ImVec4& a_color, const std::string& a_text)
-		{
-			ImGui::TextColored(a_color, "%s", a_text.c_str());
-		}
-
-		void ColoredWrapped(const ImGui::ImVec4& a_color, const std::string& a_text)
-		{
-			ImGui::PushStyleColor(ImGui::ImGuiCol_Text, a_color);
-			ImGui::TextWrapped("%s", a_text.c_str());
-			ImGui::PopStyleColor();
-		}
-
-		// Tooltip for the item just drawn (also when it is disabled).
-		void Tooltip(const std::string& a_text)
-		{
-			if (!a_text.empty() && ImGui::IsItemHovered(ImGui::ImGuiHoveredFlags_AllowWhenDisabled)) {
-				ImGui::SetTooltip("%s", a_text.c_str());
-			}
-		}
-
 		template <std::size_t N>
 		std::string FromBuffer(const std::array<char, N>& a_buffer)
 		{
@@ -127,28 +97,10 @@ namespace dova::ui::panel
 			DisplaysModel::Get().Post(std::move(a_fn));
 		}
 
-		// Inline confirmation: a button that turns into "<question> [Yes] [No]". True once on Yes.
+		// The page's inline confirmations (one question at a time).
 		bool ConfirmButton(const std::string& a_label, const std::string& a_key, const std::string& a_question)
 		{
-			ImGui::PushID(a_key.c_str());
-			bool confirmed = false;
-			if (g_page.confirm != a_key) {
-				if (ImGui::Button(a_label.c_str())) {
-					g_page.confirm = a_key;
-				}
-			} else {
-				ColoredWrapped(kYellow, a_question);
-				if (ImGui::Button(text::kYes)) {
-					confirmed = true;
-					g_page.confirm.clear();
-				}
-				ImGui::SameLine();
-				if (ImGui::Button(text::kNo)) {
-					g_page.confirm.clear();
-				}
-			}
-			ImGui::PopID();
-			return confirmed;
+			return widgets::ConfirmButton(g_page.confirm, a_label, a_key, a_question);
 		}
 
 		int StatusRank(const DisplayRow& a_row)
@@ -328,9 +280,7 @@ namespace dova::ui::panel
 		void RenderTable(const DisplaysSnapshot& a_snap, const std::vector<std::size_t>& a_rows)
 		{
 			const int columns = a_snap.multiCell ? 6 : 5;
-			const int flags = ImGui::ImGuiTableFlags_Borders | ImGui::ImGuiTableFlags_RowBg | ImGui::ImGuiTableFlags_Resizable |
-			                  ImGui::ImGuiTableFlags_SizingStretchProp | ImGui::ImGuiTableFlags_ScrollY;
-			if (!ImGui::BeginTable("##displays", columns, flags, ImGui::ImVec2{ 0.0f, 300.0f })) {
+			if (!ImGui::BeginTable("##displays", columns, kScrollTableFlags, ImGui::ImVec2{ 0.0f, TableHeight(std::min(a_rows.size(), kMaxRows), 12) })) {
 				return;
 			}
 			ImGui::TableSetupScrollFreeze(0, 1);
@@ -405,7 +355,7 @@ namespace dova::ui::panel
 				ImGui::PopID();
 				if (covered) {
 					ImGui::SameLine();
-					Disabled(text::kDispViaWider);
+					Disabled(text::kViaWider);
 				}
 				if (below) {
 					ImGui::Unindent();
@@ -425,10 +375,11 @@ namespace dova::ui::panel
 			const auto cellId = a_snap.cellId;
 			const auto ref = a_row.ref;
 			ImGui::BeginDisabled(!a_row.hasSet);
-			if (ImGui::Button(text::kDispAuto)) {
+			if (ImGui::Button(text::kAuto)) {
 				Do([cellId, ref]() { ChooseArmorSet(cellId, ref, std::nullopt); });
 			}
 			ImGui::EndDisabled();
+			Tooltip(text::kAutoTip);
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(220.0f);
 			ImGui::InputTextWithHint("##setsearch", text::kDispSetSearchHint, g_page.setSearch.data(), g_page.setSearch.size());
@@ -474,7 +425,7 @@ namespace dova::ui::panel
 					const auto  s = g_page.sets[i];
 					const auto& set = index.sets[s];
 					const auto& coverage = sets->coverage[s];
-					const auto  label = coverage.pieces > 0 ? std::format("{} ({}/{})", set.name, coverage.have, coverage.total) : std::format("{}  [{}]", set.name, set.plugin);
+					const auto  label = coverage.pieces > 0 ? std::format(text::kDispSetHave, set.name, coverage.have, coverage.total) : std::format(text::kDispSetPlugin, set.name, set.plugin);
 					ImGui::PushID(static_cast<int>(s));
 					if (ImGui::Selectable(label.c_str(), current == s)) {
 						Do([cellId, ref, id = set.id]() { ChooseArmorSet(cellId, ref, id); });
@@ -506,6 +457,7 @@ namespace dova::ui::panel
 				if (ImGui::Button(text::kDispUse)) {
 					Do([cellId, ref]() { Controller::Get().SetDisplayUsed(cellId, ref, true); });
 				}
+				Tooltip(text::kDispUseTip);
 			} else {
 				const char* why = !a_row.loaded || !a_row.here ? text::kDispFillElsewhere : !a_row.available ? text::kDispFillNotBuilt : a_row.full ? text::kDispFillFull : nullptr;
 				ImGui::BeginDisabled(why != nullptr);
@@ -561,13 +513,13 @@ namespace dova::ui::panel
 		}
 		const auto snap = model.Snapshot();
 		if (!snap) {
-			ImGui::TextDisabled("%s", text::kLoading);
+			Disabled(text::kLoading);
 			return;
 		}
-		ColoredWrapped(kGrey, text::kDispIntro);
+		Hint(text::kDispIntro);
 		ImGui::Spacing();
 		if (!snap->inHome) {
-			ImGui::TextDisabled("%s", text::kDispNotInHome);
+			Disabled(text::kDispNotInHome);
 			return;
 		}
 		if (snap->cellId != g_page.cellId) {
@@ -576,9 +528,10 @@ namespace dova::ui::panel
 			g_page.confirm.clear();
 		}
 
+		ImGui::AlignTextToFramePadding();
 		Colored(kAccent, snap->hereArea.empty() ? snap->homeName : std::format(text::kDispHereArea, snap->homeName, snap->hereArea));
 		ImGui::SameLine();
-		if (ImGui::SmallButton(text::kDispRefresh)) {
+		if (ImGui::Button(text::kRefresh)) {
 			model.RequestRefresh(true, true);
 		}
 		Tooltip(text::kDispRefreshTip);
@@ -586,10 +539,11 @@ namespace dova::ui::panel
 		if (snap->broken) {
 			ColoredWrapped(kYellow, text::kDispBroken);
 		} else if (!snap->enabled) {
-			ImGui::TextDisabled("%s", text::kDispNotEnabled);
+			Disabled(text::kNeedsSetup);
 		}
 		if (snap->rows.empty()) {
-			ImGui::TextDisabled("%s", text::kDispNone);
+			Disabled(text::kDispNone);
+			StatusLine(PanelModel::Get().Status());
 			return;
 		}
 
@@ -603,16 +557,12 @@ namespace dova::ui::panel
 		if (selected != snap->rows.end()) {
 			RenderSelected(*snap, *selected, canEdit);
 		} else {
-			ImGui::TextDisabled("%s", text::kDispSelect);
+			Disabled(text::kDispSelect);
 		}
 		if (canEdit) {
 			RenderBulk(*snap);
 		}
 
-		const auto status = PanelModel::Get().Status();
-		if (!status.empty()) {
-			ImGui::Separator();
-			Disabled(status);
-		}
+		StatusLine(PanelModel::Get().Status());
 	}
 }

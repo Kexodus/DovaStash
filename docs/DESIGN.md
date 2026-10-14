@@ -1055,9 +1055,12 @@ struct IStashUI {
   global settings page, a template browser, an *Armor sets* page (every armor set in the load order,
   searchable, assignable to a mannequin of the current home, §8.4 *Mannequins*) and a *Displays* page (below).
   This is the rich editor: category trees, multi-select binding, keep-rule quotas, and template export (§6.5).
-  The section's pages: *This home* (the stash window's page), *Settings*, *Templates*, *Armor sets*,
-  *Displays*, *Diagnostics*, *About* (version, runtime, what is installed, and *Dova Stash Editor: installed
-  at <path>* when `Tools/DovaStashEditor.exe` sits in the plugin's mod folder, found from the DLL's own path).
+  The section's pages, the current home's first: *This home* (the stash window's page), *Displays*,
+  *Armor sets*, *Settings*, *Templates*, *Diagnostics*, *About* (version, runtime, what is available, and
+  *Dova Stash Editor: installed at <path>* when `Tools/DovaStashEditor.exe` sits in the plugin's mod folder,
+  found from the DLL's own path). Every page follows one set of wording and layout conventions (labels,
+  tooltips, buttons that ask first, help text, empty states, colours, section order), written at the top of
+  `UI/Panel/Strings.h` and drawn with the shared helpers in `UI/Panel/Widgets.h`.
 - **Displays page** (`UI/Panel/DisplaysPage.cpp`, `DisplaysModel.cpp`; §8.4). Every display Dova Stash
   recognises in the current home's loaded cells (the player's cell and the home's other attached cells), plus
   the setup's display entries it cannot see from there (*not loaded*): name, kind, area (multi-cell homes),

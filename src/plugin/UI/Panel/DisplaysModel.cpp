@@ -255,7 +255,7 @@ namespace dova::ui::panel
 					}
 					row.setName = game::SetName(*index, *a_binding->set);
 				} else {
-					row.setName = text::kDispAuto;
+					row.setName = text::kAuto;
 				}
 			}
 			for (const auto& p : row.categories) {

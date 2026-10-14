@@ -3,8 +3,8 @@
 // SKSE Menu Framework implementation of the UI facade (DESIGN §10.1): the rich editor.
 //
 // The hotkey opens one contextual stash window (AddWindow) focused on the targeted container; the
-// "Dova Stash" section of the framework's own menu adds Current home / Settings / Templates /
-// Diagnostics / About pages. Rendering happens on the render thread from snapshots (UI/Panel/*);
+// "Dova Stash" section of the framework's own menu adds This home / Displays / Armor sets / Settings /
+// Templates / Diagnostics / About pages. Rendering happens on the render thread from snapshots (UI/Panel/*);
 // this class only runs on the main thread (called by the Controller).
 
 #include "UI/IStashUI.h"

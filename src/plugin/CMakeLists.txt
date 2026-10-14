@@ -88,6 +88,7 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/MenuFrameworkUI.cpp
 	UI/Panel/Snapshot.h
 	UI/Panel/Strings.h
+	UI/Panel/Widgets.h
 	UI/Panel/PanelModel.h
 	UI/Panel/PanelModel.cpp
 	UI/Panel/PanelRender.h

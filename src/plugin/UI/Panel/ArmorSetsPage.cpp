@@ -2,6 +2,7 @@
 
 #include "UI/ArmorSetMenu.h"
 #include "UI/Panel/ArmorSetsModel.h"
+#include "UI/Panel/PanelModel.h"
 #include "UI/Panel/Strings.h"
 
 #include <cstring>
@@ -12,17 +13,19 @@
 
 #include <SKSEMenuFramework.h>
 
-// RENDER THREAD ONLY: read ArmorSetsModel snapshots, post actions to the main thread.
+#include "UI/Panel/Widgets.h"  // needs ImGuiMCP from the header above
+
+// RENDER THREAD ONLY: read ArmorSetsModel snapshots, post actions to the main thread. Layout, wording and widget
+// conventions: UI/Panel/Strings.h.
 
 namespace dova::ui::panel
 {
 	namespace
 	{
 		namespace ImGui = ImGuiMCP;
+		using namespace widgets;
 
-		constexpr ImGui::ImVec4 kGrey{ 0.62f, 0.62f, 0.62f, 1.0f };
-		constexpr ImGui::ImVec4 kGreen{ 0.5f, 0.9f, 0.5f, 1.0f };
-		constexpr std::size_t   kMaxRows = 500;
+		constexpr std::size_t kMaxRows = 500;
 
 		struct PageState
 		{
@@ -39,18 +42,6 @@ namespace dova::ui::panel
 			std::vector<std::size_t> filtered;
 		};
 		PageState g_page;
-
-		void Text(std::string_view a_text)
-		{
-			ImGui::TextUnformatted(a_text.data(), a_text.data() + a_text.size());
-		}
-
-		void ColoredWrapped(const ImGui::ImVec4& a_color, const std::string& a_text)
-		{
-			ImGui::PushStyleColor(ImGui::ImGuiCol_Text, a_color);
-			ImGui::TextWrapped("%s", a_text.c_str());
-			ImGui::PopStyleColor();
-		}
 
 		std::string Query()
 		{
@@ -100,15 +91,15 @@ namespace dova::ui::panel
 		void RenderMannequinPicker(const ArmorSetsSnapshot& a_snap, const MannequinRow* a_current)
 		{
 			if (!a_snap.inHome) {
-				ImGui::TextDisabled("%s", text::kSetsNotInHome);
+				Disabled(text::kSetsNotInHome);
 				return;
 			}
 			if (!a_snap.enabled) {
-				ImGui::TextDisabled("%s", text::kSetsNotEnabled);
+				Disabled(text::kNeedsSetup);
 				return;
 			}
 			if (a_snap.mannequins.empty()) {
-				ImGui::TextDisabled("%s", text::kSetsNoMannequins);
+				Disabled(text::kSetsNoMannequins);
 				return;
 			}
 			const auto preview = a_current ? MannequinLabel(*a_current) : std::string(text::kNone);
@@ -139,23 +130,24 @@ namespace dova::ui::panel
 				if (ImGui::Button(std::format(text::kSetsAssign, set.name, a_mannequin->name).c_str())) {
 					ArmorSetsModel::Get().Post([cellId, ref, id = set.id]() { ChooseArmorSet(cellId, ref, id); });
 				}
+				Tooltip(text::kSetsAssignTip);
 			} else {
-				ImGui::TextDisabled("%s", text::kSetsPickSet);
+				ImGui::AlignTextToFramePadding();
+				Disabled(text::kSetsPickSet);
 			}
 			ImGui::SameLine();
 			ImGui::BeginDisabled(!a_mannequin->set);
-			if (ImGui::Button(text::kSetsAuto)) {
+			if (ImGui::Button(text::kAuto)) {
 				ArmorSetsModel::Get().Post([cellId, ref]() { ChooseArmorSet(cellId, ref, std::nullopt); });
 			}
 			ImGui::EndDisabled();
+			Tooltip(text::kAutoTip);
 		}
 
 		void RenderTable(const ArmorSetsSnapshot& a_snap, const std::vector<std::size_t>& a_rows)
 		{
 			const auto& index = *a_snap.index;
-			const int   flags = ImGui::ImGuiTableFlags_Borders | ImGui::ImGuiTableFlags_RowBg | ImGui::ImGuiTableFlags_Resizable |
-			                  ImGui::ImGuiTableFlags_SizingStretchProp | ImGui::ImGuiTableFlags_ScrollY;
-			if (!ImGui::BeginTable("##armorsets", 4, flags, ImGui::ImVec2{ 0.0f, 360.0f })) {
+			if (!ImGui::BeginTable("##armorsets", 4, kScrollTableFlags, ImGui::ImVec2{ 0.0f, TableHeight(std::min(a_rows.size(), kMaxRows), 16) })) {
 				return;
 			}
 			ImGui::TableSetupScrollFreeze(0, 1);
@@ -178,7 +170,7 @@ namespace dova::ui::panel
 					std::string pieces;
 					for (const auto i : set.pieces) {
 						const auto& p = index.pieces[i];
-						pieces += std::format("{}{}{}", pieces.empty() ? "" : "\n", p.name, a_snap.have.contains(p.form) ? "  (have)" : "");
+						pieces += std::format("{}{}{}", pieces.empty() ? "" : "\n", p.name, a_snap.have.contains(p.form) ? text::kSetsHavePiece : "");
 					}
 					ImGui::SetTooltip("%s", pieces.c_str());
 				}
@@ -188,9 +180,9 @@ namespace dova::ui::panel
 				Text(std::to_string(set.pieces.size()));
 				ImGui::TableNextColumn();
 				if (coverage.pieces == 0) {
-					ImGui::TextDisabled("%s", text::kNone);
+					Disabled(text::kNone);
 				} else if (coverage.Complete()) {
-					ImGui::TextColored(kGreen, "%d/%d", coverage.have, coverage.total);
+					Colored(kGreen, std::format("{}/{}", coverage.have, coverage.total));
 				} else {
 					Text(std::format("{}/{}", coverage.have, coverage.total));
 				}
@@ -206,10 +198,10 @@ namespace dova::ui::panel
 		model.RequestRefresh();
 		const auto snap = model.Snapshot();
 		if (!snap || !snap->index) {
-			ImGui::TextDisabled("%s", text::kLoading);
+			Disabled(text::kLoading);
 			return;
 		}
-		ColoredWrapped(kGrey, text::kSetsIntro);
+		Hint(text::kSetsIntro);
 		ImGui::Spacing();
 		const auto* mannequin = SelectedMannequin(*snap);
 		RenderMannequinPicker(*snap, mannequin);
@@ -220,12 +212,13 @@ namespace dova::ui::panel
 		ImGui::Checkbox(text::kSetsOnlyHave, &g_page.onlyHave);
 		const auto& rows = Filtered(*snap);
 		ImGui::SameLine();
-		ImGui::TextDisabled("%s", std::format(text::kSetsCount, rows.size(), snap->index->sets.size()).c_str());
+		Disabled(std::format(text::kSetsCount, rows.size(), snap->index->sets.size()));
 
 		RenderTable(*snap, rows);
 		if (rows.size() > kMaxRows) {
-			ImGui::TextDisabled("%s", std::format(text::kSetsTooMany, kMaxRows).c_str());
+			Disabled(std::format(text::kSetsTooMany, kMaxRows));
 		}
 		RenderActions(*snap, mannequin);
+		StatusLine(PanelModel::Get().Status());
 	}
 }

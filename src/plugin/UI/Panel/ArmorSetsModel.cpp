@@ -2,6 +2,7 @@
 
 #include "Game/Displays.h"
 #include "Game/FormUtil.h"
+#include "UI/Panel/Strings.h"
 
 #include <mutex>
 
@@ -95,7 +96,7 @@ namespace dova::ui::panel
 						row.name = binding->label;
 					}
 				}
-				row.setName = row.set ? game::SetName(*snap->index, *row.set) : "Auto";
+				row.setName = row.set ? game::SetName(*snap->index, *row.set) : std::string(text::kAuto);
 				snap->mannequins.push_back(std::move(row));
 			}
 		} else {

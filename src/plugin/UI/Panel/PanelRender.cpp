@@ -20,22 +20,22 @@
 
 #include <SKSEMenuFramework.h>
 
+#include "UI/Panel/Widgets.h"  // needs ImGuiMCP from the header above
+
 // RENDER THREAD ONLY below this line, except Register()/OpenWindow(). Never touch RE:: objects,
 // HomeRegistry or Store here: read PanelModel snapshots, and post actions to the main thread.
+// Layout, wording and widget conventions: UI/Panel/Strings.h.
 
 namespace dova::ui::panel
 {
 	namespace
 	{
 		namespace ImGui = ImGuiMCP;
-
-		constexpr ImGui::ImVec4 kRed{ 1.0f, 0.45f, 0.45f, 1.0f };
-		constexpr ImGui::ImVec4 kYellow{ 1.0f, 0.82f, 0.35f, 1.0f };
-		constexpr ImGui::ImVec4 kGreen{ 0.5f, 0.9f, 0.5f, 1.0f };
-		constexpr ImGui::ImVec4 kAccent{ 0.55f, 0.8f, 1.0f, 1.0f };
-		constexpr ImGui::ImVec4 kGrey{ 0.62f, 0.62f, 0.62f, 1.0f };
+		using namespace widgets;
 
 		constexpr float kFill = -std::numeric_limits<float>::min();  // "use the remaining width"
+		constexpr float kNameWidth = 260.0f;                         // a name text box (container, area)
+		constexpr float kFieldWidth = 320.0f;                        // a longer text box or combo
 
 		std::atomic<SKSEMenuFramework::Model::WindowInterface*> g_window{ nullptr };
 
@@ -84,45 +84,6 @@ namespace dova::ui::panel
 
 		// --- small helpers ---------------------------------------------------------------------------
 
-		void Text(std::string_view a_text)
-		{
-			ImGui::TextUnformatted(a_text.data(), a_text.data() + a_text.size());
-		}
-
-		void Wrapped(const std::string& a_text)
-		{
-			ImGui::TextWrapped("%s", a_text.c_str());
-		}
-
-		void Colored(const ImGui::ImVec4& a_color, const std::string& a_text)
-		{
-			ImGui::TextColored(a_color, "%s", a_text.c_str());
-		}
-
-		void ColoredWrapped(const ImGui::ImVec4& a_color, const std::string& a_text)
-		{
-			ImGui::PushStyleColor(ImGui::ImGuiCol_Text, a_color);
-			ImGui::TextWrapped("%s", a_text.c_str());
-			ImGui::PopStyleColor();
-		}
-
-		void Disabled(const std::string& a_text)
-		{
-			ImGui::TextDisabled("%s", a_text.c_str());
-		}
-
-		void Tooltip(const std::string& a_text)
-		{
-			if (!a_text.empty() && ImGui::IsItemHovered()) {
-				ImGui::SetTooltip("%s", a_text.c_str());
-			}
-		}
-
-		bool Button(const std::string& a_label)
-		{
-			return ImGui::Button(a_label.c_str());
-		}
-
 		template <std::size_t N>
 		void CopyTo(std::array<char, N>& a_buffer, std::string_view a_text)
 		{
@@ -149,34 +110,61 @@ namespace dova::ui::panel
 			return out;
 		}
 
+		// "Breezehome v1.0.0 by Dova Stash"; without an author, "Breezehome v1.0.0".
+		std::string NameLine(const std::string& a_name, const std::string& a_version, const std::string& a_author)
+		{
+			const auto line = std::format(text::kNameVersion, a_name, a_version);
+			return a_author.empty() ? line : std::format(text::kByAuthor, line, a_author);
+		}
+
 		// Runs `a_fn` on the main thread (SKSE task queue), then rebuilds the snapshot.
 		void Do(std::function<void()> a_fn, Refresh a_refresh = Refresh::Light)
 		{
 			PanelModel::Get().Post(std::move(a_fn), a_refresh);
 		}
 
-		// Inline confirmation: a button that turns into "<question> [Yes] [No]". True once on Yes.
-		bool ConfirmButton(const std::string& a_label, const std::string& a_key, const std::string& a_question)
+		// The home panel's inline confirmations (one question at a time).
+		bool ConfirmButton(const std::string& a_label, const std::string& a_key, const std::string& a_question, bool a_small = false)
 		{
-			ImGui::PushID(a_key.c_str());
-			bool confirmed = false;
-			if (g_state.confirm != a_key) {
-				if (Button(a_label)) {
-					g_state.confirm = a_key;
-				}
-			} else {
-				ColoredWrapped(kYellow, a_question);
-				if (ImGui::Button(text::kYes)) {
-					confirmed = true;
-					g_state.confirm.clear();
-				}
-				ImGui::SameLine();
-				if (ImGui::Button(text::kNo)) {
-					g_state.confirm.clear();
-				}
+			return widgets::ConfirmButton(g_state.confirm, a_label, a_key, a_question, a_small);
+		}
+
+		bool RowConfirm(ButtonRow& a_row, const std::string& a_label, const std::string& a_key, const std::string& a_question, bool a_small = false)
+		{
+			return a_row.Confirm(g_state.confirm, a_label, a_key, a_question, a_small);
+		}
+
+		// Save / Revert / "Unsaved changes" under a list edited as a draft (keep rules).
+		enum class DraftAction
+		{
+			None,
+			Save,
+			Revert
+		};
+
+		DraftAction DraftButtons(bool a_dirty, bool a_invalid)
+		{
+			ImGui::Separator();
+			if (a_invalid) {
+				ColoredWrapped(kYellow, text::kQuotaNeedsCategory);
 			}
-			ImGui::PopID();
-			return confirmed;
+			auto action = DraftAction::None;
+			ImGui::BeginDisabled(!a_dirty || a_invalid);
+			if (ImGui::Button(text::kSave)) {
+				action = DraftAction::Save;
+			}
+			ImGui::EndDisabled();
+			ImGui::SameLine();
+			ImGui::BeginDisabled(!a_dirty);
+			if (ImGui::Button(text::kRevert)) {
+				action = DraftAction::Revert;
+			}
+			ImGui::EndDisabled();
+			if (a_dirty) {
+				ImGui::SameLine();
+				Colored(kYellow, text::kUnsaved);
+			}
+			return action;
 		}
 
 		// --- categories --------------------------------------------------------------------------------
@@ -305,11 +293,7 @@ namespace dova::ui::panel
 
 		void RenderStatus()
 		{
-			const auto status = PanelModel::Get().Status();
-			if (!status.empty()) {
-				ImGui::Separator();
-				Disabled(status);
-			}
+			StatusLine(PanelModel::Get().Status());
 		}
 
 		// --- header / setup -----------------------------------------------------------------------------
@@ -324,7 +308,7 @@ namespace dova::ui::panel
 			ImGui::SameLine();
 			Disabled(a_snap.cellText);
 			if (a_snap.enabled) {
-				Text(std::format(text::kHeaderLayout, a_snap.layoutName, a_snap.layoutVersion, a_snap.layoutAuthor.empty() ? "?"s : a_snap.layoutAuthor));
+				Text(std::format(text::kHeaderLayout, NameLine(a_snap.layoutName, a_snap.layoutVersion, a_snap.layoutAuthor)));
 				Disabled(a_snap.basedOn ? std::format(text::kHeaderBasedOn, *a_snap.basedOn) : std::string(text::kHeaderCustom));
 				if (a_snap.masterRow && *a_snap.masterRow < a_snap.containers.size()) {
 					const auto& master = a_snap.containers[*a_snap.masterRow];
@@ -340,13 +324,15 @@ namespace dova::ui::panel
 			ImGui::Separator();
 		}
 
+		// The templates for this home, one row each with a small Use button. `a_confirm`: this home has a setup
+		// that the template replaces, so the button asks first.
 		void RenderTemplateChoices(const HomeSnapshot& a_snap, bool a_confirm)
 		{
 			const auto cell = a_snap.cellId;
 			for (const auto& t : a_snap.templates) {
 				ImGui::PushID(t.source.c_str());
 				ImGui::AlignTextToFramePadding();
-				Text(std::format(text::kTemplateLine, t.name, t.version, t.author.empty() ? "?"s : t.author));
+				Text(NameLine(t.name, t.version, t.author));
 				Tooltip(t.source);
 				if (t.best) {
 					ImGui::SameLine();
@@ -356,9 +342,14 @@ namespace dova::ui::panel
 					ImGui::SameLine();
 					Disabled(text::kTemplateApplied);
 				}
-				ImGui::SameLine();
-				const std::string label = t.applied ? text::kReapplyTemplate : text::kUseTemplate;
-				const bool        go = a_confirm ? ConfirmButton(label, "tpl:" + t.source, std::format(text::kConfirmTemplate, t.name)) : Button(label);
+				ButtonRow row(true);
+				bool      go = false;
+				if (a_confirm) {
+					go = RowConfirm(row, t.applied ? text::kReapplyTemplate : text::kUseTemplateAsk, "tpl:" + t.source, std::format(text::kConfirmTemplate, t.name), true);
+				} else {
+					row.Next();
+					go = Button(text::kUseTemplate, true);
+				}
 				if (go) {
 					Do([cell, source = t.source]() { Controller::Get().UseTemplate(cell, source); }, Refresh::Full);
 				}
@@ -374,7 +365,6 @@ namespace dova::ui::panel
 			Tooltip(text::kBackupsTip);
 			if (a_snap.backups.empty()) {
 				Disabled(text::kNoBackups);
-				Tooltip(text::kBackupsTip);
 				return;
 			}
 			const auto cell = a_snap.cellId;
@@ -382,7 +372,6 @@ namespace dova::ui::panel
 				const auto& backup = a_snap.backups[a_index];
 				const bool  go = a_confirm ? ConfirmButton(a_label, std::format("restore:{}", a_index), std::format(ui::kConfirmRestore, backup.date)) :
 				                             Button(a_label);
-				Tooltip(text::kBackupsTip);
 				if (go) {
 					Do([cell, path = backup.path]() { Controller::Get().RestoreBackup(cell, path); }, Refresh::Full);
 				}
@@ -394,7 +383,6 @@ namespace dova::ui::panel
 				} else if (a_snap.backups[i].same) {
 					// Restoring it would change nothing: say where things stand instead of offering it.
 					Disabled(std::format(text::kBackupSame, a_snap.backups[i].date));
-					Tooltip(text::kBackupsTip);
 				} else {
 					offer(i, a_confirm ? std::format(text::kRestoreLast, a_snap.backups[i].date) : std::format(ui::kRestoreLastSetup, a_snap.backups[i].date));
 				}
@@ -409,26 +397,44 @@ namespace dova::ui::panel
 			}
 		}
 
-		void RenderAddArea(const HomeSnapshot& a_snap);  // below, with the Actions tab's areas
+		// The player's cell can join the home they just came from (DESIGN §6.7).
+		void RenderAddArea(const HomeSnapshot& a_snap)
+		{
+			if (!a_snap.addAreaTo) {
+				return;
+			}
+			ImGui::SeparatorText(text::kAreasHeader);
+			Tooltip(text::kAreasTip);
+			// With a name of the player's choosing ("Grounds"); empty keeps the cell's own name.
+			ImGui::SetNextItemWidth(kNameWidth);
+			const bool entered = ImGui::InputTextWithHint("##areaname", std::format(text::kAreaNameHint, a_snap.addAreaName).c_str(), g_state.areaName.data(), g_state.areaName.size(),
+				ImGui::ImGuiInputTextFlags_EnterReturnsTrue);
+			Tooltip(text::kAreaRenameTip);
+			ImGui::SameLine();
+			if (Button(std::format(ui::kAddArea, *a_snap.addAreaTo)) || entered) {
+				Do([cell = a_snap.addAreaCell, label = FromBuffer(g_state.areaName)]() { Controller::Get().AddArea(cell, label); }, Refresh::Full);
+				g_state.areaName.fill('\0');
+			}
+			Tooltip(text::kAddAreaTip);
+		}
 
+		// A home without a setup: make a master, use a template, restore a saved setup or join another home (the
+		// hotkey's setup menu offers the same).
 		void RenderSetup(const HomeSnapshot& a_snap)
 		{
 			const auto cell = a_snap.cellId;
 			if (a_snap.layoutBroken) {
 				ColoredWrapped(kRed, a_snap.backups.empty() ? text::kSetupBrokenNoBackup : text::kSetupBroken);
-				if (ConfirmButton(text::kResetHome, "reset", std::format(text::kConfirmReset, a_snap.homeName))) {
-					Do([cell]() { Controller::Get().ResetHome(cell); }, Refresh::Full);
-				}
 				if (!a_snap.backups.empty()) {
 					RenderBackups(a_snap, true);
+				}
+				ImGui::SeparatorText(text::kResetHeader);
+				if (ConfirmButton(text::kResetHome, "reset", std::format(text::kConfirmReset, a_snap.homeName))) {
+					Do([cell]() { Controller::Get().ResetHome(cell); }, Refresh::Full);
 				}
 				return;
 			}
 			Wrapped(text::kSetupIntro);
-			RenderAddArea(a_snap);
-			if (!a_snap.backups.empty()) {
-				RenderBackups(a_snap, false);
-			}
 			const ContainerRow* focus = a_snap.focusRow && *a_snap.focusRow < a_snap.containers.size() ? &a_snap.containers[*a_snap.focusRow] : nullptr;
 			if (focus && !focus->master) {
 				if (focus->available) {
@@ -436,19 +442,38 @@ namespace dova::ui::panel
 						Do([cell, ref = focus->ref]() { Controller::Get().MakeMaster(cell, ref); }, Refresh::Full);
 					}
 				} else {
-					Colored(kRed, std::format("{}: {}", focus->label, focus->reason));
+					ColoredWrapped(kRed, std::format("{} ({})", focus->label, std::format(text::kUnavailable, focus->reason)));
 				}
 			} else {
 				const auto global = PanelModel::Get().Global();
-				Wrapped(std::format(text::kSetupLookAt, global ? global->hotkeyName : "the hotkey"s));
+				Hint(std::format(text::kSetupLookAt, global ? global->hotkeyName : std::string(text::kSetupHotkeyFallback)));
 			}
 			if (!a_snap.templates.empty()) {
 				ImGui::SeparatorText(text::kSetupTemplates);
 				RenderTemplateChoices(a_snap, false);
 			}
+			if (!a_snap.backups.empty()) {
+				RenderBackups(a_snap, false);
+			}
+			RenderAddArea(a_snap);
 		}
 
 		// --- Actions tab --------------------------------------------------------------------------------
+
+		// One row of the Retrieve tree: "<name> (<count>)" and a small Retrieve button.
+		void RetrieveRow(const HomeSnapshot& a_snap, const std::string& a_label, const std::string& a_pattern, bool a_branch, bool& a_open)
+		{
+			if (a_branch) {
+				a_open = ImGui::TreeNodeEx(a_label.c_str(), 0);
+			} else {
+				ImGui::TreeNodeEx(a_label.c_str(), ImGui::ImGuiTreeNodeFlags_Leaf | ImGui::ImGuiTreeNodeFlags_NoTreePushOnOpen);
+			}
+			ImGui::SameLine();
+			if (ImGui::SmallButton(text::kRetrieve)) {
+				Do([cell = a_snap.cellId, pattern = a_pattern]() { Controller::Get().RunOperation(cell, sort::Op::Retrieve, pattern); }, Refresh::Full);
+			}
+			Tooltip(text::kRetrieveTip);
+		}
 
 		void RenderRetrieveNode(const HomeSnapshot& a_snap, std::size_t a_index)
 		{
@@ -462,17 +487,8 @@ namespace dova::ui::panel
 			const bool  branch = std::ranges::any_of(node.children, [&](std::size_t c) { return count(c) > 0; });
 
 			ImGui::PushID(node.id.c_str());
-			const auto label = std::format(text::kNodeCount, node.name, n);
-			bool       open = false;
-			if (branch) {
-				open = ImGui::TreeNodeEx(label.c_str(), 0);
-			} else {
-				ImGui::TreeNodeEx(label.c_str(), ImGui::ImGuiTreeNodeFlags_Leaf | ImGui::ImGuiTreeNodeFlags_NoTreePushOnOpen);
-			}
-			ImGui::SameLine();
-			if (ImGui::SmallButton(text::kRetrieve)) {
-				Do([cell = a_snap.cellId, pattern = node.id + ".*"]() { Controller::Get().RunOperation(cell, sort::Op::Retrieve, pattern); }, Refresh::Full);
-			}
+			bool open = false;
+			RetrieveRow(a_snap, std::format(text::kNodeCount, node.name, n), node.id + ".*", branch, open);
 			if (open) {
 				for (const auto c : node.children) {
 					RenderRetrieveNode(a_snap, c);
@@ -482,7 +498,7 @@ namespace dova::ui::panel
 			ImGui::PopID();
 		}
 
-		// Multi-cell homes (DESIGN §6.7): the cells this home spans, each extra one removable.
+		// Multi-cell homes (DESIGN §6.7): the cells this home spans, each extra one renamable and removable.
 		void RenderAreas(const HomeSnapshot& a_snap)
 		{
 			if (a_snap.areas.size() <= 1 && a_snap.areasExcluded.empty()) {
@@ -507,7 +523,8 @@ namespace dova::ui::panel
 				if (!area.main && a_snap.enabled && !a_snap.layoutBroken) {
 					// Name it ("Grounds"): a box that opens under the row, like the hotkey's Rename.
 					const bool renaming = g_state.areaLabelFor && *g_state.areaLabelFor == area.cell;
-					ImGui::SameLine();
+					ButtonRow  row(true);
+					row.Next();
 					if (ImGui::SmallButton(text::kRename)) {
 						if (renaming) {
 							g_state.areaLabelFor.reset();
@@ -517,13 +534,12 @@ namespace dova::ui::panel
 						}
 					}
 					Tooltip(text::kAreaRenameTip);
-					ImGui::SameLine();
-					if (ConfirmButton(text::kRemove, "area:" + area.cellText, std::format(ui::kConfirmRemoveArea, area.name, a_snap.homeName))) {
+					if (RowConfirm(row, text::kRemoveAsk, "area:" + area.cellText, std::format(ui::kConfirmRemoveArea, area.name, a_snap.homeName), true)) {
 						Do([cell, ref = area.cell]() { Controller::Get().RemoveArea(cell, ref); }, Refresh::Full);
 					}
 					if (renaming) {
 						ImGui::Indent();
-						ImGui::SetNextItemWidth(260.0f);
+						ImGui::SetNextItemWidth(kNameWidth);
 						const bool entered = ImGui::InputText("##arealabel", g_state.areaLabel.data(), g_state.areaLabel.size(), ImGui::ImGuiInputTextFlags_EnterReturnsTrue);
 						Tooltip(text::kAreaRenameTip);
 						ImGui::SameLine();
@@ -541,28 +557,11 @@ namespace dova::ui::panel
 				ImGui::PopID();
 			}
 			for (const auto& excluded : a_snap.areasExcluded) {
-				ColoredWrapped(kGrey, std::format(text::kAreaExcluded, excluded));
+				Hint(std::format(text::kAreaExcluded, excluded));
 			}
 		}
 
-		// The player's cell can join the home they just came from (DESIGN §6.7).
-		void RenderAddArea(const HomeSnapshot& a_snap)
-		{
-			if (!a_snap.addAreaTo) {
-				return;
-			}
-			// With a name of the player's choosing ("Grounds"); empty keeps the cell's own name.
-			ImGui::SetNextItemWidth(260.0f);
-			ImGui::InputTextWithHint("##areaname", std::format(text::kAreaNameHint, a_snap.addAreaName).c_str(), g_state.areaName.data(), g_state.areaName.size());
-			Tooltip(text::kAreaRenameTip);
-			ImGui::SameLine();
-			if (Button(std::format(ui::kAddArea, *a_snap.addAreaTo))) {
-				Do([cell = a_snap.addAreaCell, label = FromBuffer(g_state.areaName)]() { Controller::Get().AddArea(cell, label); }, Refresh::Full);
-				g_state.areaName.fill('\0');
-			}
-			Tooltip(text::kAreasTip);
-		}
-
+		// Everyday actions first (Sort, Retrieve), then the home's setup (Areas, Template, Saved setups), then Reset.
 		void RenderActions(const HomeSnapshot& a_snap)
 		{
 			const auto cell = a_snap.cellId;
@@ -577,24 +576,27 @@ namespace dova::ui::panel
 				Do([cell]() { Controller::Get().RunOperation(cell, sort::Op::SortAll); }, Refresh::Full);
 			}
 			Tooltip(text::kSortAllTip);
-			ImGui::SameLine();
+
+			ImGui::SeparatorText(text::kRetrieveHeader);
 			if (ImGui::Button(text::kRefreshCounts)) {
 				PanelModel::Get().RequestRefresh(Refresh::Full);
 			}
-
-			ImGui::SeparatorText(text::kRetrieveHeader);
+			Tooltip(text::kRefreshCountsTip);
 			if (!a_snap.countsValid) {
 				Disabled(text::kCounting);
 			} else if (a_snap.totalCount <= 0) {
 				Disabled(text::kNothingStored);
 			} else {
-				if (Button(std::format(text::kRetrieveEverything, a_snap.totalCount))) {
-					Do([cell]() { Controller::Get().RunOperation(cell, sort::Op::Retrieve, "*"); }, Refresh::Full);
-				}
+				ImGui::PushID("##everything");
+				bool open = false;
+				RetrieveRow(a_snap, std::format(text::kRetrieveEverything, a_snap.totalCount), "*", false, open);
+				ImGui::PopID();
 				for (const auto root : a_snap.categories->roots) {
 					RenderRetrieveNode(a_snap, root);
 				}
 			}
+
+			RenderAreas(a_snap);
 
 			ImGui::SeparatorText(text::kTemplateHeader);
 			if (a_snap.templates.empty()) {
@@ -603,14 +605,12 @@ namespace dova::ui::panel
 				RenderTemplateChoices(a_snap, true);
 			}
 
-			RenderAreas(a_snap);
+			RenderBackups(a_snap, true);
 
 			ImGui::SeparatorText(text::kResetHeader);
 			if (ConfirmButton(text::kResetHome, "reset", std::format(text::kConfirmReset, a_snap.homeName))) {
 				Do([cell]() { Controller::Get().ResetHome(cell); }, Refresh::Full);
 			}
-
-			RenderBackups(a_snap, true);
 		}
 
 		// --- Containers tab -----------------------------------------------------------------------------
@@ -667,6 +667,18 @@ namespace dova::ui::panel
 			return out;
 		}
 
+		void OpenContainerButton(const HomeSnapshot& a_snap, const ContainerRow& a_row)
+		{
+			if (ImGui::Button(text::kOpenContainer)) {
+				// The window holds all input while it is open: close it, then open the real container menu.
+				if (auto* window = g_window.load()) {
+					window->IsOpen = false;
+				}
+				Do([cell = a_snap.cellId, ref = a_row.ref]() { Controller::Get().Browse(cell, ref); });
+			}
+			Tooltip(text::kOpenContainerTip);
+		}
+
 		void RenderContainerDetails(const HomeSnapshot& a_snap, const ContainerRow& a_row)
 		{
 			const auto cell = a_snap.cellId;
@@ -677,6 +689,7 @@ namespace dova::ui::panel
 				CopyTo(g_state.label, a_row.label);
 			}
 
+			// What it is.
 			ImGui::SeparatorText(a_row.label.c_str());
 			Disabled(a_row.refText);
 			if (!a_row.gameName.empty() && a_row.gameName != a_row.label) {
@@ -693,76 +706,79 @@ namespace dova::ui::panel
 				}
 			}
 			if (!a_row.available) {
-				ColoredWrapped(kRed, std::format(text::kUnavailable, a_row.reason));
+				ColoredWrapped(kRed, std::format(text::kUnavailableLine, a_row.reason));
 			}
 			if (!a_row.warning.empty()) {
 				ColoredWrapped(kYellow, a_row.warning);
 			}
-			if (a_row.available && ImGui::Button(text::kOpenContainer)) {
-				// The window holds all input while it is open: close it, then open the real container menu.
-				if (auto* window = g_window.load()) {
-					window->IsOpen = false;
-				}
-				Do([cell, ref]() { Controller::Get().Browse(cell, ref); });
-			}
-			if (a_row.available && ImGui::IsItemHovered()) {
-				ImGui::SetTooltip("%s", text::kOpenContainerHelp);
-			}
 			if (a_row.master) {
-				Wrapped(text::kMasterInfo);
+				Hint(text::kMasterInfo);
+				if (a_row.available) {
+					OpenContainerButton(a_snap, a_row);
+				}
 				return;
 			}
 
-			ImGui::AlignTextToFramePadding();
-			Text(text::kLabel);
+			// Its name: empty gives back the game's name.
+			ImGui::SetNextItemWidth(kNameWidth);
+			const bool entered = ImGui::InputTextWithHint("##label", a_row.gameName.c_str(), g_state.label.data(), g_state.label.size(), ImGui::ImGuiInputTextFlags_EnterReturnsTrue);
+			Tooltip(text::kNameTip);
 			ImGui::SameLine();
-			ImGui::SetNextItemWidth(260.0f);
-			ImGui::InputText("##label", g_state.label.data(), g_state.label.size());
-			ImGui::SameLine();
-			if (ImGui::Button(text::kRename)) {
+			if (ImGui::Button(text::kRename) || entered) {
 				Do([cell, ref, label = FromBuffer(g_state.label)]() { Controller::Get().SetLabel(cell, ref, label); });
 			}
 
-			if (ImGui::Button(a_row.ignored ? text::kStopIgnoring : text::kIgnore)) {
-				Do([cell, ref, ignored = !a_row.ignored]() { Controller::Get().SetIgnored(cell, ref, ignored); }, Refresh::Full);
-			}
-			if (a_row.managed || a_row.learnedCount > 0) {  // something to remove (never the master: returned above)
-				ImGui::SameLine();
-				if (ConfirmButton(text::kRemoveContainer, "remove:" + a_row.refText, std::format(text::kConfirmRemove, a_row.label, ui::kRemoveExplained))) {
-					Do([cell, ref]() { Controller::Get().RemoveContainer(cell, ref); }, Refresh::Full);
+			// Everyday actions, then the ones that clear or remove something (those that ask last).
+			{
+				ButtonRow row;
+				if (a_row.available) {
+					row.Next();
+					OpenContainerButton(a_snap, a_row);
 				}
-			}
-			if (!a_row.patterns.empty()) {
-				ImGui::SameLine();
-				if (ImGui::Button(text::kClearCategories)) {
-					Do([cell, ref]() { Controller::Get().ClearCategories(cell, ref); });
+				row.Next();
+				if (ImGui::Button(a_row.ignored ? text::kStopIgnoring : text::kIgnore)) {
+					Do([cell, ref, ignored = !a_row.ignored]() { Controller::Get().SetIgnored(cell, ref, ignored); }, Refresh::Full);
 				}
-			}
-			if (a_row.available) {
-				ImGui::SameLine();
-				if (ConfirmButton(text::kMakeMaster, "master:" + a_row.refText, std::format(text::kConfirmMakeMaster, a_row.label))) {
+				if (!a_row.ignored) {
+					Tooltip(text::kIgnoreTip);
+				}
+				if (a_row.available && RowConfirm(row, text::kMakeMaster, "master:" + a_row.refText, std::format(text::kConfirmMakeMaster, a_row.label))) {
 					Do([cell, ref]() { Controller::Get().MakeMaster(cell, ref); }, Refresh::Full);
 				}
 			}
-			if (a_row.learnedCount > 0) {
-				if (ConfirmButton(std::format(text::kForgetLearned, a_row.learnedCount), "forget:" + a_row.refText,
-						std::format(text::kConfirmForget, a_row.learnedCount, a_row.label))) {
+			if (!a_row.patterns.empty() || a_row.learnedCount > 0 || a_row.managed) {
+				ButtonRow row;
+				if (!a_row.patterns.empty()) {
+					row.Next();
+					if (ImGui::Button(text::kClearCategories)) {
+						Do([cell, ref]() { Controller::Get().ClearCategories(cell, ref); });
+					}
+					Tooltip(text::kClearCategoriesTip);
+				}
+				if (a_row.learnedCount > 0 &&
+					RowConfirm(row, std::format(text::kForgetLearned, a_row.learnedCount), "forget:" + a_row.refText, std::format(text::kConfirmForget, a_row.learnedCount, a_row.label))) {
 					Do([cell, ref]() { Controller::Get().ForgetLearned(cell, ref); });
+				}
+				// Something to remove (never the master: returned above).
+				if ((a_row.managed || a_row.learnedCount > 0) &&
+					RowConfirm(row, text::kRemoveAsk, "remove:" + a_row.refText, std::format(text::kConfirmRemove, a_row.label, ui::kRemoveExplained))) {
+					Do([cell, ref]() { Controller::Get().RemoveContainer(cell, ref); }, Refresh::Full);
 				}
 			}
 			if (a_row.explicitForms > 0) {
 				Disabled(std::format(text::kExplicitForms, a_row.explicitForms));
 			}
 
+			// What goes in it.
 			ImGui::SeparatorText(text::kCategoriesHeader);
 			if (a_row.ignored) {
-				ColoredWrapped(kGrey, text::kIgnoredInfo);
+				Hint(text::kIgnoredInfo);
 			} else if (!a_row.learnedText.empty()) {
-				ColoredWrapped(kGrey, std::format(text::kLearnedInfo, a_row.learnedText));
+				Hint(std::format(text::kLearnedInfo, a_row.learnedText));
 			}
 			if (!a_row.suggestionCategory.empty()) {
 				// The same question the HUD asks once the container closes (DESIGN §8.6).
-				Wrapped(std::format("{} {}", std::format(ui::kSuggestCategory, a_row.suggestionName, a_row.label), std::format(text::kSuggestionCount, a_row.suggestionCount)));
+				Wrapped(std::format(text::kSuggestion, a_row.suggestionName, a_row.label, a_row.suggestionCount));
 				if (ImGui::Button(text::kYes)) {
 					Do([cell, ref, category = a_row.suggestionCategory]() { Controller::Get().AcceptSuggestion(cell, ref, category); });
 				}
@@ -776,6 +792,7 @@ namespace dova::ui::panel
 				for (const auto& [id, name] : a_row.declined) {
 					names += (names.empty() ? "" : ", ") + name;
 				}
+				ImGui::AlignTextToFramePadding();
 				Disabled(std::format(text::kDeclinedInfo, names));
 				ImGui::SameLine();
 				if (ImGui::SmallButton(text::kAskAgain)) {
@@ -813,11 +830,7 @@ namespace dova::ui::panel
 		void RenderContainers(const HomeSnapshot& a_snap)
 		{
 			const auto& rows = a_snap.containers;
-			const float lineHeight = ImGui::GetTextLineHeightWithSpacing();
-			const float height = lineHeight * static_cast<float>(std::min<std::size_t>(rows.size(), 8) + 2);
-			const int   flags = ImGui::ImGuiTableFlags_Borders | ImGui::ImGuiTableFlags_RowBg | ImGui::ImGuiTableFlags_Resizable |
-			                  ImGui::ImGuiTableFlags_ScrollY | ImGui::ImGuiTableFlags_SizingStretchProp;
-			if (ImGui::BeginTable("##containers", 4, flags, ImGui::ImVec2{ 0.0f, height })) {
+			if (ImGui::BeginTable("##containers", 4, kScrollTableFlags, ImGui::ImVec2{ 0.0f, TableHeight(rows.size(), 8) })) {
 				ImGui::TableSetupScrollFreeze(0, 1);
 				ImGui::TableSetupColumn(text::kColContainer, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.32f);
 				ImGui::TableSetupColumn(text::kColCategories, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.38f);
@@ -838,25 +851,31 @@ namespace dova::ui::panel
 					if (row.master) {
 						Disabled(text::kHomeless);
 					} else if (row.ignored) {
-						Disabled(std::format("{} {}", text::kIgnoredTag, row.patternsText));
+						Disabled(row.patternsText.empty() ? std::string(text::kNone) : row.patternsText);
 					} else if (row.patternsText.empty() && !row.learnedText.empty()) {
 						Disabled(std::format(text::kLearnedOnly, row.learnedText));
+					} else if (row.patternsText.empty()) {
+						Disabled(text::kNone);
 					} else {
-						Text(row.patternsText.empty() ? std::string(text::kNone) : row.patternsText);
+						Text(row.patternsText);
 					}
 
 					ImGui::TableNextColumn();
-					Text(row.master ? std::string(text::kNone) : std::to_string(row.learnedCount));
+					if (row.master) {
+						Disabled(text::kNone);
+					} else {
+						Text(std::to_string(row.learnedCount));
+					}
 
 					ImGui::TableNextColumn();
 					if (!row.available) {
 						Colored(kRed, std::format(text::kUnavailable, row.reason));
 					} else if (row.ignored) {
-						Disabled(text::kIgnoredTag);
+						Disabled(text::kStatusIgnored);
 					} else if (!row.managed) {
 						Disabled(text::kNotManaged);
 					} else {
-						Colored(kGreen, text::kAvailable);
+						Colored(kGreen, text::kManaged);
 					}
 					if (row.remote && !row.area.empty()) {
 						ImGui::SameLine();
@@ -884,10 +903,10 @@ namespace dova::ui::panel
 		void RenderLearned(const HomeSnapshot& a_snap)
 		{
 			if (a_snap.learned.empty()) {
-				ColoredWrapped(kGrey, text::kLearnedEmpty);
+				Hint(text::kLearnedEmpty);
 				return;
 			}
-			ColoredWrapped(kGrey, text::kLearnedIntro);
+			Hint(text::kLearnedIntro);
 			if (a_snap.learnedUnused > 0) {
 				// Entries the planner never uses (DESIGN §8.6): offer to drop them in one go.
 				ColoredWrapped(kYellow, std::format(text::kLearnedUnusedInfo, a_snap.learnedUnused));
@@ -895,11 +914,7 @@ namespace dova::ui::panel
 					Do([cell = a_snap.cellId]() { Controller::Get().ForgetStaleLearned(cell); });
 				}
 			}
-			const float lineHeight = ImGui::GetTextLineHeightWithSpacing();
-			const float height = lineHeight * static_cast<float>(std::min<std::size_t>(a_snap.learned.size(), 16) + 2);
-			const int   flags = ImGui::ImGuiTableFlags_Borders | ImGui::ImGuiTableFlags_RowBg | ImGui::ImGuiTableFlags_Resizable |
-			                  ImGui::ImGuiTableFlags_ScrollY | ImGui::ImGuiTableFlags_SizingStretchProp;
-			if (!ImGui::BeginTable("##learned", 3, flags, ImGui::ImVec2{ 0.0f, height })) {
+			if (!ImGui::BeginTable("##learned", 3, kScrollTableFlags, ImGui::ImVec2{ 0.0f, TableHeight(a_snap.learned.size(), 16) })) {
 				return;
 			}
 			ImGui::TableSetupScrollFreeze(0, 1);
@@ -915,8 +930,12 @@ namespace dova::ui::panel
 				Tooltip(row.itemText);
 				ImGui::TableNextColumn();
 				if (!row.stale.empty()) {
-					// Stale: the container is no longer used (yellow) or fails the checks right now (grey).
-					Colored(row.unused ? kYellow : kGrey, std::format("{} ({})", row.containerLabel, row.stale));
+					// Stale: the container is no longer used (yellow) or fails the checks right now (dimmed).
+					if (row.unused) {
+						Colored(kYellow, std::format("{} ({})", row.containerLabel, row.stale));
+					} else {
+						Disabled(std::format("{} ({})", row.containerLabel, row.stale));
+					}
 				} else if (row.containerManaged) {
 					Text(row.containerLabel);
 				} else {
@@ -964,10 +983,10 @@ namespace dova::ui::panel
 				a_list.erase(a_list.begin() + static_cast<std::ptrdiff_t>(*remove));
 				a_dirty = true;
 			}
-			ImGui::SetNextItemWidth(320.0f);
-			ImGui::InputTextWithHint("##add", text::kKeepAddHint, a_buffer.data(), a_buffer.size());
+			ImGui::SetNextItemWidth(kFieldWidth);
+			const bool entered = ImGui::InputTextWithHint("##add", text::kKeepAddHint, a_buffer.data(), a_buffer.size(), ImGui::ImGuiInputTextFlags_EnterReturnsTrue);
 			ImGui::SameLine();
-			if (ImGui::Button(text::kAdd)) {
+			if (ImGui::Button(text::kAdd) || entered) {
 				if (auto entry = FromBuffer(a_buffer); !entry.empty()) {
 					a_list.push_back(std::move(entry));
 					a_dirty = true;
@@ -988,6 +1007,11 @@ namespace dova::ui::panel
 		{
 			return (a_rule.category && !a_rule.category->empty()) || (a_rule.keywordsAny && !a_rule.keywordsAny->empty()) ||
 			       (a_rule.forms && !a_rule.forms->empty());
+		}
+
+		bool AnyQuotaWithoutSelector(const core::KeepConfig& a_keep)
+		{
+			return std::ranges::any_of(a_keep.quotas, [](const core::QuotaRule& q) { return !QuotaHasSelector(q); });
 		}
 
 		void RenderKeepReadOnly(const core::KeepConfig& a_keep, const CategoryTree& a_tree)
@@ -1013,12 +1037,12 @@ namespace dova::ui::panel
 			}
 			for (const auto& q : a_keep.quotas) {
 				ImGui::Bullet();
-				Text(std::format("{} x {}", q.quota, q.category ? DescribeKeepEntry(*q.category, a_tree) : std::string(text::kNoCategory)));
+				Text(std::format(text::kQuotaLine, q.quota, q.category ? DescribeKeepEntry(*q.category, a_tree) : std::string(text::kNoCategory)));
 			}
 			ImGui::Unindent();
 		}
 
-		// Always / never lists and quotas; shared by the per-home tab and the all-homes defaults.
+		// Always / never lists and quotas; shared by the per-home tab and the defaults on the Settings page.
 		void KeepRulesBody(core::KeepConfig& a_draft, bool& a_dirty, std::array<char, 128>& a_addAlways, std::array<char, 128>& a_addNever, const CategoryTree& a_tree)
 		{
 			ImGui::SeparatorText(text::kKeepAlways);
@@ -1029,9 +1053,8 @@ namespace dova::ui::panel
 			ImGui::SeparatorText(text::kKeepQuotas);
 			std::optional<std::size_t> remove;
 			if (!a_draft.quotas.empty()) {
-				const int flags = ImGui::ImGuiTableFlags_Borders | ImGui::ImGuiTableFlags_RowBg | ImGui::ImGuiTableFlags_SizingStretchProp;
-				if (ImGui::BeginTable("##quotas", 4, flags)) {
-					ImGui::TableSetupColumn(text::kColCategories, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.45f);
+				if (ImGui::BeginTable("##quotas", 4, kTableFlags)) {
+					ImGui::TableSetupColumn(text::kColCategory, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.45f);
 					ImGui::TableSetupColumn(text::kColQuota, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.2f);
 					ImGui::TableSetupColumn(text::kColOther, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.25f);
 					ImGui::TableSetupColumn("##remove", ImGui::ImGuiTableColumnFlags_WidthStretch, 0.1f);
@@ -1062,7 +1085,11 @@ namespace dova::ui::panel
 						if (q.forms && !q.forms->empty()) {
 							other.push_back(std::format(text::kFormsCount, q.forms->size()));
 						}
-						Text(other.empty() ? std::string(text::kNone) : Join(other, "; "));
+						if (other.empty()) {
+							Disabled(text::kNone);
+						} else {
+							Text(Join(other, "; "));
+						}
 						ImGui::TableNextColumn();
 						if (ImGui::SmallButton(text::kRemove)) {
 							remove = i;
@@ -1082,7 +1109,6 @@ namespace dova::ui::panel
 				a_draft.quotas.push_back(std::move(rule));
 				a_dirty = true;
 			}
-
 		}
 
 		void RenderKeep(const HomeSnapshot& a_snap)
@@ -1098,7 +1124,7 @@ namespace dova::ui::panel
 			}
 			auto& draft = st.keepDraft;
 
-			Wrapped(text::kKeepIntro);
+			Hint(text::kKeepIntro);
 			if (!st.keepHasBlock) {
 				Disabled(text::kKeepNoBlock);
 			}
@@ -1107,38 +1133,32 @@ namespace dova::ui::panel
 				draft.inherit = inherit;
 				st.keepDirty = true;
 			}
+			Tooltip(text::kKeepInheritTip);
 
 			KeepRulesBody(draft, st.keepDirty, st.addAlways, st.addNever, tree);
 
-			ImGui::Separator();
-			const bool invalid = std::ranges::any_of(draft.quotas, [](const core::QuotaRule& q) { return !QuotaHasSelector(q); });
-			if (invalid) {
-				ColoredWrapped(kYellow, text::kQuotaNeedsCategory);
-			}
-			ImGui::BeginDisabled(!st.keepDirty || invalid);
-			if (ImGui::Button(text::kSave)) {
+			switch (DraftButtons(st.keepDirty, AnyQuotaWithoutSelector(draft))) {
+			case DraftAction::Save:
 				Do([cell = a_snap.cellId, keep = draft]() { Controller::Get().SetKeep(cell, keep); });
 				st.keepDirty = false;
-			}
-			ImGui::EndDisabled();
-			ImGui::SameLine();
-			ImGui::BeginDisabled(!st.keepDirty);
-			if (ImGui::Button(text::kRevert)) {
+				break;
+			case DraftAction::Revert:
 				st.keepLoaded = false;
+				break;
+			default:
+				break;
 			}
-			ImGui::EndDisabled();
-			if (st.keepDirty) {
-				ImGui::SameLine();
-				Colored(kYellow, text::kUnsaved);
-			}
-			if (st.keepHasBlock && ConfirmButton(text::kKeepUseGlobal, "keep-global", text::kConfirmKeepGlobal)) {
-				Do([cell = a_snap.cellId]() { Controller::Get().SetKeep(cell, std::nullopt); });
-				st.keepLoaded = false;
+			if (st.keepHasBlock) {
+				ButtonRow row(true);
+				if (RowConfirm(row, text::kKeepUseGlobal, "keep-global", text::kConfirmKeepGlobal)) {
+					Do([cell = a_snap.cellId]() { Controller::Get().SetKeep(cell, std::nullopt); });
+					st.keepLoaded = false;
+				}
 			}
 
 			ImGui::SeparatorText(text::kKeepGlobalHeader);
+			Hint(text::kKeepGlobalWhere);
 			RenderKeepReadOnly(a_snap.globalKeep, tree);
-			Disabled(text::kKeepGlobalWhere);
 		}
 
 		// --- Template (export) tab ----------------------------------------------------------------------
@@ -1177,17 +1197,17 @@ namespace dova::ui::panel
 				st.exportCell = a_snap.cellId;
 				st.exportInit = true;
 			}
-			Wrapped(text::kExportIntro);
+			Hint(text::kExportIntro);
 			ImGui::Spacing();
-			ImGui::SetNextItemWidth(320.0f);
+			ImGui::SetNextItemWidth(kFieldWidth);
 			ImGui::InputText(text::kExportName, st.exportName.data(), st.exportName.size());
-			ImGui::SetNextItemWidth(320.0f);
+			ImGui::SetNextItemWidth(kFieldWidth);
 			ImGui::InputTextWithHint(text::kExportAuthor, text::kExportAuthorHint, st.exportAuthor.data(), st.exportAuthor.size());
 			ImGui::SetNextItemWidth(120.0f);
 			ImGui::InputTextWithHint(text::kExportVersion, text::kExportVersionHint, st.exportVersion.data(), st.exportVersion.size());
 			ImGui::Checkbox(text::kExportLearned, &st.exportLearned);
 			Tooltip(text::kExportLearnedTip);
-			ColoredWrapped(kGrey, std::format(text::kExportFile, core::TemplateFileStem(FromBuffer(st.exportName))));
+			Hint(std::format(text::kExportFile, core::TemplateFileStem(FromBuffer(st.exportName))));
 
 			const auto state = PanelModel::Get().Export();
 			if (state.pending) {
@@ -1195,6 +1215,7 @@ namespace dova::ui::panel
 				return;
 			}
 			if (state.exists) {
+				// The file is there already: the same question-and-answer as a ConfirmButton.
 				ColoredWrapped(kYellow, state.message);
 				if (ImGui::Button(text::kOverwrite)) {
 					StartExport(a_snap, true);
@@ -1285,7 +1306,7 @@ namespace dova::ui::panel
 					open = false;
 				}
 				ImGui::SameLine();
-				Disabled("(Esc)");
+				Disabled(text::kCloseKey);
 				if (ImGui::IsKeyPressed(ImGui::ImGuiKey_Escape, false)) {
 					open = false;
 				}
@@ -1314,6 +1335,7 @@ namespace dova::ui::panel
 		{
 			std::optional<Settings::Values> draft;
 			std::optional<Settings::Values> seen;  // snapshot values the draft was last synced to
+			std::string                     confirm;  // the page's inline confirmation
 		};
 		SettingsDraft g_settings;
 
@@ -1325,13 +1347,13 @@ namespace dova::ui::panel
 			});
 		}
 
-		// Combo over `a_choices` (+ an optional "Disabled" entry for code -1). True when a_code changed.
+		// Combo over `a_choices` (+ an "Off" entry for code -1). True when a_code changed.
 		bool KeyCombo(const char* a_label, std::int32_t& a_code, std::span<const input::KeyChoice> a_choices, bool a_allowNone)
 		{
-			const auto current = a_code == Settings::kNoKey ? "Disabled"s : input::KeyName(a_code);
+			const auto current = a_code == Settings::kNoKey ? std::string(text::kSetKeyOff) : input::KeyName(a_code);
 			bool       changed = false;
 			if (ImGui::BeginCombo(a_label, current.c_str())) {
-				if (a_allowNone && ImGui::Selectable("Disabled", a_code == Settings::kNoKey)) {
+				if (a_allowNone && ImGui::Selectable(text::kSetKeyOff, a_code == Settings::kNoKey)) {
 					a_code = Settings::kNoKey;
 					changed = true;
 				}
@@ -1383,49 +1405,47 @@ namespace dova::ui::panel
 				st.dirty = false;
 				st.loaded = true;
 			}
-			Wrapped(text::kKeepGlobalIntro);
+			Hint(text::kKeepGlobalIntro);
 			ImGui::PushID("globalkeep");
 			KeepRulesBody(st.draft, st.dirty, st.addAlways, st.addNever, *home->categories);
-			const bool invalid = std::ranges::any_of(st.draft.quotas, [](const core::QuotaRule& q) { return !QuotaHasSelector(q); });
-			if (invalid) {
-				ColoredWrapped(kYellow, text::kQuotaNeedsCategory);
-			}
-			ImGui::BeginDisabled(!st.dirty || invalid);
-			if (ImGui::Button(text::kSave)) {
+			switch (DraftButtons(st.dirty, AnyQuotaWithoutSelector(st.draft))) {
+			case DraftAction::Save:
 				Do([keep = st.draft]() {
 					Controller::Get().SetGlobalKeep(keep);
 					PanelModel::Get().BuildGlobal();
 				});
 				st.dirty = false;
-			}
-			ImGui::EndDisabled();
-			ImGui::SameLine();
-			ImGui::BeginDisabled(!st.dirty);
-			if (ImGui::Button(text::kRevert)) {
+				break;
+			case DraftAction::Revert:
 				st.loaded = false;
-			}
-			ImGui::EndDisabled();
-			if (st.dirty) {
-				ImGui::SameLine();
-				Colored(kYellow, text::kUnsaved);
+				break;
+			default:
+				break;
 			}
 			ImGui::PopID();
 		}
 
-		// Hover help for the control just drawn: what it does, and the INI key it writes.
+		// Hover help for the setting just drawn: what it does, and the INI key it writes.
 		void Help(std::string_view a_text, std::string_view a_iniKey)
 		{
-			if (ImGui::IsItemHovered()) {
+			if (ImGui::IsItemHovered(ImGui::ImGuiHoveredFlags_AllowWhenDisabled)) {
 				const auto tip = std::format("{}\n\nDovaStash.ini: {}", a_text, a_iniKey);
 				ImGui::SetTooltip("%s", tip.c_str());
 			}
 		}
 
+		// Why the setting(s) above are greyed out.
 		void Unavailable(std::string_view a_why)
 		{
 			ImGui::Indent();
 			Disabled(std::string(a_why));
 			ImGui::Unindent();
+		}
+
+		// Sliders apply when released, so dragging one writes the INI once.
+		bool Released()
+		{
+			return ImGui::IsItemDeactivatedAfterEdit();
 		}
 
 		void __stdcall RenderSettingsPage()
@@ -1442,113 +1462,121 @@ namespace dova::ui::panel
 			auto& v = *g_settings.draft;
 			bool  apply = false;  // checkboxes and combos apply at once; sliders when released
 
-			ColoredWrapped(kGrey, text::kSettingsNote);
+			Hint(text::kSettingsNote);
 
-			ImGui::SeparatorText("Controls");
-			apply |= KeyCombo("Hotkey (keyboard / mouse)", v.input.hotkey, input::KeyboardChoices(), false);
-			Help("Opens Dova Stash: at a container, its menu; at nothing, the home's menu.", "[Input] iHotkey");
-			apply |= KeyCombo("Hotkey (gamepad)", v.input.gamepadHotkey, input::GamepadChoices(), true);
-			Help("Same, on a controller. Every button already has a game action, so this is off by default.", "[Input] iGamepadHotkey");
+			ImGui::SeparatorText(text::kSetHotkeyHeader);
+			apply |= KeyCombo(text::kSetHotkey, v.input.hotkey, input::KeyboardChoices(), false);
+			Help(text::kSetHotkeyTip, "[Input] iHotkey");
+			apply |= KeyCombo(text::kSetGamepad, v.input.gamepadHotkey, input::GamepadChoices(), true);
+			Help(text::kSetGamepadTip, "[Input] iGamepadHotkey");
 
-			ImGui::SeparatorText("Menus");
-			static constexpr std::array kModes{ "Auto (UIExtensions lists, else message boxes)", "Message boxes", "SKSE Menu Framework panel", "UIExtensions lists" };
-			apply |= IndexCombo("What the hotkey opens", v.ui.mode, kModes);
-			Help("Auto uses UIExtensions' lists when it is installed (any skin), else the game's message boxes.", "[UI] iMode");
+			ImGui::SeparatorText(text::kSetMenusHeader);
+			static constexpr std::array kModes{ text::kSetModeAuto, text::kSetModeMessageBoxes, text::kSetModePanel, text::kSetModeLists };  // [UI] iMode 0-3
+			apply |= IndexCombo(text::kSetMode, v.ui.mode, kModes);
+			Help(text::kSetModeTip, "[UI] iMode");
 			ImGui::BeginDisabled(!global->uiExtensions);
-			apply |= ImGui::Checkbox("Open the lists in the middle of the screen", &v.ui.centerMenus);
-			Help("Moves UIExtensions' lists and the rename box to the middle of the screen, whatever your skin does.", "[UI] bCenterMenus");
+			apply |= ImGui::Checkbox(text::kSetCenter, &v.ui.centerMenus);
+			Help(text::kSetCenterTip, "[UI] bCenterMenus");
 			ImGui::EndDisabled();
 			if (!global->uiExtensions) {
-				Unavailable(global->isVR ? "UIExtensions lists are not used on VR." : "UIExtensions is not installed.");
+				Unavailable(global->isVR ? text::kSetNoUIExtensionsVR : text::kSetNoUIExtensions);
 			}
 
-			ImGui::SeparatorText("Sorting");
-			apply |= ImGui::Checkbox("Sort items the moment they go into the master container", &v.sorting.sortOnArrival);
-			Help("Anything you put into the master leaves it for its container about half a second later, even with the menu still open.", "[Sorting] bSortOnArrival");
-			apply |= ImGui::Checkbox("Sort the master container when it closes", &v.sorting.distributeOnMasterClose);
-			Help("Closing the master's menu sorts whatever is left in it.", "[Sorting] bDistributeOnMasterClose");
-			apply |= ImGui::Checkbox("Learn where you put things by hand", &v.sorting.learn);
-			Help("Put an item into a container yourself and that container becomes its home from then on. An enchanted or otherwise variant item counts as the item it is made from.", "[Sorting] bLearn");
+			ImGui::SeparatorText(text::kSetSortingHeader);
+			apply |= ImGui::Checkbox(text::kSetSortOnArrival, &v.sorting.sortOnArrival);
+			Help(text::kSetSortOnArrivalTip, "[Sorting] bSortOnArrival");
+			apply |= ImGui::Checkbox(text::kSetSortOnClose, &v.sorting.distributeOnMasterClose);
+			Help(text::kSetSortOnCloseTip, "[Sorting] bDistributeOnMasterClose");
+			apply |= ImGui::Checkbox(text::kSetFillDisplays, &v.sorting.fillDisplays);
+			Help(text::kSetFillDisplaysTip, "[Sorting] bFillDisplays");
+
+			ImGui::SeparatorText(text::kSetLearningHeader);
+			apply |= ImGui::Checkbox(text::kSetLearn, &v.sorting.learn);
+			Help(text::kSetLearnTip, "[Sorting] bLearn");
 			ImGui::BeginDisabled(!v.sorting.learn);
 			ImGui::Indent();
-			ImGui::SliderInt("Suggest a category after this many learned items", &v.sorting.suggestCategoryAfter, 0, 20, v.sorting.suggestCategoryAfter == 0 ? "never" : "%d");
-			apply |= ImGui::IsItemDeactivatedAfterEdit();
-			Help("Once this many items of one category were learned for the same container, Dova Stash asks once when you close it: \"Send all Books to End Table?\". Yes binds the category there; No is remembered for that container and category (the container's page can ask again). 0 = never ask.", "[Sorting] iSuggestCategoryAfter");
-			ImGui::SliderInt("Undo a learn for this many seconds", &v.sorting.learnUndoSeconds, 0, 30, v.sorting.learnUndoSeconds == 0 ? "off" : "%d s");
-			apply |= ImGui::IsItemDeactivatedAfterEdit();
-			Help("For this long after \"... now goes to End Table\", pressing the hotkey takes the learn back. 0 = no undo.", "[Sorting] iLearnUndoSeconds");
+			ImGui::SliderInt(text::kSetSuggest, &v.sorting.suggestCategoryAfter, 0, 20, v.sorting.suggestCategoryAfter == 0 ? text::kSetSuggestNever : text::kSetSuggestFormat);
+			apply |= Released();
+			Help(text::kSetSuggestTip, "[Sorting] iSuggestCategoryAfter");
+			ImGui::SliderInt(text::kSetUndo, &v.sorting.learnUndoSeconds, 0, 30, v.sorting.learnUndoSeconds == 0 ? text::kSetUndoOff : text::kSetUndoFormat);
+			apply |= Released();
+			Help(text::kSetUndoTip, "[Sorting] iLearnUndoSeconds");
 			ImGui::Unindent();
 			ImGui::EndDisabled();
-			apply |= ImGui::Checkbox("Put gear on the home's displays", &v.sorting.fillDisplays);
-			Help("Deposit and Sort all fill the displays you turned on with the hotkey (weapon racks, mannequins, bookshelves, plaques made for one item such as masks, claws, Elder Scrolls) with your best gear and books, one of each. Nothing is taken off a display.", "[Sorting] bFillDisplays");
-			apply |= ImGui::Checkbox("Materials at the workbench", &v.sorting.craftingSupply);
-			Help("Sit down at a forge, smelter, tanning rack, cooking pot, alchemy lab, enchanter or any modded station in your home: the stored materials its recipes use come to you, and what you didn't use goes back when you get up. What you just made stays with you.", "[Sorting] bCraftingSupply");
+
+			ImGui::SeparatorText(text::kSetCraftingHeader);
+			apply |= ImGui::Checkbox(text::kSetCrafting, &v.sorting.craftingSupply);
+			Help(text::kSetCraftingTip, "[Sorting] bCraftingSupply");
 			ImGui::BeginDisabled(!v.sorting.craftingSupply);
 			ImGui::Indent();
-			apply |= ImGui::Checkbox("Weapons and armor used as materials too", &v.sorting.craftingSupplyGear);
-			Help("Also brings gear that recipes use up (breakdown recipes at the smelter, the Enhanced Crossbow). Off: a breakdown mod would bring out every piece of gear you store. Tempered or enchanted copies never come.", "[Sorting] bCraftingSupplyGear");
+			apply |= ImGui::Checkbox(text::kSetCraftingGear, &v.sorting.craftingSupplyGear);
+			Help(text::kSetCraftingGearTip, "[Sorting] bCraftingSupplyGear");
 			ImGui::Unindent();
 			ImGui::EndDisabled();
-			apply |= ImGui::Checkbox("Enable a home's template automatically on first visit", &v.templates.autoEnable);
-			Help("Homes with a ready-made setup (a template) are set up as soon as you walk in, instead of asking. Not while a saved setup of your own can be restored there.", "[General] bAutoEnableTemplates");
 
-			ImGui::SeparatorText("QuickLoot IE");
+			ImGui::SeparatorText(text::kSetTemplatesHeader);
+			apply |= ImGui::Checkbox(text::kSetAutoEnable, &v.templates.autoEnable);
+			Help(text::kSetAutoEnableTip, "[General] bAutoEnableTemplates");
+
+			ImGui::SeparatorText(text::kSetQuickLootHeader);
 			ImGui::BeginDisabled(!global->quickLootReady);
-			apply |= ImGui::Checkbox("Use QuickLoot IE", &v.integrations.quickLoot);
-			Help("Everything Dova Stash adds to QuickLoot IE. Off = QuickLoot looks exactly as without Dova Stash.", "[Integrations] bQuickLoot");
+			apply |= ImGui::Checkbox(text::kSetQuickLoot, &v.integrations.quickLoot);
+			Help(text::kSetQuickLootTip, "[Integrations] bQuickLoot");
 			ImGui::BeginDisabled(!v.integrations.quickLoot);
 			ImGui::Indent();
-			apply |= ImGui::Checkbox("Show where each item goes in its list", &v.integrations.quickLootItemTags);
-			Help("Items that belong somewhere else read \"Iron Sword  >  Weapon Rack\".", "[Integrations] bQuickLootItemTags");
-			apply |= ImGui::Checkbox("Category icons instead of names", &v.integrations.quickLootIcons);
-			Help("Bottom-right: one icon per category the container holds (your SkyUI/I4 icons). Off = the names.", "[Integrations] bQuickLootIcons");
+			apply |= ImGui::Checkbox(text::kSetItemTags, &v.integrations.quickLootItemTags);
+			Help(text::kSetItemTagsTip, "[Integrations] bQuickLootItemTags");
+			apply |= ImGui::Checkbox(text::kSetQuickLootIcons, &v.integrations.quickLootIcons);
+			Help(text::kSetQuickLootIconsTip, "[Integrations] bQuickLootIcons");
 			ImGui::Unindent();
 			ImGui::EndDisabled();
 			ImGui::EndDisabled();
 			if (!global->quickLootReady) {
-				Unavailable("QuickLoot IE is not installed.");
+				Unavailable(text::kSetNoQuickLoot);
 			}
 
-			ImGui::SeparatorText("World");
-			apply |= ImGui::Checkbox("Show a container's role in the activate prompt", &v.integrations.activatePrompt);
-			Help("\"Chest (Weapons)\" when you look at a container. Nothing is written to your save.", "[Integrations] bActivatePrompt");
+			ImGui::SeparatorText(text::kSetWorldHeader);
+			apply |= ImGui::Checkbox(text::kSetPrompt, &v.integrations.activatePrompt);
+			Help(text::kSetPromptTip, "[Integrations] bActivatePrompt");
 			ImGui::BeginDisabled(global->isVR);
-			apply |= ImGui::Checkbox("Show icons above containers", &v.overlay.enabled);
-			Help("Floating category icons above the containers around you, in your homes.", "[Overlay] bEnabled");
+			apply |= ImGui::Checkbox(text::kSetOverlay, &v.overlay.enabled);
+			Help(text::kSetOverlayTip, "[Overlay] bEnabled");
 			ImGui::BeginDisabled(!v.overlay.enabled);
 			ImGui::Indent();
-			apply |= ImGui::Checkbox("Only containers you can see", &v.overlay.requireLineOfSight);
-			Help("No icons through walls.", "[Overlay] bRequireLineOfSight");
-			ImGui::SliderFloat("Range (game units)", &v.overlay.radius, 100.0f, 5000.0f, "%.0f");
-			apply |= ImGui::IsItemDeactivatedAfterEdit();
-			Help("How far away icons are shown (about 70 units per metre).", "[Overlay] fRadius");
-			ImGui::SliderInt("Most icons at once", &v.overlay.maxIcons, 1, 32);
-			apply |= ImGui::IsItemDeactivatedAfterEdit();
-			Help("Only the nearest ones are shown.", "[Overlay] iMaxIcons");
-			ImGui::SliderFloat("Icon size", &v.overlay.iconSize, 8.0f, 128.0f, "%.0f");
-			apply |= ImGui::IsItemDeactivatedAfterEdit();
-			Help("Size when you stand close; icons shrink with distance.", "[Overlay] fIconSize");
+			apply |= ImGui::Checkbox(text::kSetLineOfSight, &v.overlay.requireLineOfSight);
+			Help(text::kSetLineOfSightTip, "[Overlay] bRequireLineOfSight");
+			ImGui::SliderFloat(text::kSetRange, &v.overlay.radius, 100.0f, 5000.0f, text::kSetRangeFormat);
+			apply |= Released();
+			Help(text::kSetRangeTip, "[Overlay] fRadius");
+			ImGui::SliderInt(text::kSetMaxIcons, &v.overlay.maxIcons, 1, 32);
+			apply |= Released();
+			Help(text::kSetMaxIconsTip, "[Overlay] iMaxIcons");
+			ImGui::SliderFloat(text::kSetIconSize, &v.overlay.iconSize, 8.0f, 128.0f, "%.0f");
+			apply |= Released();
+			Help(text::kSetIconSizeTip, "[Overlay] fIconSize");
 			ImGui::Unindent();
 			ImGui::EndDisabled();
 			ImGui::EndDisabled();
 			if (global->isVR) {
-				Unavailable("Floating icons are not available on VR.");
+				Unavailable(text::kSetNoOverlayVR);
 			}
 
-			ImGui::SeparatorText("Diagnostics");
-			static constexpr std::array kLevels{ "Trace (everything)", "Debug", "Info", "Warnings", "Errors", "Critical", "Off" };
-			apply |= IndexCombo("Log detail (DovaStash.log)", v.general.logLevel, kLevels);
-			Help("How much goes into Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log.", "[General] iLogLevel");
+			ImGui::SeparatorText(text::kSetLogHeader);
+			static constexpr std::array kLevels{ text::kSetLogTrace, text::kSetLogDebug, text::kSetLogInfo, text::kSetLogWarnings, text::kSetLogErrors, text::kSetLogCritical,
+				text::kSetLogOff };  // spdlog levels 0-6
+			apply |= IndexCombo(text::kSetLogLevel, v.general.logLevel, kLevels);
+			Help(text::kSetLogLevelTip, "[General] iLogLevel");
 
+			// Resets the settings above; the keep rules below have their own Save and Revert.
 			ImGui::Spacing();
-			if (ConfirmButton("Reset all settings to defaults", "settings-reset", "Reset every setting on this page to its default? Your hotkey is kept.")) {
+			if (widgets::ConfirmButton(g_settings.confirm, text::kSetReset, "settings-reset", text::kSetConfirmReset)) {
 				auto defaults = Settings::Values{};
 				defaults.input = v.input;  // never lose the player's hotkey to a reset
 				v = defaults;
 				apply = true;
 			}
 
-			ImGui::SeparatorText("Keep rules for every home");
+			ImGui::SeparatorText(text::kKeepGlobalHeader);
 			RenderGlobalKeep(*global);
 
 			if (apply) {
@@ -1563,14 +1591,12 @@ namespace dova::ui::panel
 				Disabled(text::kLoading);
 				return;
 			}
-			ColoredWrapped(kGrey, text::kTemplatesIntro);
+			Hint(text::kTemplatesIntro);
 			if (global->templates.empty()) {
 				Disabled(text::kTemplatesNone);
 				return;
 			}
-			const int flags = ImGui::ImGuiTableFlags_Borders | ImGui::ImGuiTableFlags_RowBg | ImGui::ImGuiTableFlags_Resizable |
-			                  ImGui::ImGuiTableFlags_SizingStretchProp;
-			if (!ImGui::BeginTable("##templates", 5, flags)) {
+			if (!ImGui::BeginTable("##templates", 5, kTableFlags)) {
 				return;
 			}
 			ImGui::TableSetupColumn(text::kColTemplate, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.26f);
@@ -1583,15 +1609,27 @@ namespace dova::ui::panel
 				ImGui::PushID(t.source.c_str());
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
-				Text(std::format("{} v{}", t.name, t.version));
-				Tooltip(std::format("{}\npriority {}", t.source, t.priority));
+				Text(std::format(text::kNameVersion, t.name, t.version));
+				Tooltip(std::format(text::kTemplateSourceTip, t.source, t.priority));
 				ImGui::TableNextColumn();
-				Text(t.author.empty() ? std::string(text::kNone) : t.author);
+				if (t.author.empty()) {
+					Disabled(text::kNone);
+				} else {
+					Text(t.author);
+				}
 				ImGui::TableNextColumn();
-				Text(t.cellName.empty() ? (t.cellText.empty() ? std::string(text::kNone) : t.cellText) : t.cellName);
+				if (t.cellName.empty() && t.cellText.empty()) {
+					Disabled(text::kNone);
+				} else {
+					Text(t.cellName.empty() ? t.cellText : t.cellName);
+				}
 				Tooltip(t.cellText);
 				ImGui::TableNextColumn();
-				Text(t.required.empty() ? std::string(text::kNone) : Join(t.required));
+				if (t.required.empty()) {
+					Disabled(text::kNone);
+				} else {
+					Text(Join(t.required));
+				}
 				if (t.missing.empty()) {
 					Colored(kGreen, text::kOk);
 				} else {
@@ -1609,14 +1647,14 @@ namespace dova::ui::panel
 			ImGui::EndTable();
 		}
 
-		void DiagnosticsSection(const char* a_title, const std::vector<core::Diagnostic>& a_items)
+		void DiagnosticsSection(const std::string& a_title, const std::vector<core::Diagnostic>& a_items)
 		{
-			ImGui::SeparatorText(a_title);
-			const auto errors = std::ranges::count_if(a_items, [](const core::Diagnostic& d) { return d.severity == core::Diagnostic::Severity::Error; });
+			ImGui::SeparatorText(a_title.c_str());
 			if (a_items.empty()) {
 				Colored(kGreen, text::kDiagNone);
 				return;
 			}
+			const auto errors = std::ranges::count_if(a_items, [](const core::Diagnostic& d) { return d.severity == core::Diagnostic::Severity::Error; });
 			Text(std::format(text::kDiagCounts, errors, static_cast<std::ptrdiff_t>(a_items.size()) - errors));
 			for (const auto& d : a_items) {
 				ColoredWrapped(d.severity == core::Diagnostic::Severity::Error ? kRed : kYellow, d.ToString());
@@ -1631,14 +1669,14 @@ namespace dova::ui::panel
 				Disabled(text::kLoading);
 				return;
 			}
-			ColoredWrapped(kGrey, text::kDiagIntro);
+			Hint(text::kDiagIntro);
 			DiagnosticsSection(text::kDiagCategories, global->categoryDiagnostics);
 			DiagnosticsSection(text::kDiagTemplates, global->templateDiagnostics);
 			DiagnosticsSection(text::kDiagSettings, global->settingsDiagnostics);
 
 			const auto snap = PanelModel::Get().Home();
 			if (snap && snap->inHome && snap->enabled) {
-				ImGui::SeparatorText(std::format("{}: {}", text::kDiagHome, snap->homeName).c_str());
+				ImGui::SeparatorText(std::format(text::kDiagHome, snap->homeName).c_str());
 				if (snap->layoutWarnings.empty()) {
 					Colored(kGreen, text::kDiagNone);
 				}
@@ -1655,19 +1693,26 @@ namespace dova::ui::panel
 				Disabled(text::kLoading);
 				return;
 			}
-			Colored(kAccent, std::format("Dova Stash v{}", global->version));
-			Wrapped(text::kAboutText);
+			const auto available = [](bool a_yes) { return std::string(a_yes ? text::kAboutAvailable : text::kAboutNotAvailable); };
+			Colored(kAccent, std::format(text::kAboutTitle, global->version));
+			Hint(text::kAboutText);
 			ImGui::Spacing();
-			Text(std::format("Runtime: {}", global->runtime));
-			Text(std::format("SKSE Menu Framework: v{:.2f}", global->frameworkVersion));
-			Text(std::format("Categories: {}   Templates: {}", global->categoryCount, global->templates.size()));
-			Text(std::format("Hotkey: {}", global->hotkeyName));
-			Text(std::format("QuickLoot IE: {}   UIExtensions: {}", global->quickLootReady ? "yes" : "no", global->uiExtensions ? "yes" : "no"));
+			Text(std::format(text::kAboutRuntime, global->runtime));
+			Text(std::format(text::kAboutFramework, global->frameworkVersion));
+			Text(std::format(text::kAboutHotkey, global->hotkeyName));
+			Text(std::format(text::kAboutCategories, global->categoryCount));
+			Text(std::format(text::kAboutTemplates, global->templates.size()));
+			Text(std::format(text::kAboutQuickLoot, available(global->quickLootReady)));
+			Text(std::format(text::kAboutUIExtensions, available(global->uiExtensions)));
 			const auto& editor = EditorInstallPath();
-			Text(editor.empty() ? std::string(text::kAboutEditorMissing) : std::format(text::kAboutEditor, editor));
+			Wrapped(editor.empty() ? std::string(text::kAboutEditorMissing) : std::format(text::kAboutEditor, editor));
+
+			ImGui::SeparatorText(text::kAboutFilesHeader);
+			Wrapped(text::kAboutData);
+			Wrapped(text::kAboutLog);
+			Wrapped(text::kAboutBackups);
 			ImGui::Spacing();
-			ColoredWrapped(kGrey, "Data: Data/SKSE/Plugins/DovaStash/ (Categories, Templates, Layouts). Log: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log. Copies of your setups: Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups");
-			ColoredWrapped(kGrey, "License: GPL-3.0-or-later. Uses the SKSE Menu Framework 3 API header (LGPL-2.1).");
+			Hint(text::kAboutLicense);
 		}
 
 		void __stdcall OnFrameworkEvent(SKSEMenuFramework::Model::EventType a_type)
@@ -1697,12 +1742,13 @@ namespace dova::ui::panel
 		}
 		g_window = window;
 
+		// The current home's pages first, then the ones for every home.
 		SKSEMenuFramework::SetSection(text::kSection);
 		SKSEMenuFramework::AddSectionItem(text::kItemHome, RenderHomePage);
+		SKSEMenuFramework::AddSectionItem(text::kItemDisplays, RenderDisplaysPage);    // UI/Panel/DisplaysPage.cpp
+		SKSEMenuFramework::AddSectionItem(text::kItemArmorSets, RenderArmorSetsPage);  // UI/Panel/ArmorSetsPage.cpp
 		SKSEMenuFramework::AddSectionItem(text::kItemSettings, RenderSettingsPage);
 		SKSEMenuFramework::AddSectionItem(text::kItemTemplates, RenderTemplatesPage);
-		SKSEMenuFramework::AddSectionItem(text::kItemArmorSets, RenderArmorSetsPage);  // UI/Panel/ArmorSetsPage.cpp
-		SKSEMenuFramework::AddSectionItem(text::kItemDisplays, RenderDisplaysPage);    // UI/Panel/DisplaysPage.cpp
 		SKSEMenuFramework::AddSectionItem(text::kItemDiagnostics, RenderDiagnosticsPage);
 		SKSEMenuFramework::AddSectionItem(text::kItemAbout, RenderAboutPage);
 		static auto* event = SKSEMenuFramework::AddEvent(OnFrameworkEvent, 0.0f);  // lives for the whole session

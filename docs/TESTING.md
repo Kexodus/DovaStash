@@ -681,7 +681,7 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    as *not managed yet*.
 6. Press K at a respawning container in a dungeon (`coc BleakFallsBarrow01`). No window opens. The HUD
    shows *can't use ...* (same as M2).
-7. Outside a home: open the SKSE Menu Framework menu (its own hotkey) → **Dova Stash → Current home**.
+7. Outside a home: open the SKSE Menu Framework menu (its own hotkey) → **Dova Stash → This home**.
    It shows *You are not in a player home (...)*.
 
 ### 5.2 Actions tab
@@ -693,22 +693,22 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    **Retrieve** button. Retrieve *Swords*: only swords come back, and the counts drop.
 3. Click **Refresh counts** after moving items by hand. The counts match the containers.
 4. **Sort all** behaves like the M2 menu action (3.4).
-5. **Template** section: *Breezehome ... (recommended)* with **Use**. Click it. A yellow question
+5. **Template** section: *Breezehome ... (recommended)* with **Use...**. Click it. A yellow question
    appears with **Yes**/**No**. **No** leaves things unchanged. **Yes** applies the template. The header
    shows *Based on template: Templates/Vanilla/Breezehome.json@1.0.0*, the row shows *(in use)*, and
-   the button becomes **Re-apply**.
+   the button becomes **Re-apply...**.
 6. If a second template for the same cell is installed (for example a copy under
    `Templates/Test/` with another name and `priority: -1`), it is listed under the first with its own
-   **Use** button, and applying it works the same way.
+   **Use...** button, and applying it works the same way.
 7. **Reset home...** → **Yes**. The layout is backed up to `.json.bak` and the window returns to the
    setup view. No items are moved. The setup view shows *Saved setups* with a **Restore your last setup
    (date)** button (no question: there is nothing to replace); it brings the setup back.
-8. **Saved setups** (below Reset; hover for where the copies are): **Restore last setup (date)...** →
+8. **Saved setups** (above Reset; hover its header for where the copies are): **Restore last setup (date)...** →
    *Restore the setup saved (date)? This home's current setup is backed up first (.bak); no items are
    moved.* **No** changes nothing; **Yes**: status *Dova Stash: Breezehome restored*, and `Layouts/` has a
    new timestamped `.bak` of the setup that was there. *Older copies (N)* lists the history copies (one per
    earlier session, newest first), each with **Restore the setup from (date)...**. With a broken layout
-   file (4.1) the setup view offers the same buttons next to **Reset home...**.
+   file (4.1) the setup view offers the same buttons above **Reset home...**.
 9. **Only meaningful restores.** Right after a save (bind a category, close the panel, open it again; or
    after step 8's restore) the latest copy equals the setup, so **Saved setups** shows *The latest copy
    (date) is this setup as it is now.* instead of the **Restore last setup** button; *Older copies* stay.
@@ -725,15 +725,15 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    (2b in §3.5) shows *Books, learned* in grey under Categories; selected, its tree shows
    *[ ] Books (1 learned)* and a grey *Learned here: Books. ...* line.
 2. Select the loft cupboard. In the details:
-   - Type *Weapons* into **Label** and click **Rename**. The table shows *Weapons*, and the layout JSON
-     has `"label": "Weapons"`.
+   - Type *Weapons* into the name box (empty, it shows the game's name) and click **Rename** or press
+     Enter. The table shows *Weapons*, and the layout JSON has `"label": "Weapons"`.
    - **Categories sent here** shows a tree. Expand *[ ] Weapons* and tick **All Weapons (weapons.*)**.
-     The node shows *[x]*, and every child shows *(via a wider pattern)*. The JSON has `"weapons.*"`.
+     The node shows *[x]*, and every child shows *(via a wider choice)*. The JSON has `"weapons.*"`.
    - Untick it, then tick only *Swords*. The root shows *[~]*.
    - Tick **Everything (*)**. It is added as `"*"`. Untick it.
    - Add `"weapons.swords.*"` by hand in the JSON and re-enter the cell. The pattern is listed under
      *Other patterns (unknown categories)* with a **Remove** button, which works.
-3. **Ignore** → the status shows *(ignored)* and the category tree shows the ignored note.
+3. **Ignore** → the status shows *ignored* and the category tree shows the ignored note.
    **Stop ignoring** restores it. **Remove...** → **Yes** takes the container out of the list.
    **Remove...** is not offered on the master or on a container that is not managed yet.
 4. **Clear categories** empties the list (status line: *categories cleared for ...*).
@@ -760,8 +760,8 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 
 ### 5.5 Keep rules tab
 
-1. A home without a `keep` block shows *This home uses the global defaults only...*. The read-only
-   *Global defaults* list shows equipped, favorited, quest, gold, lockpick and torch, or your
+1. A home without a `keep` block shows *This home uses the default keep rules only...*. The read-only
+   *Default keep rules* list shows equipped, favorited, quest, gold, lockpick and torch, or your
    `Settings.json`.
 2. Add `misc.clutter` under **Never keep** with the *Category...* combo, add `quest` with the text
    field and **Add**, and add a quota: **Add quota**, choose *Potions (alchemy.potions)*, set the
@@ -772,9 +772,9 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    (key order may differ).
 4. Deposit with 5 Potions of Minor Healing and some clutter. 3 potions stay in the inventory and the
    clutter goes, even if a global rule would keep it.
-5. Untick **Also apply the global defaults (inherit)** and save. Gold and lockpicks are no longer
+5. Untick **Also apply the default keep rules** and save. Gold and lockpicks are no longer
    kept, apart from equipped, favorited and quest items, which are always kept.
-6. **Revert** discards unsaved edits. **Use global defaults only...** → **Yes** removes the `keep`
+6. **Revert** discards unsaved edits. **Use the defaults only...** → **Yes** removes the `keep`
    block.
 7. A layout whose keep block came from JSON with extra keys or `"rules"` instead of `"quotas"` keeps
    them after saving (round-trip).
@@ -811,8 +811,8 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 
 | # | Page | Expected |
 |---|---|---|
-| 5.7.1 | **Current home** | The same panel as the window, for the current cell. Actions work from here too. |
-| 5.7.2 | **Settings** | Hotkey *K (scan code 37)*, gamepad *disabled*, and the INI booleans, log level and UI mode, all read-only, with the note to edit `DovaStash.ini` and restart. |
+| 5.7.1 | **This home** | The same panel as the window, for the current cell. Actions work from here too. |
+| 5.7.2 | **Settings** | Every `DovaStash.ini` key, applied at once (§6.6), in sections: Hotkey (keyboard *K*, gamepad *Off*), Menus, Sorting, Learning, Crafting, Templates, QuickLoot IE, In the world, Log; then **Reset settings to defaults...** and the *Default keep rules*. Hovering a setting shows what it does and its INI key, also while it is greyed out. |
 | 5.7.3 | **Templates** | Every loaded template with name and version, author, home name (hover: cell FormRef), requires (green *ok*, or red *missing: ...* when a required plugin is not loaded) and an issue count (hover: the warnings). Templates for DLC or CC homes you don't have show *missing*. |
 | 5.7.4 | **Diagnostics** | Category, template and Settings.json load problems, matching the `[warning]`/`[error]` lines in the log (each listed once), plus *This home's setup* warnings, such as a container pattern that matches no category. Break a category file on purpose (`"formTypes": ["XXXX"]`) and restart: the error is listed in red. |
 | 5.7.5 | **About** | Version, runtime, Menu Framework version, category and template counts. *Dova Stash Editor: installed at ...\Tools\DovaStashEditor.exe* when the build deployed the editor next to the plugin (under MO2 the path may read as the game's `Data\Tools\...`); rename the exe and restart: *Dova Stash Editor: not installed*. |
@@ -824,7 +824,7 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 |---|---|---|
 | 5.8.1 | Keep the window open for a minute on each tab | No hitch. The log shows no repeated lines. A light refresh runs every ~2 s, and item counts are only recomputed on open, after actions, and on **Refresh counts**. |
 | 5.8.2 | Click **Deposit**, **Sort all** and **Retrieve** several times quickly | Each runs once, in order. No crash, no duplicated or lost items (check the totals). |
-| 5.8.3 | Open the window in Breezehome, close it, travel to Honeyside, and open the framework menu → **Current home** | It shows Honeyside, not Breezehome. Nothing from Breezehome (selection, keep draft) carries over. |
+| 5.8.3 | Open the window in Breezehome, close it, travel to Honeyside, and open the framework menu → **This home** | It shows Honeyside, not Breezehome. Nothing from Breezehome (selection, keep draft) carries over. |
 | 5.8.4 | Open the master by hand (ContainerMenu), close it, then press K | The window shows the distributed result. |
 | 5.8.5 | Save and reload with the window closed | Nothing in the panel survives the reload except the data in the layout JSON. |
 
@@ -910,7 +910,7 @@ skin in MO2). Dova Stash must work the same with both.
 | 6.7.5 | QuickLoot on a container holding items that belong elsewhere | Those items read "Iron Sword  >  Weapon Rack" in QuickLoot's list; items that belong there are unchanged. |
 | 6.7.6 | Open Advanced... (Menu Framework window), press Esc | The window closes. It always opens centred and fully on screen, with Close at the top. Floating icons hide while it is open. |
 | 6.7.7 | QuickLoot on the master, then on a container bound to Weapons, Armor and Alchemy | The master shows "Master" bottom-right. The bound container shows three category icons (your SkyUI/I4 art) bottom-right in binding order, no text, clear of the weight readout; with more than 5 categories the rest show as "+N". The button reads "Stash". |
-| 6.7.8 | SKSE Menu Framework -> Dova Stash -> Settings (all homes) -> Keep rules for every home: add "category:alchemy.potions" to Always keep, Save | Settings.json is written; Deposit now keeps potions in every home. Hotkey -> Advanced... -> Keep rules shows them under "Defaults for every home". |
+| 6.7.8 | SKSE Menu Framework -> Dova Stash -> Settings -> Default keep rules: add "category:alchemy.potions" to Always keep, Save | Settings.json is written; Deposit now keeps potions in every home. Hotkey -> Advanced... -> Keep rules shows them under "Default keep rules". |
 | 6.7.9 | Compare SKSE menu "This home" with hotkey -> Advanced... | Same page, same tabs (Actions, Containers, Learned, Keep rules, Template). |
 
 
