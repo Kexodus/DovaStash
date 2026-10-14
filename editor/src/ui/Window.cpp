@@ -1,7 +1,11 @@
 // Win32 window + Direct3D 11 device + Dear ImGui backends, after Dear ImGui's example_win32_directx11.
 
 #include <cstdio>
+#include <cwchar>
 #include <filesystem>
+#include <memory>
+#include <string>
+#include <thread>
 #include <vector>
 
 #define WIN32_LEAN_AND_MEAN
@@ -14,8 +18,11 @@
 #include <imgui_impl_win32.h>
 
 #include "Util.h"
+#include "Workspace.h"
+#include "data/Assets.h"
 #include "render/Image.h"
 #include "ui/App.h"
+#include "ui/Art.h"
 #include "ui/Widgets.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -31,6 +38,7 @@ namespace dova::editor::ui
 		bool                    g_occluded = false;
 		UINT                    g_resizeW = 0, g_resizeH = 0;
 		EditorApp*              g_app = nullptr;
+		bool                    g_unclamped = false;  // --screenshot: the window may be larger than the screen
 
 		void CreateRenderTarget()
 		{
@@ -105,6 +113,13 @@ namespace dova::editor::ui
 			return !pixels.empty() && render::SaveImage(a_path, w, h, pixels);
 		}
 
+		std::wstring EnvVar(const wchar_t* a_name)
+		{
+			wchar_t     buf[64]{};
+			const DWORD n = ::GetEnvironmentVariableW(a_name, buf, 64);
+			return n > 0 && n < 64 ? std::wstring(buf, n) : std::wstring();
+		}
+
 		LRESULT WINAPI WndProc(HWND a_hwnd, UINT a_msg, WPARAM a_wparam, LPARAM a_lparam)
 		{
 			if (ImGui_ImplWin32_WndProcHandler(a_hwnd, a_msg, a_wparam, a_lparam)) {
@@ -118,6 +133,14 @@ namespace dova::editor::ui
 				g_resizeW = LOWORD(a_lparam);
 				g_resizeH = HIWORD(a_lparam);
 				return 0;
+			case WM_GETMINMAXINFO:
+				if (g_unclamped) {
+					// Screenshots keep their size on a small (or virtual) display.
+					auto* mmi = reinterpret_cast<MINMAXINFO*>(a_lparam);
+					mmi->ptMaxTrackSize = POINT{ 16384, 16384 };
+					return 0;
+				}
+				break;
 			case WM_SYSCOMMAND:
 				if ((a_wparam & 0xfff0) == SC_KEYMENU) {
 					return 0;
@@ -144,7 +167,16 @@ namespace dova::editor::ui
 	{
 		const auto& a_screenshot = a_gui.screenshot;
 		ImGui_ImplWin32_EnableDpiAwareness();
-		const float scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
+		float scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
+		// DOVASTASH_UI_SCALE=1.5 tries another DPI without changing the monitor's; DOVASTASH_WIDGETS_DEMO=1 draws
+		// the widget gallery (ui/WidgetsDemo.cpp) instead of the editor.
+		if (const std::wstring v = EnvVar(L"DOVASTASH_UI_SCALE"); !v.empty()) {
+			if (const float s = std::wcstof(v.c_str(), nullptr); s >= 0.5f && s <= 4.0f) {
+				scale = s;
+			}
+		}
+		const bool demo = EnvVar(L"DOVASTASH_WIDGETS_DEMO") == L"1";
+		g_unclamped = a_screenshot.has_value();
 
 		// Title bar and taskbar use the exe's own icon (res/DovaStashEditor.rc, resource 1).
 		const auto  instance = ::GetModuleHandleW(nullptr);
@@ -177,6 +209,18 @@ namespace dova::editor::ui
 			g_app = &app;
 			bool      done = false;
 			int       idleFrames = 0;
+			int       frames = 0;
+			// The gallery shows the game-read art too: its own Assets over the same workspace.
+			std::jthread demoArt;
+			if (demo) {
+				demoArt = std::jthread([options = a_options, device = g_device] {
+					Workspace   ws;
+					std::string error;
+					if (ws.Open(options, error)) {
+						LoadArt(std::make_shared<Assets>(ws.Files().Roots(), Assets::ArchiveList(ws)), device);
+					}
+				});
+			}
 			while (!done) {
 				MSG msg;
 				while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -204,19 +248,27 @@ namespace dova::editor::ui
 				ImGui_ImplDX11_NewFrame();
 				ImGui_ImplWin32_NewFrame();
 				ImGui::NewFrame();
-				app.Frame();
+				if (demo) {
+					w::DrawDemo();
+				} else {
+					app.Frame();
+				}
 				ImGui::Render();
-				const float clear[4] = { 0.08f, 0.08f, 0.09f, 1.0f };
+				const float clear[4] = { 0x11 / 255.0f, 0x11 / 255.0f, 0x13 / 255.0f, 1.0f };  // bg0
 				g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
 				g_context->ClearRenderTargetView(g_rtv, clear);
 				ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 				if (a_screenshot) {
-					idleFrames = app.Idle() ? idleFrames + 1 : 0;
+					// The gallery does not run the editor's frame (its loading would never settle): it waits for its
+					// art instead, ten seconds at most.
+					const bool ready = demo ? (ArtTexture(Art::Paper) || frames > 600) : app.Idle();
+					idleFrames = ready ? idleFrames + 1 : 0;
 					if (idleFrames > 90) {  // frames for layout (tables, fit) after loading, and a settled frame rate
 						SaveBackBuffer(PathFromUtf8(*a_screenshot));
 						done = true;
 					}
 				}
+				++frames;
 				g_occluded = g_swapChain->Present(1, 0) == DXGI_STATUS_OCCLUDED;
 				if (app.ShouldQuit()) {
 					done = true;
@@ -224,6 +276,7 @@ namespace dova::editor::ui
 			}
 			g_app = nullptr;
 		}
+		ReleaseArt();
 
 		ImGui_ImplDX11_Shutdown();
 		ImGui_ImplWin32_Shutdown();
