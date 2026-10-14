@@ -262,7 +262,7 @@ namespace dova::editor::ui
 				// "Draft all homes" is done: offer to save the drafts of homes without a template.
 				const int saveable = SaveableDrafts();
 				if (_bulkDone && !_bannerClosed && saveable > 0) {
-					const int r = wx::Banner("drafted", std::format("{} drafts", saveable).c_str(), std::format("Save {} drafts...", saveable).c_str());
+					const int r = wx::Banner("drafted", std::format("{} draft{}", saveable, saveable == 1 ? "" : "s").c_str(), std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str());
 					if (r == 1) {
 						_confirmSaveAll = true;
 					} else if (r == 2) {
@@ -368,8 +368,9 @@ namespace dova::editor::ui
 					ImGui::CloseCurrentPopup();
 				}
 			}
-			if (_railCursor == a_i && moved) {
+			if (_railCursor == a_i && (moved || (_railReveal && !a_compact))) {
 				ImGui::SetScrollHereY(0.5f);
+				_railReveal = a_compact && _railReveal;
 			}
 			HomeTooltip(h);
 			if (!a_compact) {

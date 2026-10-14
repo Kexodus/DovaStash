@@ -71,6 +71,24 @@ namespace dova::editor::ui
 		}
 	}
 
+	namespace
+	{
+		// --window: a client area larger than the screen (screenshots on a small or headless display). Windows caps
+		// a window at the screen size through WM_GETMINMAXINFO; the window procedure is wrapped to lift that cap.
+		WNDPROC g_windowProc = nullptr;
+
+		LRESULT CALLBACK LargeWindowProc(HWND a_hwnd, UINT a_msg, WPARAM a_wparam, LPARAM a_lparam)
+		{
+			const LRESULT r = ::CallWindowProcW(g_windowProc, a_hwnd, a_msg, a_wparam, a_lparam);
+			if (a_msg == WM_GETMINMAXINFO) {
+				auto* info = reinterpret_cast<MINMAXINFO*>(a_lparam);
+				info->ptMaxTrackSize = POINT{ 16384, 16384 };
+				info->ptMaxSize = POINT{ 16384, 16384 };
+			}
+			return r;
+		}
+	}
+
 	namespace detail
 	{
 		std::optional<std::string> PickFolder() { return RunFileDialog(false, true, L"MO2 instance folder (with ModOrganizer.ini)", {}); }
@@ -148,7 +166,7 @@ namespace dova::editor::ui
 		if (a_gui.cell) {
 			_pendingMod = a_gui.mod;
 		}
-		if (a_gui.mod && !a_gui.cell) {
+		if (a_gui.mod) {
 			_railSearch = *a_gui.mod;  // --mod: the rail shows that mod's homes
 		}
 		if (a_gui.palette) {
@@ -156,6 +174,7 @@ namespace dova::editor::ui
 			_paletteFocus = true;
 		}
 		_windowSize = a_gui.window;
+		_pendingPopover = a_gui.popover;
 		OpenWorkspace();
 		if (_ws) {
 			ScanHomes();
@@ -411,6 +430,7 @@ namespace dova::editor::ui
 			_pendingFilePath.clear();
 			_cellDraft = a_index;
 			_railCursor = a_index;
+			_railReveal = true;
 			_history.clear();
 			OpenCellAsync(_homes->lo, a_cell ? *a_cell : h.cell, false);
 		};
@@ -617,6 +637,9 @@ namespace dova::editor::ui
 		if (!hwnd) {
 			return;
 		}
+		if (!g_windowProc) {
+			g_windowProc = reinterpret_cast<WNDPROC>(::SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&LargeWindowProc)));
+		}
 		// The client area at the asked size (--window 1280x720): the frame added around it.
 		RECT r{ 0, 0, _windowSize->first, _windowSize->second };
 		::AdjustWindowRectEx(&r, static_cast<DWORD>(::GetWindowLongPtrW(hwnd, GWL_STYLE)), FALSE, static_cast<DWORD>(::GetWindowLongPtrW(hwnd, GWL_EXSTYLE)));
@@ -637,6 +660,11 @@ namespace dova::editor::ui
 	{
 		PollJob();
 		ApplyWindowSize();
+		if (_pendingPopover && _homes && !Busy() && _queue.empty() && !_pendingCell && !_pendingHome) {
+			const auto id = *std::exchange(_pendingPopover, std::nullopt);  // --popover
+			w::OpenPopover(id.c_str());
+			wx::OpenPopoverRight(id.c_str());
+		}
 		const auto&          t = w::Th();
 		const ImGuiViewport* vp = ImGui::GetMainViewport();
 		ImGui::SetNextWindowPos(vp->WorkPos);

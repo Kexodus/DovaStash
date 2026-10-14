@@ -636,7 +636,9 @@ namespace dova::editor::ui
 			RejectWeak();
 		}
 		w::Tip("Every suggestion under 50%");
-		ImGui::SameLine(0.0f, 4.0f);
+		if (ImGui::GetItemRectMax().x + 4.0f + ImGui::CalcTextSize("Draft again").x + 2.0f * ImGui::GetStyle().FramePadding.x <= ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - ImGui::GetStyle().ScrollbarSize) {
+			ImGui::SameLine(0.0f, 4.0f);
+		}
 		if (ImGui::Button("Draft again")) {
 			DraftAgain();
 		}
@@ -652,8 +654,10 @@ namespace dova::editor::ui
 				}
 				const auto cmp = home::CompareToTemplate(a_cell.layout, tp->layout, *_categorySet);
 				ImGui::PushFont(t.smallFont);
-				wx::Text(tp->user ? w::Kind::Ok : w::Kind::Info,
+				ImGui::PushTextWrapPos(0.0f);
+				wx::TextWrapped(tp->user ? w::Kind::Ok : w::Kind::Info,
 					std::format("{} template: {} of {} categories agree, master {}", tp->user ? "Your" : "A", cmp.sameDestination, cmp.categories, cmp.sameMaster ? "the same" : "differs").c_str());
+				ImGui::PopTextWrapPos();
 				ImGui::PopFont();
 				if (ImGui::BeginItemTooltip()) {
 					ImGui::TextUnformatted(tp->source.c_str());
@@ -777,6 +781,7 @@ namespace dova::editor::ui
 			}
 			w::Tip((o.id + "\n" + o.editorId).c_str());
 			ImGui::Indent(t.pad);
+			const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 			const auto* b = ref ? a_cell.layout.FindContainer(*ref) : nullptr;
 			if (master) {
 				w::Chip("master", w::Kind::Accent);
@@ -794,8 +799,8 @@ namespace dova::editor::ui
 				const bool on = b && std::ranges::find(b->categories, s.pattern) != b->categories.end();
 				const auto text = std::format("{} {:.0f}%", s.pattern, s.confidence * 100.0f);
 				ImGui::PushID(static_cast<int>(si));
-				if (si > 0 && ImGui::GetContentRegionAvail().x > ImGui::CalcTextSize(text.c_str()).x + 30.0f * t.scale) {
-					ImGui::SameLine(0.0f, 4.0f);
+				if (si > 0) {
+					wx::FlowNext(wx::ChipWidth(text.c_str()), rightX);
 				}
 				if (w::ChipButton(text.c_str(), wx::ConfidenceKind(s.confidence), on) && !busy) {
 					SetSuggestionOn(a_cell, *d, ci, si, !on);

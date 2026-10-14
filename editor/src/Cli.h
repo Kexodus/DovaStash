@@ -56,6 +56,7 @@ namespace dova::editor
 		std::optional<std::string> home;                // --gui --home <text>: open the first home whose name contains it
 		std::optional<std::string> inspector;           // --gui --inspector selection|template|draft|checks
 		bool                       palette{ false };    // --gui --palette: the command palette open
+		std::optional<std::string> popover;             // --gui --popover <id>: a popover open (screenshots of the guide)
 		std::optional<std::pair<int, int>> window;      // --gui --window WxH: the window's client size
 		std::vector<std::string>   errors;
 

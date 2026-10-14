@@ -95,7 +95,7 @@ namespace dova::editor::ui
 				homeName += " · " + (_cell->info.name.empty() ? _cell->info.editorId : _cell->info.name);  // another cell of the home
 			}
 		}
-		if (w::BeginPopover("switcher", (homeName + "###switch").c_str(), w::Icon::Home, 0, "Homes  (type to filter)")) {
+		if (w::BeginPopover("switcher", homeName.c_str(), w::Icon::Home, 0, "Homes  (type to filter)")) {
 			if (ImGui::IsWindowAppearing()) {
 				_switcherSearch.clear();
 			}
@@ -161,7 +161,7 @@ namespace dova::editor::ui
 		}
 		ImGui::SetCursorPos(ImVec2(std::max(rightX, _titleLeftW + t.pad), y));
 		const float rightStart = ImGui::GetCursorScreenPos().x;
-		if (w::BeginPopover("draftmenu", "Draft", w::Icon::Draft, 0, "Suggestions for the containers", "Ctrl+D: all homes")) {
+		if (wx::BeginPopoverRight("draftmenu", "Draft", w::Icon::Draft, "Suggestions for the containers", "Ctrl+D: all homes")) {
 			DrawDraftMenu();
 			w::EndPopover();
 		}
@@ -174,7 +174,7 @@ namespace dova::editor::ui
 			w::Tip(std::format("Save the template  Ctrl+S\n{}", PathToUtf8(TemplatePath(*_cell))).c_str());
 		}
 		ImGui::SameLine(0.0f, t.gap);
-		const bool setupOpen = w::BeginPopover("setup", nullptr, w::Icon::Settings, 0, "Setup");
+		const bool setupOpen = wx::BeginPopoverRight("setup", nullptr, w::Icon::Settings, "Setup");
 		if (setupOpen) {
 			if (!_setupWasOpen) {
 				_setupPathAtOpen = _mo2Path;
@@ -205,7 +205,7 @@ namespace dova::editor::ui
 			StartBulkDraft();
 		}
 		const int saveable = SaveableDrafts();
-		if (wx::MenuItem(std::format("Save {} drafts...", saveable).c_str(), nullptr, saveable > 0)) {
+		if (wx::MenuItem(std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str(), nullptr, saveable > 0)) {
 			_confirmSaveAll = true;
 		}
 		ImGui::Separator();
@@ -253,7 +253,7 @@ namespace dova::editor::ui
 			StartBulkDraft();
 		}
 		const int saveable = SaveableDrafts();
-		if (wx::MenuItem(std::format("Save {} drafts...", saveable).c_str(), nullptr, saveable > 0)) {
+		if (wx::MenuItem(std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str(), nullptr, saveable > 0)) {
 			_confirmSaveAll = true;
 		}
 	}

@@ -64,6 +64,16 @@ namespace dova::editor::ui::wx
 	// grows `a_size`. Returns true while dragged.
 	bool SplitterTop(const char* a_id, float& a_size, float a_min, float a_max);
 
+	// Flow layout for chips: the width a chip takes, and SameLine() when the next item of `a_width` still fits
+	// before `a_rightX` (the row's right edge in screen space, taken before the first item).
+	[[nodiscard]] float ChipWidth(const char* a_text, bool a_close = false);
+	void FlowNext(float a_width, float a_rightX);
+
+	// w::BeginPopover anchored at the button's right edge (the title row's right group: it would leave the window
+	// otherwise). `a_label` nullptr: an icon button. End with w::EndPopover(). Fold into w::BeginPopover as an option.
+	bool BeginPopoverRight(const char* a_id, const char* a_label, w::Icon a_icon, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
+	void OpenPopoverRight(const char* a_id);  // opens it on the next frame
+
 	// A centred one-line message with a muted second line, in a fixed area (the viewport while loading).
 	void CentredMessage(ImVec2 a_min, ImVec2 a_max, const char* a_text, const char* a_sub = nullptr);
 }

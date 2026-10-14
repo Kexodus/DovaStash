@@ -52,7 +52,7 @@ namespace dova::editor::ui
 		add("Accept all suggestions", "", cell && idle, [this] { AcceptAll(); });
 		add("Reject the weak suggestions", "", cell && idle, [this] { RejectWeak(); });
 		add("Draft again", "", cell && idle, [this] { DraftAgain(); });
-		add(std::format("Save {} drafts...", SaveableDrafts()), "", SaveableDrafts() > 0, [this] { _confirmSaveAll = true; });
+		add(std::format("Save {} draft{}...", SaveableDrafts(), SaveableDrafts() == 1 ? "" : "s"), "", SaveableDrafts() > 0, [this] { _confirmSaveAll = true; });
 		add("Undo", "Ctrl+Z", !_undo.empty(), [this] { Undo(); });
 		add("Redo", "Ctrl+Y", !_redo.empty(), [this] { Redo(); });
 		add("3D view", "1", cell, [this] { _state.ui.view = 0; });
@@ -108,7 +108,7 @@ namespace dova::editor::ui
 		add("Remove the selection from the template", "Delete", cell && !Selection().empty(), [this] { RequestDelete(); });
 		add("Make the nearest chest the master", "", cell && idle, [this] { MakeNearestMaster(*_cell); });
 		add("Start", "", true, [this] { _showStart = true; });
-		add("Setup", "", true, [this] { w::OpenPopover("setup"); });
+		add("Setup", "", true, [this] { wx::OpenPopoverRight("setup"); });
 		add("Shortcuts", "", true, [this] { _showShortcuts = true; });
 		return out;
 	}

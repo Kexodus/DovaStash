@@ -55,6 +55,7 @@ namespace dova::editor::ui
 		std::vector<std::string>   multi;       // more references to select (multi-select)
 		std::optional<std::string> inspector;   // selection, template, draft or checks: the inspector's panel
 		bool                       palette{ false };  // open the command palette (Ctrl+K)
+		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat
 		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
 	};
 
@@ -313,6 +314,7 @@ namespace dova::editor::ui
 		int                       _railCursor{ -1 };  // keyboard: a home index
 		bool                      _railFocusSearch{ false };
 		bool                      _railKeys{ false };  // the rail has the keyboard
+		bool                      _railReveal{ false };  // scroll the rail to the cursor (a home was opened)
 		std::set<int>             _collapsedGroups;  // mod indices
 		std::vector<HomeModGroup> _homeGroups;
 		std::vector<PluginScan>   _scans;
@@ -325,6 +327,7 @@ namespace dova::editor::ui
 		std::optional<std::string> _pendingHome;    // --home: opened once the homes are known
 		std::optional<Panel>       _pendingPanel;   // --inspector: shown once the home is open
 		bool                       _pendingDrafts{ false };  // --drafts: the bulk draft once the homes are known
+		std::optional<std::string> _pendingPopover;
 		std::optional<std::pair<int, int>> _windowSize;
 		bool                       _windowApplied{ false };
 

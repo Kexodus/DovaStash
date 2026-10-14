@@ -551,6 +551,8 @@ namespace dova::editor
 		       "  --paint <category>    paint mode on with that category\n"
 		       "  --colours <mode>      category or fill: colour the containers\n"
 		       "  --palette             open the command palette (Ctrl+K)\n"
+		       "  --popover <id>        open a popover (menu, setup, switcher, filter, draftmenu, layers, colours,\n"
+		       "                        camera, paintcat) for a screenshot\n"
 		       "  --window WxH          the window's client size (e.g. 1280x720)\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
 		       "  (no --mod/--cell/--home/--drafts: the start panel)\n"
@@ -639,6 +641,8 @@ namespace dova::editor
 				a.inspector = value();
 			} else if (s == "--palette") {
 				a.palette = true;
+			} else if (s == "--popover") {
+				a.popover = value();
 			} else if (s == "--window") {
 				if (auto v = value()) {
 					const auto n = Numbers(*v);

@@ -80,11 +80,12 @@ namespace dova::editor::ui
 		if (a_title) {
 			wx::FieldLabel("Categories");
 		}
+		const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 		for (std::size_t i = 0; i < a_patterns.size(); ++i) {
 			ImGui::PushID(static_cast<int>(i));
 			const auto* cat = _categorySet ? _categorySet->Find(a_patterns[i]) : nullptr;
-			if (i > 0 && ImGui::GetContentRegionAvail().x > ImGui::CalcTextSize(a_patterns[i].c_str()).x + 40.0f * w::Th().scale) {
-				ImGui::SameLine(0.0f, 4.0f);
+			if (i > 0) {
+				wx::FlowNext(wx::ChipWidth(a_patterns[i].c_str(), true), rightX);
 			}
 			const bool known = cat || a_patterns[i].ends_with("*");
 			if (w::ChipClose(a_patterns[i].c_str(), known ? w::Kind::Accent : w::Kind::Error)) {
@@ -560,10 +561,11 @@ namespace dova::editor::ui
 		auto list = [&](const char* a_id, const char* a_label, std::vector<std::string>& a_items) {
 			ImGui::PushID(a_id);
 			wx::FieldLabel(a_label);
+			const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 			for (std::size_t i = 0; i < a_items.size(); ++i) {
 				ImGui::PushID(static_cast<int>(i));
-				if (i > 0 && ImGui::GetContentRegionAvail().x > ImGui::CalcTextSize(a_items[i].c_str()).x + 40.0f) {
-					ImGui::SameLine(0.0f, 4.0f);
+				if (i > 0) {
+					wx::FlowNext(wx::ChipWidth(a_items[i].c_str(), true), rightX);
 				}
 				if (w::ChipClose(a_items[i].c_str(), w::Kind::Accent)) {
 					a_items.erase(a_items.begin() + static_cast<std::ptrdiff_t>(i));
@@ -657,7 +659,7 @@ namespace dova::editor::ui
 		ImGui::BeginGroup();
 		wx::FieldLabel("Priority");
 		ImGui::SetNextItemWidth(half);
-		changed |= ImGui::InputInt("##priority", &t.priority);
+		changed |= ImGui::InputInt("##priority", &t.priority, 0);
 		ImGui::EndGroup();
 		wx::FieldLabel("Note");
 		changed |= ImGui::InputTextMultiline("##note", &t.note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
@@ -676,18 +678,14 @@ namespace dova::editor::ui
 		w::SectionHead("Cells");
 		{
 			const auto openRef = a_cell.lo->ToFormRef(a_cell.info.key);
+			wx::FieldLabel(t.cell && *t.cell == openRef ? "Main · open" : "Main");
 			w::Mono((t.cell ? t.cell->ToString() : std::string("-")).c_str());
-			ImGui::SameLine();
-			w::Muted(t.cell && *t.cell == openRef ? "main · open" : "main");
 			int remove = -1;
 			for (std::size_t i = 0; i < t.cells.size(); ++i) {
 				auto& c = t.cells[i];
 				ImGui::PushID(static_cast<int>(i));
+				wx::FieldLabel(c.cell == openRef ? "Joined · open" : "Joined");
 				w::Mono(c.cell.ToString().c_str());
-				if (c.cell == openRef) {
-					ImGui::SameLine();
-					w::Muted("open");
-				}
 				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x);
 				changed |= ImGui::InputTextWithHint("##label", "Label (what players see)", &c.label);
 				ImGui::SameLine();
@@ -737,7 +735,11 @@ namespace dova::editor::ui
 			facts += "\nOwner " + (a_cell.info.owner ? a_cell.info.ownerLabel : std::string("none")) + (a_cell.info.ownedByPlayer ? " (player)" : "");
 			facts += "\nZone " + (a_cell.info.encounterZone.empty() ? std::string("none") : a_cell.info.encounterZone) + (a_cell.info.neverResets ? " (never resets)" : "");
 			w::Spacer(2.0f);
-			wx::RefBlock("cellfacts", facts, a_cell.cellText);
+			ImGui::PushFont(w::Th().smallFont);
+			ImGui::PushTextWrapPos(0.0f);
+			w::MutedWrapped(facts.c_str());
+			ImGui::PopTextWrapPos();
+			ImGui::PopFont();
 		}
 
 		w::SectionHead("Keep rules");

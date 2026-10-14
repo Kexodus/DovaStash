@@ -353,13 +353,15 @@ namespace dova::editor::ui
 		if (have.empty()) {
 			w::Muted("none");
 		}
+		const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 		for (std::size_t k = 0; k < have.size(); ++k) {
 			const auto& [c, n] = have[k];
 			ImGui::PushID(static_cast<int>(k));
-			if (k > 0 && ImGui::GetContentRegionAvail().x > ImGui::CalcTextSize(c.c_str()).x + 80.0f) {
-				ImGui::SameLine(0.0f, 4.0f);
+			const auto text = std::format("{} {}/{}", c, n, containers);
+			if (k > 0) {
+				wx::FlowNext(wx::ChipWidth(text.c_str(), true), rightX);
 			}
-			if (w::ChipClose(std::format("{} {}/{}", c, n, containers).c_str(), w::Kind::Accent)) {
+			if (w::ChipClose(text.c_str(), w::Kind::Accent)) {
 				const std::string cat = c;
 				forEach([&](core::ContainerBinding& b) { std::erase(b.categories, cat); });
 			}

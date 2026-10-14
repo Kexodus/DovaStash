@@ -292,6 +292,52 @@ namespace dova::editor::ui::wx
 		return active;
 	}
 
+	float ChipWidth(const char* a_text, bool a_close)
+	{
+		const auto& t = w::Th();
+		ImGui::PushFont(t.smallFont);
+		const float wdt = ImGui::CalcTextSize(a_text).x + 14.0f * t.scale + (a_close ? 18.0f * t.scale : 0.0f);
+		ImGui::PopFont();
+		return wdt;
+	}
+
+	void FlowNext(float a_width, float a_rightX)
+	{
+		const float gap = 4.0f * w::Th().scale;
+		if (ImGui::GetItemRectMax().x + gap + a_width <= a_rightX) {
+			ImGui::SameLine(0.0f, gap);
+		}
+	}
+
+	namespace
+	{
+		std::string& RightRequest()
+		{
+			static std::string s;
+			return s;
+		}
+	}
+
+	bool BeginPopoverRight(const char* a_id, const char* a_label, w::Icon a_icon, const char* a_tooltip, const char* a_shortcut)
+	{
+		ImGui::PushID(a_id);
+		const bool clicked = a_label ? w::ToolButton((std::string(a_label) + "  v").c_str(), false, a_tooltip, a_shortcut) : w::IconButton("btn", a_icon, a_tooltip, a_shortcut);
+		if (clicked || RightRequest() == a_id) {
+			RightRequest().clear();
+			ImGui::OpenPopup("pop");
+		}
+		ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y + 2.0f * w::Th().scale), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+		const bool open = ImGui::BeginPopup("pop");
+		if (!open) {
+			ImGui::PopID();
+		}
+		return open;
+	}
+
+	void OpenPopoverRight(const char* a_id)
+	{
+		RightRequest() = a_id;
+	}
 	void CentredMessage(ImVec2 a_min, ImVec2 a_max, const char* a_text, const char* a_sub)
 	{
 		const auto& t = w::Th();
