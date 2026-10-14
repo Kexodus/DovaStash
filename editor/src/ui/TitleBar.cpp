@@ -128,7 +128,7 @@ namespace dova::editor::ui
 				ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - ImGui::GetTextLineHeight()) * 0.5f);
 				w::StatusDot(w::Kind::Warn, _cell->dirty ? "Unsaved changes" : "Reviewed drafts not saved");
 			}
-			// The template's status at a glance: no template, shipped, yours, draft.
+			// The template's status in one word, the rail's vocabulary: yours, shipped, auto-draft, draft or no template.
 			std::string chip = "no template";
 			w::Kind     kind = w::Kind::Neutral;
 			const auto  all = TemplatesFor(*_cell);
@@ -157,22 +157,38 @@ namespace dova::editor::ui
 				chip = "auto-draft";
 				kind = w::Kind::Warn;
 			}
-			if (all.size() > 1 && chip != "no template") {
-				chip += std::format(" +{}", all.size() - 1);  // more templates of this home: the Template panel lists them
-			}
 			ImGui::SameLine(0.0f, t.gap);
 			ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - t.chipH) * 0.5f);
 			if (w::ChipButton(chip.c_str(), kind, false) && _cell) {
 				_panel = Panel::Template;
 				_state.ui.inspectorOpen = true;
 			}
-			const auto tip = all.size() > 1 ? std::format("{} templates for this home: the Template panel lists them", all.size())
-			                 : chip == "draft"         ? std::string("Changed, not saved yet")
-			                 : chip == "auto-draft"    ? std::string("Saved by Draft all homes, not by a person: Save makes it yours")
-			                 : chip == "no template" ? std::string("This home has no template yet")
-			                 : chip.starts_with("shipped") ? (existing.empty() ? std::string("Opened from a shipped template") : "This home has a template: " + existing)
-			                                               : std::string("Your template");
+			// The tooltip adds what the word does not say: whose, and which file.
+			const auto& file = !_cell->filePath.empty() ? _cell->filePath : _cell->savedPath;
+			auto        tip = chip == "draft"         ? std::string("Changed, not saved yet")
+			                  : chip == "auto-draft"  ? std::string("Saved by Draft all homes, not by a person: Save makes it yours")
+			                  : chip == "no template" ? std::string("This home has no template yet: Draft suggests one")
+			                  : chip == "shipped"     ? (existing.empty() || !_cell->filePath.empty() ? std::string("Shipped with Dova Stash or a mod") : "This home has " + existing)
+			                                          : std::string("Made by you");
+			if (!file.empty() && chip != "draft") {
+				tip += "\n" + file;
+			}
 			w::Tip(tip.c_str());
+			// More than one template: how many, in words, and the list one click away (click one to open it).
+			if (all.size() > 1) {
+				ImGui::SameLine(0.0f, t.gap);
+				ImGui::SetCursorPosY(y);
+				const auto label = std::format("{} templates###templates", all.size());
+				if (w::BeginPopover("templates", label.c_str(), w::Icon::ChevronDown, 0, "This home's templates: in game the first is offered")) {
+					ImGui::BeginChild("templatelist", ImVec2(460.0f * t.scale, 0.0f), ImGuiChildFlags_AutoResizeY, ImGuiWindowFlags_None);
+					DrawTemplateList(*_cell);
+					ImGui::EndChild();
+					if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+						ImGui::CloseCurrentPopup();  // a template picked (it opens in the background)
+					}
+					w::EndPopover();
+				}
+			}
 		}
 		ImGui::SameLine();
 		_titleLeftW = ImGui::GetCursorScreenPos().x - leftStart;

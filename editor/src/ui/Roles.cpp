@@ -497,7 +497,8 @@ namespace dova::editor::ui
 			} else if (hovered) {
 				dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), th.bg3, th.radius);
 			}
-			const char*  chip = tp->layout.autoDraft ? "auto-draft" : tp->user ? "yours" : "shipped";
+			w::Kind      chipKind = w::Kind::Neutral;
+			const char*  chip = TemplateWord(*tp, &chipKind);  // the rail's and the title row's words
 			const float  chipW = w::ChipWidth(chip, false);
 			const auto   detail = std::format("{} · {} · {}", tp->layout.author.empty() ? "no author" : tp->layout.author, tp->layout.version.empty() ? "no version" : tp->layout.version, tp->origin);
 			const ImVec2 ns = ImGui::CalcTextSize(tp->layout.name.c_str());
@@ -506,7 +507,7 @@ namespace dova::editor::ui
 			w::TextWithMuted(tp->layout.name.c_str(), detail.c_str());
 			ImGui::PopClipRect();
 			ImGui::SetCursorScreenPos(ImVec2(p.x + wdt - chipW, p.y + (h - th.chipH) * 0.5f));
-			w::Chip(chip, tp->layout.autoDraft ? w::Kind::Warn : tp->user ? w::Kind::Ok : w::Kind::Info);
+			w::Chip(chip, chipKind);
 			ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h));
 			ImGui::Dummy(ImVec2(0, 0));
 			if (ImGui::BeginItemTooltip()) {

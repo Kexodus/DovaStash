@@ -195,8 +195,8 @@ namespace dova::editor::ui::w
 				IconButton("collapse", Icon::Collapse, "Collapse all");
 				SectionHead("Lux · 12345");
 				const char* homes[] = { "Aldamar", "Lakeview Manor", "Breezehome", "Hjerim", "Proudspire Manor", "Vlindrel Hall" };
-				const char* chips[] = { "yours", "shipped", "none", "drafted", "saved", "none" };
-				const Kind  kinds[] = { Kind::Ok, Kind::Info, Kind::Neutral, Kind::Warn, Kind::Accent, Kind::Neutral };
+				const char* chips[] = { "yours", "shipped", "none", "draft", "auto-draft", "none" };
+				const Kind  kinds[] = { Kind::Ok, Kind::Info, Kind::Neutral, Kind::Warn, Kind::Warn, Kind::Neutral };
 				for (int i = 0; i < 6; ++i) {
 					ImGui::PushID(i);
 					if (Row("row", homes[i], s.selected == i, chips[i], kinds[i])) {

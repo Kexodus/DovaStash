@@ -263,7 +263,7 @@ namespace dova::editor::ui
 		void GroupHomes();
 		[[nodiscard]] std::vector<int> VisibleHomes(const std::string& a_search) const;  // rows in list order (keyboard)
 		[[nodiscard]] bool HomeMatches(const home::HomeEntry& a_home, const std::string& a_search, bool a_modMatch) const;
-		[[nodiscard]] std::string HomeChip(int a_index, w::Kind* a_kind) const;  // none / shipped / yours / auto-draft / drafted / saved
+		[[nodiscard]] std::string HomeChip(int a_index, w::Kind* a_kind) const;  // yours / shipped / auto-draft / draft / none
 		[[nodiscard]] bool IsOpenHome(int a_index) const;
 		[[nodiscard]] bool HomeUnsaved(int a_index) const;
 		[[nodiscard]] int  ActiveFilterCount() const;
@@ -493,7 +493,12 @@ namespace dova::editor::ui
 		// "yours" / "shipped" / both, from the templates someone made (auto-drafts do not count: *Save N drafts...* may
 		// refresh them); `a_autoDraft`: the home has an auto-draft.
 		[[nodiscard]] std::string HomeStatus(const home::HomeEntry& a_home, bool* a_user = nullptr, bool* a_autoDraft = nullptr) const;
+		[[nodiscard]] std::vector<const home::KnownTemplate*> HomeTemplates(const home::HomeEntry& a_home) const;  // Rail.cpp: over all its cells, in the game's order
 		[[nodiscard]] std::size_t TemplateCount(const home::HomeEntry& a_home) const;  // Rail.cpp: templates over all its cells
+		// One template's word, the same in the rail, the title row and the Template panel: auto-draft (Draft all homes
+		// saved it, nobody since), yours (Templates/User, the Dova Stash Templates mod or the mod picked under Save to)
+		// or shipped (with Dova Stash or another mod).
+		[[nodiscard]] const char* TemplateWord(const home::KnownTemplate& a_template, w::Kind* a_kind = nullptr) const;
 		[[nodiscard]] bool AnyUnsaved() const;
 		[[nodiscard]] bool UnsavedDrafts() const;
 

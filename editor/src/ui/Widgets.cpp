@@ -1706,7 +1706,7 @@ namespace dova::editor::ui::w
 	}
 
 	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
-		bool a_cursor, bool a_unsaved, bool a_dim)
+		bool a_cursor, bool a_unsaved, bool a_dim, const char* a_summaryShortest)
 	{
 		const Theme& t = Th();
 		ImGui::PushID(a_id);
@@ -1729,7 +1729,14 @@ namespace dova::editor::ui::w
 		float right = q.x - t.pad * 0.5f;
 		if (a_chip && *a_chip) {
 			const float cw = ChipW(a_chip);
-			DrawChipAt(dl, ImVec2(right - cw, p.y + (h - t.chipH) * 0.5f), a_chip, a_chipKind);
+			if (a_chipKind == Kind::Neutral) {
+				// A neutral status ("none") is quiet: its word in muted, where a chip's text would end, without the pill.
+				ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
+				const ImVec2 ts = TextSize(font, a_chip);
+				Text(dl, font, detail::Floor(ImVec2(right - 8.0f * t.scale - ts.x, p.y + (h - ts.y) * 0.5f)), t.muted, a_chip);
+			} else {
+				DrawChipAt(dl, ImVec2(right - cw, p.y + (h - t.chipH) * 0.5f), a_chip, a_chipKind);
+			}
 			right -= cw + t.gap;
 		}
 		// Name, dot, summary (the short form, then an ellipsis, when it does not fit before the chip).
@@ -1749,8 +1756,10 @@ namespace dova::editor::ui::w
 		if (a_summary && *a_summary && x + t.gap < maxX) {
 			PushFont(Font::Small);
 			const char* text = a_summary;
-			if (ImGui::CalcTextSize(text).x > maxX - x - t.gap && a_summaryShort && *a_summaryShort) {
-				text = a_summaryShort;
+			for (const char* shorter : { a_summaryShort, a_summaryShortest }) {
+				if (ImGui::CalcTextSize(text).x > maxX - x - t.gap && shorter && *shorter) {
+					text = shorter;
+				}
 			}
 			const ImVec2 ss = ImGui::CalcTextSize(text);
 			ImGui::PushStyleColor(ImGuiCol_Text, t.muted);

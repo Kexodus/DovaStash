@@ -25,11 +25,33 @@ namespace dova::editor::ui
 
 	namespace
 	{
-		// "24 chests · 9 displays"; the short form (a narrow rail) drops the displays.
-		std::string Summary(int a_containers, int a_displays, bool a_short = false)
+		enum class SummaryForm
 		{
-			const auto chests = std::format("{} {}", a_containers, a_containers == 1 ? "chest" : "chests");
-			return a_displays > 0 && !a_short ? std::format("{} · {} {}", chests, a_displays, a_displays == 1 ? "display" : "displays") : chests;
+			Full,    // "24 chests · 9 displays · 2 cells · 2 templates"
+			Short,   // a narrow rail: without the displays
+			Counts   // the title row's switcher: only the cells and templates
+		};
+
+		// The row's muted line, in words: the storage, then the cells and the templates when the home has more than one.
+		std::string Summary(int a_containers, int a_displays, std::size_t a_cells = 1, std::size_t a_templates = 0, SummaryForm a_form = SummaryForm::Full)
+		{
+			std::string out;
+			auto        add = [&](std::size_t a_n, const char* a_one, const char* a_many) {
+				out += std::format("{}{} {}", out.empty() ? "" : " · ", a_n, a_n == 1 ? a_one : a_many);
+			};
+			if (a_form != SummaryForm::Counts) {
+				add(static_cast<std::size_t>(std::max(a_containers, 0)), "chest", "chests");
+				if (a_displays > 0 && a_form == SummaryForm::Full) {
+					add(static_cast<std::size_t>(a_displays), "display", "displays");
+				}
+			}
+			if (a_cells > 1) {
+				add(a_cells, "cell", "cells");
+			}
+			if (a_templates > 1) {
+				add(a_templates, "template", "templates");
+			}
+			return out;
 		}
 	}
 
@@ -130,9 +152,9 @@ namespace dova::editor::ui
 		return out;
 	}
 
-	std::size_t EditorApp::TemplateCount(const home::HomeEntry& a_home) const
+	std::vector<const home::KnownTemplate*> EditorApp::HomeTemplates(const home::HomeEntry& a_home) const
 	{
-		// Over every cell of the home, each template once (the same set the Template panel lists).
+		// Over every cell of the home, each template once (the same set the Template panel lists), in its order.
 		std::vector<const home::KnownTemplate*> all;
 		auto add = [&](const esp::FormKey& a_cell) {
 			for (const auto* t : _homes->templates.ForCell(_homes->lo->ToFormRef(a_cell))) {
@@ -145,11 +167,31 @@ namespace dova::editor::ui
 		for (const auto& e : a_home.extra) {
 			add(e.cell);
 		}
-		return all.size();
+		std::ranges::stable_sort(all, [](const home::KnownTemplate* a, const home::KnownTemplate* b) {
+			return core::CompareTemplateRank(a->layout, a->user, b->layout, b->user) < 0;
+		});
+		return all;
+	}
+
+	std::size_t EditorApp::TemplateCount(const home::HomeEntry& a_home) const
+	{
+		return HomeTemplates(a_home).size();
+	}
+
+	const char* EditorApp::TemplateWord(const home::KnownTemplate& a_template, w::Kind* a_kind) const
+	{
+		const bool mine = a_template.user || (!_state.saveTarget.empty() && core::IEquals(a_template.origin, _state.saveTarget));
+		const auto kind = a_template.layout.autoDraft ? w::Kind::Warn : mine ? w::Kind::Ok : w::Kind::Info;
+		if (a_kind) {
+			*a_kind = kind;
+		}
+		return a_template.layout.autoDraft ? "auto-draft" : mine ? "yours" : "shipped";
 	}
 
 	std::string EditorApp::HomeChip(int a_index, w::Kind* a_kind) const
 	{
+		// One word from one small vocabulary, the same in the title row and the Template panel. How many templates
+		// and cells a home has is said in words in the row's summary, not on the chip.
 		const auto& h = _homes->homes[static_cast<std::size_t>(a_index)];
 		const auto& e = _homes->entries[static_cast<std::size_t>(a_index)];
 		const auto  stage = _state.StageOf(h.cellRef);
@@ -157,34 +199,25 @@ namespace dova::editor::ui
 		bool        autoDraft = false;
 		const auto  status = HomeStatus(h, &user, &autoDraft);
 		auto        set = [&](w::Kind a_k) {
-            if (a_kind) {
-                *a_kind = a_k;
-            }
+			if (a_kind) {
+				*a_kind = a_k;
+			}
 		};
-		// "+N": the home has N more templates (the Template panel lists them).
-		const auto more = [&](const char* a_text) {
-			const auto n = TemplateCount(h);
-			return n > 1 ? std::format("{} +{}", a_text, n - 1) : std::string(a_text);
-		};
-		if (stage == HomeStage::Saved) {
-			set(w::Kind::Ok);
-			return more("saved");
-		}
-		if (user) {
-			set(w::Kind::Ok);
-			return more("yours");
+		if (user || stage == HomeStage::Saved) {
+			set(w::Kind::Ok);  // a person's template of yours, or saved this session (it is yours)
+			return "yours";
 		}
 		if (!status.empty()) {
 			set(w::Kind::Info);
-			return more("shipped");
+			return "shipped";
 		}
 		if (autoDraft) {
 			set(w::Kind::Warn);  // saved by Draft all homes, nobody's yet (DESIGN §6.8)
-			return more("auto-draft");
+			return "auto-draft";
 		}
 		if (e.draft || stage != HomeStage::None) {
 			set(w::Kind::Warn);
-			return "drafted";
+			return "draft";
 		}
 		set(w::Kind::Neutral);
 		return "none";
@@ -240,22 +273,27 @@ namespace dova::editor::ui
 			ImGui::SameLine(0.0f, w::Th().gap);
 			ImGui::Text("%zu", a_home.doors.size());
 			w::Muted("usable chests · displays · load doors");
-			// What the row's chip means.
-			w::Kind     kind = w::Kind::Neutral;
-			const auto  chip = HomeChip(static_cast<int>(i), &kind);
-			const char* meaning = chip.starts_with("saved")     ? "Saved this session"
-			                      : chip.starts_with("yours")   ? "Your template"
-			                      : chip.starts_with("shipped") ? "A template ships with Dova Stash or a mod"
-			                      : chip.starts_with("auto")    ? "An auto-draft saved by Draft all homes; Save makes it yours"
-			                      : chip == "drafted"           ? "Drafted, not saved"
-			                                                    : "No template yet";
-			if (const auto n = TemplateCount(a_home); n > 1) {
-				w::Muted(std::format("{} templates: the Template panel lists them", n).c_str());
+			// The home's templates in the game's order, each with its word and where it comes from (the chip is the
+			// first's); without one, what the chip's word stands for.
+			const auto list = HomeTemplates(a_home);
+			if (list.empty()) {
+				w::Kind    kind = w::Kind::Neutral;
+				const auto chip = HomeChip(static_cast<int>(i), &kind);
+				w::Coloured(kind, chip == "yours" ? "Saved this session" : chip == "draft" ? "A draft, not saved yet" : "No template yet");
 			}
-			w::Coloured(kind, meaning);
+			for (const auto* tp : list) {
+				w::Kind     kind = w::Kind::Neutral;
+				const char* word = TemplateWord(*tp, &kind);
+				w::Coloured(kind, word);
+				ImGui::SameLine(0.0f, w::Th().gap);
+				w::Muted(std::format("{} · {} · {}", tp->layout.name, tp->layout.author.empty() ? "no author" : tp->layout.author, tp->origin).c_str());
+			}
+			if (list.size() > 1) {
+				w::Muted("In game the first is offered");
+			}
 		}
 		for (const auto& e : a_home.extra) {
-			w::Muted(std::format("+ {} ({}){}", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely ? "" : ": storage behind a door").c_str());
+			w::Muted(std::format("Also {} ({}){}", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely ? "" : ": storage behind a door").c_str());
 		}
 		w::Muted(("Why: " + (a_home.candidate.reasons.empty() ? std::string("only containers") : Join(a_home.candidate.reasons))).c_str());
 		w::Muted(a_home.plugin.c_str());
@@ -416,12 +454,15 @@ namespace dova::editor::ui
 			const auto& h = _homes->homes[static_cast<std::size_t>(a_i)];
 			w::Kind     kind = w::Kind::Neutral;
 			const auto  chip = HomeChip(a_i, &kind);
-			const auto  name = h.extra.empty() ? h.name : std::format("{} +{}", h.name, h.extra.size());
 			const auto  st = a_i < static_cast<int>(_homes->storage.size()) ? _homes->storage[static_cast<std::size_t>(a_i)] : HomesData::Storage{ h.containers, h.displays };
-			const auto  summary = a_compact ? std::string{} : Summary(st.containers, st.displays);
-			const auto  summaryShort = a_compact ? std::string{} : Summary(st.containers, st.displays, true);
+			const auto  cells = h.extra.size() + 1;
+			const auto  templates = TemplateCount(h);
+			const auto  summary = Summary(st.containers, st.displays, cells, templates, a_compact ? SummaryForm::Counts : SummaryForm::Full);
+			const auto  summaryShort = Summary(st.containers, st.displays, cells, templates, a_compact ? SummaryForm::Counts : SummaryForm::Short);
+			const auto  counts = Summary(st.containers, st.displays, cells, templates, SummaryForm::Counts);  // narrower still: the cells and templates win
 			ImGui::PushID(a_i);
-			if (w::HomeRow("home", name.c_str(), summary.c_str(), summaryShort.c_str(), chip.c_str(), kind, IsOpenHome(a_i), _railCursor == a_i, HomeUnsaved(a_i))) {
+			if (w::HomeRow("home", h.name.c_str(), summary.c_str(), summaryShort.c_str(), chip.c_str(), kind, IsOpenHome(a_i), _railCursor == a_i, HomeUnsaved(a_i), false,
+					counts.c_str())) {
 				_railCursor = a_i;
 				OpenHome(a_i);
 				if (a_compact) {
@@ -565,7 +606,7 @@ namespace dova::editor::ui
 				const bool open = _cell && _cell->info.key == h.cell && _cell->lo == scan.lo;
 				const auto score = std::format("score {}", h.score);
 				const int  usable = h.containers - h.respawning;
-				if (w::HomeRow("cell", label.c_str(), Summary(usable, h.racks + h.mannequins + h.plaques).c_str(), Summary(usable, 0, true).c_str(), score.c_str(),
+				if (w::HomeRow("cell", label.c_str(), Summary(usable, h.racks + h.mannequins + h.plaques).c_str(), Summary(usable, 0, 1, 0, SummaryForm::Short).c_str(), score.c_str(),
 						h.Likely() ? w::Kind::Accent : w::Kind::Neutral, open, false, false, !h.Likely()) &&
 					scan.lo) {
 					RequestNewHome(scan.lo, h.cell);

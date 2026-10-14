@@ -279,12 +279,13 @@ namespace dova::editor::ui::w
 	void FieldLabel(const char* a_text);                    // a small muted label above an input ("Label", "Note")
 	// A suggestion's confidence as a status: green (the name says so), yellow (a station or items nearby), orange (a hint).
 	[[nodiscard]] Kind ConfidenceKind(float a_confidence);
-	// A row of the homes rail: name, a muted summary after it, a status chip at the right and the unsaved dot.
-	// The summary falls back to `a_summaryShort` when it does not fit, then ends in "...". `a_selected` (the open
-	// home) is drawn in accent, `a_cursor` (keyboard) with an outline. True on a left click; right-click it with
-	// ImGui::BeginPopupContextItem() after.
+	// A row of the homes rail: name, a muted summary after it, a status chip at the right and the unsaved dot (a
+	// Neutral chip is its word in muted, without the pill: "none" stays quiet).
+	// The summary falls back to `a_summaryShort`, then `a_summaryShortest`, when it does not fit, then ends in "...".
+	// `a_selected` (the open home) is drawn in accent, `a_cursor` (keyboard) with an outline. True on a left click;
+	// right-click it with ImGui::BeginPopupContextItem() after.
 	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
-		bool a_cursor, bool a_unsaved, bool a_dim = false);
+		bool a_cursor, bool a_unsaved, bool a_dim = false, const char* a_summaryShortest = nullptr);
 	// A collapsible group heading in a list (a mod): chevron, name, muted note. Toggles `a_open` on click.
 	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open);
 	// An accent banner with one action and a close x: 1 when the action is clicked, 2 when closed.
