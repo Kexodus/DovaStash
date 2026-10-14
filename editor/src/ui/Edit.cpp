@@ -265,7 +265,7 @@ namespace dova::editor::ui
 			ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(p.x, p.y + (h - s) * 0.5f), ImVec2(p.x + s, p.y + (h + s) * 0.5f), CategoryColour(_paintCategory), 2.0f);
 			ImGui::Dummy(ImVec2(s, h));
 			ImGui::SameLine(0.0f, 4.0f * t.scale);
-			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (h - 18.0f * t.scale) * 0.5f);
+			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (h - t.chipH) * 0.5f);
 			w::Chip(_paintCategory.c_str(), w::Kind::Accent);
 			ImGui::SameLine(0.0f, t.gap);
 		}

@@ -896,9 +896,9 @@ namespace dova::editor::ui
 			ImGui::PopTextWrapPos();
 		}
 		if (ImGui::CollapsingHeader("JSON")) {
-			ImGui::PushFont(th.mono);
+			w::PushFont(w::Font::Mono);  // at its own size (ImGui::PushFont would keep the body size)
 			ImGui::InputTextMultiline("##json", a_cell.json.data(), a_cell.json.size() + 1, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16.0f), ImGuiInputTextFlags_ReadOnly);
-			ImGui::PopFont();
+			w::PopFont();
 		}
 		ImGui::PopItemWidth();
 		ImGui::EndChild();

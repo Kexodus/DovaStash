@@ -60,8 +60,8 @@ namespace dova::editor::ui
 			// Narrow windows (under ~1400 px) keep the emblem only.
 			const bool   named = W >= 1400.0f * t.scale;
 			const ImVec2 p = ImGui::GetCursorScreenPos();
-			const float  es = 18.0f * t.scale;
-			const float  px = 15.0f * t.scale;  // the wordmark's size in the title row
+			const float  es = 20.0f * t.scale;
+			const float  px = w::kBodyPx * t.scale;  // the wordmark in the title row: Cinzel at the body size
 			const ImVec2 ts = named ? ImVec2(w::Wordmark(nullptr, ImVec2(0, 0), px, 0, "Dova Stash Editor"), px) : ImVec2(0, 0);
 			const float  h = ImGui::GetFrameHeight();
 			if (ImGui::InvisibleButton("emblem", ImVec2(es + (named ? t.pad + ts.x : 0.0f), h))) {
@@ -161,7 +161,7 @@ namespace dova::editor::ui
 				chip += std::format(" +{}", all.size() - 1);  // more templates of this home: the Template panel lists them
 			}
 			ImGui::SameLine(0.0f, t.gap);
-			ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - 18.0f * t.scale) * 0.5f);
+			ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - t.chipH) * 0.5f);
 			if (w::ChipButton(chip.c_str(), kind, false) && _cell) {
 				_panel = Panel::Template;
 				_state.ui.inspectorOpen = true;

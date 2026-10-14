@@ -15,6 +15,17 @@
 
 namespace dova::editor::ui::w
 {
+	// ---- Type scale (EDITOR-UX.md §3.2), pixels at 100 % ------------------------------------------------
+	// ImGui sizes a font by its line (ascender + descender), not its em: Jost's tall line and small x-height make
+	// its letters about a fifth smaller than Cascadia Mono's at the same size. Jost 18 has the x-height of the mono
+	// at 13 (5.7 px), so body text reads as large as the form refs beside it; the other sizes keep their steps.
+	inline constexpr float kTitlePx = 26.0f;    // Cinzel: the start panel, About
+	inline constexpr float kHeadingPx = 20.0f;  // Jost
+	inline constexpr float kBodyPx = 18.0f;     // Jost, the default font; every line height below is built around it
+	inline constexpr float kSmallPx = 16.0f;    // Jost: captions, chips, section heads, the status row
+	inline constexpr float kMonoPx = 13.0f;     // Cascadia Mono / Consolas: form refs and EditorIDs
+	inline constexpr float kBadgePx = 13.0f;    // Jost in a count badge
+
 	// ---- Theme tokens (EDITOR-UX.md §3.1) ----------------------------------------------------------
 	struct Theme
 	{
@@ -22,23 +33,23 @@ namespace dova::editor::ui::w
 		ImU32 text, muted, accent, accentDim, select;
 		ImU32 ok, warn, error, info;
 
-		ImFont* title{ nullptr };    // Cinzel 22
-		ImFont* heading{ nullptr };  // Jost 16
-		ImFont* body{ nullptr };     // Jost 15 (the default font)
-		ImFont* smallFont{ nullptr };  // Jost 13 ("small" is a Windows macro)
-		ImFont* mono{ nullptr };     // Cascadia Mono / Consolas 13
+		ImFont* title{ nullptr };    // Cinzel kTitlePx
+		ImFont* heading{ nullptr };  // Jost kHeadingPx
+		ImFont* body{ nullptr };     // Jost kBodyPx (the default font)
+		ImFont* smallFont{ nullptr };  // Jost kSmallPx ("small" is a Windows macro)
+		ImFont* mono{ nullptr };     // Cascadia Mono / Consolas kMonoPx
 
 		float scale{ 1.0f };      // DPI scale x text size; multiply every pixel size in the spec by it
 		float dpi{ 1.0f };        // the monitor's DPI scale alone
 		float textScale{ 1.0f };  // the Text size in effect (Setup); Auto resolves to AutoTextScale()
-		float rowH{ 24.0f }, inputH{ 26.0f }, toolbarH{ 30.0f }, titleH{ 38.0f }, statusH{ 24.0f };  // already scaled
+		float rowH{ 28.0f }, inputH{ 30.0f }, toolbarH{ 34.0f }, titleH{ 42.0f }, statusH{ 28.0f };  // already scaled
 		float pad{ 8.0f }, gap{ 6.0f };                                                           // already scaled
 
 		// Added by the theme pass (all already scaled).
 		float radius{ 3.0f };     // corners
-		float iconSize{ 16.0f };  // DrawIcon's default size
-		float chipH{ 18.0f };     // chips and key caps
-		float stripW{ 28.0f };    // a collapsed rail
+		float iconSize{ 18.0f };  // DrawIcon's default size
+		float chipH{ 22.0f };     // chips and key caps
+		float stripW{ 32.0f };    // a collapsed rail
 		float stroke{ 1.5f };     // icon strokes
 		ImU32 shadow{ IM_COL32(0, 0, 0, 102) };  // the 1 px rim under popups and overlays (40 % black)
 
@@ -91,7 +102,7 @@ namespace dova::editor::ui::w
 	// ---- Text ---------------------------------------------------------------------------------------
 	void Title(const char* a_text);    // Cinzel capitals, tracked 0.30 em (the art set's wordmark)
 	float Wordmark(ImDrawList* a_dl, ImVec2 a_pos, float a_px, ImU32 a_col, const char* a_text);  // draws it (a_dl null: width only)
-	void Heading(const char* a_text);  // Jost 16
+	void Heading(const char* a_text);  // Jost kHeadingPx
 	void Muted(const char* a_text);    // body in `muted`
 	void MutedWrapped(const char* a_text);
 	void Small(const char* a_text);
@@ -112,7 +123,7 @@ namespace dova::editor::ui::w
 		Info
 	};
 	ImU32 Colour(Kind a_kind);
-	void  Chip(const char* a_text, Kind a_kind = Kind::Neutral);           // 18 px pill
+	void  Chip(const char* a_text, Kind a_kind = Kind::Neutral);           // 22 px pill
 	bool  ChipButton(const char* a_text, Kind a_kind = Kind::Neutral, bool a_active = false);
 	bool  ChipClose(const char* a_text, Kind a_kind = Kind::Neutral);      // chip with an x; true when the x is clicked
 	void  StatusDot(Kind a_kind, const char* a_tooltip = nullptr);         // a 6 px dot on the baseline (unsaved, state)
@@ -199,7 +210,7 @@ namespace dova::editor::ui::w
 
 	// ---- Layout -------------------------------------------------------------------------------------
 	// A side rail (EDITOR-UX.md §2.2, §2.4): a child of `a_width` with a drag handle on its inner edge and a
-	// collapse handle. Collapsed it is a 28 px strip showing `a_collapsedText` vertically. `a_width` and
+	// collapse handle. Collapsed it is a 32 px strip showing `a_collapsedText` vertically. `a_width` and
 	// `a_open` are the caller's state (persisted). Returns true when the content should be drawn.
 	enum class Side
 	{
@@ -254,7 +265,7 @@ namespace dova::editor::ui::w
 	void  IconInline(Icon a_icon, ImU32 a_colour = 0, const char* a_tooltip = nullptr);
 	// An icon and a label in one flat button (ToolButton look); `a_active` as ToolButton.
 	bool  IconTextButton(const char* a_label, Icon a_icon, bool a_active = false, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
-	// A 16 px checkbox / radio button (accent mark on bg2). ImGui's own are as tall as an input (26 px).
+	// A 16 px checkbox / radio button (accent mark on bg2). ImGui's own are as tall as an input (30 px).
 	bool  Check(const char* a_label, bool& a_value, const char* a_tooltip = nullptr);
 	bool  Radio(const char* a_label, int& a_value, int a_option);  // true when it selected `a_option`
 	// A tooltip with the shortcut shown as a key cap, when the last item is hovered.

@@ -35,7 +35,7 @@ namespace dova::editor::ui
 		const auto& t = w::Th();
 		// The same bound as the frame's layout (App.cpp): from the window, not from the space left for the inspector
 		// (that is the inspector's own width and would shrink the saved width every run).
-		const float maxW = std::max(340.0f * t.scale, ImGui::GetMainViewport()->WorkSize.x * 0.45f);
+		const float maxW = std::max(380.0f * t.scale, ImGui::GetMainViewport()->WorkSize.x * 0.45f);
 		if (!w::BeginRail("inspector", w::Side::Right, _state.ui.inspectorWidth, _state.ui.inspectorOpen, 280.0f * t.scale, maxW, "Inspector")) {
 			return;
 		}
