@@ -62,11 +62,11 @@ cmake --preset plugin && cmake --build build/plugin --config Release --target Do
 See [docs/BUILDING.md](docs/BUILDING.md) for full instructions. You need VS 2022 and vcpkg with `VCPKG_ROOT` set.
 
 ## Dova Stash Editor (in development)
-A standalone program for making home templates without the game: pick the home's mod from your MO2 list
-(by name or Nexus mod id), and it finds the player homes in the mod's plugins and shows each cell in a Creation
-Kit style 3D view and as a floor plan, with its containers, racks, mannequins, plaques and doors. Click one to
-make it the master, give it categories, ignore it or use a display, then save the template into a "Dova Stash
-Templates" mod. Run it as an MO2 executable. See [docs/EDITOR.md](docs/EDITOR.md) (§9: how to try it); build
+A standalone program for making home templates without the game, in one window: a rail lists every player home of
+your MO2 load order under its mod (search by name or Nexus mod id); a click opens the home in a Creation Kit style
+3D view or as a floor plan, with a draft already made from the home itself. Click a container, rack or mannequin to
+make it the master, give it categories, ignore it or use a display, review the draft's suggestions, check, then save
+the template into a "Dova Stash Templates" mod. Run it as an MO2 executable. See [docs/EDITOR.md](docs/EDITOR.md) (§9: how to try it); build
 it with `cmake --preset editor && cmake --build --preset editor-release`.
 
 ## License

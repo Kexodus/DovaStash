@@ -2,7 +2,8 @@
 
 This script is run by hand in Skyrim. It covers the M1 exit criterion (enchanted, tempered and
 renamed items survive round-trips), the M2 exit criterion (the full manual workflow in
-Breezehome) and the M4 Menu Framework panel (section 5). Unit tests for `src/core` are separate: `ctest --preset core-tests`.
+Breezehome) and the M4 Menu Framework panel (section 5). Section 8 is the Dova Stash Editor, outside the game.
+Unit tests for `src/core` are separate: `ctest --preset core-tests`.
 
 Test rig: Skyrim AE 1.6.1170 through MO2, with SKSE and Address Library installed. Optional mods:
 QuickLoot IE, SKSE Menu Framework, KID.
@@ -14,7 +15,9 @@ QuickLoot IE, SKSE Menu Framework, KID.
    - `SKSE/Plugins/DovaStash.ini`
    - `SKSE/Plugins/DovaStash/Categories/00_Default.json`
    - `SKSE/Plugins/DovaStash/Templates/...`
-2. Set `iLogLevel = 1` (debug) in `DovaStash.ini` to log one line per moved stack.
+2. Set `iLogLevel = 1` (debug) in `DovaStash.ini` to log one line per moved stack, and
+   `bAutoEnableTemplates = false` (on by default) so the template notice and *Use template* can be tested;
+   §3.6 step 4 turns it back on.
 3. Open the log while you play:
    `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log`.
 4. Player layouts are written to `Data/SKSE/Plugins/DovaStash/Layouts/`. Under MO2 they appear in
@@ -291,8 +294,9 @@ where you put things by hand*, live).
    layout is written first.
    Category bindings come from the template; learned destinations, keep rules, ignored containers,
    explicit forms and containers you added yourself (now without categories) are kept.
-4. Set `bAutoEnableTemplates = true`, start a new session and enter Honeyside (`coc RiftenHoneyside`).
-   HUD: *Honeyside setup enabled (by ...)*.
+4. Set `bAutoEnableTemplates = true` (the default), start a new session and enter Honeyside (`coc RiftenHoneyside`).
+   HUD: *Dova Stash: Honeyside is set up. Press K anywhere here to put your loot away.* Press K without
+   aiming at anything: the master menu opens; Deposit puts the loot away.
 5. **Save as template (hotkey).** In Breezehome with a setup of your own (master, a few containers with
    categories, one ignored container, a rack with categories, a mannequin with an armor set, a keep
    rule, some learned items): master menu → **Save as template...**. The text box shows *Breezehome*;
@@ -369,10 +373,11 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    gets anything.
 3. Take the gear back out (Retrieve), look at an empty weapon rack, press the hotkey. **Expected:** a menu
    with *Use this rack*. Choose it. **Expected:** HUD *Weapon Rack is used now*; nothing goes on the rack yet.
-4. Press the hotkey at it again: *Categories... (any weapon)*, *Fill now*, *Stop using this rack*. Open
+4. Its menu opens again by itself: *Categories... (any weapon)*, *Fill now*, *Stop using this rack*. Open
    *Categories...*, tick *Bows*, go back: the entry reads *Categories... (Bows)*.
 5. Use a second rack without categories, a dagger display, the middle of a coat-of-arms rack, a mannequin
-   (aim at the mannequin; set its categories to *Light Armor*) and, in Whitepeak, a glass display case (aim
+   (aim at the mannequin: Whitepeak's have no name and no prompt, the hotkey still opens *Mannequin* with
+   *Use this mannequin*, then *Categories...* and *Armor set... (Auto)*; set its categories to *Light Armor*) and, in Whitepeak, a glass display case (aim
    inside it, at *Weapon Rack*), Konahrik's and the Elder Scroll's plaques. Then Deposit. **Expected:**
    - the elven bow on the bow rack (not the more valuable sword), the daedric sword or battleaxe on the
      second rack, the glass dagger on the dagger display, a weapon lying in the glass case,
@@ -920,3 +925,32 @@ skin in MO2). Dova Stash must work the same with both.
 - The layout file(s) from MO2 `overwrite/SKSE/Plugins/DovaStash/Layouts/` (for a restore problem, also
   the home's files in `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/`).
 - Each failed step: the table row number, what you saw, and what was in the inventory or container before and after.
+
+## 8. Dova Stash Editor (no game needed)
+
+The editor's one-workspace window (docs/EDITOR.md §2, docs/EDITOR-UX.md). Build it with the `editor` preset
+(docs/BUILDING.md), add it to MO2 (EDITOR.md §9) and run it from there; for repeatable runs use a state file of its
+own: `$env:DOVASTASH_EDITOR_STATE = "$env:TEMP\ds-test-state.json"`. Every row also works from a terminal with
+`--mo2 "<instance>" --gui` and the flags shown; add `--screenshot out.png` to save the window once it has loaded.
+
+| # | Steps | Expected |
+|---|---|---|
+| 8.1 | Start with no arguments (no state file) | Start panel in the middle: the setup in one line, "N player homes, M with templates", three cards. The rail on the left lists the homes by mod; *Game Data folder* holds the base game and DLC homes; *Rescan* and the scan summary at its bottom. Status row: `N homes`, `Ctrl+K commands`. |
+| 8.2 | Rail search: `92177`, then `Whitepeak`, then `Eli_Druid Home.esp` | Each finds Whitepeak Tower or Aldamar under its mod (Nexus id muted). The filter (funnel) with *Only homes without a template* on shows a count badge and hides homes that have one. |
+| 8.3 | Click *Whitepeak Tower* (or `--home "Whitepeak Tower"`) | The tower in 3D from above; `archives` / `meshes` / `textures n/m` progress in the status row, not over the view. Title row: the home's name, chip *shipped* / *yours* / *no template*. Drawer tabs with counts. |
+| 8.4 | Press 2, then 1 (or `--tab plan`) | Plan, then 3D; the selection is the same in both. The floating toolbar stays: *Select*, *Paint*, *Layers*, *Colours*, *Camera*. |
+| 8.5 | Click a chest; Ctrl+click two more; drag a box | Selection panel: its mesh picture, the reference block, *Role*. With three: the bulk editor. A box selects the containers and displays inside. Esc clears. |
+| 8.6 | *Make master*, add a category with *+ add*, type a label | The title chip reads *draft*, a dot follows the name (title row, status row). Ctrl+Z / Ctrl+Y undo and redo each step. |
+| 8.7 | Press P, *Pick another* ▾ `alchemy.potions`, click two satchels, press S | The paint bar replaces Layers/Colours/Camera; colours switch to by category; S returns to Select. |
+| 8.8 | L; untick *Structure*; *Height cut* > *Only between* | The Layers popover; walls go; one floor left. |
+| 8.9 | Ctrl+2 (or `--tab containers`), then *Doors*, *Open* the exterior, *Back* | The drawer opens on Containers; Doors lists the cells behind the doors; the exterior opens with its terrain, the template comes along; *Back* (title row) returns. |
+| 8.10 | Drawer *Where items go* (or `--tab preview`), V, click a chest | The table per container; containers coloured by fill in the view above; the Selection panel lists the chest's items (*Where its items go*). R runs it again. |
+| 8.11 | *Draft* panel of a home without a template (or `--home Aldamar --inspector draft`) | Accept all / Reject the weak ones / Draft again; the master with its reason; chips per container (green, yellow, orange). A click on a chip adds or removes the category in the Selection panel and the preview at once; Ctrl+Z takes it back. |
+| 8.12 | Ctrl+D (or `--drafts`) | Progress `Drafting all homes n/m` in the status row; then a *drafted* chip on each home and the *Save N drafts...* banner over the rail. The start panel's *In progress* does not gain every home. |
+| 8.13 | Edit a draft, open another home in the rail, come back | The first home keeps its changes and the dot on its row; closing the window asks first (*Quit without saving* / *Keep editing*). |
+| 8.14 | Click `0 errors · 0 warnings` in the status row (or `--inspector checks`) | Checks panel: the problems (a click selects the object), then *Still to do* (no master, containers without a role). |
+| 8.15 | *Template* panel (or `--inspector template`): *Add keep rules*, add `alchemy.potions` to *Always keep*, a quota; Save (Ctrl+S) | The JSON (folded *JSON* head) has `keep` with them. The file lands in `mods\Dova Stash Templates\SKSE\Plugins\DovaStash\Templates\<Author>\`; saving again asks first, keeps a `.bak`, raises the version. Save is greyed out while the checks find an error. |
+| 8.16 | Ctrl+K (or `--palette`): type `layers off`, Enter; Ctrl+K, a container's name | Only containers and displays shown; the container is selected and framed. Esc closes the palette. |
+| 8.17 | `⚙` (or `--popover setup`): change the profile | The rail scans the other profile's load order. |
+| 8.18 | Ctrl+1, Ctrl+3, drag the drawer taller; restart | The rail and inspector fold to strips; after the restart the layout and the view are as you left them. |
+| 8.19 | `--window 1280x720` | Still usable: the title row shortens the home's name ("..."), the rail ends its summaries in "...". |
