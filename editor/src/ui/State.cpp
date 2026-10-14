@@ -65,6 +65,18 @@ namespace dova::editor::ui
 				profile = j["profile"].get<std::string>();
 			}
 			author = j.value("author", std::string{});
+			saveTarget = j.value("saveTarget", std::string{});
+			if (j.contains("ui") && j["ui"].is_object()) {
+				// Added with the one-workspace layout: older files have none, every key is optional.
+				const auto& u = j["ui"];
+				ui.railOpen = u.value("railOpen", ui.railOpen);
+				ui.railWidth = u.value("railWidth", ui.railWidth);
+				ui.inspectorOpen = u.value("inspectorOpen", ui.inspectorOpen);
+				ui.inspectorWidth = u.value("inspectorWidth", ui.inspectorWidth);
+				ui.drawerOpen = u.value("drawerOpen", ui.drawerOpen);
+				ui.drawerHeight = u.value("drawerHeight", ui.drawerHeight);
+				ui.view = std::clamp(u.value("view", ui.view), 0, 1);
+			}
 			if (j.contains("homes") && j["homes"].is_object()) {
 				for (const auto& [cell, h] : j["homes"].items()) {
 					HomeRecord r;
@@ -90,6 +102,11 @@ namespace dova::editor::ui
 			j["profile"] = *profile;
 		}
 		j["author"] = author;
+		if (!saveTarget.empty()) {
+			j["saveTarget"] = saveTarget;
+		}
+		j["ui"] = { { "railOpen", ui.railOpen }, { "railWidth", ui.railWidth }, { "inspectorOpen", ui.inspectorOpen }, { "inspectorWidth", ui.inspectorWidth },
+			{ "drawerOpen", ui.drawerOpen }, { "drawerHeight", ui.drawerHeight }, { "view", ui.view } };
 		auto& hs = j["homes"] = nlohmann::ordered_json::object();
 		for (const auto& [cell, r] : homes) {
 			hs[cell] = { { "name", r.name }, { "stage", static_cast<int>(r.stage) }, { "saved", r.savedPath }, { "updated", r.updated } };

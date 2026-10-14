@@ -1,8 +1,8 @@
-// The template being made (docs/EDITOR.md §3.1): the role editor in the details pane (master, label,
-// categories, ignored, note; displays used or not) shared by the 3D view, the floor plan and the tables,
-// and the Template tab (header, problems, save). Everything goes through dova::core: the draft comes from
-// home::DraftTemplate, validation is core::ValidateTemplate (+ ValidateLayoutCategories with the loaded
-// categories), the file is core::SerializeLayout written by core::SaveLayoutFile.
+// The template being made (docs/EDITOR.md §3.1, EDITOR-UX.md §2.4): the role editor in the Selection panel
+// (master, label, categories, ignored, note; displays used or not, armor sets) shared by the 3D view, the plan
+// and the tables, and the Template panel (header, cells, keep rules, save target, save). Everything goes through
+// dova::core: the draft comes from home::DraftTemplate or home::DraftHome, validation is core::ValidateTemplate
+// (+ ValidateLayoutCategories with the loaded categories), the file is written by home::SaveTemplateFile.
 
 #include <algorithm>
 #include <chrono>
@@ -23,16 +23,14 @@
 #include "home/DovaData.h"
 #include "home/TemplateFile.h"
 #include "ui/App.h"
+#include "ui/Common.h"
+#include "ui/WidgetsExtra.h"
 
 namespace fs = std::filesystem;
 
 namespace dova::editor::ui
 {
-	namespace
-	{
-		std::string GameName(const home::PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
-
-	}
+	using namespace detail;
 
 	void EditorApp::LoadCategories()
 	{
@@ -65,45 +63,56 @@ namespace dova::editor::ui
 		a_cell.json = core::SerializeLayout(a_cell.layout);
 	}
 
+	int EditorApp::ErrorCount(const OpenCell& a_cell) const
+	{
+		return static_cast<int>(std::ranges::count_if(a_cell.diagnostics, [](const std::string& d) { return d.starts_with("error"); }));
+	}
+
+	int EditorApp::WarningCount(const OpenCell& a_cell) const
+	{
+		return static_cast<int>(a_cell.diagnostics.size()) - ErrorCount(a_cell);
+	}
+
 	bool EditorApp::CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title)
 	{
 		bool changed = false;
 		ImGui::PushID(a_id);
 		if (a_title) {
-			ImGui::TextDisabled("Categories");
-			if (a_patterns.empty()) {
-				ImGui::SameLine();
-				ImGui::TextDisabled("(none)");
-			}
+			wx::FieldLabel("Categories");
 		}
+		const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 		for (std::size_t i = 0; i < a_patterns.size(); ++i) {
 			ImGui::PushID(static_cast<int>(i));
 			const auto* cat = _categorySet ? _categorySet->Find(a_patterns[i]) : nullptr;
-			if (ImGui::SmallButton(std::format("{}  x", a_patterns[i]).c_str())) {
+			if (i > 0) {
+				wx::FlowNext(wx::ChipWidth(a_patterns[i].c_str(), true), rightX);
+			}
+			const bool known = cat || a_patterns[i].ends_with("*");
+			if (w::ChipClose(a_patterns[i].c_str(), known ? w::Kind::Accent : w::Kind::Error)) {
 				a_patterns.erase(a_patterns.begin() + static_cast<std::ptrdiff_t>(i));
 				changed = true;
 				ImGui::PopID();
 				break;
 			}
-			ImGui::SetItemTooltip("%s\nClick to remove", cat ? cat->name.c_str() : (a_patterns[i].ends_with("*") ? "a group and everything below it" : "unknown category"));
+			w::Tip(cat ? cat->name.c_str() : (a_patterns[i].ends_with("*") ? "A group and everything below it" : "Unknown category"));
 			ImGui::PopID();
 		}
 		ImGui::SetNextItemWidth(-FLT_MIN);
-		if (ImGui::BeginCombo("##add", "Add a category...", ImGuiComboFlags_HeightLarge)) {
+		if (ImGui::BeginCombo("##add", "+ add", ImGuiComboFlags_HeightLarge)) {
 			static std::string filter;
 			if (ImGui::IsWindowAppearing()) {
 				ImGui::SetKeyboardFocusHere();
 				filter.clear();
 			}
 			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::InputTextWithHint("##filter", "filter, or type a pattern and press Enter", &filter);
+			ImGui::InputTextWithHint("##filter", "Filter, or a pattern + Enter", &filter);
 			if (ImGui::IsItemDeactivatedAfterEdit() && ImGui::IsKeyPressed(ImGuiKey_Enter) && core::IsValidCategoryPattern(core::ToLower(filter))) {
 				a_patterns.push_back(core::ToLower(filter));
 				changed = true;
 				ImGui::CloseCurrentPopup();
 			}
 			if (_categories.empty()) {
-				ImGui::TextDisabled("No Categories/*.json found in Data/SKSE/Plugins/DovaStash");
+				w::Muted("No Categories/*.json in Data/SKSE/Plugins/DovaStash");
 			}
 			for (const auto& c : _categories) {
 				if (!filter.empty() && !IContains(c.id, filter) && !IContains(c.name, filter)) {
@@ -128,9 +137,14 @@ namespace dova::editor::ui
 
 	bool EditorApp::ArmorSetEditor(OpenCell& a_cell, std::optional<core::FormRef>& a_set)
 	{
+		wx::FieldLabel("Armor set");
+		if (Busy() && !(_armorSets && _armorSetsLo == a_cell.lo)) {
+			w::Muted("Reading the armor sets...");  // the load order is busy with a job
+			return false;
+		}
 		const auto& index = ArmorSets(a_cell);
 		const auto  label = [&](const core::ArmorSet& a_s) {
-			return std::format("{}  ({}/4 slots, {} piece{})", a_s.name, core::SlotGroupCount(a_s.slots), a_s.pieces.size(), a_s.pieces.size() == 1 ? "" : "s");
+            return std::format("{}  ({}/4 slots, {} piece{})", a_s.name, core::SlotGroupCount(a_s.slots), a_s.pieces.size(), a_s.pieces.size() == 1 ? "" : "s");
 		};
 		std::string current = "Auto: the most complete set the player has";
 		if (a_set) {
@@ -138,14 +152,13 @@ namespace dova::editor::ui
 			current = s ? label(index.sets[*s]) : a_set->ToString() + " (not in this load order)";
 		}
 		bool changed = false;
-		ImGui::TextDisabled("Armor set");
 		ImGui::SetNextItemWidth(-FLT_MIN);
 		if (ImGui::BeginCombo("##armorset", current.c_str(), ImGuiComboFlags_HeightLarge)) {
 			if (ImGui::IsWindowAppearing()) {
 				ImGui::SetKeyboardFocusHere();
 			}
 			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::InputTextWithHint("##armorsetfilter", "Search: set, plugin or piece", &_armorSetFilter);
+			ImGui::InputTextWithHint("##armorsetfilter", "Set, plugin or piece", &_armorSetFilter);
 			if (ImGui::Selectable("Auto: the most complete set the player has", !a_set)) {
 				a_set.reset();
 				changed = true;
@@ -156,7 +169,7 @@ namespace dova::editor::ui
 					shown.push_back(i);
 				}
 			}
-			const auto chosen = a_set ? index.SetOf(*a_set) : std::nullopt;
+			const auto       chosen = a_set ? index.SetOf(*a_set) : std::nullopt;
 			ImGuiListClipper clipper;
 			clipper.Begin(static_cast<int>(shown.size()));
 			while (clipper.Step()) {
@@ -179,13 +192,38 @@ namespace dova::editor::ui
 				}
 			}
 			if (shown.empty()) {
-				ImGui::TextDisabled("No set matches.");
+				w::Muted("No set matches.");
 			}
 			ImGui::EndCombo();
 		}
-		ImGui::SetItemTooltip("%s", a_set ? "The mannequin wears only this set and fills up as the player gets its pieces; nothing is taken off it." :
-		                                   "Auto: it wears the most complete matching set the player has (its categories, if any, narrow it).");
+		w::Tip(a_set ? "It wears only this set and fills up as the player gets its pieces; nothing is taken off it" :
+		               "Auto: the most complete matching set the player has (its categories, if any, narrow it)");
 		return changed;
+	}
+
+	void EditorApp::MakeMaster(OpenCell& a_cell, int a_index)
+	{
+		auto&       layout = a_cell.layout;
+		const auto& r = a_cell.info.refs[static_cast<std::size_t>(a_index)];
+		const auto  ref = a_cell.lo->ToFormRef(r.key);
+		if (layout.IsMaster(ref)) {
+			return;
+		}
+		if (layout.master) {
+			// The old master becomes a plain container again.
+			core::ContainerBinding old;
+			old.ref = *layout.master;
+			for (const auto& p : a_cell.info.refs) {
+				if (a_cell.lo->ToFormRef(p.key) == *layout.master) {
+					old.label = GameName(p);
+				}
+			}
+			layout.containers.push_back(std::move(old));
+		}
+		std::erase_if(layout.containers, [&](const core::ContainerBinding& b) { return b.ref == ref; });
+		layout.master = ref;
+		a_cell.dirty = true;
+		Revalidate(a_cell);
 	}
 
 	void EditorApp::DrawRoleEditor(OpenCell& a_cell, int a_index)
@@ -196,8 +234,8 @@ namespace dova::editor::ui
 		bool        changed = false;
 		ImGui::PushID(a_index);
 		if ((r.IsContainer() || r.display) && !CellInHome(a_cell)) {
-			ImGui::SeparatorText("In the template");
-			ImGui::TextWrapped("This cell is not part of the home \"%s\".", layout.name.c_str());
+			w::SectionHead("Role");
+			w::MutedWrapped(std::format("This cell is not part of \"{}\".", layout.name).c_str());
 			if (ImGui::Button("Add this cell to the home")) {
 				core::HomeCell hc;
 				hc.cell = a_cell.lo->ToFormRef(a_cell.info.key);
@@ -206,16 +244,16 @@ namespace dova::editor::ui
 				a_cell.dirty = true;
 				Revalidate(a_cell);
 			}
-			ImGui::SetItemTooltip("Lists the cell in the template's `cells` (DESIGN 6.7): its containers and displays can then be used.");
+			w::Tip("Lists the cell in the template's cells: its containers and displays can then be used");
 			ImGui::PopID();
 			return;
 		}
 		if (r.IsContainer()) {
-			ImGui::SeparatorText("In the template");
-			const bool master = layout.IsMaster(ref);
-			if (master) {
-				ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.4f, 1.0f), "Master container");
-				ImGui::TextWrapped("Everything that has no other place goes here.");
+			w::SectionHead("Role");
+			if (layout.IsMaster(ref)) {
+				w::Chip("master", w::Kind::Accent);
+				ImGui::SameLine();
+				w::Muted("takes what has no place");
 				if (ImGui::Button("Not the master")) {
 					layout.master.reset();
 					core::ContainerBinding b;
@@ -227,26 +265,13 @@ namespace dova::editor::ui
 			} else {
 				ImGui::BeginDisabled(r.respawns);
 				if (ImGui::Button("Make master")) {
-					if (layout.master) {
-						// The old master becomes a plain container again.
-						core::ContainerBinding old;
-						old.ref = *layout.master;
-						for (const auto& p : a_cell.info.refs) {
-							if (a_cell.lo->ToFormRef(p.key) == *layout.master) {
-								old.label = GameName(p);
-							}
-						}
-						layout.containers.push_back(std::move(old));
-					}
-					std::erase_if(layout.containers, [&](const core::ContainerBinding& b) { return b.ref == ref; });
-					layout.master = ref;
-					changed = true;
+					MakeMaster(a_cell, a_index);
 				}
 				ImGui::EndDisabled();
-				ImGui::SetItemTooltip("The container that takes everything without a place of its own (and the hotkey's target).");
+				w::Tip("The container that takes everything without a place of its own (and the hotkey's target)");
 				auto* b = layout.FindContainer(ref);
 				if (!b) {
-					ImGui::TextDisabled("Not listed in the template.");
+					ImGui::SameLine();
 					if (ImGui::Button("Add to the template")) {
 						core::ContainerBinding nb;
 						nb.ref = ref;
@@ -258,30 +283,35 @@ namespace dova::editor::ui
 						layout.containers.push_back(std::move(nb));
 						changed = true;
 					}
+					w::Muted("Not in the template");
 				} else {
-					ImGui::TextDisabled("Label");
-					ImGui::SetNextItemWidth(-FLT_MIN);
+					wx::FieldLabel("Label");
 					changed |= ImGui::InputText("##label", &b->label);
-					changed |= ImGui::Checkbox("Ignored (never used)", &b->ignored);
+					changed |= ImGui::Checkbox("Ignored", &b->ignored);
+					w::Tip("Never used");
 					if (r.respawns && !b->ignored) {
-						ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.4f, 1.0f), "Respawns: ignore it.");
+						wx::Text(w::Kind::Error, "Respawns: ignore it");
 					}
 					if (!b->ignored) {
 						changed |= CategoryEditor("cats", b->categories);
 						if (!b->forms.empty()) {
-							ImGui::TextDisabled("%zu fixed items (kept)", b->forms.size());
+							w::Muted(std::format("{} fixed items (kept)", b->forms.size()).c_str());
 						}
 					}
-					ImGui::TextDisabled("Note (for people reading the file)");
+					wx::FieldLabel("Note");
 					changed |= ImGui::InputTextMultiline("##note", &b->note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
-					if (ImGui::SmallButton("Remove from the template")) {
+					w::Tip("For people reading the file");
+					ImGui::PushFont(w::Th().smallFont);
+					if (w::LinkButton("Remove from the template")) {
 						std::erase_if(layout.containers, [&](const core::ContainerBinding& c) { return c.ref == ref; });
 						changed = true;
 					}
+					ImGui::PopFont();
+					w::Tip("Delete");
 				}
 			}
 		} else if (r.display) {
-			ImGui::SeparatorText("In the template");
+			w::SectionHead("Role");
 			auto* d = layout.FindDisplay(ref);
 			bool  used = d != nullptr;
 			if (ImGui::Checkbox("Use this display", &used)) {
@@ -302,12 +332,12 @@ namespace dova::editor::ui
 				changed = true;
 				d = layout.FindDisplay(ref);
 			}
-			ImGui::SetItemTooltip("Listed displays are filled by Dova Stash; the others are left alone.");
+			w::Tip("Listed displays are filled by Dova Stash; the others are left alone");
 			if (d) {
-				ImGui::TextDisabled("Label");
-				ImGui::SetNextItemWidth(-FLT_MIN);
+				wx::FieldLabel("Label");
 				changed |= ImGui::InputText("##label", &d->label);
-				changed |= ImGui::Checkbox("Ignored (never filled)", &d->ignored);
+				changed |= ImGui::Checkbox("Ignored", &d->ignored);
+				w::Tip("Never filled");
 				// A mannequin with a chosen set wears that set: its categories and "only" are not used (core::PlanDisplays).
 				const bool takesCategories = *r.display == core::DisplayKind::Rack || (*r.display == core::DisplayKind::Mannequin && !d->set) ||
 				                             *r.display == core::DisplayKind::Bookshelf;
@@ -316,17 +346,19 @@ namespace dova::editor::ui
 				}
 				if (takesCategories && !d->ignored) {
 					changed |= CategoryEditor("dcats", d->categories);
-					ImGui::TextDisabled(*r.display == core::DisplayKind::Rack      ? "Empty: any weapon that fits the rack." :
-					                    *r.display == core::DisplayKind::Bookshelf ? "Empty: the books most worth showing, no notes." :
-					                                                                 "Empty: the mannequin picks an armor set.");
+					if (d->categories.empty()) {
+						w::Muted(*r.display == core::DisplayKind::Rack      ? "Empty: any weapon that fits" :
+						         *r.display == core::DisplayKind::Bookshelf ? "Empty: the books most worth showing" :
+						                                                      "Empty: it picks an armor set");
+					}
 				}
 				if (!d->items.empty()) {
-					ImGui::TextDisabled("%zu items%s", d->items.size(), takesCategories ? "" : " (from its script)");
+					w::Muted(std::format("{} items{}", d->items.size(), takesCategories ? "" : " (from its script)").c_str());
 					if (takesCategories) {
 						changed |= ImGui::Checkbox("Only these items", &d->only);
 					}
 				}
-				ImGui::TextDisabled("Note");
+				wx::FieldLabel("Note");
 				changed |= ImGui::InputTextMultiline("##note", &d->note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
 			}
 		} else {
@@ -334,13 +366,13 @@ namespace dova::editor::ui
 				if (door.door != r.key) {
 					continue;
 				}
-				ImGui::SeparatorText("Door");
-				ImGui::TextWrapped("Leads to %s", door.destinationLabel.c_str());
-				ImGui::BeginDisabled(!door.destinationCell || _job.valid());
+				w::SectionHead("Door");
+				ImGui::BeginDisabled(!door.destinationCell || Busy());
 				if (ImGui::Button("Open that cell")) {
 					OpenCellAsync(a_cell.lo, *door.destinationCell, true, true);
 				}
 				ImGui::EndDisabled();
+				w::Tip("The template comes along; Back returns");
 			}
 		}
 		ImGui::PopID();
@@ -350,118 +382,312 @@ namespace dova::editor::ui
 		}
 	}
 
-	fs::path EditorApp::TemplatePath(const OpenCell& a_cell) const
+	std::vector<std::string> EditorApp::SaveTargets() const
 	{
-		fs::path base;
-		if (_ws && _ws->Instance()) {
-			base = _ws->Instance()->modsDir / PathFromUtf8(home::kTemplatesMod);
-		} else if (_ws) {
-			base = _ws->DataDir();
+		// The editor's own mod first, then the enabled mods that already hold templates (cached per workspace).
+		if (!_saveTargets) {
+			auto& cached = _saveTargets.emplace(1, std::string{});
+			if (_ws && _ws->Instance()) {
+				std::error_code ec;
+				for (auto it = _ws->Mods().rbegin(); it != _ws->Mods().rend(); ++it) {
+					if (it->separator || it->unmanaged || !it->enabled || core::IEquals(it->name, home::kTemplatesMod)) {
+						continue;
+					}
+					if (fs::is_directory(it->dir / L"SKSE" / L"Plugins" / L"DovaStash" / L"Templates", ec)) {
+						cached.push_back(it->name);
+					}
+				}
+			}
 		}
-		return home::TemplatePath(base, a_cell.layout);
+		return *_saveTargets;
 	}
 
-	void EditorApp::SaveTemplate(OpenCell& a_cell, bool a_overwrite)
+	fs::path EditorApp::SaveBase() const
 	{
-		std::error_code ec;
-		if (fs::exists(TemplatePath(a_cell), ec) && !a_overwrite) {
-			_confirmOverwrite = true;
+		if (!_ws) {
+			return {};
+		}
+		if (_ws->Instance() && !_state.saveTarget.empty()) {
+			for (const auto& m : _ws->Mods()) {
+				if (m.name == _state.saveTarget && !m.separator && !m.unmanaged) {
+					return m.dir;
+				}
+			}
+		}
+		return home::SaveBase(*_ws);  // the "Dova Stash Templates" mod, else the Data folder
+	}
+
+	fs::path EditorApp::TemplatePath(const OpenCell& a_cell) const
+	{
+		return home::TemplatePath(SaveBase(), a_cell.layout);
+	}
+
+	void EditorApp::RequestSave()
+	{
+		if (!_cell || !_ws) {
 			return;
 		}
-		_confirmOverwrite = false;
-		const bool mod = _ws && _ws->Instance();
-		const auto base = mod ? _ws->Instance()->modsDir / PathFromUtf8(home::kTemplatesMod) : (_ws ? _ws->DataDir() : fs::path{});
-		const auto r = home::SaveTemplateFile(base, a_cell.layout, mod);
+		if (ErrorCount(*_cell) > 0) {
+			SetStatus("Not saved: the checks find errors", true);
+			_panel = Panel::Checks;
+			_state.ui.inspectorOpen = true;
+			return;
+		}
+		std::error_code ec;
+		const bool      exists = fs::exists(TemplatePath(*_cell), ec);
+		const bool      hasTemplate = _cellDraft >= 0 && _homes && !HomeStatus(_homes->homes[static_cast<std::size_t>(_cellDraft)]).empty() && _cell->filePath.empty();
+		if (exists || hasTemplate) {
+			_confirmSave = true;  // asks first (DrawSavePopup)
+		} else {
+			SaveTemplate(*_cell);
+		}
+	}
+
+	void EditorApp::DrawSavePopup()
+	{
+		if (_confirmSave && !ImGui::IsPopupOpen("Save the template?")) {
+			ImGui::OpenPopup("Save the template?");
+		}
+		if (ImGui::BeginPopupModal("Save the template?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+			if (!_cell) {
+				_confirmSave = false;
+				ImGui::CloseCurrentPopup();
+				ImGui::EndPopup();
+				return;
+			}
+			std::error_code ec;
+			const auto      path = TemplatePath(*_cell);
+			if (fs::exists(path, ec)) {
+				wx::Text(w::Kind::Warn, (PathToUtf8(path) + " exists.").c_str());
+				ImGui::TextUnformatted("Overwrite it? The old file is kept as .bak and the version goes up.");
+			} else {
+				ImGui::Text("Save to %s?", PathToUtf8(path).c_str());
+			}
+			if (_cellDraft >= 0 && _homes) {
+				const auto& h = _homes->homes[static_cast<std::size_t>(_cellDraft)];
+				const auto  existing = _homes->templates.ForCell(_homes->lo->ToFormRef(h.cell));
+				for (const auto* tp : existing) {
+					if (tp->path != path) {
+						wx::Text(w::Kind::Info, std::format("This home already has a template: {} ({}).", tp->source, tp->origin).c_str());
+					}
+				}
+				if (std::ranges::any_of(existing, [&](const home::KnownTemplate* tp) { return tp->path != path; })) {
+					w::Muted("That file is not touched; in game the higher priority, then the newer version, is offered first.");
+				}
+			}
+			w::Spacer();
+			if (w::PrimaryButton("Save")) {
+				_confirmSave = false;
+				ImGui::CloseCurrentPopup();
+				SaveTemplate(*_cell);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+				_confirmSave = false;
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+	}
+
+	void EditorApp::SaveTemplate(OpenCell& a_cell)
+	{
+		const bool ownMod = _ws && _ws->Instance() && _state.saveTarget.empty();
+		const auto r = home::SaveTemplateFile(SaveBase(), a_cell.layout, ownMod);
 		if (r.ok) {
 			a_cell.dirty = false;
 			a_cell.savedPath = PathToUtf8(r.path);
 			a_cell.saveMessage = std::format("Saved version {} to {}{}", r.version, a_cell.savedPath, r.replaced ? " (the old file is kept as .bak)" : "");
-			if (mod) {
+			if (ownMod) {
 				a_cell.saveMessage += std::format(". In MO2: refresh with F5 and enable the \"{}\" mod", home::kTemplatesMod);
 			}
+			SetStatus(std::format("Saved version {}", r.version));
 			Revalidate(a_cell);
 			if (a_cell.layout.cell) {
-				_state.Advance(a_cell.layout.cell->ToString(), a_cell.layout.name, HomeStage::Saved, a_cell.savedPath);
+				const auto key = _cellDraft >= 0 && _homes ? _homes->homes[static_cast<std::size_t>(_cellDraft)].cellRef : a_cell.layout.cell->ToString();
+				_state.Advance(key, a_cell.layout.name, HomeStage::Saved, a_cell.savedPath);
 			}
 			if (_homes && _ws) {
 				_homes->templates = home::LoadTemplateIndex(*_ws);
 				if (_cellDraft >= 0 && static_cast<std::size_t>(_cellDraft) < _homes->entries.size() && _homes->entries[static_cast<std::size_t>(_cellDraft)].draft) {
-					_homes->entries[static_cast<std::size_t>(_cellDraft)].draft->layout = a_cell.layout;
+					auto& e = _homes->entries[static_cast<std::size_t>(_cellDraft)];
+					e.draft->layout = a_cell.layout;
+					e.saveMessage = a_cell.saveMessage;
 				}
 			}
 		} else {
-			a_cell.saveMessage = r.error;
+			a_cell.saveMessage = "Not saved: " + r.error;
+			SetStatus(a_cell.saveMessage, true);
 		}
+	}
+
+	void EditorApp::SaveTemplateAs(OpenCell& a_cell)
+	{
+		const auto file = PickSaveJsonFile(core::TemplateFileStem(a_cell.layout.name) + ".json");
+		if (!file) {
+			return;
+		}
+		a_cell.layout.requiredPlugins = core::ReferencedPlugins(a_cell.layout);
+		if (core::SaveLayoutFile(PathFromUtf8(*file), a_cell.layout)) {
+			a_cell.saveMessage = "Saved a copy to " + *file;
+			SetStatus("Saved a copy");
+		} else {
+			a_cell.saveMessage = "Not saved: cannot write " + *file;
+			SetStatus(a_cell.saveMessage, true);
+		}
+	}
+
+	bool EditorApp::DrawKeepRules(core::Layout& a_layout)
+	{
+		bool changed = false;
+		if (!a_layout.keep) {
+			w::Muted("None: the player's own keep rules apply.");
+			if (ImGui::Button("Add keep rules")) {
+				a_layout.keep.emplace();
+				changed = true;
+			}
+			return changed;
+		}
+		auto& k = *a_layout.keep;
+		bool  inherit = k.Inherits();
+		if (ImGui::Checkbox("Also the player's global rules", &inherit)) {
+			k.inherit = inherit ? std::optional<bool>{} : std::optional<bool>{ false };
+			changed = true;
+		}
+		w::Tip("Off writes \"inherit\": false: only these rules apply in this home");
+		auto list = [&](const char* a_id, const char* a_label, std::vector<std::string>& a_items) {
+			ImGui::PushID(a_id);
+			wx::FieldLabel(a_label);
+			const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+			for (std::size_t i = 0; i < a_items.size(); ++i) {
+				ImGui::PushID(static_cast<int>(i));
+				if (i > 0) {
+					wx::FlowNext(wx::ChipWidth(a_items[i].c_str(), true), rightX);
+				}
+				if (w::ChipClose(a_items[i].c_str(), w::Kind::Accent)) {
+					a_items.erase(a_items.begin() + static_cast<std::ptrdiff_t>(i));
+					changed = true;
+					ImGui::PopID();
+					break;
+				}
+				ImGui::PopID();
+			}
+			static std::map<std::string, std::string> entry;
+			auto&                                     text = entry[a_id];
+			ImGui::SetNextItemWidth(-FLT_MIN);
+			if (ImGui::InputTextWithHint("##add", "+ category, form ref, equipped, favorited, quest", &text, ImGuiInputTextFlags_EnterReturnsTrue) && !Trim(text).empty()) {
+				a_items.emplace_back(Trim(text));
+				text.clear();
+				changed = true;
+			}
+			ImGui::PopID();
+		};
+		list("always", "Always keep", k.always);
+		list("never", "Never keep", k.never);
+		wx::FieldLabel("Quotas");
+		int remove = -1;
+		for (std::size_t i = 0; i < k.quotas.size(); ++i) {
+			auto& q = k.quotas[i];
+			ImGui::PushID(static_cast<int>(i));
+			if (q.category || (!q.keywordsAny && !q.forms)) {
+				std::string cat = q.category.value_or("");
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.55f);
+				if (ImGui::InputTextWithHint("##cat", "category", &cat)) {
+					q.category = cat;
+					changed = true;
+				}
+			} else {
+				w::Muted(q.keywordsAny ? "by keywords (kept)" : "by forms (kept)");
+			}
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 4.5f);
+			changed |= ImGui::InputInt("##quota", &q.quota, 0);
+			ImGui::SameLine();
+			if (w::IconButton("rm", w::Icon::Close, "Remove")) {
+				remove = static_cast<int>(i);
+			}
+			ImGui::PopID();
+		}
+		if (remove >= 0) {
+			k.quotas.erase(k.quotas.begin() + remove);
+			changed = true;
+		}
+		ImGui::PushFont(w::Th().smallFont);
+		if (w::LinkButton("+ quota")) {
+			core::QuotaRule q;
+			q.category = "";
+			q.quota = 1;
+			k.quotas.push_back(std::move(q));
+			changed = true;
+		}
+		w::Tip("Keep up to this many items of a category on the player");
+		ImGui::SameLine(0.0f, 2.0f * w::Th().pad);
+		if (w::LinkButton("Remove keep rules")) {
+			a_layout.keep.reset();
+			changed = true;
+		}
+		ImGui::PopFont();
+		return changed;
 	}
 
 	void EditorApp::DrawTemplate(OpenCell& a_cell)
 	{
 		auto& t = a_cell.layout;
 		bool  changed = false;
-		if (ImGui::BeginTable("templateheader", 2, ImGuiTableFlags_SizingStretchProp)) {
-			ImGui::TableSetupColumn("field", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 6.0f);
-			ImGui::TableSetupColumn("value", ImGuiTableColumnFlags_WidthStretch);
-			auto row = [&](const char* a_label) {
-				ImGui::TableNextRow();
-				ImGui::TableNextColumn();
-				ImGui::AlignTextToFramePadding();
-				ImGui::TextUnformatted(a_label);
-				ImGui::TableNextColumn();
-				ImGui::SetNextItemWidth(-FLT_MIN);
-			};
-			row("Name");
-			changed |= ImGui::InputText("##name", &t.name);
-			row("Author");
-			if (ImGui::InputText("##author", &t.author)) {
-				_templateAuthor = t.author;
-				changed = true;
-			}
-			row("Version");
-			changed |= ImGui::InputText("##version", &t.version);
-			row("Priority");
-			changed |= ImGui::InputInt("##priority", &t.priority);
-			row("Note");
-			changed |= ImGui::InputTextMultiline("##note", &t.note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
-			ImGui::EndTable();
+		w::SectionHead("Template");
+		wx::FieldLabel("Name");
+		changed |= ImGui::InputText("##name", &t.name);
+		wx::FieldLabel("Author");
+		if (ImGui::InputText("##author", &t.author)) {
+			_templateAuthor = t.author;
+			_state.author = t.author;
+			changed = true;
 		}
-		const auto master = std::ranges::find_if(a_cell.info.refs, [&](const home::PlacedRef& p) { return t.master && a_cell.lo->ToFormRef(p.key) == *t.master; });
-		const auto withCategories = std::ranges::count_if(t.containers, [](const core::ContainerBinding& b) { return !b.ignored && !b.categories.empty(); });
-		const auto ignored = std::ranges::count_if(t.containers, [](const core::ContainerBinding& b) { return b.ignored; });
-		ImGui::Text("Cell %s   Master: %s   Containers: %zu (%lld with categories, %lld ignored)   Displays used: %zu", t.cell ? t.cell->ToString().c_str() : "-",
-			master != a_cell.info.refs.end() ? GameName(*master).c_str() : "none", t.containers.size(), static_cast<long long>(withCategories),
-			static_cast<long long>(ignored), t.displays.size());
-		std::string requires_;
-		for (const auto& p : t.requiredPlugins) {
-			requires_ += (requires_.empty() ? "" : ", ") + p;
+		if (ImGui::IsItemDeactivatedAfterEdit()) {
+			_state.Save();
 		}
-		ImGui::TextDisabled("Requires %s", requires_.c_str());
-		if (!_categorySource.empty()) {
-			ImGui::TextDisabled("%zu categories from %s", _categories.size(), _categorySource.c_str());
+		const float half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+		ImGui::BeginGroup();
+		wx::FieldLabel("Version");
+		ImGui::SetNextItemWidth(half);
+		changed |= ImGui::InputText("##version", &t.version);
+		ImGui::EndGroup();
+		ImGui::SameLine();
+		ImGui::BeginGroup();
+		wx::FieldLabel("Priority");
+		ImGui::SetNextItemWidth(half);
+		changed |= ImGui::InputInt("##priority", &t.priority, 0);
+		ImGui::EndGroup();
+		wx::FieldLabel("Note");
+		changed |= ImGui::InputTextMultiline("##note", &t.note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
+		{
+			const auto master = std::ranges::find_if(a_cell.info.refs, [&](const home::PlacedRef& p) { return t.master && a_cell.lo->ToFormRef(p.key) == *t.master; });
+			const auto withCategories = std::ranges::count_if(t.containers, [](const core::ContainerBinding& b) { return !b.ignored && !b.categories.empty(); });
+			const auto ignored = std::ranges::count_if(t.containers, [](const core::ContainerBinding& b) { return b.ignored; });
+			ImGui::PushTextWrapPos(0.0f);
+			w::MutedWrapped(std::format("Master {} · {} containers ({} with categories, {} ignored) · {} displays", master != a_cell.info.refs.end() ? GameName(*master) : "none",
+				t.containers.size(), withCategories, ignored, t.displays.size())
+								.c_str());
+			w::MutedWrapped(("Requires " + Join(t.requiredPlugins)).c_str());
+			ImGui::PopTextWrapPos();
 		}
 
-		ImGui::SeparatorText("Cells");
+		w::SectionHead("Cells");
 		{
 			const auto openRef = a_cell.lo->ToFormRef(a_cell.info.key);
-			ImGui::Text("Main: %s", t.cell ? t.cell->ToString().c_str() : "-");
-			if (t.cell && *t.cell == openRef) {
-				ImGui::SameLine();
-				ImGui::TextDisabled("(open)");
-			}
+			wx::FieldLabel(t.cell && *t.cell == openRef ? "Main · open" : "Main");
+			w::Mono((t.cell ? t.cell->ToString() : std::string("-")).c_str());
 			int remove = -1;
 			for (std::size_t i = 0; i < t.cells.size(); ++i) {
 				auto& c = t.cells[i];
 				ImGui::PushID(static_cast<int>(i));
-				ImGui::Text("%s", c.cell.ToString().c_str());
+				wx::FieldLabel(c.cell == openRef ? "Joined · open" : "Joined");
+				w::Mono(c.cell.ToString().c_str());
+				ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemSpacing.x);
+				changed |= ImGui::InputTextWithHint("##label", "Label (what players see)", &c.label);
 				ImGui::SameLine();
-				ImGui::SetNextItemWidth(ImGui::GetFontSize() * 12.0f);
-				changed |= ImGui::InputTextWithHint("##label", "label (what players see)", &c.label);
-				ImGui::SameLine();
-				if (ImGui::SmallButton("Remove")) {
+				if (w::IconButton("leave", w::Icon::Close, "Leave the home")) {
 					remove = static_cast<int>(i);
-				}
-				if (c.cell == openRef) {
-					ImGui::SameLine();
-					ImGui::TextDisabled("(open)");
 				}
 				ImGui::PopID();
 			}
@@ -470,7 +696,7 @@ namespace dova::editor::ui
 				changed = true;
 			}
 			if (t.cells.empty()) {
-				ImGui::TextDisabled("One cell. A cellar or the grounds outside join from the Doors tab (\"In the home\").");
+				w::Muted("One cell. A cellar joins from Doors.");
 			}
 			if (CellInHome(a_cell) && !(t.cell && *t.cell == openRef)) {
 				if (ImGui::Button("List this cell's containers")) {
@@ -495,44 +721,69 @@ namespace dova::editor::ui
 					}
 					changed = true;
 				}
-				ImGui::SetItemTooltip("Adds every container of the open cell that the template does not list yet.");
+				w::Tip("Adds every container of the open cell the template does not list yet");
 			}
+			// The open cell's facts (the eligibility checks use them).
+			std::string facts = std::format("{} · {} · last edited by {}", a_cell.info.editorId, a_cell.info.interior ? "interior" : "exterior", a_cell.info.lastOverride);
+			facts += "\nLocation " + (a_cell.info.location ? a_cell.info.locationLabel : std::string("none"));
+			if (!a_cell.info.locationKeywords.empty()) {
+				facts += " [" + Join(a_cell.info.locationKeywords) + "]";
+			}
+			facts += "\nOwner " + (a_cell.info.owner ? a_cell.info.ownerLabel : std::string("none")) + (a_cell.info.ownedByPlayer ? " (player)" : "");
+			facts += "\nZone " + (a_cell.info.encounterZone.empty() ? std::string("none") : a_cell.info.encounterZone) + (a_cell.info.neverResets ? " (never resets)" : "");
+			w::Spacer(2.0f);
+			ImGui::PushFont(w::Th().smallFont);
+			ImGui::PushTextWrapPos(0.0f);
+			w::MutedWrapped(facts.c_str());
+			ImGui::PopTextWrapPos();
+			ImGui::PopFont();
 		}
 
-		ImGui::SeparatorText("Problems");
-		if (a_cell.diagnostics.empty()) {
-			ImGui::TextColored(ImVec4(0.5f, 0.85f, 0.5f, 1.0f), "None: the template passes the same checks as the DLL's.");
-		}
-		for (const auto& d : a_cell.diagnostics) {
-			ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.3f, 1.0f), "%s", d.c_str());
-		}
+		w::SectionHead("Keep rules");
+		changed |= DrawKeepRules(t);
 
-		ImGui::SeparatorText("Save");
-		const auto path = PathToUtf8(TemplatePath(a_cell));
-		ImGui::TextWrapped("Saves to %s", path.c_str());
-		if (_ws && _ws->Instance()) {
-			ImGui::TextDisabled("A mod of its own (\"%s\"), never MO2's overwrite folder: clearing overwrite cannot delete it.", home::kTemplatesMod);
-		}
-		if (_confirmOverwrite) {
-			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "That file exists. Overwrite it (the old one is kept as .bak, the version goes up)?");
-			if (ImGui::Button("Overwrite")) {
-				SaveTemplate(a_cell, true);
+		w::SectionHead("Save");
+		{
+			const auto targets = SaveTargets();
+			auto       name = [](const std::string& a_t) { return a_t.empty() ? std::string(home::kTemplatesMod) : a_t; };
+			wx::FieldLabel("Save to");
+			if (ImGui::BeginCombo("##target", name(_state.saveTarget).c_str())) {
+				for (const auto& tg : targets) {
+					if (ImGui::Selectable(name(tg).c_str(), tg == _state.saveTarget)) {
+						_state.saveTarget = tg;
+						_state.Save();
+					}
+				}
+				ImGui::EndCombo();
 			}
-			ImGui::SameLine();
-			if (ImGui::Button("Cancel")) {
-				_confirmOverwrite = false;
-			}
-		} else if (ImGui::Button("Save template")) {
-			SaveTemplate(a_cell, false);
+			w::Tip(_state.saveTarget.empty() ? "A mod of its own, never MO2's overwrite folder: clearing overwrite cannot delete it" : "An existing mod that holds templates");
+			ImGui::PushTextWrapPos(0.0f);
+			w::MutedWrapped(PathToUtf8(TemplatePath(a_cell)).c_str());
+			ImGui::PopTextWrapPos();
 		}
+		const int errors = ErrorCount(a_cell);
+		if (w::PrimaryButton("Save", errors == 0, "The checks find errors: see Checks")) {
+			RequestSave();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Save as...")) {
+			SaveTemplateAs(a_cell);
+		}
+		w::Tip("A copy anywhere (the template stays where it is saved)");
 		ImGui::SameLine();
 		if (ImGui::Button("Copy JSON")) {
 			ImGui::SetClipboardText(a_cell.json.c_str());
 		}
 		if (!a_cell.saveMessage.empty()) {
-			ImGui::TextWrapped("%s", a_cell.saveMessage.c_str());
+			ImGui::PushTextWrapPos(0.0f);
+			wx::TextWrapped(a_cell.saveMessage.starts_with("Not saved") ? w::Kind::Error : w::Kind::Ok, a_cell.saveMessage.c_str());
+			ImGui::PopTextWrapPos();
 		}
-		ImGui::InputTextMultiline("##json", a_cell.json.data(), a_cell.json.size() + 1, ImGui::GetContentRegionAvail(), ImGuiInputTextFlags_ReadOnly);
+		if (ImGui::CollapsingHeader("JSON")) {
+			ImGui::PushFont(w::Th().mono);
+			ImGui::InputTextMultiline("##json", a_cell.json.data(), a_cell.json.size() + 1, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16.0f), ImGuiInputTextFlags_ReadOnly);
+			ImGui::PopFont();
+		}
 		if (changed) {
 			a_cell.dirty = true;
 			Revalidate(a_cell);

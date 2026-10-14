@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Workspace.h"
@@ -39,7 +40,7 @@ namespace dova::editor
 		float                      brightness{ 1.0f };  // --light <factor>
 		bool                       verbose{ false };
 		bool                       noNeighbours{ false };  // --render-cell: exterior without the 8 cells around it
-		std::optional<std::string> tab;  // --gui: the cell tab to show ("3d", "plan", "containers", "displays", "doors", "template")  // --render-cell: list what is drawn as a box and why
+		std::optional<std::string> tab;  // --gui: 3d|plan (the view), containers|displays|doors|preview (the drawer), template (the inspector)
 		bool                       draftAll{ false };   // --draft-all: every home of the load order, a draft each
 		bool                       compare{ false };    // --draft-all --compare: drafts against the existing templates
 		std::optional<std::string> only;                // --draft-all --only <text>: homes whose name, EditorID or plugin contains it
@@ -47,11 +48,16 @@ namespace dova::editor
 		std::optional<std::string> preview;             // --preview <cell>: where items go
 		std::string                sample{ "haul" };    // --sample haul | all | <category pattern>
 		bool                       useDraft{ false };   // --preview --draft: the draft, not the existing template
-		bool                       drafts{ false };     // --gui --drafts: open the "Draft all homes" view
+		bool                       drafts{ false };     // --gui --drafts: start "Draft all homes", the rail on homes without a template
 		bool                       baseGame{ false };   // --draft-all/--preview --base-game: only the game's own plugins
 		std::optional<std::string> colours;             // --gui --colours category|fill
 		std::optional<std::string> paint;               // --gui --paint <category>
 		std::vector<std::string>   multi;               // --gui --multi <ref> (repeatable)
+		std::optional<std::string> home;                // --gui --home <text>: open the first home whose name contains it
+		std::optional<std::string> inspector;           // --gui --inspector selection|template|draft|checks
+		bool                       palette{ false };    // --gui --palette: the command palette open
+		std::optional<std::string> popover;             // --gui --popover <id>: a popover open (screenshots of the guide)
+		std::optional<std::pair<int, int>> window;      // --gui --window WxH: the window's client size
 		std::vector<std::string>   errors;
 
 		[[nodiscard]] bool Headless() const noexcept
