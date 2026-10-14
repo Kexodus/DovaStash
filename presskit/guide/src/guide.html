@@ -157,15 +157,19 @@
   <div class="body">
     <header class="chapter-head" data-no="04" data-title="Opening a home" data-sub="The homes rail, the 3D view, moving around"></header>
     <p class="lede">You know a home by its mod. The rail on the left lists every home of your load order under the mod that adds it; a name or a Nexus id finds it.</p>
-    <figure data-fig="mods"></figure>
-    <ol class="legend">
+    <div class="cols wide-left">
+      <figure data-fig="mods"></figure>
+      <div>
+        <ol class="legend one">
       <li><b>Search.</b> Part of the home or mod name, a plugin, or the Nexus id (<code>92177</code> is Whitepeak Tower).</li>
       <li><b>Filter</b>: only homes without a template, only enabled mods, and more. A number shows how many are on.</li>
       <li><b>The mod</b> with its Nexus id.</li>
       <li><b>The home</b>: its chests and displays, and a chip: <i>none</i>, <i>shipped</i>, <i>yours</i>, <i>drafted</i> or <i>saved</i>. Click it to open it.</li>
       <li><b>All cells&hellip;</b> of this mod, for a home that is not listed.</li>
       <li><b>Rescan</b> (<kbd>F5</kbd>) and what the last scan read.</li>
-    </ol>
+        </ol>
+      </div>
+    </div>
     <h2>How the editor finds homes</h2>
     <p>It reads every cell of your load order once and keeps the homes: a player-house location, owned by the player, or mannequins and nothing that respawns. Each sits under the mod whose plugin adds it; base-game and DLC homes sit under <span class="ui">Game Data folder</span>. <span class="ui">Rescan</span> reads it again after you change mods in MO2.</p>
     <p>A home owned by a faction, or an exterior, is not listed. Click <span class="ui">All cells&hellip;</span> under its mod: every cell of its plugins with containers is ranked, likely homes first. Untick <span class="ui">Likely homes only</span> in the filter to see them all.</p>
@@ -190,7 +194,6 @@
     <h2>The 3D view</h2>
     <p>The home as it looks in game, built from your own meshes and textures. It opens from above while the meshes load; the status row shows the progress.</p>
     <figure data-fig="view3d"></figure>
-    <figure data-fig="view3dBar"></figure>
     <ol class="legend">
       <li><b>The home.</b> Hover anything to see its name; click to select it.</li>
       <li><b>Inspector.</b> With nothing selected: <span class="ui">Make the nearest chest the master</span>, <span class="ui">Draft this home</span>, <span class="ui">Open the containers list</span>.</li>
@@ -346,7 +349,10 @@
       <li><b>Categories</b>, for <i>Auto</i> only. Empty: any set.</li>
     </ol>
     <div class="cols wide-right">
-      <figure data-fig="rack"></figure>
+      <div>
+        <figure data-fig="rackKind"></figure>
+        <figure data-fig="rack"></figure>
+      </div>
       <div>
         <ol class="legend one">
           <li><b>Kind</b> of rack: any weapon, no daggers or bows, daggers, or a shield.</li>
@@ -368,13 +374,17 @@
   <div class="body">
     <header class="chapter-head" data-no="09" data-title="Drafts" data-sub="Suggestions with reasons, review, Draft all homes"></header>
     <p class="lede">You never start from nothing: a home opens with a draft, a template the editor made from the home itself. The inspector's <span class="ui">Draft</span> panel shows what it suggests and why. Open it with the <span class="ui">Draft</span> tab, <span class="ui">Draft</span> &rsaquo; <span class="ui">Draft this home</span> in the title row, or right-click a home in the rail.</p>
-    <figure data-fig="draftsPane"></figure>
-    <ol class="legend">
+    <div class="cols wide-right">
+      <figure data-fig="draftsPane"></figure>
+      <div>
+        <ol class="legend one">
       <li><b>Accept all</b>, <b>Reject the weak ones</b> (under 50%), <b>Draft again</b> (from the home's plugins).</li>
       <li><b>The master</b> and why it was chosen. Hover it for the whole reason and the next best.</li>
       <li><b>Suggested categories</b> per container, as chips with a confidence. Click a chip to accept or reject it; hover it to read its reason. Click a container's name to find it in the view.</li>
-      <li><b>Displays</b> the draft uses, folded at the end. Problems are in the <span class="ui">Checks</span> panel.</li>
-    </ol>
+      <li><b>How many</b> containers got a suggestion. <b>Displays</b> the draft uses are folded at the end; problems are in the <span class="ui">Checks</span> panel.</li>
+        </ol>
+      </div>
+    </div>
     <h2>Colours and confidence</h2>
     <p><b>Green</b>: the container's name says so. <b>Yellow</b>: a crafting station or items nearby. <b>Orange</b>: a weaker hint, such as the kind of furniture. The number is the confidence. Each category goes to one container and is accepted from 50%; the chips left off are the alternatives (<i>Potion Basket has it with 93%</i>).</p>
     <p>The Draft panel works on the template itself: a chip you accept is a category of that container at once, in the <span class="ui">Selection</span> panel, the checks and <span class="ui">Where items go</span>. <kbd>Ctrl</kbd> <kbd>Z</kbd> takes it back.</p>
@@ -504,7 +514,7 @@
     <figure data-fig="draftsCells"></figure>
     <ol class="legend">
       <li><b>The shipped template</b> and how far the draft agrees with it.</li>
-      <li><b>Another cell</b>: a container there says so. Click it to open that cell.</li>
+      <li><b>Containers of every cell</b>, 348 over the two. One in another cell says so; click it to open that cell.</li>
     </ol>
   </div>
 </section>
@@ -514,16 +524,22 @@
   <div class="body">
     <header class="chapter-head" data-no="12" data-title="Checking and saving" data-sub="Checks, keep rules, backups, the Templates mod"></header>
     <p class="lede">The template is checked the way the game will check it while you work. The status row counts errors and warnings; click it for the <span class="ui">Checks</span> panel. The <span class="ui">Template</span> panel holds the template's details and saves it.</p>
-    <figure data-fig="template"></figure>
-    <ol class="legend">
-      <li><b>Name, Author, Version, Priority, Note.</b> Your author name is remembered.</li>
-      <li><b>Summary</b>: master, containers with categories, ignored, displays, plugins required.</li>
-      <li><b>Cells</b> of the home.</li>
-      <li><b>Keep rules</b> for this home: what players always or never keep on them, and how many of a category. None: their own rules apply.</li>
-      <li><b>Save to</b>: the mod it saves into, and the file.</li>
-      <li><b>Save</b> (<kbd>Ctrl</kbd> <kbd>S</kbd>), <b>Save as&hellip;</b> a copy anywhere, <b>Copy JSON</b>.</li>
-    </ol>
-    <p class="small"><b>Checks</b> lists the problems, errors first: click one to select the object. Fix every error before you share; <span class="ui">Save</span> waits until there are none. Under <span class="ui">Still to do</span> it lists what the template lacks, such as containers without a role.</p>
+    <div class="cols wide-right">
+      <div>
+        <figure data-fig="template"></figure>
+        <figure data-fig="templateSave"></figure>
+      </div>
+      <div>
+        <ol class="legend one">
+          <li><b>Name, Author, Version, Priority, Note.</b> Your author name is remembered.</li>
+          <li><b>Summary</b>: master, containers with categories, ignored, displays, plugins required.</li>
+          <li><b>Cells</b> of the home.</li>
+          <li><b>Keep rules</b> for this home: what players always or never keep on them, and how many of a category. None: their own rules apply.</li>
+          <li><b>Save</b> (<kbd>Ctrl</kbd> <kbd>S</kbd>) into the Templates mod (<span class="ui">Save to</span>, above the footer, picks another), <b>Save as&hellip;</b> a copy anywhere, <b>Copy JSON</b>.</li>
+        </ol>
+        <p class="small"><b>Checks</b> lists the problems, errors first: click one to select the object. Fix every error before you share; <span class="ui">Save</span> waits until there are none. Under <span class="ui">Still to do</span> it lists what the template lacks, such as containers without a role.</p>
+      </div>
+    </div>
     <div class="cols">
       <div>
         <h2>Where it goes</h2>

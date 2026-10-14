@@ -38,7 +38,7 @@
   function buildFigure(el, figNo) {
     var f = window.FIGS[el.getAttribute("data-fig")];
     if (!f) { el.innerHTML = "<p>missing figure " + esc(el.getAttribute("data-fig")) + "</p>"; return; }
-    var size = f.size || [1584, 911];
+    var size = f.size || [1600, 900];
     var crop = f.crop || [0, 0, size[0], size[1]];
     var W = f.width || el.clientWidth || el.parentElement.clientWidth || 688;
     var s = W / crop[2];

@@ -36,7 +36,8 @@ Open `src/guide.html` in Edge or Chrome to work on the layout (start the browser
 Build the editor (`cmake --preset editor && cmake --build --preset editor-release`, docs/BUILDING.md), then run it
 with its own state file, so your real `%LOCALAPPDATA%\DovaStashEditor\state.json` is untouched. The start panel shows
 the homes in progress from that file; the guide's has four (drafted, reviewed, validated, saved) and the author
-`Kexodus`. The state file also remembers the layout (rail, inspector and drawer sizes, the view); `--tab` and
+`Kexodus`: `"author": "Kexodus"` and, under `"homes"`, one entry per cell with `name`, `stage` (1 drafted to 4 saved),
+`updated` and `saved`. The state file also remembers the layout (rail, inspector and drawer sizes, the view); `--tab` and
 `--inspector` set them for one run only.
 
 ```powershell
@@ -47,7 +48,7 @@ $wt  = @('--home', 'Whitepeak Tower')
 $ald = @('--home', 'Aldamar')
 $lv  = @('--home', 'Lakeview Manor')
 & $exe @mo2 --screenshot start.png                                           # rail, start panel, inspector
-& $exe @mo2 --mod 92177 --screenshot homes-by-mod.png                       # the rail searched by Nexus id
+& $exe @mo2 --window 1600x300 --mod 92177 --screenshot homes-by-mod.png     # the rail searched by Nexus id, short so Rescan is near the top
 & $exe @mo2 @wt --tab 3d --inspector selection --screenshot view3d-overview.png
 & $exe @mo2 @wt --tab plan --select 'Whitepeak Tower.esp|0x00230B30' --screenshot floor-plan.png
 & $exe @mo2 @wt --tab plan --colours fill --popover colours --screenshot plan-fill.png
@@ -72,10 +73,12 @@ $lv  = @('--home', 'Lakeview Manor')
 `layers`, `colours`, `camera`, `paintcat`) open the rest for a picture of its own, e.g. `& $exe @mo2 @ald --palette
 --screenshot palette.png`.
 
-The window captures are 1600×900 (`--window 1600x900` at 100% scaling). Callout boxes in `src/figs.js` are in the
-capture's pixels; the figures not retaken yet are 1584×911 captures of the old window, which `src/guide.js` assumes
-when a figure has no `size`, so a retaken figure gets `size: [1600, 900]` and its boxes measured again (a figure whose
-layout changed has `callouts: []` until then). 3D captures go into `img/` as JPEG (quality 90), the rest as PNG.
+The window captures are 1600×900 (`--window 1600x900` at 100% scaling), which `src/guide.js` assumes when a figure has
+no `size`; `homes-by-mod.png` is 1600×300 and `hero.jpg` 1600×760, and say so. Callout boxes in `src/figs.js` are in
+the capture's pixels, so a retaken figure gets its crop and boxes measured again. 3D captures go into `img/` as JPEG
+(quality 90), the rest as PNG. The window parts sit at the same pixels in every capture (title row 0–38, rail 0–278,
+viewport toolbar y 46–76, inspector x 1270–1600, status row 878–898, the drawer's tabs at y 850 when it is closed and
+y 650 when open), so most boxes carry over between retakes.
 Callouts follow the press kit: white corner brackets, a dark halo, numbered badges, and the numbers explained under the
 figure.
 
