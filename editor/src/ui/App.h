@@ -1,17 +1,22 @@
 #pragma once
 
-// The editor window (docs/EDITOR.md §3): the player homes of the load order under the mod that adds each
-// (or any mod -> the cells with containers in its plugins) -> a cell: its 3D view and floor plan (select mode
-// on both, one selection), containers, displays, doors to other cells, and the template being made. Parsing
-// runs on a worker thread; the UI only reads finished results. The 3D view loads its meshes and textures on its own threads (render::Scene).
+// The editor window (docs/EDITOR-UX.md §2, behaviour in docs/EDITOR.md §3): one workspace, no modes. A title
+// row (menu, home switcher, 3D | Plan, Draft, Save, Setup), the homes rail on the left (every home of the load
+// order under the mod that adds it, the drafts' chips, any cell of a mod on request), the viewport (the 3D view
+// or the plan with a floating toolbar; the start panel when no home is open), the inspector on the right
+// (Selection, Template, Draft, Checks), the drawer at the bottom (Containers, Displays, Doors, Where items go)
+// and the status row. Parsing runs on a worker thread; the UI only reads finished results. The 3D view loads its
+// meshes and textures on its own threads (render::Scene).
 
 #include <atomic>
+#include <deque>
 #include <future>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,6 +32,7 @@
 #include "home/Drafts.h"
 #include "render/Scene.h"
 #include "ui/State.h"
+#include "ui/Widgets.h"
 
 namespace dova::editor
 {
@@ -37,16 +43,19 @@ namespace dova::editor::ui
 {
 	struct GuiOptions
 	{
-		std::optional<std::string> mod;         // preselect a mod (name or Nexus id)
+		std::optional<std::string> mod;         // preselect a mod (name or Nexus id): the rail's search
 		std::optional<std::string> cell;        // and open one of its cells (EditorID or form ref)
 		std::optional<std::string> screenshot;  // save the window once loading is done, then exit
-		std::optional<std::string> tab;         // "3d" (default), "plan", "containers", "displays", "doors", "template"
+		std::optional<std::string> tab;         // 3d, plan (the view); containers, displays, doors, preview (the drawer); template (the inspector)
 		std::optional<std::string> select;      // a reference to select once the cell is open
-		bool                       drafts{ false };  // open the "Draft all homes" view
-		std::optional<std::string> home;        // drafts view: select the first home whose name contains it
+		bool                       drafts{ false };  // start "Draft all homes" and show the homes without a template
+		std::optional<std::string> home;        // open the first home whose name contains it
 		std::optional<std::string> colours;     // "category" or "fill": colour the containers in 3D and on the plan
 		std::optional<std::string> paint;       // turn paint mode on with this category
 		std::vector<std::string>   multi;       // more references to select (multi-select)
+		std::optional<std::string> inspector;   // selection, template, draft or checks: the inspector's panel
+		bool                       palette{ false };  // open the command palette (Ctrl+K)
+		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
 	};
 
 	// Win32 + Direct3D 11 + Dear ImGui host (Window.cpp). Returns the process exit code.
@@ -72,23 +81,32 @@ namespace dova::editor::ui
 		[[nodiscard]] bool ShouldQuit() const noexcept { return _quit; }
 
 	private:
-		enum class Mode
+		enum class Panel
 		{
-			Welcome,  // start page: setup, homes found, big actions, to-do list
-			Browse,   // homes by mod (or any mod -> its cells) -> cell
-			Drafts    // every home with its draft
+			Selection,
+			Template,
+			Draft,
+			Checks
 		};
 
-		// One home of the drafts view.
+		enum class DrawerTab
+		{
+			Containers,
+			Displays,
+			Doors,
+			Preview
+		};
+
+		// One home's draft (made when the home is opened or by "Draft all homes").
 		struct DraftEntry
 		{
-			std::unique_ptr<home::HomeDraft> draft;  // made when first needed
-			bool                             reviewed{ false };
+			std::unique_ptr<home::HomeDraft> draft;
+			bool                             reviewed{ false };  // the author changed it (accepted, rejected, edited)
 			std::string                      saveMessage;
 			std::vector<std::string>         problems;
 		};
 
-		// Every home of the active load order (the welcome page and the drafts view share it).
+		// Every home of the active load order (the rail, the start panel and the drafts share it).
 		struct HomesData
 		{
 			std::shared_ptr<esp::LoadOrder>   lo;
@@ -133,6 +151,8 @@ namespace dova::editor::ui
 			Category,  // each container in its first category's colour
 			Fill       // the preview: empty / light / heavy / master
 		};
+
+		// "All cells..." of a mod: the cells with containers in each of its plugins, scored.
 		struct PluginScan
 		{
 			std::string                         plugin;
@@ -153,56 +173,124 @@ namespace dova::editor::ui
 			std::string                     cellText;
 			long long                       ms{ 0 };
 
-			// The template being made (starts as the draft, home::DraftTemplate).
+			// The template being made (starts as the draft, home::DraftTemplate or the home's HomeDraft).
 			core::Layout             layout;
 			bool                     dirty{ false };
 			std::string              json;          // SerializeLayout(layout), refreshed on change
-			std::vector<std::string> diagnostics;   // ValidateTemplate (+ categories)
+			std::vector<std::string> diagnostics;   // ValidateTemplate (+ categories), "error: ..." / "warning: ..."
 			std::string              savedPath;
 			std::string              saveMessage;
+			std::string              filePath;      // opened from a template file (Open a template...)
 		};
 
+		// A command of the palette and the menus.
+		struct Command
+		{
+			std::string           label;
+			std::string           shortcut;
+			bool                  enabled{ true };
+			std::function<void()> run;
+		};
+
+		// ---- Workspace, jobs, cells (App.cpp) ----
 		void OpenWorkspace();
 		void StartJob(std::string a_label, std::function<std::function<void()>()> a_work);
+		void Queue(std::function<void()> a_start);  // runs when no job is running (one job at a time: the load order is not thread-safe)
 		void PollJob();
+		[[nodiscard]] bool Busy() const { return _job.valid(); }
 
-		void SelectMod(int a_index);  // -1: the game's Data folder
+		void SelectMod(int a_index);  // "All cells..." of a mod (-1: the game's Data folder)
 		void Scan();
 		// `a_keepTemplate`: the template being made follows (another cell of the same home: a door, Back);
 		// otherwise the cell starts a new draft (a home picked from the list).
 		void OpenCellAsync(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell, bool a_remember = true, bool a_keepTemplate = false);
 		void RequestNewHome(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell);  // asks first when the template has unsaved changes
+		void OpenHome(int a_index, std::optional<esp::FormKey> a_cell = std::nullopt);  // a home of the rail, with its draft
+		void ResolvePendingCell();   // --cell once the homes are known
 		void DrawDiscardPopup();
 		[[nodiscard]] bool CellInHome(const OpenCell& a_cell) const;  // the open cell is the template's main cell or one of its `cells`
 		void StartScene();
+		void Select(int a_index, bool a_frame = false);      // no panel change (the Draft and Checks panels select too)
+		void SelectInView(int a_index, bool a_frame = false);  // and show the Selection panel
+		void ApplyWindowSize();
+		void SaveLayoutState();  // the panels' sizes, when they changed
 
-		void DrawTopBar();
-		void DrawLists();     // the left column: the "By mod" and "Any cell" tabs
-		void DrawHomeMods();  // every home of the load order, under its mod
-		void GroupHomes();    // _homeGroups from _homes
-		void DrawMods();
-		void DrawHomes();
-		void DrawCell();
-		void DrawPlan(OpenCell& a_cell);
-		void DrawView3D(OpenCell& a_cell);       // View3D.cpp
-		void DrawDetails(OpenCell& a_cell, float a_width, float a_height);
-		void DrawRefDetails(OpenCell& a_cell);
-		void DrawRoleEditor(OpenCell& a_cell, int a_index);  // Roles.cpp
+		// ---- Frame layout ----
+		void DrawTitleRow();      // TitleBar.cpp
+		void DrawStatusRow();     // TitleBar.cpp
+		void DrawMainMenu();      // TitleBar.cpp: the ≡ popover
+		void DrawDraftMenu();     // TitleBar.cpp: Draft ▾
+		void DrawSetupPopover();  // TitleBar.cpp: ⚙
+		void DrawSetupConfirm();  // TitleBar.cpp
+		void DrawHelpPopups();    // TitleBar.cpp: Shortcuts..., About
+		void ApplySetup(std::optional<std::filesystem::path> a_mo2, std::optional<std::string> a_profile);
+		void DrawViewport(ImVec2 a_size);  // App.cpp
+		void DrawOverlay(OpenCell& a_cell, ImVec2 a_min, ImVec2 a_max);  // App.cpp: the floating toolbar and the hint line
+		void DrawLayersPopover(OpenCell& a_cell);
+		void DrawCameraPopover(OpenCell& a_cell);
+		void HandleShortcuts();  // App.cpp: docs/EDITOR-UX.md §4
+
+		// ---- Homes rail (Rail.cpp) ----
+		void DrawRail();
+		void DrawHomeList(bool a_compact, std::string& a_search);  // the rail's list, or the switcher's
+		void DrawAnyCells(int a_mod);  // "All cells..." of the mod under its group
+		void GroupHomes();
+		[[nodiscard]] std::vector<int> VisibleHomes(const std::string& a_search) const;  // rows in list order (keyboard)
+		[[nodiscard]] bool HomeMatches(const home::HomeEntry& a_home, const std::string& a_search, bool a_modMatch) const;
+		[[nodiscard]] std::string HomeChip(int a_index, w::Kind* a_kind) const;  // none / shipped / yours / drafted / saved
+		[[nodiscard]] bool IsOpenHome(int a_index) const;
+		[[nodiscard]] bool HomeUnsaved(int a_index) const;
+		[[nodiscard]] int  ActiveFilterCount() const;
+		void HomeTooltip(const home::HomeEntry& a_home) const;
+		void HomeContextMenu(int a_index);
+
+		// ---- Viewport ----
+		void DrawPlan(OpenCell& a_cell, ImVec2 a_size);    // Plan.cpp
+		void FitPlan(const OpenCell& a_cell, ImVec2 a_size);
+		void CentrePlanOn(const OpenCell& a_cell, int a_index);
+		void DrawView3D(OpenCell& a_cell, ImVec2 a_size);  // View3D.cpp
+		void DrawStart(ImVec2 a_min, ImVec2 a_max);        // Start.cpp
+		void Overview();      // Home: the 3D overview or the plan fitted
+		void FrameSelected();  // F
+
+		// ---- Inspector (Inspector.cpp) ----
+		void DrawInspector();
+		void DrawSelectionPanel(OpenCell& a_cell);
+		void DrawRefDetails(OpenCell& a_cell, int a_index);
+		void DrawChecksPanel(OpenCell& a_cell);
+		void MakeNearestMaster(OpenCell& a_cell);
+		[[nodiscard]] int RefIndexOf(const OpenCell& a_cell, std::string_view a_ref) const;  // -1: not in the open cell
+
+		// ---- Drawer (Drawer.cpp) ----
+		void DrawDrawer();
 		void DrawContainers(OpenCell& a_cell);
 		void DrawDisplays(OpenCell& a_cell);
 		void DrawDoors(OpenCell& a_cell);
-		void DrawTemplate(OpenCell& a_cell);  // Roles.cpp
-		void FitPlan(const OpenCell& a_cell);
-		void Select(int a_index, bool a_frame = false);
+		void TableRowClick(int a_index);  // a row of a table: select (Ctrl: add), double click frames
 
-		// Template editing (Roles.cpp)
+		// ---- Command palette (Palette.cpp) ----
+		void DrawPalette();
+		[[nodiscard]] std::vector<Command> Commands();
+
+		// ---- Template editing (Roles.cpp) ----
 		void LoadCategories();
 		void Revalidate(OpenCell& a_cell);
-		void SaveTemplate(OpenCell& a_cell, bool a_overwrite);
+		void RequestSave();  // Save / Ctrl+S: asks first when the file exists or the home has a template
+		void SaveTemplate(OpenCell& a_cell);
+		void SaveTemplateAs(OpenCell& a_cell);
+		void DrawSavePopup();
+		[[nodiscard]] std::filesystem::path SaveBase() const;  // the chosen save target
+		[[nodiscard]] std::vector<std::string> SaveTargets() const;  // "" (Dova Stash Templates) and mods with templates
 		[[nodiscard]] std::filesystem::path TemplatePath(const OpenCell& a_cell) const;
+		void DrawRoleEditor(OpenCell& a_cell, int a_index);
+		void MakeMaster(OpenCell& a_cell, int a_index);  // the old master becomes a plain container
+		void DrawTemplate(OpenCell& a_cell);  // the inspector's Template panel
+		bool DrawKeepRules(core::Layout& a_layout);
 		bool CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title = true);
 		// A mannequin's armor set: Auto or one of the load order's sets (searchable), as the in-game picker.
 		bool ArmorSetEditor(OpenCell& a_cell, std::optional<core::FormRef>& a_set);
+		[[nodiscard]] int ErrorCount(const OpenCell& a_cell) const;
+		[[nodiscard]] int WarningCount(const OpenCell& a_cell) const;
 
 		WorkspaceOptions           _options;
 		std::unique_ptr<Workspace> _ws;
@@ -211,30 +299,59 @@ namespace dova::editor::ui
 
 		std::future<std::function<void()>> _job;
 		std::string                        _jobLabel;
+		std::deque<std::function<void()>>  _queue;
 
-		char _modFilter[128]{};
-		bool _onlyEnabled{ true };
-		bool _onlyWithPlugins{ true };
+		// "All cells..." (any cell of a mod) and the rail's filters (docs/EDITOR-UX.md §2.2).
 		int  _selectedMod{ -2 };  // -2 none, -1 game Data folder, else index into Mods()
 		bool _exteriors{ false };
 		bool _likelyOnly{ true };
-		bool _listsHidden{ false };  // the cell takes the whole window (set when a home opens from outside the lists: drafts, a template file, --cell)
-		char _homeFilter[128]{};
+		bool _onlyEnabled{ true };
+		bool _onlyWithoutTemplate{ false };
+		bool _groupByMod{ true };
+		std::string               _railSearch;
+		std::string               _switcherSearch;
+		int                       _railCursor{ -1 };  // keyboard: a home index
+		bool                      _railFocusSearch{ false };
+		bool                      _railKeys{ false };  // the rail has the keyboard
+		std::set<int>             _collapsedGroups;  // mod indices
 		std::vector<HomeModGroup> _homeGroups;
-		int  _listTab{ 0 };          // 0 "By mod", 1 "Any cell"
-		int  _requestListTab{ -1 };  // tab to switch to on the next frame
+		std::vector<PluginScan>   _scans;
+		long long                 _scanMs{ 0 };
 
 		std::optional<std::string> _pendingCell;    // --cell: opened when the scan finds it
+		std::optional<std::string> _pendingMod;     // --mod with --cell: the mod whose cells are searched
 		std::optional<std::string> _pendingSelect;  // --select: selected when the cell opens
 		std::vector<std::string>   _pendingMulti;   // --multi: also selected when the cell opens
-		int                        _requestTab{ -1 };  // tab to switch to on the next frame
+		std::optional<std::string> _pendingHome;    // --home: opened once the homes are known
+		std::optional<Panel>       _pendingPanel;   // --inspector: shown once the home is open
+		bool                       _pendingDrafts{ false };  // --drafts: the bulk draft once the homes are known
+		std::optional<std::pair<int, int>> _windowSize;
+		bool                       _windowApplied{ false };
 
-		std::vector<PluginScan>   _scans;
 		std::unique_ptr<OpenCell> _cell;
 		std::vector<std::pair<std::shared_ptr<esp::LoadOrder>, esp::FormKey>> _history;  // cells opened before (Back)
 
+		// Workspace layout
+		Panel     _panel{ Panel::Selection };
+		DrawerTab _drawerTab{ DrawerTab::Containers };
+		bool      _showStart{ false };  // the emblem: the start panel over an open home
+		bool      _paletteOpen{ false };
+		bool      _paletteFocus{ false };
+		std::string _palette;
+		int       _paletteSel{ 0 };
+		UiLayout  _savedUi;
+		float     _titleLeftW{ 0.0f }, _titleRightW{ 0.0f };  // measured last frame
+		bool        _setupWasOpen{ false };
+		std::string _setupPathAtOpen;
+		bool        _showShortcuts{ false };
+		bool        _showAbout{ false };
+		std::string _status;  // the last result (saved, not saved), in the status row
+		double      _statusTime{ 0.0 };
+		bool        _statusBad{ false };
+		void SetStatus(std::string a_text, bool a_bad = false);
+
 		// Shared selection: the plan, the 3D view and the tables.
-		bool _selectMode{ true };
+		bool _selectMode{ true };  // false: the 3D view picks anything, the plan's left drag pans
 		int  _selectedRef{ -1 };
 		int  _hoveredRef{ -1 };
 
@@ -244,7 +361,7 @@ namespace dova::editor::ui
 		float _centerX{ 0.0f }, _centerY{ 0.0f };
 		float _zMin{ 0.0f }, _zMax{ 0.0f }, _zLo{ 0.0f }, _zHi{ 0.0f };
 		bool  _fitPending{ true };
-		bool  _showStatics{ true }, _showContainers{ true }, _showDisplays{ true }, _showDoors{ true }, _showFurniture{ true }, _showOther{ false };
+		bool  _showMarkers{ false };  // the plan's "Other": markers and references without bounds
 
 		// 3D view state
 		ID3D11Device*                  _device{ nullptr };
@@ -256,9 +373,10 @@ namespace dova::editor::ui
 		render::ViewOptions            _view;
 		bool                           _cameraPending{ true };
 		bool                           _frameSelection{ false };
-		bool                           _heightCut3d{ false };
+		bool                           _heightCut{ false };  // both views
 		float                          _flySpeed{ 500.0f };  // units per second
 		float                          _viewAspect{ 16.0f / 9.0f };
+		ImVec2                         _viewportMin{}, _viewportMax{};
 		struct PickCache
 		{
 			float  mouseX{ -1.0f }, mouseY{ -1.0f };
@@ -276,39 +394,50 @@ namespace dova::editor::ui
 		core::DraftRules                _draftRules;
 		std::string                     _draftRulesSource;
 		std::string                     _templateAuthor;
-		int                             _saveTarget{ 0 };  // index into the save targets
-		bool                            _confirmOverwrite{ false };
-		std::optional<std::pair<std::shared_ptr<esp::LoadOrder>, esp::FormKey>> _pendingNewHome;  // waiting for "discard changes?"
+		bool                            _confirmSave{ false };
+		std::function<void()>           _pendingOpen;  // another home, waiting for "drop the changes?"
+		std::optional<std::pair<std::optional<std::filesystem::path>, std::optional<std::string>>> _pendingSetup;  // waiting for "drop changes?"
 
-		// ---- Welcome page and drafts view (Drafts.cpp) ----
-		Mode                        _mode{ Mode::Browse };
+		// ---- Homes and drafts (Drafts.cpp) ----
 		EditorState                 _state;
 		std::shared_ptr<HomesData>  _homes;
 		std::shared_ptr<Progress>   _progress;
-		int                         _draftSel{ -1 };
-		char                        _draftFilter[128]{};
-		bool                        _hideTemplated{ false };
-		bool                        _confirmDraftSave{ false };
+		bool                        _homesRequested{ false };  // the scan ran (or runs) for this workspace
 		bool                        _confirmSaveAll{ false };
-		int                         _cellDraft{ -1 };  // the draft whose home is open in the cell view
+		bool                        _confirmRescan{ false };
+		bool                        _confirmDraftAgain{ false };
+		bool                        _bulkDone{ false };       // "Draft all homes" finished: the banner offers to save
+		bool                        _bannerClosed{ false };
+		int                         _cellDraft{ -1 };  // the rail home whose draft is open (index into HomesData)
+		std::unique_ptr<home::HomeDraft> _localDraft;  // the open cell's draft when it is not a home of the rail
+		const void*                 _localDraftCell{ nullptr };
 		std::optional<core::Layout> _pendingLayout;    // replaces the draft of the next cell opened
 		bool                        _pendingLayoutDirty{ true };  // false: an opened template file (nothing to save yet)
-		std::optional<std::string>  _pendingHomeSelect;
+		std::string                 _pendingFilePath;
 		bool                        _quit{ false };
 		bool                        _confirmQuit{ false };
-		void ScanHomes(bool a_drafts);
-		void DrawWelcome();
-		void DrawDrafts();
-		void DrawDraftList(float a_width);
-		void DrawDraftReview(int a_index);
+		void ScanHomes();
+		void Rescan();
+		void StartBulkDraft();  // "Draft all homes": a draft for every home, on the worker
 		DraftEntry& EnsureDraft(int a_index);
-		void SaveDraft(int a_index, bool a_overwrite);
-		void OpenDraftInEditor(int a_index);
+		home::HomeDraft* OpenDraft();  // the open home's draft (made when needed)
+		void DraftThisHome();
+		void DraftAgain();
+		void AcceptAll();
+		void RejectWeak();
+		void SetSuggestionOn(OpenCell& a_cell, home::HomeDraft& a_draft, std::size_t a_container, std::size_t a_suggestion, bool a_on);
+		void SaveDraft(int a_index);
+		[[nodiscard]] int SaveableDrafts() const;
 		void SyncCellToDraft();
 		void OpenTemplateFile();
+		void DrawDraftPanel(OpenCell& a_cell);
 		void DrawQuitPopup();
+		void DrawSaveDraftsPopup();
+		void DrawRescanPopup();
+		void DrawDraftAgainPopup();
 		[[nodiscard]] std::string HomeStatus(const home::HomeEntry& a_home, bool* a_user = nullptr) const;
 		[[nodiscard]] bool AnyUnsaved() const;
+		[[nodiscard]] bool UnsavedDrafts() const;
 
 		// ---- Where items go (Preview.cpp) ----
 		std::optional<PreviewState>       _preview;
@@ -322,14 +451,15 @@ namespace dova::editor::ui
 		int                               _sampleKind{ 0 };
 		std::string                       _samplePattern{ "alchemy.*" };
 		Colours                           _colours{ Colours::None };
-		void DrawPreview(OpenCell& a_cell);
+		void DrawPreview(OpenCell& a_cell);          // the drawer tab: what each container would receive
+		void DrawPreviewControls(OpenCell& a_cell);  // its sample picker, in the drawer's tab row
 		void RunPreview(OpenCell& a_cell);
 		void DrawPreviewDetails(OpenCell& a_cell, int a_index);
-		void DrawColourLegend(OpenCell& a_cell);
+		void DrawColourLegend(OpenCell& a_cell);  // the Colours popover
 		[[nodiscard]] std::uint32_t ContainerColour(const OpenCell& a_cell, int a_index) const;  // 0: none
 		void UpdateTints(OpenCell& a_cell);
 
-		// ---- Editing helpers (Edit.cpp): undo/redo, multi-select, paint mode ----
+		// ---- Editing helpers (Edit.cpp): undo/redo, multi-select, paint mode, delete ----
 		std::vector<core::Layout> _undo, _redo;
 		core::Layout              _lastLayout;
 		std::string               _lastJson;
@@ -337,8 +467,9 @@ namespace dova::editor::ui
 		std::vector<int>          _multi;  // more selected references (Ctrl+click, box)
 		bool                      _paint{ false };
 		std::string               _paintCategory;
+		std::string               _paintFilter;
 		bool                      _boxing{ false };
-		float                     _boxX0{ 0 }, _boxY0{ 0 };
+		bool                      _confirmDelete{ false };
 		void TrackUndo();
 		void Undo();
 		void Redo();
@@ -346,11 +477,15 @@ namespace dova::editor::ui
 		[[nodiscard]] bool IsSelected(int a_index) const;
 		[[nodiscard]] std::vector<int> Selection() const;  // the selected reference and the multi-selection
 		bool PaintAt(OpenCell& a_cell, int a_index);  // paint mode click: toggles the category on the container
-		void DrawPaintBar(OpenCell& a_cell);
+		void SetPaint(bool a_on);
+		void DrawPaintBar(OpenCell& a_cell);       // the toolbar's second half in paint mode
+		bool DrawCategoryList(std::string& a_filter, std::string& a_chosen);  // a searchable category list (paint)
 		void DrawBulkEditor(OpenCell& a_cell);
-		void HandleEditShortcuts();
 		void ClickRef(OpenCell& a_cell, int a_index);  // a click on the plan or in 3D: paint, Ctrl+click, or select
 		void BoxSelect(const std::vector<int>& a_indices, bool a_add);  // the containers and displays inside a dragged box
+		void RequestDelete();  // Delete: removes the selection from the template (asks when more than one)
+		void DeleteSelection(OpenCell& a_cell);
+		void DrawDeletePopup();
 		std::string _paintMessage;
 	};
 }

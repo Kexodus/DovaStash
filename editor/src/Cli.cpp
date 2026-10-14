@@ -537,15 +537,23 @@ namespace dova::editor
 		       "                        a category pattern such as \"alchemy.*\") against the cell's template, or its\n"
 		       "                        draft with --draft; loads the active load order\n"
 		       "\n"
-		       "Window:\n"
+		       "Window (one workspace: homes rail, 3D view or plan, inspector, drawer):\n"
 		       "  --gui                 open the window even with --mod/--cell (they preselect)\n"
-		       "  --drafts              open the \"Draft all homes\" view (--only <text>: select that home)\n"
-		       "  --tab preview         the \"Where items go\" tab; --colours category|fill colours the containers\n"
-		       "  --paint <category>    paint mode on with that category; --multi <ref> selects more references\n"
-		       "  (no --mod/--cell/--drafts: the start page)\n"
-		       "  --tab <name>          3d, plan, containers, displays, doors or template\n"
-		       "  --select <ref>        select a reference once the cell is open\n"
+		       "  --mod <name or id>    the rail shows that mod's homes; with --cell, the cell is searched in its plugins\n"
+		       "  --cell <cell>         open that cell (a home of the rail opens with its draft)\n"
+		       "  --home <text>         open the first home whose name contains it\n"
+		       "  --drafts              start \"Draft all homes\"; the rail shows the homes without a template\n"
+		       "                        (with --home: that home's Draft panel; --only <text> is the same as --home)\n"
+		       "  --tab <name>          3d or plan (the view); containers, displays, doors or preview (the drawer);\n"
+		       "                        template (the inspector's Template panel)\n"
+		       "  --inspector <panel>   selection, template, draft or checks\n"
+		       "  --select <ref>        select a reference once the cell is open; --multi <ref> selects more\n"
+		       "  --paint <category>    paint mode on with that category\n"
+		       "  --colours <mode>      category or fill: colour the containers\n"
+		       "  --palette             open the command palette (Ctrl+K)\n"
+		       "  --window WxH          the window's client size (e.g. 1280x720)\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
+		       "  (no --mod/--cell/--home/--drafts: the start panel)\n"
 		       "  --help\n";
 	}
 
@@ -625,6 +633,21 @@ namespace dova::editor
 				}
 			} else if (s == "--gui") {
 				a.gui = true;
+			} else if (s == "--home") {
+				a.home = value();
+			} else if (s == "--inspector") {
+				a.inspector = value();
+			} else if (s == "--palette") {
+				a.palette = true;
+			} else if (s == "--window") {
+				if (auto v = value()) {
+					const auto n = Numbers(*v);
+					if (n.size() >= 2 && n[0] >= 320 && n[1] >= 240) {
+						a.window = std::pair{ static_cast<int>(n[0]), static_cast<int>(n[1]) };
+					} else {
+						a.errors.push_back("--window wants WIDTHxHEIGHT (at least 320x240)");
+					}
+				}
 			} else if (s == "--nif-info") {
 				a.nifInfo = value();
 			} else if (s == "--render-cell") {
