@@ -107,10 +107,10 @@ namespace dova::editor::ui
 		_templateAuthor = _state.author;
 		const auto& t = w::Th();
 		if (_state.ui.railWidth <= 0.0f) {
-			_state.ui.railWidth = 280.0f * t.scale;  // docs/EDITOR-UX.md §2.2
+			_state.ui.railWidth = 320.0f * t.scale;  // docs/EDITOR-UX.md §2.2
 		}
 		if (_state.ui.inspectorWidth <= 0.0f) {
-			_state.ui.inspectorWidth = 340.0f * t.scale;
+			_state.ui.inspectorWidth = 380.0f * t.scale;
 		}
 		// The instance remembered from last time, when none is given and none is found (asked once, ui/State).
 		if (!_options.mo2 && !_options.data && !mo2::DetectInstance() && _state.mo2) {
@@ -760,7 +760,7 @@ namespace dova::editor::ui
 		{
 			DrawRail();
 			ImGui::SameLine(0.0f, 0.0f);
-			const float strip = 28.0f * t.scale;
+			const float strip = t.stripW;  // BeginRail's collapsed strip
 			const float inspW = _state.ui.inspectorOpen ? std::clamp(_state.ui.inspectorWidth, 280.0f * t.scale, std::max(280.0f * t.scale, size.x * 0.45f)) : strip;
 			DrawViewport(ImVec2(std::max(ImGui::GetContentRegionAvail().x - inspW, 64.0f), middleH));
 			ImGui::SameLine(0.0f, 0.0f);

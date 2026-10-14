@@ -48,7 +48,7 @@ namespace dova::editor::ui
 		bool                    g_dpiChanged = false;
 
 		// Text size when the setting is Auto: at 100 % Windows scaling a 1440p or 4K monitor still shows the
-		// 15 px body too small to read at arm's length; Windows scaling above 100 % already handles it.
+		// body text too small to read at arm's length; Windows scaling above 100 % already handles it.
 		float AutoTextScaleFor(HMONITOR a_monitor, float a_dpi)
 		{
 			if (a_dpi > 1.05f) {

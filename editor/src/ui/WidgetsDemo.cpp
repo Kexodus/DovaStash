@@ -9,6 +9,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <format>
 #include <mutex>
 
 #include <imgui_internal.h>
@@ -229,10 +230,10 @@ namespace dova::editor::ui::w
 
 			Section("Type");
 			Title("Dova Stash Editor");
-			Heading("Heading · Jost 16");
-			ImGui::TextUnformatted("Body · Jost 15 — Ærø, Fjölnir, Ysgramor's Tomb, naïve façade • ◆ ● ‹ › ▾ ▴ ×");
-			Small("Small · Jost 13 — 89 chests · 170 displays");
-			Mono("Mono · Skyrim.esm|0x000B1B8C  DovaStash_Master");
+			Heading(std::format("Heading · Jost {:.0f}", kHeadingPx).c_str());
+			ImGui::TextUnformatted(std::format("Body · Jost {:.0f} — Ærø, Fjölnir, Ysgramor's Tomb, naïve façade • ◆ ● ‹ › ▾ ▴ ×", kBodyPx).c_str());
+			Small(std::format("Small · Jost {:.0f} — 89 chests · 170 displays", kSmallPx).c_str());
+			Mono(std::format("Mono · {:.0f} · Skyrim.esm|0x000B1B8C  DovaStash_Master", kMonoPx).c_str());
 			Muted("Muted · secondary text");
 
 			Section("Tokens");

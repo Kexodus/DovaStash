@@ -53,7 +53,7 @@ namespace dova::editor::ui
 		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + colW);
 		{
 			const ImVec2 p = ImGui::GetCursorScreenPos();
-			const float  es = 26.0f * t.scale;
+			const float  es = 30.0f * t.scale;  // a little taller than the title
 			w::DrawIcon(ImGui::GetWindowDrawList(), w::Icon::Emblem, p, es, t.accent);
 			ImGui::SetCursorScreenPos(ImVec2(p.x + es + t.pad, p.y));
 			w::Title("Dova Stash Editor");

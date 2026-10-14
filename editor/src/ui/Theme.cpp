@@ -2,6 +2,7 @@
 // them; everything else goes through Widgets.h.
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -72,17 +73,19 @@ namespace dova::editor::ui::w
 			g_theme.viewport = a_c.dark ? g_theme.bg0 : Rgb(0x1c1f24);
 			g_theme.viewportText = a_c.dark ? g_theme.muted : Rgb(0xb4b4b4);
 			g_theme.scale = a_scale;
-			g_theme.rowH = 24.0f * a_scale;
-			g_theme.inputH = 26.0f * a_scale;
-			g_theme.toolbarH = 30.0f * a_scale;
-			g_theme.titleH = 38.0f * a_scale;
-			g_theme.statusH = 24.0f * a_scale;
+			// Heights around the type scale (Widgets.h): a row is the body line plus 10 px, an input 12 px; the bars
+			// hold an input (toolbar), an input and a margin (title row), a small line (status row).
+			g_theme.rowH = 28.0f * a_scale;
+			g_theme.inputH = 30.0f * a_scale;
+			g_theme.toolbarH = 34.0f * a_scale;
+			g_theme.titleH = 42.0f * a_scale;
+			g_theme.statusH = 28.0f * a_scale;
 			g_theme.pad = 8.0f * a_scale;
 			g_theme.gap = 6.0f * a_scale;
 			g_theme.radius = 3.0f * a_scale;
-			g_theme.iconSize = 16.0f * a_scale;
-			g_theme.chipH = 18.0f * a_scale;
-			g_theme.stripW = 28.0f * a_scale;
+			g_theme.iconSize = 18.0f * a_scale;
+			g_theme.chipH = 22.0f * a_scale;  // the small line and 3 px each side
+			g_theme.stripW = 32.0f * a_scale;
 			g_theme.stroke = 1.5f * a_scale;
 			g_theme.shadow = IM_COL32(0, 0, 0, a_c.dark ? 102 : 51);
 		}
@@ -171,6 +174,14 @@ namespace dova::editor::ui::w
 			return font;
 		}
 
+		// A font's size at a scale, in whole pixels: ImGui draws at the rounded size (GetRoundedFontSize) while the
+		// widgets measure with the size the font was added at, so a fraction (Jost 22.5 at 125 %) would measure text
+		// narrower than it draws.
+		float FontPx(float a_px, float a_scale)
+		{
+			return std::max(1.0f, std::round(a_px * a_scale));
+		}
+
 		void LoadFonts(float a_scale)
 		{
 			ImGui::GetIO().Fonts->Clear();  // a second call (new text size or DPI) starts the atlas over
@@ -187,22 +198,22 @@ namespace dova::editor::ui::w
 				cinzelName = jostName;
 			}
 			// The default font first: ImGui falls back to the first font added.
-			g_theme.body = AddFont(jostName, jost, 15.0f * a_scale, true);
-			g_theme.heading = AddFont(jostName, jost, 16.0f * a_scale, true);
-			g_theme.smallFont = AddFont(jostName, jost, 13.0f * a_scale, true);
-			g_theme.title = AddFont(cinzelName, cinzel, 22.0f * a_scale, true);
+			g_theme.body = AddFont(jostName, jost, FontPx(kBodyPx, a_scale), true);
+			g_theme.heading = AddFont(jostName, jost, FontPx(kHeadingPx, a_scale), true);
+			g_theme.smallFont = AddFont(jostName, jost, FontPx(kSmallPx, a_scale), true);
+			g_theme.title = AddFont(cinzelName, cinzel, FontPx(kTitlePx, a_scale), true);
 			auto mono = SystemFont(L"CascadiaMono.ttf");
 			const char* monoName = "Cascadia Mono";
 			if (mono.empty()) {
 				mono = SystemFont(L"consola.ttf");
 				monoName = "Consolas";
 			}
-			g_theme.mono = AddFont(monoName, mono, 13.0f * a_scale, false);
+			g_theme.mono = AddFont(monoName, mono, FontPx(kMonoPx, a_scale), false);
 
 			ImGuiIO& io = ImGui::GetIO();
 			if (!g_theme.body) {
 				ImFontConfig cfg;
-				cfg.SizePixels = 15.0f * a_scale;
+				cfg.SizePixels = FontPx(kBodyPx, a_scale);
 				g_theme.body = io.Fonts->AddFontDefault(&cfg);
 			}
 			if (!g_theme.heading) {
@@ -294,8 +305,8 @@ namespace dova::editor::ui::w
 			s.HoverDelayShort = 0.25f;
 			s.HoverDelayNormal = 0.5f;
 			s.ScaleAllSizes(a_scale);
-			// Exact heights: inputs 26 px and table rows 24 px around the 15 px body font (no truncation).
-			const float body = 15.0f * a_scale;
+			// Exact heights: inputs and table rows (InitTokens) around the body font (no truncation).
+			const float body = FontPx(kBodyPx, a_scale);
 			s.FramePadding.y = std::max(0.0f, (t.inputH - body) * 0.5f);
 			s.CellPadding.y = std::max(0.0f, (t.rowH - body) * 0.5f);
 			s.FontSizeBase = body;

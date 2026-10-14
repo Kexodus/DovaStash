@@ -13,6 +13,7 @@
 #include <cwctype>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <imgui_internal.h>
@@ -204,8 +205,8 @@ namespace dova::editor::ui::w
 			l.chevW = 9.0f * t.scale;
 			l.ts = l.hasText ? TextSize(font, l.label, l.end) : ImVec2(0, 0);
 			l.badgeFont = t.smallFont ? t.smallFont : font;
-			l.badgePx = 11.0f * t.scale;
-			l.badgeH = 15.0f * t.scale;
+			l.badgePx = kBadgePx * t.scale;
+			l.badgeH = std::round((kBadgePx + 5.0f) * t.scale);
 			if (a_s.badge > 0 || (a_s.badgeZero && a_s.badge == 0)) {
 				std::snprintf(l.badge, sizeof(l.badge), "%d", a_s.badge);
 				l.badgeW = std::max(l.badgeH, l.badgeFont->CalcTextSizeA(l.badgePx, FLT_MAX, 0.0f, l.badge).x + 8.0f * t.scale);
@@ -303,7 +304,7 @@ namespace dova::editor::ui::w
 			const float  padX = 8.0f * t.scale;
 			const float  closeW = a_close ? h - 2.0f * t.scale : 0.0f;
 			const ImVec2 size(std::round(ts.x + 2.0f * padX + closeW - (a_close ? 3.0f * t.scale : 0.0f)), h);
-			// Centre the chip on a framed line (26 px): text tops align with SameLine'd frames and text.
+			// Centre the chip on a framed line (an input): text tops align with SameLine'd frames and text.
 			const float baseline = (h - ts.y) * 0.5f;
 			Hit         hit;
 			ImRect      bb;
@@ -441,9 +442,26 @@ namespace dova::editor::ui::w
 
 	void Mono(const char* a_text)
 	{
-		PushFont(Font::Mono);
-		ImGui::TextUnformatted(a_text);
-		PopFont();
+		// The mono line is shorter than the line it sits in (a table row, a label after SameLine): it goes on that
+		// line's baseline, in a line at least as tall, so a form ref stays level with the text beside it.
+		ImGuiWindow* win = ImGui::GetCurrentWindow();
+		if (win->SkipItems) {
+			return;
+		}
+		ImFont*      font = FontOf(Font::Mono);
+		const float  px = font->LegacySize;
+		const float  lineH = ImGui::GetTextLineHeight();
+		const float  dy = std::max(0.0f, std::round(ImGui::GetFontBaked()->Ascent - font->GetFontBaked(px)->Ascent));
+		const ImVec2 pos(win->DC.CursorPos.x, LineTextTop());
+		const float  wrapX = win->DC.TextWrapPos;
+		const float  wrap = wrapX >= 0.0f ? ImGui::CalcWrapWidthForPos(pos, wrapX) : 0.0f;
+		const ImVec2 ts = font->CalcTextSizeA(px, FLT_MAX, wrap, a_text);
+		const ImVec2 size(ts.x, std::max(lineH, dy + ts.y));
+		ImGui::ItemSize(size, 0.0f);
+		if (!ImGui::ItemAdd(ImRect(pos, pos + size), 0)) {
+			return;
+		}
+		win->DrawList->AddText(font, px, detail::Floor(ImVec2(pos.x, pos.y + dy)), ImGui::GetColorU32(ImGuiCol_Text), a_text, nullptr, wrap);
 	}
 
 	void SectionHead(const char* a_text, const char* a_tooltip)
@@ -575,8 +593,8 @@ namespace dova::editor::ui::w
 	{
 		const Theme& t = Th();
 		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
-		const float  px = 11.0f * t.scale;
-		const float  h = 15.0f * t.scale;
+		const float  px = kBadgePx * t.scale;
+		const float  h = std::round((kBadgePx + 5.0f) * t.scale);
 		const ImVec2 ts = font->CalcTextSizeA(px, FLT_MAX, 0.0f, a_text);
 		const float  w = std::round(std::max(h, ts.x + 8.0f * t.scale));
 		ImRect       bb;
@@ -1473,6 +1491,18 @@ namespace dova::editor::ui::w
 		// A soft fade from the view into a darker band so the text reads over any scene.
 		dl->AddRectFilledMultiColor(ImVec2(a_viewportMin.x, y0), a_viewportMax, IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 120), IM_COL32(0, 0, 0, 120));
 		const ImVec2 p(a_viewportMin.x + t.pad + 2.0f * t.scale, a_viewportMax.y - ts.y - 6.0f * t.scale);
+		// A narrow view ends the line in "..." rather than cutting a word.
+		const float right = a_viewportMax.x - t.pad;
+		if (p.x + ts.x > right) {
+			ImGui::PushFont(font, font->LegacySize);
+			for (const auto& [offset, col] : { std::pair{ 1.0f, IM_COL32(0, 0, 0, 160) }, std::pair{ 0.0f, t.viewportText } }) {
+				ImGui::PushStyleColor(ImGuiCol_Text, col);
+				ImGui::RenderTextEllipsis(dl, detail::Floor(p + ImVec2(0, offset)), ImVec2(right, a_viewportMax.y + offset), right, a_text, nullptr, &ts);
+				ImGui::PopStyleColor();
+			}
+			ImGui::PopFont();
+			return;
+		}
 		Text(dl, font, p + ImVec2(0, 1), IM_COL32(0, 0, 0, 160), a_text);
 		Text(dl, font, p, t.viewportText, a_text);
 	}
