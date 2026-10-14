@@ -950,8 +950,8 @@ namespace dova::editor::ui
 		if (w::Shortcut(ImGuiKey_D, true)) {
 			StartBulkDraft();
 		}
-		if (w::Shortcut(ImGuiKey_Equal, true) || w::Shortcut(ImGuiKey_KeypadAdd, true)) {
-			StepTextScale(1);
+		if (w::Shortcut(ImGuiKey_Equal, true) || w::Shortcut(ImGuiKey_Equal, true, true) || w::Shortcut(ImGuiKey_KeypadAdd, true)) {
+			StepTextScale(1);  // Ctrl+= and Ctrl++ (Shift on the same key)
 		}
 		if (w::Shortcut(ImGuiKey_Minus, true) || w::Shortcut(ImGuiKey_KeypadSubtract, true)) {
 			StepTextScale(-1);

@@ -27,9 +27,9 @@ option(DOVASTASH_DEPLOY "Copy DovaStashEditor.exe into DOVASTASH_DEPLOY_DIR/Tool
 set(DOVASTASH_DEPLOY_DIR "E:/modding/Kexodus Skyrim/mods/Dova Stash"
 	CACHE PATH "Mod root to deploy into (the folder that maps onto Skyrim's Data/)")
 if(DOVASTASH_DEPLOY)
+	# A running editor locks its file: the script warns instead of failing the build (editor/cmake/Deploy.cmake).
 	add_custom_command(TARGET DovaStashEditor POST_BUILD
-		COMMAND "${CMAKE_COMMAND}" -E make_directory "${DOVASTASH_DEPLOY_DIR}/Tools"
-		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:DovaStashEditor>" "${DOVASTASH_DEPLOY_DIR}/Tools/"
+		COMMAND "${CMAKE_COMMAND}" "-DEXE=$<TARGET_FILE:DovaStashEditor>" "-DDEPLOY_DIR=${DOVASTASH_DEPLOY_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Deploy.cmake"
 		COMMENT "Deploying DovaStashEditor.exe to ${DOVASTASH_DEPLOY_DIR}/Tools"
 		VERBATIM
 	)

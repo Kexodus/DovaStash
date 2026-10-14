@@ -49,9 +49,8 @@ namespace dova::editor::ui::w
 	void          ApplyTheme(float a_dpiScale, float a_textScale = 1.0f);
 	const Theme&  Th();
 
-	// Text size (Setup, Ctrl+= / Ctrl+-): a factor on top of the DPI, 0 = Auto. The window applies a request
+	// UI size (Setup's slider, Ctrl+= / Ctrl+-): a factor on top of the DPI, 0 = Auto. The window applies a request
 	// between frames (TakePendingTextScale) and sets the Auto value from the monitor at start.
-	constexpr float kTextScales[] = { 1.0f, 1.25f, 1.5f, 1.75f, 2.0f };
 	void                 RequestTextScale(float a_setting);
 	std::optional<float> TakePendingTextScale();
 	float                AutoTextScale();

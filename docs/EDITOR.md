@@ -202,7 +202,7 @@ respawning, scripted and upgrade-removed containers ignored).
 
 The homes rail (§2) lists every player home of the **active load order** (`Workspace::OpenLoadOrder`: the profile's
 plugins in `loadorder.txt` order with the base masters) with its template status; a home gets its draft when it is
-opened, or all of them at once with **Draft all homes**. That is an action, not a view (≡ menu, *Draft* ▾, the start
+opened, or all of them at once with **Draft all homes**. That is an action, not a view (*Draft* ▾, the start
 panel, Ctrl+D, `--drafts`): the drafts are made on a worker with the progress in the status row; then the rail shows
 a *drafted* chip per home and a banner over it offers *Save N drafts...*. It does not advance the homes' stages
 (§3.6). `home::FindAllHomes` reads every interior cell once (the 302 plugins of the test profile
@@ -260,8 +260,8 @@ classified by the real category engine through `esp::ReadItem`) and furniture, w
 container has a stronger claim on), *Reject the weak ones* (under 50%), *Draft again* (from the plugins, after
 editing `DraftRules.json`; asks when the template has changes). Then the master with the first clause of its reason
 (the whole reason and the runners-up in the tooltip; *Use this one* when the template uses another), and per
-container its suggestions as chips shaded by confidence (white: the name says so, light gray: a station or items
-nearby, gray: a hint; the number is the confidence, the legend is the tooltip of the *Containers N of M* head), the source and reason in the
+container its suggestions as chips coloured by confidence (green: the name says so, yellow: a station or items
+nearby, orange: a hint; the legend is the tooltip of the *Containers N of M* head), the source and reason in the
 tooltip; a click accepts or rejects. A click on a container's name selects it in the view (one in another cell of
 the home opens that cell). The draft's displays are a folded list at the end. For a home that has a template: how
 many categories the draft sends to the same container and whether the master is the same (details in the tooltip).
@@ -679,7 +679,7 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
 | Anywhere in a home | Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) / Ctrl+S / Delete / Esc | undo / redo / save the template (asks before overwriting) / remove the selection from the template / close a popover or the palette, then clear the selection |
 | Where items go | R | run the preview again (it re-runs by itself when the template changes) |
 | Everywhere | Ctrl+D / Ctrl+O / F5 | draft all homes / open a template file / rescan the load order |
-| Everywhere | Ctrl+= / Ctrl+- / Ctrl+0 | text size larger / smaller / auto (also under `⚙` Setup › *Text size*; remembered) |
+| Everywhere | Ctrl+= / Ctrl+- / Ctrl+0 | UI size larger / smaller / auto (also the slider under `⚙` Setup › *UI size*; remembered) |
 
 **A 2-minute test**
 

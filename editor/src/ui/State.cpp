@@ -77,7 +77,7 @@ namespace dova::editor::ui
 				ui.drawerHeight = u.value("drawerHeight", ui.drawerHeight);
 				ui.view = std::clamp(u.value("view", ui.view), 0, 1);
 				ui.textScale = u.value("textScale", ui.textScale);
-				if (ui.textScale != 0.0f && (ui.textScale < 0.5f || ui.textScale > 4.0f)) {
+				if (ui.textScale != 0.0f && (ui.textScale < 1.0f || ui.textScale > 2.5f)) {
 					ui.textScale = 0.0f;
 				}
 			}

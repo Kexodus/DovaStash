@@ -211,14 +211,6 @@ namespace dova::editor::ui
 			Rescan();
 		}
 		ImGui::Separator();
-		if (w::MenuRow("Draft all homes", "Ctrl+D", _ws != nullptr)) {
-			StartBulkDraft();
-		}
-		const int saveable = SaveableDrafts();
-		if (w::MenuRow(std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str(), nullptr, saveable > 0)) {
-			_confirmSaveAll = true;
-		}
-		ImGui::Separator();
 		if (w::MenuRow("Undo", "Ctrl+Z", !_undo.empty())) {
 			Undo();
 		}
@@ -280,22 +272,9 @@ namespace dova::editor::ui
 
 	void EditorApp::StepTextScale(int a_dir)
 	{
+		// 10 % a step, 100 to 250 %.
 		const float current = w::Th().textScale;
-		float       next = current;
-		if (a_dir > 0) {
-			for (const float v : w::kTextScales) {
-				if (v > current + 0.01f) {
-					next = v;
-					break;
-				}
-			}
-		} else {
-			for (const float v : w::kTextScales) {
-				if (v < current - 0.01f) {
-					next = v;
-				}
-			}
-		}
+		const float next = std::clamp(std::round((current + 0.1f * static_cast<float>(a_dir)) * 10.0f) / 10.0f, 1.0f, 2.5f);
 		if (next != current) {
 			SetTextScale(next);
 		}
@@ -350,23 +329,25 @@ namespace dova::editor::ui
 			}
 			w::Tip(PathToUtf8(SaveBase()).c_str());
 		}
-		w::FieldLabel("Text size");
+		w::FieldLabel("UI size");
 		{
-			const float setting = _state.ui.textScale;
-			auto        name = [](float a_v) { return std::format("{}%", static_cast<int>(std::lround(a_v * 100.0f))); };
-			const auto  shown = setting > 0.0f ? name(setting) : std::format("Auto ({})", name(w::AutoTextScale()));
-			if (ImGui::BeginCombo("##textsize", shown.c_str())) {
-				if (ImGui::Selectable(std::format("Auto ({})", name(w::AutoTextScale())).c_str(), setting <= 0.0f)) {
+			// The slider shows the size in effect; it applies when the drag ends (each change rebuilds the fonts).
+			if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+				_uiSizeDrag = w::Th().textScale * 100.0f;
+			}
+			const bool  isAuto = _state.ui.textScale <= 0.0f;
+			const auto  label = isAuto ? std::string("Auto") : std::string("Set");
+			w::Slider(label.c_str(), _uiSizeDrag, 100.0f, 250.0f, "%.0f%%", false, "Everything in the window, on top of Windows' scaling. Ctrl+= and Ctrl+- step it; Ctrl+0 is back to Auto");
+			if (ImGui::IsItemDeactivatedAfterEdit()) {
+				SetTextScale(std::round(_uiSizeDrag / 5.0f) * 0.05f);
+			}
+			if (!isAuto) {
+				ImGui::SameLine(0.0f, t.gap);
+				if (w::LinkButton("Auto")) {
 					SetTextScale(0.0f);
 				}
-				for (const float v : w::kTextScales) {
-					if (ImGui::Selectable(name(v).c_str(), setting == v)) {
-						SetTextScale(v);
-					}
-				}
-				ImGui::EndCombo();
+				w::Tip(std::format("{:.0f}% for this monitor", w::AutoTextScale() * 100.0f).c_str());
 			}
-			w::Tip("Auto picks a size for the monitor; Ctrl+= and Ctrl+- step through them (Ctrl+0: Auto)");
 		}
 		ImGui::PopItemWidth();
 		w::Spacer();
@@ -456,7 +437,7 @@ namespace dova::editor::ui
 				{ "S / P", "select / paint" }, { "C / V", "colours by category / by fill" }, { "F / Home", "frame selection / overview" }, { "L", "layers" },
 				{ "Ctrl+S / Ctrl+O / Ctrl+D", "save / open template / draft all" }, { "Ctrl+Z / Ctrl+Y", "undo / redo" }, { "Ctrl+click, drag", "add to selection, box select" },
 				{ "Esc", "close, then clear the selection" }, { "F5", "rescan" }, { "Delete", "remove the selection from the template" },
-				{ "Ctrl+= / Ctrl+- / Ctrl+0", "text size larger / smaller / auto" },
+				{ "Ctrl+= / Ctrl+- / Ctrl+0", "UI size larger / smaller / auto" },
 				{ "Right mouse + WASD / QE", "fly (3D)" }, { "Alt + drag", "orbit (3D)" } };
 			if (ImGui::BeginTable("keys", 2, ImGuiTableFlags_SizingFixedFit)) {
 				for (const auto& k : keys) {

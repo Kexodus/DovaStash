@@ -233,7 +233,8 @@ namespace dova::editor::ui
 		void DrawDraftMenu();     // TitleBar.cpp: Draft ▾
 		void DrawSetupPopover();  // TitleBar.cpp: ⚙
 		void SetTextScale(float a_setting);  // TitleBar.cpp: Text size (0 = Auto), remembered and applied next frame
-		void StepTextScale(int a_dir);       // Ctrl+= / Ctrl+-
+		void StepTextScale(int a_dir);       // Ctrl+= / Ctrl+-: 10 % a step
+		float _uiSizeDrag{ 100.0f };         // the Setup slider while it is dragged (percent)
 		void DrawSetupConfirm();  // TitleBar.cpp
 		void DrawHelpPopups();    // TitleBar.cpp: Shortcuts..., About
 		void ApplySetup(std::optional<std::filesystem::path> a_mo2, std::optional<std::string> a_profile);

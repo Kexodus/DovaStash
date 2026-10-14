@@ -51,10 +51,12 @@ namespace dova::editor::ui::w
 			g_theme.accent = Rgb(0xffffff);  // paper: primary marks, the active control, the selected row
 			g_theme.accentDim = Rgb(0x9c9c9c);
 			g_theme.select = Rgb(0xffffff);
-			g_theme.ok = Rgb(0xd4d4d4);
-			g_theme.warn = Rgb(0xffffff);
-			g_theme.error = Rgb(0xffffff);
-			g_theme.info = Rgb(0x9c9c9c);
+			// Status hues stay for pills, dots and status text: they encode state (drafted, shipped, yours,
+			// saved, a confidence, an error), as the viewport's data colours do.
+			g_theme.ok = Rgb(0x7fbf7f);
+			g_theme.warn = Rgb(0xe0b04a);
+			g_theme.error = Rgb(0xd9634c);
+			g_theme.info = Rgb(0x6fa8dc);
 			g_theme.scale = a_scale;
 			g_theme.rowH = 24.0f * a_scale;
 			g_theme.inputH = 26.0f * a_scale;
