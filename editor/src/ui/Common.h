@@ -17,38 +17,9 @@
 
 namespace dova::editor::ui::detail
 {
-	enum class Layer
-	{
-		Static,
-		Container,
-		Display,
-		Door,
-		Furniture,
-		Other
-	};
-
-	inline Layer LayerOf(const home::PlacedRef& a_ref)
-	{
-		using esp::MakeSig;
-		if (a_ref.display) {
-			return Layer::Display;
-		}
-		if (a_ref.IsContainer()) {
-			return Layer::Container;
-		}
-		switch (a_ref.baseType) {
-		case MakeSig("DOOR"):
-			return Layer::Door;
-		case MakeSig("FURN"):
-		case MakeSig("ACTI"):
-			return Layer::Furniture;
-		case MakeSig("STAT"):
-		case MakeSig("MSTT"):
-			return a_ref.hasBounds && (a_ref.bounds[3] - a_ref.bounds[0]) > 0 ? Layer::Static : Layer::Other;  // markers have no bounds
-		default:
-			return Layer::Other;
-		}
-	}
+	// The Layers popover's groups, one rule for the plan and the 3D view (home::LayerOf).
+	using Layer = home::RefLayer;
+	using home::LayerOf;
 
 	// The plan's colours per layer (the 3D view's outlines use the same).
 	inline ImU32 ColorOf(const home::PlacedRef& a_ref, Layer a_layer)
@@ -69,8 +40,12 @@ namespace dova::editor::ui::detail
 			return IM_COL32(240, 220, 80, 255);
 		case Layer::Furniture:
 			return IM_COL32(140, 150, 220, 200);
-		case Layer::Static:
+		case Layer::Actor:
+			return IM_COL32(220, 110, 220, 200);
+		case Layer::Structure:
 			return IM_COL32(150, 150, 150, 70);
+		case Layer::Effect:
+			return IM_COL32(110, 170, 210, 80);
 		default:
 			return IM_COL32(120, 120, 120, 120);
 		}

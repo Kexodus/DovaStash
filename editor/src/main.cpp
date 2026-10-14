@@ -63,6 +63,7 @@ int wmain(int argc, wchar_t** argv)
 	gui.palette = parsed.palette;
 	gui.popover = parsed.popover;
 	gui.theme = parsed.theme;
+	gui.layers = parsed.layers;
 	gui.sort = parsed.sort;
 	gui.filter = parsed.tableFilter;
 	gui.quick = parsed.quick;

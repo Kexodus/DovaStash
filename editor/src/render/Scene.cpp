@@ -303,34 +303,35 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		if (!a_context && a_cell.refs.empty() && !a_cell.land) {
 			return;
 		}
-		using esp::MakeSig;
 		for (std::size_t i = 0; i < a_cell.refs.size(); ++i) {
 			const auto& r = a_cell.refs[i];
 			SceneRef    s;
 			s.index = a_context ? a_contextIndex-- : static_cast<int>(i);
-			if (r.display) {
+			// The Layers popover's groups, the same rule as the plan (home::LayerOf).
+			switch (home::LayerOf(r)) {
+			case home::RefLayer::Display:
 				s.kind = RefKind::Display;
-			} else if (r.IsContainer()) {
+				break;
+			case home::RefLayer::Container:
 				s.kind = RefKind::Container;
-			} else {
-				switch (r.baseType) {
-				case MakeSig("DOOR"):
-					s.kind = RefKind::Door;
-					break;
-				case MakeSig("FURN"):
-				case MakeSig("ACTI"):
-					s.kind = RefKind::Furniture;
-					break;
-				case MakeSig("NPC_"):
-					s.kind = RefKind::Actor;
-					break;
-				case 0:
-					s.kind = RefKind::Other;
-					break;
-				default:
-					s.kind = RefKind::Structure;
-					break;
-				}
+				break;
+			case home::RefLayer::Door:
+				s.kind = RefKind::Door;
+				break;
+			case home::RefLayer::Furniture:
+				s.kind = RefKind::Furniture;
+				break;
+			case home::RefLayer::Actor:
+				s.kind = RefKind::Actor;
+				break;
+			case home::RefLayer::Effect:
+				s.kind = RefKind::Effect;
+				break;
+			case home::RefLayer::Other:
+				continue;  // markers, trigger volumes, sound and light markers, mesh-less references: invisible in game
+			default:
+				s.kind = RefKind::Structure;
+				break;
 			}
 			s.model = r.model.empty() ? std::string{} : Assets::NormalizeMesh(r.model);
 			const bool marker = IContains(s.model, "marker") || IContains(r.baseEditorId, "marker");
@@ -1060,6 +1061,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 				return o.showFurniture;
 			case RefKind::Actor:
 				return o.showActors;
+			case RefKind::Effect:
+				return o.showEffects;
 			default:
 				return o.showOther;
 			}
@@ -1550,8 +1553,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		// forgotten marker, must not shrink the home to a dot), padded by a tenth of the span.
 		std::array<std::vector<float>, 3> axes;
 		for (const auto& r : _desc.refs) {
-			if (r.kind == RefKind::Other || r.index < 0) {
-				continue;  // neighbour cells are not part of the overview
+			if (r.kind == RefKind::Other || r.kind == RefKind::Effect || r.index < 0) {
+				continue;  // neighbour cells are not part of the overview, nor fog and light volumes
 			}
 			for (std::size_t k = 0; k < 3; ++k) {
 				axes[k].push_back(r.position[k]);

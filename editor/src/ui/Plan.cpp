@@ -1,7 +1,7 @@
 // The floor plan (docs/EDITOR.md §2 step 5, EDITOR-UX.md §2.3): the open cell seen from above, footprints from
 // the base records' bounds turned by each reference's rotation, layers and the height cut from the Layers
-// popover. Select mode: a click selects (containers first, then displays, doors, furniture, structure), a drag
-// boxes containers and displays (Ctrl adds); the right or middle button pans, the wheel zooms.
+// popover. Select mode: a click selects (containers first, then displays, doors, furniture, people, structure),
+// a drag boxes containers and displays (Ctrl adds); the right or middle button pans, the wheel zooms.
 
 #include <algorithm>
 #include <cmath>
@@ -16,20 +16,105 @@ namespace dova::editor::ui
 {
 	using namespace detail;
 
+	namespace
+	{
+		// Which footprint wins under the cursor: what a template uses first, volumes last.
+		int PickPriority(Layer a_layer)
+		{
+			switch (a_layer) {
+			case Layer::Container:
+				return 7;
+			case Layer::Display:
+				return 6;
+			case Layer::Door:
+				return 5;
+			case Layer::Furniture:
+				return 4;
+			case Layer::Actor:
+				return 3;
+			case Layer::Structure:
+				return 2;
+			case Layer::Effect:
+				return 1;
+			default:
+				return 0;
+			}
+		}
+
+		// The footprint's longest side in units (0: no bounds).
+		float FootprintSize(const home::PlacedRef& a_ref)
+		{
+			if (!a_ref.hasBounds) {
+				return 0.0f;
+			}
+			const float w = static_cast<float>(a_ref.bounds[3] - a_ref.bounds[0]);
+			const float h = static_cast<float>(a_ref.bounds[4] - a_ref.bounds[1]);
+			return std::max(w, h) * std::abs(a_ref.scale);
+		}
+	}
+
+	bool EditorApp::PlanShows(Layer a_layer) const
+	{
+		switch (a_layer) {
+		case Layer::Structure:
+			return _view.showStructure;
+		case Layer::Container:
+			return _view.showContainers;
+		case Layer::Display:
+			return _view.showDisplays;
+		case Layer::Door:
+			return _view.showDoors;
+		case Layer::Furniture:
+			return _view.showFurniture;
+		case Layer::Actor:
+			return _view.showActors;
+		case Layer::Effect:
+			return _planEffects;
+		default:
+			return _showMarkers;
+		}
+	}
+
+	unsigned EditorApp::PlanLayers() const
+	{
+		unsigned mask = _view.showDisabled ? 1u << 8 : 0u;
+		for (unsigned l = 0; l <= static_cast<unsigned>(Layer::Other); ++l) {
+			if (PlanShows(static_cast<Layer>(l))) {
+				mask |= 1u << l;
+			}
+		}
+		return mask;
+	}
+
 	void EditorApp::FitPlan(const OpenCell& a_cell, ImVec2 a_size)
 	{
-		// The bounds of what is drawn, without the few references far from the rest (a marker or a prop left
-		// thousands of units away would shrink the home to a dot): 2 % trimmed on each side.
-		std::vector<float> xs, ys;
+		// The bounds of what is shown, without the few references far from the rest (a marker or a prop left
+		// thousands of units away would shrink the home to a dot): 2 % trimmed on each side. Effects and the
+		// "Other" volumes never count (a fog bank or a trigger can be larger than the home), nor a footprint
+		// larger than 40 % of the home (an exterior backdrop, a room-sized volume).
+		_planFitLayers = PlanLayers();
+		std::vector<const home::PlacedRef*> fit;
 		for (const auto& r : a_cell.info.refs) {
-			if (LayerOf(r) == Layer::Other || (r.initiallyDisabled && !_view.showDisabled)) {
-				continue;
+			const auto l = LayerOf(r);
+			if (l != Layer::Effect && l != Layer::Other && PlanShows(l) && (!r.initiallyDisabled || _view.showDisabled)) {
+				fit.push_back(&r);
 			}
-			xs.push_back(r.position[0]);
-			ys.push_back(r.position[1]);
+		}
+		if (fit.empty()) {
+			// Only effects or markers shown: fit to those.
+			for (const auto& r : a_cell.info.refs) {
+				if (PlanShows(LayerOf(r)) && (!r.initiallyDisabled || _view.showDisabled)) {
+					fit.push_back(&r);
+				}
+			}
 		}
 		float minX = -1000.0f, minY = -1000.0f, maxX = 1000.0f, maxY = 1000.0f;
-		if (!xs.empty()) {
+		auto  trimmedRange = [&] {
+			std::vector<float> xs, ys;
+			for (const auto* r : fit) {
+				xs.push_back(r->position[0]);
+				ys.push_back(r->position[1]);
+			}
 			const std::size_t trim = xs.size() >= 20 ? xs.size() / 50 : 0;
 			auto range = [trim](std::vector<float>& a_v, float& a_lo, float& a_hi) {
 				std::ranges::sort(a_v);
@@ -38,13 +123,21 @@ namespace dova::editor::ui
 			};
 			range(xs, minX, maxX);
 			range(ys, minY, maxY);
+		};
+		if (!fit.empty()) {
+			trimmedRange();
+			const float extent = std::max({ maxX - minX, maxY - minY, 200.0f });
+			std::erase_if(fit, [&](const home::PlacedRef* a_ref) { return FootprintSize(*a_ref) > 0.4f * extent; });
+			if (!fit.empty()) {
+				trimmedRange();
+			}
 			// Containers, displays and doors the trim cut off but that lie near the rest stay in view.
 			const float mx = std::max(maxX - minX, 200.0f) * 0.5f, my = std::max(maxY - minY, 200.0f) * 0.5f;
 			const float x0 = minX - mx, x1 = maxX + mx, y0 = minY - my, y1 = maxY + my;
 			for (const auto& r : a_cell.info.refs) {
 				const auto l = LayerOf(r);
-				if ((l == Layer::Container || l == Layer::Display || l == Layer::Door) && r.position[0] >= x0 && r.position[0] <= x1 && r.position[1] >= y0 &&
-					r.position[1] <= y1) {
+				if ((l == Layer::Container || l == Layer::Display || l == Layer::Door) && PlanShows(l) && (!r.initiallyDisabled || _view.showDisabled) &&
+					r.position[0] >= x0 && r.position[0] <= x1 && r.position[1] >= y0 && r.position[1] <= y1) {
 					minX = std::min(minX, r.position[0]);
 					maxX = std::max(maxX, r.position[0]);
 					minY = std::min(minY, r.position[1]);
@@ -80,7 +173,8 @@ namespace dova::editor::ui
 	{
 		// Fitted when the cell opens and on Home, and again while the viewport is still settling (the window, the
 		// rail and the drawer take their sizes in the first frames) until the author pans or zooms.
-		if (_fitPending || (!_planMoved && (std::abs(a_size.x - _fitSize.x) > 0.5f || std::abs(a_size.y - _fitSize.y) > 0.5f))) {
+		// A layer turned on or off re-fits too, until then.
+		if (_fitPending || (!_planMoved && (std::abs(a_size.x - _fitSize.x) > 0.5f || std::abs(a_size.y - _fitSize.y) > 0.5f || PlanLayers() != _planFitLayers))) {
 			FitPlan(a_cell, a_size);
 			_fitPending = false;
 		}
@@ -120,19 +214,18 @@ namespace dova::editor::ui
 			ImVec2 pts[4];
 			bool   poly;
 			ImVec2 at;
+			Layer  layer;
 			int    priority;
 			float  area;
 		};
 		std::vector<Hit> hits;
 		_hoveredRef = -1;
 
-		// Draw in layer order: structure below, what matters on top.
-		const Layer order[] = { Layer::Static, Layer::Other, Layer::Furniture, Layer::Door, Layer::Container, Layer::Display };
+		// Draw in layer order: structure and volumes below, what matters on top. Hidden layers are neither drawn nor
+		// hit (hover, click and box selection only see what is drawn).
+		const Layer order[] = { Layer::Structure, Layer::Other, Layer::Effect, Layer::Furniture, Layer::Actor, Layer::Door, Layer::Container, Layer::Display };
 		for (const auto layer : order) {
-			const bool show = (layer == Layer::Static && _view.showStructure) || (layer == Layer::Container && _view.showContainers) ||
-			                  (layer == Layer::Display && _view.showDisplays) || (layer == Layer::Door && _view.showDoors) ||
-			                  (layer == Layer::Furniture && _view.showFurniture) || (layer == Layer::Other && _showMarkers);
-			if (!show) {
+			if (!PlanShows(layer)) {
 				continue;
 			}
 			for (std::size_t i = 0; i < a_cell.info.refs.size(); ++i) {
@@ -150,7 +243,7 @@ namespace dova::editor::ui
 					col = t ? t : (col & 0x00FFFFFF) | 0x50000000;
 				}
 				const ImVec2 at = toScreen(r.position[0], r.position[1]);
-				Hit          hit{ static_cast<int>(i), {}, false, at, static_cast<int>(layer), 0.0f };
+				Hit          hit{ static_cast<int>(i), {}, false, at, layer, PickPriority(layer), 0.0f };
 				const float  w = static_cast<float>(r.bounds[3] - r.bounds[0]) * r.scale;
 				const float  h = static_cast<float>(r.bounds[4] - r.bounds[1]) * r.scale;
 				if (r.hasBounds && w > 0.0f && h > 0.0f) {
@@ -164,16 +257,16 @@ namespace dova::editor::ui
 					}
 					hit.poly = true;
 					hit.area = w * h;
-					if (layer == Layer::Static || layer == Layer::Furniture || layer == Layer::Other) {
+					if (layer == Layer::Structure || layer == Layer::Furniture || layer == Layer::Effect || layer == Layer::Other) {
 						dl->AddPolyline(hit.pts, 4, col, ImDrawFlags_Closed, 1.0f);
 					} else {
 						dl->AddConvexPolyFilled(hit.pts, 4, (col & 0x00FFFFFF) | 0x90000000);
 						dl->AddPolyline(hit.pts, 4, col, ImDrawFlags_Closed, 1.5f);
 					}
 				} else {
-					dl->AddCircleFilled(at, layer == Layer::Other ? 2.0f : 4.0f, col);
+					dl->AddCircleFilled(at, layer == Layer::Structure || layer == Layer::Effect || layer == Layer::Other ? 2.0f : 4.0f, col);
 				}
-				if (layer != Layer::Static && layer != Layer::Other) {
+				if (layer != Layer::Structure && layer != Layer::Effect && layer != Layer::Other) {
 					dl->AddCircleFilled(at, 2.5f, col);
 				}
 				hits.push_back(hit);
@@ -250,8 +343,7 @@ namespace dova::editor::ui
 			const ImVec2     b = io.MousePos;
 			std::vector<int> inside;
 			for (const auto& h : hits) {
-				const auto layer = static_cast<Layer>(h.priority);
-				if ((layer == Layer::Container || layer == Layer::Display) && h.at.x >= std::min(a.x, b.x) && h.at.x <= std::max(a.x, b.x) &&
+				if ((h.layer == Layer::Container || h.layer == Layer::Display) && h.at.x >= std::min(a.x, b.x) && h.at.x <= std::max(a.x, b.x) &&
 					h.at.y >= std::min(a.y, b.y) && h.at.y <= std::max(a.y, b.y)) {
 					inside.push_back(h.index);
 				}

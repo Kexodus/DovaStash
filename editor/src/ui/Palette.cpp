@@ -68,12 +68,13 @@ namespace dova::editor::ui
 		add("Colours by category", "C", cell, [this] { _colours = Colours::Category; });
 		add("Colours by fill", "V", cell, [this] { _colours = Colours::Fill; });
 		add("Layers off: containers and displays only", "", cell, [this] {
-			_view.showStructure = _view.showDoors = _view.showFurniture = _view.showActors = _view.showEffects = false;
+			_view.showStructure = _view.showDoors = _view.showFurniture = _view.showActors = _view.showEffects = _planEffects = false;
 			_showMarkers = false;
 			_view.showContainers = _view.showDisplays = true;
 		});
 		add("Layers on: everything", "", cell, [this] {
-			_view.showStructure = _view.showContainers = _view.showDisplays = _view.showDoors = _view.showFurniture = _view.showActors = _view.showEffects = true;
+			_view.showStructure = _view.showContainers = _view.showDisplays = _view.showDoors = _view.showFurniture = _view.showActors = _view.showEffects =
+				_planEffects = true;
 		});
 		add("Layers...", "L", cell, [this] { w::OpenPopover("layers"); });
 		add("Homes rail", "Ctrl+1", true, [this] { _state.ui.railOpen = !_state.ui.railOpen; });

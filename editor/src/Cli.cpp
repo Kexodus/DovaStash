@@ -557,6 +557,8 @@ namespace dova::editor
 		       "                        camera, paintcat) for a screenshot\n"
 		       "  --window WxH          the window's client size (e.g. 1280x720)\n"
 		       "  --theme <name>        a colour theme for this run (Setup's Theme list, e.g. \"Windows10 Dark\")\n"
+		       "  --layers <names>      turn layers on, or off with a leading -, comma separated: structure, containers,\n"
+		       "                        displays, doors, furniture, people, disabled, effects, other, terrain\n"
 		       "  --sort <t>:<col>[:desc]  sort a drawer table (containers, displays, doors, preview) by a column\n"
 		       "                        (its header or number); repeat it to add columns\n"
 		       "  --filter <text>       the drawer tab's filter box (every word must match)\n"
@@ -651,6 +653,8 @@ namespace dova::editor
 				a.palette = true;
 			} else if (s == "--popover") {
 				a.popover = value();
+			} else if (s == "--layers") {
+				a.layers = value();
 			} else if (s == "--theme") {
 				if (auto v = value()) {
 					if (!ui::w::FindTheme(*v)) {

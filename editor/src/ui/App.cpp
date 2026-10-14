@@ -194,6 +194,27 @@ namespace dova::editor::ui
 		}
 		_windowSize = a_gui.window;
 		_pendingPopover = a_gui.popover;
+		// --layers: the Layers popover's toggles for this run ("effects,-structure"; Effects is the view's own).
+		if (a_gui.layers) {
+			std::string_view rest = *a_gui.layers;
+			while (!rest.empty()) {
+				const auto       comma = rest.find(',');
+				std::string_view name = rest.substr(0, comma);
+				rest = comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 1);
+				const bool on = !name.starts_with('-');
+				if (!on || name.starts_with('+')) {
+					name.remove_prefix(1);
+				}
+				static constexpr const char* names[] = { "structure", "containers", "displays", "doors", "furniture", "people", "disabled", "effects", "other", "terrain" };
+				bool* flags[] = { &_view.showStructure, &_view.showContainers, &_view.showDisplays, &_view.showDoors, &_view.showFurniture, &_view.showActors,
+					&_view.showDisabled, _state.ui.view == 0 ? &_view.showEffects : &_planEffects, &_showMarkers, &_view.showTerrain };
+				for (std::size_t i = 0; i < std::size(names); ++i) {
+					if (core::IEquals(name, names[i])) {
+						*flags[i] = on;
+					}
+				}
+			}
+		}
 		// The command line's view and drawer are for this run: the file keeps the remembered layout until the author
 		// changes a panel (SaveLayoutState).
 		if (!(remembered == _state.ui)) {
@@ -636,7 +657,7 @@ namespace dova::editor::ui
 				_zMin = FLT_MAX;
 				_zMax = -FLT_MAX;
 				for (const auto& r : _cell->info.refs) {
-					if (LayerOf(r) != Layer::Other) {
+					if (const auto l = LayerOf(r); l != Layer::Other && l != Layer::Effect) {
 						_zMin = std::min(_zMin, r.position[2]);
 						_zMax = std::max(_zMax, r.position[2]);
 					}
@@ -872,10 +893,14 @@ namespace dova::editor::ui
 		w::Check("Displays", _view.showDisplays);
 		w::Check("Doors", _view.showDoors);
 		w::Check("Furniture", _view.showFurniture);
-		w::Check("People", _view.showActors, "Actors (3D view)");
-		w::Check("Disabled", _view.showDisabled, "Initially disabled references: house upgrades, things a quest adds later (3D view)");
-		w::Check("Effects", _view.showEffects, "Glows, flames, fog and light rays (3D view)");
-		w::Check("Other", _showMarkers, "Markers and references without bounds (plan)");
+		w::Check("People", _view.showActors, "NPCs placed in the cell (mannequins are displays)");
+		w::Check("Disabled", _view.showDisabled, "Initially disabled references: house upgrades, things a quest adds later");
+		if (_state.ui.view == 0) {
+			w::Check("Effects", _view.showEffects, "Glows, flames, fog, mist and light rays (3D view; the plan has its own)");
+		} else {
+			w::Check("Effects", _planEffects, "Fog, mist, glows, light rays and lights: their volumes (plan; the 3D view has its own)");
+		}
+		w::Check("Other", _showMarkers, "Markers, trigger volumes, room bounds, references without a mesh (plan)");
 		if (!a_cell.info.interior) {
 			w::Check(std::format("Terrain (+{} cells around)", a_cell.context.size()).c_str(), _view.showTerrain);
 		}

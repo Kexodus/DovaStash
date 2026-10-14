@@ -119,7 +119,7 @@ The rail's, inspector's and drawer's sizes, which are open, and the view persist
    WhitepeakTowerExterior01*). A double click on a row opens that cell (*Back* returns); its tick joins it to the
    home.
 5. **Select.** A click in the plan or the 3D view selects the object under the cursor: containers first, then
-   displays, doors, furniture, structure; Ctrl+click adds, a drag boxes. The Selection panel shows what it is and
+   displays, doors, furniture, people, structure; Ctrl+click adds, a drag boxes. The Selection panel shows what it is and
    lets the author give it a role (§3.1). The drawer's tables (Containers, Displays) select the same objects, so a
    hidden chest is reachable even when it cannot be clicked. `S` toggles *Pick anything* (3D: walls and clutter
    too) or *Left drag pans* (plan).
@@ -477,8 +477,18 @@ data already in the plugins: position, Z rotation, scale, and the base record's 
 footprint. Structure (statics) as faint outlines gives the room shapes; containers green (respawning
 red), racks blue, mannequins magenta, plaques/cases/bookshelves orange, doors yellow, furniture lavender. Wheel zoom,
 right/middle-drag pan, a scale bar, a height range to isolate one floor of a tower, layer toggles, hover
-tooltips, click-to-select. To do in M1: automatic floors (clusters of floor heights), labels at higher
-zoom, selection synced with the tables, the role editor in the Selection panel, a marker for objects a later
+tooltips, click-to-select. **Layers** (the *Layers* popover, `L`), one rule for the plan and the 3D view
+(`home::LayerOf`): *Structure* (statics, clutter, loose items, plants, candles and lanterns), *Containers*,
+*Displays*, *Doors*, *Furniture* (furniture, crafting stations and sit markers, activators with a mesh), *People*
+(NPCs; mannequins are displays), *Disabled* (initially disabled references), *Effects* (fog, mist, glows, light rays
+and dust beams: an `FX` EditorID, a mist, fog, glow or light-ray name, or a mesh under `meshes\effects`; light
+emitters, sounds, explosions, hazards) and *Other* (markers such as room and portal bounds, idle markers and
+xmarkers; trigger volumes such as `defaultBlankTrigger` and Hearthfire's crafting triggers; activators and statics
+without a mesh). The plan has its own *Effects*, off when the editor starts (their volumes cover the rooms), and
+*Other*, off too; the rest are shared with the 3D view. A hidden layer is neither drawn, hovered nor clicked, and
+the fit (on opening, on `Home`, and after a layer change until the author pans or zooms) counts the shown layers
+only, never effects or *Other*, nor a footprint larger than 40 % of the home. To do in M1: automatic floors
+(clusters of floor heights), labels at higher zoom, selection synced with the tables, the role editor in the Selection panel, a marker for objects a later
 plugin edits, and rotation on X/Y for tilted footprints (verify the Z-rotation direction against a known
 asymmetric object; the footprints of Whitepeak's walls line up, which suggests it is right).
 
@@ -510,8 +520,8 @@ selection for both and for the tables. What is in:
   triggers, mesh-less activators) as see-through boxes in the plan's colours, room-sized volumes as outlines
   only; markers, sound and light markers are left out. *Disabled* hides initially disabled references (house
   upgrades). *Height* reuses the plan's height range to cut a tower into floors. *Effects* hides glows, fog and
-light rays (drawn at half strength: the editor has no scene lighting to balance them); *Light* sets how bright
-the editor's light is.
+light rays, the effect shaders and the *Effects* layer's references (drawn at half strength: the editor has no
+scene lighting to balance them); *Light* sets how bright the editor's light is.
 - **Exteriors:** the cell's terrain from LAND (heights, normals, vertex colours, base texture), from the parent
   worldspace when the cell has none (walled cities such as Whiterun), and the 8 cells around it drawn as
   surroundings (not selectable).
@@ -588,8 +598,11 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    3d|plan` (the view), `--tab containers|displays|doors|preview` (the drawer on that tab), `--tab template` or
    `--inspector selection|template|draft|checks` (the inspector's panel), `--select <ref>` / `--multi <ref>`,
    `--paint <category>`, `--colours category|fill`, `--palette` (the command palette open), `--popover <id>` (`menu`,
-   `setup`, `switcher`, `filter`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`), `--window WxH` (the
-   client size), `--theme <name>` (a colour theme for this run, EDITOR-UX.md §3.1; the remembered one stays),
+   `setup`, `switcher`, `filter`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`), `--layers <names>` (layers
+   on, or off with a leading `-`, comma separated: `structure`, `containers`, `displays`, `doors`, `furniture`,
+   `people`, `disabled`, `effects` (the view's own), `other`, `terrain`; e.g. `--tab plan --layers effects,-structure`),
+   `--window WxH` (the client size), `--theme <name>` (a colour theme for this run, EDITOR-UX.md §3.1; the
+   remembered one stays),
    `--sort <table>:<column>[:desc]` (a drawer table sorted by a column, its header or number; repeat it for more
    columns), `--filter <text>` and `--quick <chip>` (the drawer tab's filter box and quick filters, `--popover kind`
    opens the Kind list); like `--tab` they apply once, for that run;

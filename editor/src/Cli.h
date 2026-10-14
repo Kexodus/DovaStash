@@ -59,6 +59,7 @@ namespace dova::editor
 		std::optional<std::string> popover;             // --gui --popover <id>: a popover open (screenshots of the guide)
 		std::optional<std::pair<int, int>> window;      // --gui --window WxH: the window's client size
 		std::optional<std::string> theme;               // --gui --theme <name>: a colour theme for this run
+		std::optional<std::string> layers;              // --gui --layers <names>: Layers popover toggles ("effects,-structure")
 		std::vector<std::string>   sort;                // --gui --sort table:column[:desc] (repeatable: more columns)
 		std::optional<std::string> tableFilter;         // --gui --filter <text>: the drawer tab's filter box
 		std::vector<std::string>   quick;               // --gui --quick <chip> (repeatable): the drawer tab's quick filters

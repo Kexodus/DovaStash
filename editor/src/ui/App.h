@@ -65,6 +65,7 @@ namespace dova::editor::ui
 		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat
 		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
 		std::optional<std::string> theme;     // a colour theme for this run (ui/Themes.h); the remembered one stays
+		std::optional<std::string> layers;    // Layers popover toggles for this run: "effects,-structure" (names, - turns off)
 		std::vector<std::string>   sort;      // drawer tables' sort for this run: "table:column[:desc]" (ui/Tables.h)
 		std::optional<std::string> filter;    // the drawer tab's filter box
 		std::vector<std::string>   quick;     // the drawer tab's quick filters on (chip labels)
@@ -394,7 +395,13 @@ namespace dova::editor::ui
 		bool  _fitPending{ true };
 		bool  _planMoved{ false };  // panned or zoomed since the last fit (no more re-fits on resize)
 		ImVec2 _fitSize{};          // the viewport size of the last fit
-		bool  _showMarkers{ false };  // the plan's "Other": markers and references without bounds
+		bool  _showMarkers{ false };  // the plan's "Other": markers, trigger volumes, references without a mesh
+		// The plan's layers (Plan.cpp): its own Effects, off at first (fog and light volumes cover the rooms; the 3D
+		// view's is _view.showEffects), the others shared with the 3D view.
+		bool                   _planEffects{ false };
+		unsigned               _planFitLayers{ 0 };  // the layers of the last fit: a change re-fits until the author pans or zooms
+		[[nodiscard]] bool     PlanShows(home::RefLayer a_layer) const;
+		[[nodiscard]] unsigned PlanLayers() const;
 
 		// 3D view state
 		ID3D11Device*                  _device{ nullptr };

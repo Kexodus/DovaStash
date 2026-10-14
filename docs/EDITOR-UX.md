@@ -117,6 +117,13 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 > the containers, displays and doors near the rest; it re-fits while the viewport settles until the author pans or
 > zooms, and on `Home`.
 
+> **Built:** the *Layers* popover keeps its nine checkboxes, and one rule (`home::LayerOf`, EDITOR.md §4.5) puts a
+> reference in them for both views: effects (fog, mist, glows, light beams, light emitters) under *Effects*, trigger
+> volumes, markers and room bounds under *Other*. *Effects* is per view: the plan's starts off (their volumes covered
+> the rooms in faint boxes), the 3D view's on; the popover shows the one of the current view. *Other* is the plan's
+> only (off). Hidden layers are not hovered or clicked, and a layer change re-fits the plan, never to an effect or a
+> trigger, until the author pans or zooms. `--layers` sets them for one run.
+
 ### 2.4 Right inspector (Ctrl+3 toggles, 340 px, remembers width)
 
 A segmented control at the top: **Selection · Template · Draft · Checks**. Each is a scrolling panel.

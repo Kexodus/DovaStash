@@ -58,6 +58,20 @@ namespace dova::editor::home
 		[[nodiscard]] bool IsContainer() const noexcept;
 	};
 
+	// The groups of the Layers popover (docs/EDITOR.md §4.5): one rule for the plan and the 3D view.
+	enum class RefLayer : std::uint8_t
+	{
+		Structure,  // walls, floors, clutter, loose items, plants, candles and lanterns: what has a mesh and no role
+		Container,
+		Display,
+		Door,
+		Furniture,  // furniture, crafting stations, activators with a mesh
+		Actor,      // people (mannequins are displays)
+		Effect,     // fog, mist, glows, light rays (FX statics and meshes), light emitters, sounds, explosions, hazards
+		Other       // markers, trigger volumes, room and portal bounds, references without a mesh or a base
+	};
+	[[nodiscard]] RefLayer LayerOf(const PlacedRef& a_ref);
+
 	struct DoorLink
 	{
 		esp::FormKey                door;
