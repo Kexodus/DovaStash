@@ -176,6 +176,8 @@ namespace dova::editor::ui::w
 	// Usage: if (BeginPopover("layers", "Layers", Icon::Layers)) { ...; EndPopover(); }
 	bool BeginPopover(const char* a_id, const char* a_label, Icon a_icon = Icon::ChevronDown, int a_badge = 0, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
 	void EndPopover();
+	// The width BeginPopover's button takes with these arguments (a row reserving room for it and its badge).
+	[[nodiscard]] float PopoverWidth(const char* a_label, Icon a_icon = Icon::ChevronDown, int a_badge = 0);
 	// Opens the popover `a_id` on the next frame (a shortcut key).
 	void OpenPopover(const char* a_id);
 

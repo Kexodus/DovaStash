@@ -296,14 +296,16 @@ namespace dova::editor::ui
 				}
 				// Search and filters (the rail focused: Up/Down/Enter walk the list).
 				_railKeys = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-				const float filterW = t.toolbarH - 4.0f * t.scale;
+				// The funnel's width with its count badge: the badge widens the button, and the rail clips what does not fit.
+				const int   filters = ActiveFilterCount();
+				const float filterW = w::PopoverWidth(nullptr, w::Icon::Filter, filters);
 				if (_railFocusSearch) {
 					ImGui::SetKeyboardFocusHere();
 					_railFocusSearch = false;
 				}
 				w::SearchBox("railsearch", _railSearch, "Home, mod, plugin, Nexus id", ImGui::GetContentRegionAvail().x - filterW - t.gap);
 				ImGui::SameLine(0.0f, t.gap);
-				if (w::BeginPopover("filter", nullptr, w::Icon::Filter, ActiveFilterCount(), "Filter")) {
+				if (w::BeginPopover("filter", nullptr, w::Icon::Filter, filters, "Filter")) {
 					w::Check("Only homes without a template", _onlyWithoutTemplate);
 					w::Check("Only enabled mods", _onlyEnabled, "Mods without homes found by the search: only the enabled ones");
 					w::Check("Likely homes only", _likelyOnly, "All cells...: a player-house location, owned by the player, or mannequins where nothing respawns");

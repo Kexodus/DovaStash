@@ -173,42 +173,79 @@ namespace dova::editor::ui::w
 			const char* shortcut{ nullptr };
 		};
 
-		bool FlatButton(const FlatSpec& a_s)
+		// The flat button's metrics, shared by FlatButton and FlatWidth (a row reserving room for it).
+		struct FlatLayout
+		{
+			const char* label{ nullptr };
+			const char* end{ nullptr };
+			bool        hasText{ false };
+			float       padX{ 0.0f };
+			float       chevW{ 0.0f };
+			ImVec2      ts{ 0, 0 };
+			char        badge[16]{};
+			float       badgeW{ 0.0f };
+			float       badgeH{ 0.0f };
+			float       badgePx{ 0.0f };
+			ImFont*     badgeFont{ nullptr };
+			float       w{ 0.0f };
+		};
+
+		FlatLayout MeasureFlat(const FlatSpec& a_s)
 		{
 			const Theme& t = Th();
-			const char*  label = a_s.label ? a_s.label : "";
-			const char*  end = LabelEnd(label);
-			const bool   hasText = end > label;
-			ImFont*      font = ImGui::GetFont();
-			const float  h = t.inputH;
-			const float  is = t.iconSize;
-			const float  padX = hasText ? 10.0f * t.scale : (h - is) * 0.5f;
-			const float  chevW = 9.0f * t.scale;
-			const ImVec2 ts = hasText ? TextSize(font, label, end) : ImVec2(0, 0);
-			char         badge[16]{};
-			float        badgeW = 0.0f;
-			ImFont*      badgeFont = t.smallFont ? t.smallFont : font;
-			const float  badgePx = 11.0f * t.scale;
-			const float  badgeH = 15.0f * t.scale;
+			FlatLayout   l;
+			l.label = a_s.label ? a_s.label : "";
+			l.end = LabelEnd(l.label);
+			l.hasText = l.end > l.label;
+			ImFont*     font = ImGui::GetFont();
+			const float h = t.inputH;
+			const float is = t.iconSize;
+			l.padX = l.hasText ? 10.0f * t.scale : (h - is) * 0.5f;
+			l.chevW = 9.0f * t.scale;
+			l.ts = l.hasText ? TextSize(font, l.label, l.end) : ImVec2(0, 0);
+			l.badgeFont = t.smallFont ? t.smallFont : font;
+			l.badgePx = 11.0f * t.scale;
+			l.badgeH = 15.0f * t.scale;
 			if (a_s.badge > 0 || (a_s.badgeZero && a_s.badge == 0)) {
-				std::snprintf(badge, sizeof(badge), "%d", a_s.badge);
-				badgeW = std::max(badgeH, badgeFont->CalcTextSizeA(badgePx, FLT_MAX, 0.0f, badge).x + 8.0f * t.scale);
+				std::snprintf(l.badge, sizeof(l.badge), "%d", a_s.badge);
+				l.badgeW = std::max(l.badgeH, l.badgeFont->CalcTextSizeA(l.badgePx, FLT_MAX, 0.0f, l.badge).x + 8.0f * t.scale);
 			}
-			float w = padX * 2.0f;
+			float w = l.padX * 2.0f;
 			if (a_s.hasIcon) {
 				w += is;
 			}
-			if (hasText) {
-				w += ts.x + (a_s.hasIcon ? 6.0f * t.scale : 0.0f);
+			if (l.hasText) {
+				w += l.ts.x + (a_s.hasIcon ? 6.0f * t.scale : 0.0f);
 			}
-			if (badgeW > 0.0f) {
-				w += badgeW + 5.0f * t.scale;
+			if (l.badgeW > 0.0f) {
+				w += l.badgeW + 5.0f * t.scale;
 			}
 			if (a_s.chevron) {
-				w += chevW + 5.0f * t.scale;
+				w += l.chevW + 5.0f * t.scale;
 			}
-			Hit hit;
-			if (!Item(hasText ? label : a_s.id, ImVec2(std::round(w), h), hit, ImGui::GetStyle().FramePadding.y)) {
+			l.w = std::round(w);
+			return l;
+		}
+
+		bool FlatButton(const FlatSpec& a_s)
+		{
+			const Theme&      t = Th();
+			const FlatLayout  l = MeasureFlat(a_s);
+			const char* const label = l.label;
+			const char* const end = l.end;
+			const bool        hasText = l.hasText;
+			ImFont*           font = ImGui::GetFont();
+			const float       h = t.inputH;
+			const float       is = t.iconSize;
+			const float       padX = l.padX;
+			const ImVec2      ts = l.ts;
+			const char* const badge = l.badge;
+			const float       badgeW = l.badgeW;
+			ImFont*           badgeFont = l.badgeFont;
+			const float       badgePx = l.badgePx;
+			const float       badgeH = l.badgeH;
+			Hit               hit;
+			if (!Item(hasText ? label : a_s.id, ImVec2(l.w, h), hit, ImGui::GetStyle().FramePadding.y)) {
 				return false;
 			}
 			ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -1123,20 +1160,34 @@ namespace dova::editor::ui::w
 
 	// ---- Popovers ----
 
+	namespace
+	{
+		FlatSpec PopoverSpec(const char* a_label, Icon a_icon, int a_badge)
+		{
+			const bool hasLabel = a_label && *a_label;
+			FlatSpec   s;
+			s.label = hasLabel ? a_label : nullptr;
+			s.id = "btn";
+			s.hasIcon = !hasLabel || a_icon != Icon::ChevronDown;
+			s.icon = a_icon;
+			s.chevron = hasLabel;
+			s.badge = a_badge;
+			return s;
+		}
+	}
+
+	float PopoverWidth(const char* a_label, Icon a_icon, int a_badge)
+	{
+		return MeasureFlat(PopoverSpec(a_label, a_icon, a_badge)).w;
+	}
+
 	bool BeginPopover(const char* a_id, const char* a_label, Icon a_icon, int a_badge, const char* a_tooltip, const char* a_shortcut)
 	{
 		const Theme& t = Th();
 		ImGui::PushID(a_id);
 		const bool wasOpen = ImGui::IsPopupOpen("pop");
-		const bool hasLabel = a_label && *a_label;
-		FlatSpec   s;
-		s.label = hasLabel ? a_label : nullptr;
-		s.id = "btn";
-		s.hasIcon = !hasLabel || a_icon != Icon::ChevronDown;
-		s.icon = a_icon;
+		FlatSpec   s = PopoverSpec(a_label, a_icon, a_badge);
 		s.open = wasOpen;
-		s.chevron = hasLabel;
-		s.badge = a_badge;
 		s.tooltip = a_tooltip;
 		s.shortcut = a_shortcut;
 		const bool clicked = FlatButton(s);
