@@ -26,11 +26,12 @@ namespace dova::editor::ui::wx
 	// orange (a hint).
 	[[nodiscard]] Kind ConfidenceKind(float a_confidence);
 
-	// A row of the homes rail: name, a muted summary after it (clipped), a status chip at the right and the
-	// unsaved dot. `a_selected` (the open home) is drawn in accent, `a_cursor` (keyboard) with an outline.
-	// Returns true on a left click; right-click it with ImGui::BeginPopupContextItem() after.
-	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_chip, Kind a_chipKind, bool a_selected, bool a_cursor, bool a_unsaved,
-		bool a_dim = false);
+	// A row of the homes rail: name, a muted summary after it, a status chip at the right and the unsaved dot.
+	// The summary falls back to `a_summaryShort` when it does not fit, then ends in "…". `a_selected` (the open
+	// home) is drawn in accent, `a_cursor` (keyboard) with an outline. Returns true on a left click; right-click
+	// it with ImGui::BeginPopupContextItem() after.
+	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
+		bool a_cursor, bool a_unsaved, bool a_dim = false);
 
 	// A collapsible group heading in a list (a mod): chevron, name, muted note. Toggles `a_open` on click.
 	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open);

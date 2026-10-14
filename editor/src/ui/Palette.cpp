@@ -108,7 +108,7 @@ namespace dova::editor::ui
 		add("Remove the selection from the template", "Delete", cell && !Selection().empty(), [this] { RequestDelete(); });
 		add("Make the nearest chest the master", "", cell && idle, [this] { MakeNearestMaster(*_cell); });
 		add("Start", "", true, [this] { _showStart = true; });
-		add("Setup", "", true, [this] { wx::OpenPopoverRight("setup"); });
+		add("Setup", "", true, [this] { w::OpenPopover("setup"); });
 		add("Shortcuts", "", true, [this] { _showShortcuts = true; });
 		return out;
 	}

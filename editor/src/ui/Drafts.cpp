@@ -113,6 +113,34 @@ namespace dova::editor::ui
 				progress->total = a_total;
 				setStage(a_stage);
 			});
+			// The rail's storage summary: the containers and displays a template can use (HomeEntry counts every
+			// container reference, respawning barrels and upgrade leftovers included).
+			setStage("counting storage");
+			data->storage.resize(data->homes.size());
+			for (std::size_t i = 0; i < data->homes.size(); ++i) {
+				const auto& h = data->homes[i];
+				auto&       st = data->storage[i];
+				std::vector<esp::FormKey> cells{ h.cell };
+				for (const auto& x : h.extra) {
+					cells.push_back(x.cell);
+				}
+				for (const auto& key : cells) {
+					const auto cell = home::LoadCell(*data->lo, key, home::LoadCellOptions{ .resolveDoors = false });
+					if (!cell) {
+						continue;
+					}
+					for (const auto& r : cell->refs) {
+						if (r.deleted || (r.enableParent && r.enableOpposite)) {
+							continue;  // gone, or removed by a house upgrade
+						}
+						if (r.display) {
+							++st.displays;
+						} else if (r.IsContainer() && !r.respawns && !r.ownedByOther) {
+							++st.containers;
+						}
+					}
+				}
+			}
 			setStage("reading templates and items");
 			progress->total = 0;
 			data->templates = home::LoadTemplateIndex(*ws);

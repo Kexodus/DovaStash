@@ -45,8 +45,8 @@ namespace dova::editor::ui::wx
 		return a_confidence >= 0.75f ? Kind::Ok : a_confidence >= 0.5f ? Kind::Warn : Kind::Error;
 	}
 
-	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_chip, Kind a_chipKind, bool a_selected, bool a_cursor, bool a_unsaved,
-		bool a_dim)
+	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
+		bool a_cursor, bool a_unsaved, bool a_dim)
 	{
 		const auto& t = w::Th();
 		ImGui::PushID(a_id);
@@ -81,21 +81,33 @@ namespace dova::editor::ui::wx
 			ImGui::PopFont();
 			right = c0.x - t.gap;
 		}
-		// Name, dot, summary (clipped before the chip).
-		dl->PushClipRect(p, ImVec2(std::max(right, p.x + 1.0f), q.y), true);
+		// Name, dot, summary (the short form, then "…", when it does not fit before the chip).
+		const float maxX = std::max(right, p.x + 1.0f);
+		dl->PushClipRect(p, ImVec2(maxX, q.y), true);
 		const float ty = p.y + (h - ImGui::GetTextLineHeight()) * 0.5f;
 		float       x = p.x + t.pad;
-		dl->AddText(ImVec2(x, ty), a_dim ? t.muted : t.text, a_name);
-		x += ImGui::CalcTextSize(a_name).x;
+		const ImVec2 ns = ImGui::CalcTextSize(a_name);
+		ImGui::PushStyleColor(ImGuiCol_Text, a_dim ? t.muted : t.text);
+		ImGui::RenderTextEllipsis(dl, ImVec2(x, ty), ImVec2(maxX, q.y), maxX, a_name, nullptr, &ns);
+		ImGui::PopStyleColor();
+		x += ns.x;
 		if (a_unsaved) {
 			const float r = 3.0f * t.scale;
 			dl->AddCircleFilled(ImVec2(x + r + 3.0f * t.scale, p.y + h * 0.5f), r, t.warn);
 			x += 2.0f * r + 4.0f * t.scale;
 		}
-		if (a_summary && *a_summary) {
+		if (a_summary && *a_summary && x + t.gap < maxX) {
 			ImGui::PushFont(t.smallFont);
-			const float sy = p.y + (h - ImGui::GetTextLineHeight()) * 0.5f;
-			dl->AddText(ImVec2(x + t.gap, sy), t.muted, a_summary);
+			const char* text = a_summary;
+			const float room = maxX - x - t.gap;
+			if (ImGui::CalcTextSize(text).x > room && a_summaryShort && *a_summaryShort) {
+				text = a_summaryShort;
+			}
+			const ImVec2 ss = ImGui::CalcTextSize(text);
+			const float  sy = p.y + (h - ss.y) * 0.5f;
+			ImGui::PushStyleColor(ImGuiCol_Text, t.muted);
+			ImGui::RenderTextEllipsis(dl, ImVec2(x + t.gap, sy), ImVec2(maxX, q.y), maxX, text, nullptr, &ss);
+			ImGui::PopStyleColor();
 			ImGui::PopFont();
 		}
 		dl->PopClipRect();

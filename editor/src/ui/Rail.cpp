@@ -26,9 +26,11 @@ namespace dova::editor::ui
 
 	namespace
 	{
-		std::string Summary(int a_containers, int a_displays)
+		// "24 chests · 9 displays"; the short form (a narrow rail) drops the displays.
+		std::string Summary(int a_containers, int a_displays, bool a_short = false)
 		{
-			return a_displays > 0 ? std::format("{} chests · {} displays", a_containers, a_displays) : std::format("{} chests", a_containers);
+			const auto chests = std::format("{} {}", a_containers, a_containers == 1 ? "chest" : "chests");
+			return a_displays > 0 && !a_short ? std::format("{} · {} {}", chests, a_displays, a_displays == 1 ? "display" : "displays") : chests;
 		}
 	}
 
@@ -359,9 +361,11 @@ namespace dova::editor::ui
 			w::Kind     kind = w::Kind::Neutral;
 			const auto  chip = HomeChip(a_i, &kind);
 			const auto  name = h.extra.empty() ? h.name : std::format("{} +{}", h.name, h.extra.size());
-			const auto  summary = Summary(h.containers, h.displays);
+			const auto  st = a_i < static_cast<int>(_homes->storage.size()) ? _homes->storage[static_cast<std::size_t>(a_i)] : HomesData::Storage{ h.containers, h.displays };
+			const auto  summary = a_compact ? std::string{} : Summary(st.containers, st.displays);
+			const auto  summaryShort = a_compact ? std::string{} : Summary(st.containers, st.displays, true);
 			ImGui::PushID(a_i);
-			if (wx::HomeRow("home", name.c_str(), a_compact ? "" : summary.c_str(), chip.c_str(), kind, IsOpenHome(a_i), _railCursor == a_i, HomeUnsaved(a_i))) {
+			if (wx::HomeRow("home", name.c_str(), summary.c_str(), summaryShort.c_str(), chip.c_str(), kind, IsOpenHome(a_i), _railCursor == a_i, HomeUnsaved(a_i))) {
 				_railCursor = a_i;
 				OpenHome(a_i);
 				if (a_compact) {
@@ -504,7 +508,8 @@ namespace dova::editor::ui
 				const auto label = std::format("{}{}", h.name.empty() ? h.editorId : h.name, h.interior ? "" : " (exterior)");
 				const bool open = _cell && _cell->info.key == h.cell && _cell->lo == scan.lo;
 				const auto score = std::format("score {}", h.score);
-				if (wx::HomeRow("cell", label.c_str(), Summary(h.containers, h.racks + h.mannequins + h.plaques).c_str(), score.c_str(),
+				const int  usable = h.containers - h.respawning;
+				if (wx::HomeRow("cell", label.c_str(), Summary(usable, h.racks + h.mannequins + h.plaques).c_str(), Summary(usable, 0, true).c_str(), score.c_str(),
 						h.Likely() ? w::Kind::Accent : w::Kind::Neutral, open, false, false, !h.Likely()) &&
 					scan.lo) {
 					RequestNewHome(scan.lo, h.cell);

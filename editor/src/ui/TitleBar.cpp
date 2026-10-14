@@ -161,7 +161,7 @@ namespace dova::editor::ui
 		}
 		ImGui::SetCursorPos(ImVec2(std::max(rightX, _titleLeftW + t.pad), y));
 		const float rightStart = ImGui::GetCursorScreenPos().x;
-		if (wx::BeginPopoverRight("draftmenu", "Draft", w::Icon::Draft, "Suggestions for the containers", "Ctrl+D: all homes")) {
+		if (w::BeginPopover("draftmenu", "Draft", w::Icon::Draft, 0, "Suggestions for the containers", "Ctrl+D all homes")) {
 			DrawDraftMenu();
 			w::EndPopover();
 		}
@@ -174,7 +174,7 @@ namespace dova::editor::ui
 			w::Tip(std::format("Save the template  Ctrl+S\n{}", PathToUtf8(TemplatePath(*_cell))).c_str());
 		}
 		ImGui::SameLine(0.0f, t.gap);
-		const bool setupOpen = wx::BeginPopoverRight("setup", nullptr, w::Icon::Settings, "Setup");
+		const bool setupOpen = w::BeginPopover("setup", nullptr, w::Icon::Settings, 0, "Setup");
 		if (setupOpen) {
 			if (!_setupWasOpen) {
 				_setupPathAtOpen = _mo2Path;

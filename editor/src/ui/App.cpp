@@ -664,7 +664,6 @@ namespace dova::editor::ui
 		if (_pendingPopover && _homes && !Busy() && _queue.empty() && !_pendingCell && !_pendingHome) {
 			const auto id = *std::exchange(_pendingPopover, std::nullopt);  // --popover
 			w::OpenPopover(id.c_str());
-			wx::OpenPopoverRight(id.c_str());
 		}
 		const auto&          t = w::Th();
 		const ImGuiViewport* vp = ImGui::GetMainViewport();

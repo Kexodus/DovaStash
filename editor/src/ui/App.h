@@ -116,6 +116,11 @@ namespace dova::editor::ui
 			std::shared_ptr<esp::ItemCatalog> catalog;
 			home::ItemNameIndex               itemNames;
 			std::vector<DraftEntry>           entries;  // parallel to homes
+			struct Storage
+			{
+				int containers{ 0 }, displays{ 0 };  // what a template can use over the home's cells
+			};
+			std::vector<Storage>              storage;  // parallel to homes
 			std::vector<std::string>          errors;
 			long long                         ms{ 0 };
 		};
@@ -364,6 +369,8 @@ namespace dova::editor::ui
 		float _centerX{ 0.0f }, _centerY{ 0.0f };
 		float _zMin{ 0.0f }, _zMax{ 0.0f }, _zLo{ 0.0f }, _zHi{ 0.0f };
 		bool  _fitPending{ true };
+		bool  _planMoved{ false };  // panned or zoomed since the last fit (no more re-fits on resize)
+		ImVec2 _fitSize{};          // the viewport size of the last fit
 		bool  _showMarkers{ false };  // the plan's "Other": markers and references without bounds
 
 		// 3D view state

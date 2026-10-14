@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 #include <imgui.h>
 
@@ -17,28 +18,51 @@ namespace dova::editor::ui
 
 	void EditorApp::FitPlan(const OpenCell& a_cell, ImVec2 a_size)
 	{
-		float minX = FLT_MAX, minY = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX;
+		// The bounds of what is drawn, without the few references far from the rest (a marker or a prop left
+		// thousands of units away would shrink the home to a dot): 2 % trimmed on each side.
+		std::vector<float> xs, ys;
 		for (const auto& r : a_cell.info.refs) {
-			if (LayerOf(r) == Layer::Other) {
+			if (LayerOf(r) == Layer::Other || (r.initiallyDisabled && !_view.showDisabled)) {
 				continue;
 			}
-			minX = std::min(minX, r.position[0]);
-			maxX = std::max(maxX, r.position[0]);
-			minY = std::min(minY, r.position[1]);
-			maxY = std::max(maxY, r.position[1]);
+			xs.push_back(r.position[0]);
+			ys.push_back(r.position[1]);
 		}
-		if (minX > maxX) {
-			minX = minY = -1000.0f;
-			maxX = maxY = 1000.0f;
+		float minX = -1000.0f, minY = -1000.0f, maxX = 1000.0f, maxY = 1000.0f;
+		if (!xs.empty()) {
+			const std::size_t trim = xs.size() >= 20 ? xs.size() / 50 : 0;
+			auto range = [trim](std::vector<float>& a_v, float& a_lo, float& a_hi) {
+				std::ranges::sort(a_v);
+				a_lo = a_v[trim];
+				a_hi = a_v[a_v.size() - 1 - trim];
+			};
+			range(xs, minX, maxX);
+			range(ys, minY, maxY);
+			// Containers, displays and doors the trim cut off but that lie near the rest stay in view.
+			const float mx = std::max(maxX - minX, 200.0f) * 0.5f, my = std::max(maxY - minY, 200.0f) * 0.5f;
+			const float x0 = minX - mx, x1 = maxX + mx, y0 = minY - my, y1 = maxY + my;
+			for (const auto& r : a_cell.info.refs) {
+				const auto l = LayerOf(r);
+				if ((l == Layer::Container || l == Layer::Display || l == Layer::Door) && r.position[0] >= x0 && r.position[0] <= x1 && r.position[1] >= y0 &&
+					r.position[1] <= y1) {
+					minX = std::min(minX, r.position[0]);
+					maxX = std::max(maxX, r.position[0]);
+					minY = std::min(minY, r.position[1]);
+					maxY = std::max(maxY, r.position[1]);
+				}
+			}
 		}
 		_centerX = (minX + maxX) * 0.5f;
 		_centerY = (minY + maxY) * 0.5f;
 		const float w = std::max(maxX - minX, 200.0f);
 		const float h = std::max(maxY - minY, 200.0f);
 		// Room for the floating toolbar at the top and the hint line at the bottom.
-		_zoom = std::min(a_size.x * 0.85f / w, std::max(a_size.y - 90.0f, 100.0f) * 0.85f / h);
+		const float top = w::Th().toolbarH + 2.0f * w::Th().pad, bottom = 2.0f * w::Th().rowH;
+		_zoom = std::min(a_size.x * 0.88f / w, std::max(a_size.y - top - bottom, 100.0f) * 0.88f / h);
 		_panX = 0.0f;
-		_panY = 10.0f;
+		_panY = (top - bottom) * 0.5f;
+		_fitSize = a_size;
+		_planMoved = false;
 	}
 
 	void EditorApp::CentrePlanOn(const OpenCell& a_cell, int a_index)
@@ -49,11 +73,14 @@ namespace dova::editor::ui
 		const auto& r = a_cell.info.refs[static_cast<std::size_t>(a_index)];
 		_panX = -(r.position[0] - _centerX) * _zoom;
 		_panY = (r.position[1] - _centerY) * _zoom;
+		_planMoved = true;
 	}
 
 	void EditorApp::DrawPlan(OpenCell& a_cell, ImVec2 a_size)
 	{
-		if (_fitPending) {
+		// Fitted when the cell opens and on Home, and again while the viewport is still settling (the window, the
+		// rail and the drawer take their sizes in the first frames) until the author pans or zooms.
+		if (_fitPending || (!_planMoved && (std::abs(a_size.x - _fitSize.x) > 0.5f || std::abs(a_size.y - _fitSize.y) > 0.5f))) {
 			FitPlan(a_cell, a_size);
 			_fitPending = false;
 		}
@@ -69,6 +96,7 @@ namespace dova::editor::ui
 										 (!_selectMode && !_paint && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)))) {
 			_panX += io.MouseDelta.x;
 			_panY += io.MouseDelta.y;
+			_planMoved = _planMoved || io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f;
 		}
 		if (hovered && io.MouseWheel != 0.0f) {
 			const float dx = (io.MousePos.x - center.x - _panX) / _zoom;
@@ -76,6 +104,7 @@ namespace dova::editor::ui
 			_zoom = std::clamp(_zoom * std::pow(1.2f, io.MouseWheel), 0.005f, 50.0f);
 			_panX = io.MousePos.x - center.x - dx * _zoom;
 			_panY = io.MousePos.y - center.y + dy * _zoom;
+			_planMoved = true;
 		}
 		auto toScreen = [&](float a_x, float a_y) {
 			return ImVec2(center.x + (a_x - _centerX) * _zoom + _panX, center.y - (a_y - _centerY) * _zoom + _panY);

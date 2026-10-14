@@ -100,7 +100,7 @@ namespace dova::editor::ui
 			w::Tip(_ws->Describe().c_str());
 			ImGui::SameLine(0.0f, t.pad);
 			if (w::LinkButton("Change...")) {
-				wx::OpenPopoverRight("setup");
+				w::OpenPopover("setup");
 			}
 		}
 
