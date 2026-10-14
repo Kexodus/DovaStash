@@ -1,2 +1,7 @@
 // Exe and window icon: the Dova Stash logo (editor/res/DovaStashEditor.ico, made by tools/make_ico.py).
 1 ICON "DovaStashEditor.ico"
+
+// The editor's fonts (docs/EDITOR-UX.md §3.2), from presskit/src/fonts under the SIL OFL (fonts/OFL-*.txt).
+// Loaded by ui/Theme.cpp; the ids must match it.
+101 RCDATA "fonts/Cinzel-VF.ttf"
+102 RCDATA "fonts/Jost-VF.ttf"

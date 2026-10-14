@@ -30,12 +30,35 @@ namespace dova::editor::ui::w
 		float scale{ 1.0f };  // DPI scale; multiply every pixel size in the spec by it
 		float rowH{ 24.0f }, inputH{ 26.0f }, toolbarH{ 30.0f }, titleH{ 38.0f }, statusH{ 24.0f };  // already scaled
 		float pad{ 8.0f }, gap{ 6.0f };                                                           // already scaled
+
+		// Added by the theme pass (all already scaled).
+		float radius{ 3.0f };     // corners
+		float iconSize{ 16.0f };  // DrawIcon's default size
+		float chipH{ 18.0f };     // chips and key caps
+		float stripW{ 28.0f };    // a collapsed rail
+		float stroke{ 1.5f };     // icon strokes
+		ImU32 shadow{ IM_COL32(0, 0, 0, 102) };  // the 1 px rim under popups and overlays (40 % black)
 	};
 
 	// Installs the style, colours and fonts on the current ImGui context. Call once after CreateContext
 	// (Window.cpp), before the backends' Init so the font atlas is built with our fonts.
 	void          ApplyTheme(float a_dpiScale);
 	const Theme&  Th();
+
+	// Font roles (EDITOR-UX.md §3.2). PushFont(Font) binds the font at its own size (ImGui 1.92's
+	// PushFont(font, 0) would keep the current size); pair with PopFont().
+	enum class Font
+	{
+		Title,
+		Heading,
+		Body,
+		Small,
+		Mono
+	};
+	ImFont* FontOf(Font a_font);
+	void    PushFont(Font a_font);
+	void    PopFont();
+	ImU32   WithAlpha(ImU32 a_colour, float a_alpha);  // the colour with its alpha multiplied by `a_alpha` (0..1)
 
 	// ---- Text ---------------------------------------------------------------------------------------
 	void Title(const char* a_text);    // Cinzel
@@ -94,7 +117,26 @@ namespace dova::editor::ui::w
 		Draft,    // a quill / a sparkle: suggestions
 		Plus,
 		Minus,
-		Emblem    // the Dova Stash mark
+		Emblem,   // the Dova Stash mark
+		// Added by the theme pass.
+		Door,
+		Container,     // a chest
+		Display,       // a display case
+		Mannequin,
+		Rack,          // a weapon rack
+		Book,
+		Sort,          // arrows up and down
+		Expand,        // expand all
+		Collapse,      // collapse all
+		ExternalLink,
+		Folder,
+		Refresh,
+		Brush,         // paint mode
+		Cursor,        // select mode
+		Trash,
+		Eye,
+		More,          // three dots
+		Count_
 	};
 	void DrawIcon(ImDrawList* a_list, Icon a_icon, ImVec2 a_min, float a_size, ImU32 a_colour);
 	// A square button with an icon; `a_shortcut` goes in the tooltip ("Layers  L").
@@ -158,4 +200,29 @@ namespace dova::editor::ui::w
 	// Begins a child that fills the remaining space, with the rail background and no border.
 	bool  BeginPanel(const char* a_id, ImVec2 a_size = ImVec2(0, 0));
 	void  EndPanel();
+
+	// ---- Added by the theme pass --------------------------------------------------------------------
+	void  Badge(const char* a_text, Kind a_kind = Kind::Accent);  // a tiny filled count pill ("3")
+	bool  Toggle(const char* a_label, bool& a_value);              // a small switch, accent when on; true when toggled
+	// A thin 3 px accent bar after "label done/total" in small muted text (the status row's background work).
+	// `a_total` 0: indeterminate. `a_width`: the bar's width (<= 0: 80 px).
+	void  Progress(const char* a_label, std::size_t a_done, std::size_t a_total, float a_width = 0.0f);
+	void  KeyCap(const char* a_key);  // a small bordered key ("Ctrl+K", "F"), for shortcut hints
+	// A row in a popover menu: label, the shortcut right-aligned in muted. Closes the popup when clicked.
+	bool  MenuRow(const char* a_label, const char* a_shortcut = nullptr, bool a_enabled = true);
+	void  ToolbarDivider();  // a 1 px vertical line between groups in a toolbar or overlay (SameLine first)
+	void  Ornament(float a_width = 0.0f);  // the centred "line ◆ line" divider (start panel, empty states)
+	// Text with a trailing muted part on one line ("Aldamar", "· 0Druid").
+	void  TextWithMuted(const char* a_text, const char* a_muted);
+	// Icon at the cursor as an item (one line high), in `a_colour` (0: text colour).
+	void  IconInline(Icon a_icon, ImU32 a_colour = 0, const char* a_tooltip = nullptr);
+	// An icon and a label in one flat button (ToolButton look); `a_active` as ToolButton.
+	bool  IconTextButton(const char* a_label, Icon a_icon, bool a_active = false, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
+	// A 16 px checkbox / radio button (accent mark on bg2). ImGui's own are as tall as an input (26 px).
+	bool  Check(const char* a_label, bool& a_value);
+	bool  Radio(const char* a_label, int& a_value, int a_option);  // true when it selected `a_option`
+	// A tooltip with the shortcut shown as a key cap, when the last item is hovered.
+	void  TipShortcut(const char* a_text, const char* a_shortcut);
+	// The widget gallery (ui/WidgetsDemo.cpp): every widget, icon, font and chip kind. DOVASTASH_WIDGETS_DEMO=1.
+	void  DrawDemo();
 }
