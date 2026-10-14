@@ -128,7 +128,9 @@ namespace dova::editor::ui::w
 		void TextVertical(ImDrawList* a_dl, ImFont* a_font, ImVec2 a_centre, ImU32 a_col, const char* a_text)
 		{
 			const ImVec2 ts = TextSize(a_font, a_text);
-			a_dl->PushClipRectFullScreen();  // glyphs outside the clip rect would be culled before the rotation
+			// Glyphs outside the clip rect would be culled before the rotation: clip to the square the text turns in.
+			const float half = std::max(ts.x, ts.y) * 0.5f + 2.0f;
+			a_dl->PushClipRect(ImVec2(a_centre.x - half, a_centre.y - half), ImVec2(a_centre.x + half, a_centre.y + half), false);
 			const int v0 = a_dl->VtxBuffer.Size;
 			Text(a_dl, a_font, ImVec2(a_centre.x - ts.x * 0.5f, a_centre.y - ts.y * 0.5f), a_col, a_text);
 			for (int i = v0; i < a_dl->VtxBuffer.Size; ++i) {

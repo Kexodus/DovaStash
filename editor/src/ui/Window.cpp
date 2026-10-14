@@ -1,6 +1,8 @@
 // Win32 window + Direct3D 11 device + Dear ImGui backends, after Dear ImGui's example_win32_directx11.
 
 #include <cstdio>
+#include <atomic>
+#include <chrono>
 #include <cwchar>
 #include <filesystem>
 #include <memory>
@@ -20,10 +22,13 @@
 #include "Util.h"
 #include "Workspace.h"
 #include "data/Assets.h"
+#include "home/Cell.h"
+#include "render/Scene.h"
 #include "render/Image.h"
 #include "ui/App.h"
 #include "ui/Art.h"
 #include "ui/Widgets.h"
+#include "ui/WidgetsDemo.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -211,14 +216,35 @@ namespace dova::editor::ui
 			int       idleFrames = 0;
 			int       frames = 0;
 			// The gallery shows the game-read art too: its own Assets over the same workspace.
-			std::jthread demoArt;
+			// The gallery shows the game-read art and mesh thumbnails too: its own Assets and a scene of
+			// Breezehome over the same workspace.
+			std::jthread      demoLoad;
+			std::atomic<bool> demoLoaded{ false };
 			if (demo) {
-				demoArt = std::jthread([options = a_options, device = g_device] {
+				w::SetDemoDevice(g_device, g_context);
+				demoLoad = std::jthread([options = a_options, device = g_device, &demoLoaded] {
 					Workspace   ws;
 					std::string error;
 					if (ws.Open(options, error)) {
-						LoadArt(std::make_shared<Assets>(ws.Files().Roots(), Assets::ArchiveList(ws)), device);
+						auto assets = std::make_shared<Assets>(ws.Files().Roots(), Assets::ArchiveList(ws));
+						LoadArt(assets, device);
+						std::vector<std::string> errors;
+						auto                     lo = ws.NewLoadOrder();
+						for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
+							lo->AddWithMasters(p, errors);
+						}
+						const auto key = lo->FindCellByEditorId("WhiterunBreezehome");
+						if (const auto cell = key ? home::LoadCell(*lo, *key) : std::nullopt) {
+							auto scene = std::make_shared<render::Scene>(device, assets, render::BuildSceneDesc(*cell));
+							scene->Start();
+							w::SetDemoScene(scene);
+							scene->Wait();
+							for (int i = 0; i < 1200 && !scene->Progress().finished; ++i) {
+								std::this_thread::sleep_for(std::chrono::milliseconds(50));
+							}
+						}
 					}
+					demoLoaded = true;
 				});
 			}
 			while (!done) {
@@ -260,8 +286,8 @@ namespace dova::editor::ui
 				ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 				if (a_screenshot) {
 					// The gallery does not run the editor's frame (its loading would never settle): it waits for its
-					// art instead, ten seconds at most.
-					const bool ready = demo ? (ArtTexture(Art::Paper) || frames > 600) : app.Idle();
+					// art and scene instead, a minute at most.
+					const bool ready = demo ? (demoLoaded || frames > 3600) : app.Idle();
 					idleFrames = ready ? idleFrames + 1 : 0;
 					if (idleFrames > 90) {  // frames for layout (tables, fit) after loading, and a settled frame rate
 						SaveBackBuffer(PathFromUtf8(*a_screenshot));
@@ -275,6 +301,10 @@ namespace dova::editor::ui
 				}
 			}
 			g_app = nullptr;
+			if (demoLoad.joinable()) {
+				demoLoad.join();
+			}
+			w::ReleaseDemo();
 		}
 		ReleaseArt();
 

@@ -9,10 +9,14 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <mutex>
 
 #include <imgui_internal.h>
 
+#include "render/Scene.h"
+#include "render/Thumbnail.h"
 #include "ui/Art.h"
+#include "ui/WidgetsDemo.h"
 
 namespace dova::editor::ui::w
 {
@@ -40,6 +44,19 @@ namespace dova::editor::ui::w
 			bool  layers[4]{ true, true, false, true };
 			int   chipActive{ 1 };
 		};
+
+		struct DemoScene
+		{
+			std::mutex                         mutex;
+			std::shared_ptr<render::Scene>     scene;
+			std::unique_ptr<render::Thumbnails> thumbs;
+		};
+
+		DemoScene& D()
+		{
+			static DemoScene s;
+			return s;
+		}
 
 		DemoState& S()
 		{
@@ -381,6 +398,51 @@ namespace dova::editor::ui::w
 				ImGui::EndGroup();
 			}
 
+			Section("Thumbnails");
+			{
+				std::shared_ptr<render::Scene> scene;
+				{
+					std::lock_guard lock(D().mutex);
+					scene = D().scene;
+				}
+				if (!scene || !D().thumbs) {
+					Muted("Loading Breezehome…");
+				} else if (!scene->Progress().finished) {
+					const auto pr = scene->Progress();
+					Progress("meshes", pr.modelsDone, pr.modelsTotal, 120.0f * t.scale);
+				} else {
+					D().thumbs->SetBackground(0xFF282222);
+					int shown = 0;
+					for (const auto& r : scene->Desc().refs) {
+						if (!r.selectable || r.ghost || r.model.empty() || r.index < 0 || r.kind != render::RefKind::Container || shown >= 6) {
+							continue;
+						}
+						if (shown > 0) {
+							ImGui::SameLine(0.0f, t.gap);
+						}
+						const ImTextureID tex = D().thumbs->For(*scene, r.index);
+						const float       sz = 96.0f * t.scale;
+						const ImVec2      p = ImGui::GetCursorScreenPos();
+						ImDrawList*       tdl = ImGui::GetWindowDrawList();
+						tdl->AddRectFilled(p, p + ImVec2(sz, sz), t.bg2, t.radius);
+						if (tex) {
+							tdl->AddImageRounded(ImTextureRef(tex), p, p + ImVec2(sz, sz), ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, t.radius);
+						}
+						tdl->AddRect(p, p + ImVec2(sz, sz), t.line, t.radius);
+						{
+							const auto  slash = r.model.find_last_of('\\');
+							const char* name = r.model.c_str() + (slash == std::string::npos ? 0 : slash + 1);
+							ImFont*     f = FontOf(Font::Small);
+							tdl->PushClipRect(p, p + ImVec2(sz, sz), true);
+							tdl->AddText(f, f->LegacySize, p + ImVec2(4.0f * t.scale, sz - f->LegacySize - 3.0f * t.scale), t.muted, name);
+							tdl->PopClipRect();
+						}
+						ImGui::Dummy(ImVec2(sz, sz));
+						++shown;
+					}
+				}
+			}
+
 			Section("Viewport");
 			const ImVec2 vp = ImGui::GetCursorScreenPos();
 			const float  vw = ImGui::GetContentRegionAvail().x;
@@ -459,7 +521,10 @@ namespace dova::editor::ui::w
 	{
 		DemoState&   s = S();
 		const Theme& t = Th();
-		++s.frame;
+		if (++s.frame == 1) {
+			s.railW *= t.scale;
+			s.rightW *= t.scale;
+		}
 		if (s.frame == 3) {
 			OpenPopover("layers");  // so a screenshot shows a popover
 		}
@@ -499,5 +564,23 @@ namespace dova::editor::ui::w
 		const ImVec2 wmax = wmin + ImGui::GetWindowSize();
 		StatusRow(ImVec2(wmin.x, wmax.y - t.statusH), wmax);
 		ImGui::End();
+	}
+
+	void SetDemoDevice(ID3D11Device* a_device, ID3D11DeviceContext* a_context)
+	{
+		D().thumbs = std::make_unique<render::Thumbnails>(a_device, a_context);
+	}
+
+	void SetDemoScene(std::shared_ptr<render::Scene> a_scene)
+	{
+		std::lock_guard lock(D().mutex);
+		D().scene = std::move(a_scene);
+	}
+
+	void ReleaseDemo()
+	{
+		std::lock_guard lock(D().mutex);
+		D().thumbs.reset();
+		D().scene.reset();
 	}
 }
