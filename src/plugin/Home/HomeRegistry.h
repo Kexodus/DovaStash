@@ -40,6 +40,9 @@ namespace dova::home
 		// the cell is attached.
 		std::unordered_map<RE::FormID, RE::FormID> fronts;
 		bool                                       frontsScanned{ false };
+		// How much of BestTemplate() is there in the cell (DESIGN §9.1, the auto-enable guard): judged while the cell is
+		// attached (HomeRegistry::BestTemplateFit); nullopt until then, and after the templates are resolved again.
+		std::optional<core::TemplateFit> bestFit;
 
 		[[nodiscard]] bool                           Enabled() const noexcept { return layout.has_value(); }
 		[[nodiscard]] const core::TemplateCandidate* BestTemplate() const;
@@ -74,6 +77,14 @@ namespace dova::home
 		}
 	};
 
+	// Looks up every reference `a_template` names (core::TemplateFitRefs) in the player's cell, which must be attached
+	// and be the template's cell: deleted, or taken out by xEdit's "undelete and disable" (enable parent the player,
+	// opposite; or moved below -29000) is Disabled; disabled any other way (through an enable parent, or initially
+	// disabled: Hearthfire furniture not built yet) is NotBuilt; a container entry that is no container any more,
+	// not found, or found in a cell the template does not name is Missing; in another of its cells that is not
+	// attached (or not placed yet) is Unknown. Main thread.
+	[[nodiscard]] core::TemplateFit CheckTemplateFit(const core::Layout& a_template, RE::TESObjectCELL* a_cell);
+
 	// Concurrency: the live Home/Layout below is read and written only from SKSE tasks (Controller,
 	// ListUI callbacks, sort operations). That relies on the AE task queue running one task at a time;
 	// the logs show no overlap, but it is an assumption, not a guarantee. Code on the UI thread uses
@@ -102,9 +113,15 @@ namespace dova::home
 		// Layout edits that create the player layout.
 		core::Layout& EnsureLayout(Home& a_home);  // new empty player layout for this cell if none
 		bool          ApplyBestTemplate(Home& a_home);
-		// Backs up the player layout file (timestamped .bak), then merges `a_template` over the current
-		// layout (core::ApplyTemplate keeps the player's learned/keep/ignored/forms data) and saves.
-		// Refused (false, nothing changed) when the layout file is broken or the backup fails.
+		// How much of the best template is there in the home as it is (CheckTemplateFit): judged once per load, while
+		// the player is in the home's main cell and it is attached; the counts are logged once per session. nullptr
+		// when there is no template, or it cannot be judged yet.
+		const core::TemplateFit* BestTemplateFit(Home& a_home);
+		// Writes unsaved changes, backs up the player layout file (timestamped .bak; the copy outside Data moves to
+		// its history with this save, so Saved setups can bring the old setup back), then merges `a_template` over
+		// the current layout (core::ApplyTemplate keeps the player's learned/keep/ignored/forms data) and saves.
+		// Only the setup changes: no item is moved. Refused (false, nothing changed) when the layout file is
+		// broken or the backup fails.
 		bool ApplyTemplate(Home& a_home, const core::TemplateCandidate& a_template);
 		bool          Reset(Home& a_home);
 		enum class RestoreResult : std::uint8_t

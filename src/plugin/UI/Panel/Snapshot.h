@@ -56,6 +56,7 @@ namespace dova::ui::panel
 		bool                     master{ false };
 		bool                     managed{ false };  // has a binding entry (or is the master)
 		bool                     ignored{ false };
+		bool                     sell{ false };  // the sell chest (Layout::IsSellChest, DESIGN §8.8)
 		bool                     available{ false };
 		std::string              reason;   // why it is unavailable
 		std::string              warning;  // accepted with a warning (e.g. respawn flag in a never-reset cell)
@@ -98,7 +99,8 @@ namespace dova::ui::panel
 		std::string  version;
 		std::int32_t priority{ 0 };
 		bool         best{ false };
-		bool         applied{ false };  // the layout's basedOn points at this template
+		bool         applied{ false };    // the layout's basedOn points at this template
+		bool         autoDraft{ false };  // "autoDraft": true (DESIGN §6.8): offered only when no template someone made fits
 	};
 
 	// A copy of this home's setup kept outside Data (Store::HomeBackups, DESIGN §6.6).
@@ -108,6 +110,32 @@ namespace dova::ui::panel
 		std::string           date;  // "2026-10-12 14:03"
 		bool                  history{ false };
 		bool                  same{ false };  // says the same as the current setup: restoring it would change nothing (not offered)
+	};
+
+	// The sell chest (DESIGN §8.8): what Sell now would do, the buy-back, and the session's sales.
+	struct SaleRow
+	{
+		std::string                                          time;
+		std::string                                          home;
+		std::string                                          chests;
+		bool                                                 timed{ false };
+		bool                                                 boughtBack{ false };
+		std::int32_t                                         items{ 0 };
+		std::int64_t                                         gold{ 0 };
+		std::vector<std::tuple<std::string, std::int32_t, std::int64_t>> lines;  // name, count, gold
+	};
+
+	struct SellInfo
+	{
+		bool         chest{ false };  // the home has a sell chest
+		bool         reachable{ false };  // one can be used from here
+		std::int32_t items{ 0 };  // Sell now: what goes
+		std::int64_t gold{ 0 };
+		std::string  what;
+		std::string  stays;
+		std::optional<std::pair<std::int32_t, std::int64_t>> buyBack;  // items, gold
+		std::string  buyBackWhat;
+		std::vector<SaleRow> log;  // newest first
 	};
 
 	struct HomeSnapshot
@@ -137,17 +165,22 @@ namespace dova::ui::panel
 		std::string                layoutAuthor;
 		std::string                layoutVersion;
 		std::optional<std::string> basedOn;
+		// Applying a template would replace changes the player made (core::HasOwnChanges: a custom setup, or one that
+		// differs from the template it is based on): switching asks first. Worked out on each rebuild, never per frame.
+		bool ownChanges{ false };
 
 		std::vector<ContainerRow>  containers;  // master first, then bindings, then the focus container if unmanaged
 		std::optional<std::size_t> masterRow;
 		std::vector<LearnedRow>    learned;
 		std::size_t                learnedUnused{ 0 };  // rows with `unused`
 		std::size_t                learnedStale{ 0 };   // rows with a `stale` reason (unused ones included)
-		std::vector<TemplateOption> templates;  // eligible templates for this cell, best first
+		std::vector<TemplateOption> templates;  // eligible templates for this cell, best first (core::ResolveLayout's order)
 		std::vector<std::string>   layoutWarnings;  // ValidateLayoutCategories on the current layout
 		// Saved setups outside Data: the latest copy first, then history, newest first. Listed on a full
 		// refresh (and when the home changes); carried over otherwise.
 		std::vector<BackupOption> backups;
+
+		SellInfo sell;  // worked out on every rebuild (one look into the sell chests)
 
 		std::optional<core::KeepConfig> keep;  // the layout's keep block
 		std::string                     keepJson;  // serialized keep block ("" = none): change detection for the editor draft
@@ -173,10 +206,12 @@ namespace dova::ui::panel
 		std::string              author;
 		std::string              version;
 		std::int32_t             priority{ 0 };
+		bool                     autoDraft{ false };
 		std::string              cellText;
 		std::string              cellName;
 		std::vector<std::string> required;  // JSON "requires"
 		std::vector<std::string> missing;
+		std::vector<std::string> conflicting;  // JSON "conflicts" that are loaded: not offered
 		std::vector<std::string> diagnostics;
 	};
 
@@ -194,6 +229,7 @@ namespace dova::ui::panel
 		std::vector<core::Diagnostic> categoryDiagnostics;
 		std::vector<core::Diagnostic> templateDiagnostics;
 		std::vector<core::Diagnostic> settingsDiagnostics;
+		std::vector<core::Diagnostic> selfSortingDiagnostics;
 
 		std::string version;
 		std::string runtime;
@@ -203,6 +239,11 @@ namespace dova::ui::panel
 		bool        isVR{ false };
 		bool        quickLootReady{ false };
 		bool        uiExtensions{ false };
+
+		// Materials at the workbench as resolved now (sort::crafting::Mode): what Auto means here, and why.
+		std::string craftingMode;  // core::crafting::SupplyModeName
+		std::string craftingWhy;   // "" when nothing needs saying
+		bool        craftingFromStorage{ false };  // the hooks are available on this runtime
 	};
 
 	struct ExportState

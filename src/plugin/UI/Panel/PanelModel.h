@@ -74,6 +74,9 @@ namespace dova::ui::panel
 		std::uint64_t                       _focusSerial{ 0 };
 		Tab                                 _focusTab{ Tab::None };
 		std::uint64_t                       _serial{ 0 };
+		// HomeSnapshot::ownChanges and what it was worked out for (home, template list, the setup as serialized).
+		std::string _ownChangesKey;
+		bool        _ownChanges{ false };
 
 		std::atomic<bool>         _refreshQueued{ false };
 		std::atomic<bool>         _fullQueued{ false };

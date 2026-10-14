@@ -50,6 +50,7 @@ namespace dova::editor::render
 		Door,
 		Furniture,  // furniture, crafting stations, activators
 		Actor,      // NPCs (mannequins): drawn as a box
+		Effect,     // fog, mist, glows, light rays (Effects)
 		Other
 	};
 
@@ -146,7 +147,7 @@ namespace dova::editor::render
 			showOther{ true };
 		bool  showDisabled{ true };   // initially disabled references (upgrades, quest items)
 		bool  showTerrain{ true };
-		bool  showEffects{ true };    // glows, flames, fog and light rays (effect shaders)
+		bool  showEffects{ true };    // glows, flames, fog and light rays (effect shaders and home::RefLayer::Effect references)
 		bool  showMarkers{ false };   // boxes around every selectable object
 		bool  heightCut{ false };     // only references between zLo and zHi
 		float zLo{ -1e9f }, zHi{ 1e9f };
@@ -156,6 +157,8 @@ namespace dova::editor::render
 		// fill. Tinted and outlined, the outline drawn through walls.
 		std::vector<std::uint32_t> tint;
 		std::vector<int>           multi;  // more selected references (multi-select): outlined like the selection
+		int                        only{ -1 };        // >= 0: draw just this reference (SceneRef::index), for thumbnails
+		std::uint32_t              background{ 0 };  // clear colour (RGBA8, 0 = the view's own)
 	};
 
 	struct PickResult

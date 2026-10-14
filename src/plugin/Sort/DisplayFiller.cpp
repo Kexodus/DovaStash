@@ -21,6 +21,7 @@ namespace dova::display
 		constexpr int  kRefreshTicks = 50;  // wait up to 5 s for it to place them on its markers
 
 		std::atomic<bool>    g_busy{ false };
+		std::atomic<unsigned> g_generation{ 0 };  // bumped by Reset: a Job from another save stops touching the game
 		std::set<RE::FormID> g_failed;  // racks, plaques and bookshelves that did not take their item (this session)
 		// (rack, base form) pairs the rack's script turned away once its 3D showed it (a staff too long for
 		// a display case); the rack is not offered that form again this session.
@@ -91,7 +92,8 @@ namespace dova::display
 		{
 		public:
 			Job(RE::FormID a_cellId, std::vector<Step> a_steps) :
-				_cellId(a_cellId)
+				_cellId(a_cellId),
+				_generation(g_generation.load())
 			{
 				for (auto& s : a_steps) {
 					switch (s.display.kind) {
@@ -127,6 +129,9 @@ namespace dova::display
 		private:
 			bool StillHere() const
 			{
+				if (_generation != g_generation.load()) {
+					return false;  // another save was loaded meanwhile: its refs, handles and stacks are gone
+				}
 				auto* player = game::Player();
 				auto* cell = player ? player->GetParentCell() : nullptr;
 				return cell && cell->GetFormID() == _cellId;
@@ -377,9 +382,20 @@ namespace dova::display
 					++_skipped;
 					return NextPlaque(a_index + 1);
 				}
+				// A plaque made for several items (a form list: claws, gems) shows the first of them the player
+				// carries, which may not be the one brought for it.
+				for (auto* other : s.display.items) {
+					if (other != s.stack.object && game::LiveCount(player, other) > 0) {
+						logger::info("Display skipped: you carry {} too, which {} could take instead of {}; place it yourself", game::Describe(other),
+							game::Describe(plaque), s.item);
+						++_skipped;
+						return NextPlaque(a_index + 1);
+					}
+				}
 				if (source != player) {
 					game::ItemMover::SuppressScope suppress;
 					const auto                     before = game::LiveCount(player, s.stack.object);
+					game::ItemMover::NoteTaken(s.stack.object->GetFormID(), source->GetFormID());
 					source->RemoveItem(s.stack.object, 1, RE::ITEM_REMOVE_REASON::kRemove, s.stack.extra, player);
 					if (game::LiveCount(player, s.stack.object) != before + 1) {
 						++_errors;
@@ -576,6 +592,10 @@ namespace dova::display
 
 			void Abort()
 			{
+				if (_generation != g_generation.load()) {
+					logger::info("Displays: a game was loaded while items were being put up; stopped ({} were up before)", _placed);
+					return;  // nothing of this job exists in the loaded game (Reset cleared the busy flag)
+				}
 				// A weapon dropped for a rack and not up yet must not stay on the floor.
 				for (auto& s : _racks) {
 					if (!s.done && s.dropped.get()) {
@@ -604,6 +624,7 @@ namespace dova::display
 			}
 
 			RE::FormID        _cellId;
+			unsigned          _generation;
 			std::vector<Step> _direct;
 			std::vector<Step> _racks;
 			std::vector<Step> _plaques;
@@ -686,6 +707,15 @@ namespace dova::display
 		return g_busy.load();
 	}
 
+	void Reset(std::string_view a_why)
+	{
+		++g_generation;
+		if (g_busy.exchange(false)) {
+			logger::info("Displays: {}; the items being put up are left where the loaded game has them", a_why);
+		}
+		game::ShowDropped();  // the hidden-weapon id belongs to the old game; nothing in the new one is culled by it
+	}
+
 	Prepared Prepare(const home::Home& a_home, RE::TESObjectCELL* a_cell, std::vector<core::DisplayStock> a_stocks, std::optional<RE::FormID> a_only)
 	{
 		Prepared out;
@@ -700,18 +730,18 @@ namespace dova::display
 		if (std::ranges::none_of(layout.displays, [](const core::DisplayBinding& b) { return !b.ignored; })) {
 			return out;  // no display turned on: nothing to look for
 		}
-		auto found = UsedDisplays(layout, game::FindDisplays(a_cell));
+		// "Fill now" (a_only) fills that one display, but the others still reserve what they are made for and
+		// their "only" items (DisplaySpot::reserveOnly), so it never takes a plaque's or another rack's item.
+		const auto planned = [&](const game::FoundDisplay& d) { return !a_only || d.ref == *a_only; };
+		auto       found = UsedDisplays(layout, game::FindDisplays(a_cell));
 		std::erase_if(found, [&](const game::FoundDisplay& d) {
-			if (a_only && d.ref != *a_only) {
-				return true;
-			}
 			// Multi-cell homes (DESIGN §6.7): displays need their 3D and their cell's scripts, so only the ones in
 			// the player's cell are filled (a layout entry with `kind` elsewhere in the home waits for its cell).
 			if (const auto* ref = RE::TESForm::LookupByID<RE::TESObjectREFR>(d.ref); !ref || ref->GetParentCell() != a_cell) {
 				return true;
 			}
-			if (g_failed.contains(d.ref) && !a_only) {
-				return true;  // "Fill now" (a_only) tries it again
+			if (g_failed.contains(d.ref) && !planned(d)) {
+				return true;  // "Fill now" tries its own display again
 			}
 			if (d.kind != core::DisplayKind::Case && d.kind != core::DisplayKind::Bookshelf) {
 				return false;
@@ -786,9 +816,12 @@ namespace dova::display
 				}
 			}
 			shown.insert(spot.holds.begin(), spot.holds.end());
-			auto& [n, empty] = counts[d.kind];
-			++n;
-			empty += spot.full ? 0 : 1;
+			spot.reserveOnly = !planned(d);
+			if (!spot.reserveOnly) {
+				auto& [n, empty] = counts[d.kind];
+				++n;
+				empty += spot.full ? 0 : 1;
+			}
 			out.spots.push_back(std::move(spot));
 			out.found.push_back(d);
 		}

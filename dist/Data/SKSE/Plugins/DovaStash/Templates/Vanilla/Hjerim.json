@@ -6,6 +6,7 @@
   "version": "1.0.0",
   "priority": 0,
   "requires": ["Skyrim.esm", "Update.esm", "HearthFires.esm"],
+  "conflicts": ["PlayerHouse.esp"],
   "cell": "Skyrim.esm|0x00016778",
   "master": "Skyrim.esm|0x000DF5AC",
   "containers": [

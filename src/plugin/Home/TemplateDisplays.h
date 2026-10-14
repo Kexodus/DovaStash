@@ -13,6 +13,10 @@ namespace dova::home
 	// - Logs, once per session per display and at info, the items and sets the layout's template chose for its
 	//   racks and mannequins that do not exist in this load order (skipped; the data is kept). Never for item
 	//   plaques and cases.
-	// True if the layout changed (the caller saves it).
-	bool RecordDisplayItems(core::Layout& a_layout);
+	// - Logs, once per session per display and category and as a warning, the categories a used rack, mannequin or
+	//   bookshelf can't take (core::UnfitDisplayCategories: "Soul gems can't go on a weapon rack"). They stay in the
+	//   layout and never put anything on it.
+	// True if the layout changed (the caller saves it). `a_log` false: nothing is logged (the panel's check on a
+	// copy of the layout, HomeSnapshot::ownChanges).
+	bool RecordDisplayItems(core::Layout& a_layout, bool a_log = true);
 }

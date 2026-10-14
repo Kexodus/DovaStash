@@ -2,6 +2,8 @@
 
 #include <SimpleIni.h>
 
+#include <dova/core/CraftingStorage.h>
+
 namespace dova
 {
 	namespace
@@ -64,8 +66,11 @@ namespace dova
 				DOVA_INT("Sorting", "iSuggestCategoryAfter", sorting.suggestCategoryAfter),
 				DOVA_INT("Sorting", "iLearnUndoSeconds", sorting.learnUndoSeconds),
 				DOVA_BOOL("Sorting", "bFillDisplays", sorting.fillDisplays),
-				DOVA_BOOL("Sorting", "bCraftingSupply", sorting.craftingSupply),
+				DOVA_BOOL("Sorting", "bRestockAfterDeposit", sorting.restockAfterDeposit),
+				DOVA_INT("Sorting", "iCraftingSupply", sorting.craftingSupply),
 				DOVA_BOOL("Sorting", "bCraftingSupplyGear", sorting.craftingSupplyGear),
+				DOVA_INT("Selling", "iSellPricePercent", selling.pricePercent),
+				DOVA_INT("Selling", "iAutoSellHours", selling.autoSellHours),
 				DOVA_INT("UI", "iMode", ui.mode),
 				DOVA_BOOL("UI", "bCenterMenus", ui.centerMenus),
 				DOVA_BOOL("Integrations", "bQuickLoot", integrations.quickLoot),
@@ -112,8 +117,21 @@ namespace dova
 			logger::warn("Settings: iMode={} is not 0-3, using default {}", v.ui.mode, def.ui.mode);
 			v.ui.mode = def.ui.mode;
 		}
+		if (v.sorting.craftingSupply < 0 || v.sorting.craftingSupply > 3) {
+			logger::warn("Settings: iCraftingSupply={} is not 0-3, using default {}", v.sorting.craftingSupply, def.sorting.craftingSupply);
+			v.sorting.craftingSupply = def.sorting.craftingSupply;
+		}
 		v.sorting.suggestCategoryAfter = std::clamp(v.sorting.suggestCategoryAfter, 0, 20);  // same ranges as the settings page
 		v.sorting.learnUndoSeconds = std::clamp(v.sorting.learnUndoSeconds, 0, 30);
+		v.selling.pricePercent = std::clamp(v.selling.pricePercent, 10, 200);
+		v.selling.autoSellHours = std::clamp(v.selling.autoSellHours, 0, 168);
+		// "nan"/"inf" in the INI parse as floats that std::clamp passes through: back to the defaults.
+		if (!std::isfinite(v.overlay.radius)) {
+			v.overlay.radius = def.overlay.radius;
+		}
+		if (!std::isfinite(v.overlay.iconSize)) {
+			v.overlay.iconSize = def.overlay.iconSize;
+		}
 		v.overlay.radius = std::clamp(v.overlay.radius, 100.0f, 5000.0f);  // same ranges as the settings page
 		v.overlay.maxIcons = std::clamp(v.overlay.maxIcons, 1, 32);
 		v.overlay.iconSize = std::clamp(v.overlay.iconSize, 8.0f, 128.0f);
@@ -144,6 +162,12 @@ namespace dova
 		for (const auto& key : Keys()) {
 			key.read(ini, values, def);
 		}
+		// Before iCraftingSupply there was bCraftingSupply (on by default, and written by every save): only its
+		// "false" was a choice, and it still means off.
+		if (!ini.GetValue("Sorting", "iCraftingSupply") && !ini.GetBoolValue("Sorting", "bCraftingSupply", true)) {
+			values.sorting.craftingSupply = static_cast<std::int32_t>(core::crafting::SupplySetting::Off);
+			logger::info("Settings: bCraftingSupply=false (older INI) -> iCraftingSupply=1 (off)");
+		}
 		Validate(values);
 		_v.store(std::make_shared<const Values>(values));
 		Log("Settings");
@@ -164,6 +188,7 @@ namespace dova
 		for (const auto& key : Keys()) {
 			ini.SetValue(key.section, key.name, key.write(current).c_str());
 		}
+		ini.Delete("Sorting", "bCraftingSupply");  // replaced by iCraftingSupply (read once by Load)
 		const auto rc = ini.SaveFile(path.string().c_str());
 		if (rc < 0) {
 			logger::error("Settings: could not write {} (code {})", kPath, static_cast<int>(rc));

@@ -270,8 +270,13 @@ namespace dova::ui::overlay
 				a_iconClip.Invoke("getBytesLoaded", &loaded);
 				a_iconClip.Invoke("getBytesTotal", &total);
 				if (!loaded.IsNumber() || !total.IsNumber() || total.GetNumber() <= 0.0 || loaded.GetNumber() < total.GetNumber()) {
-					if (++a_state.loadFrames == 300) {
-						logger::warn("Overlay: icon SWF {} still not loaded after 300 frames (missing file?)", a_state.applied.source);
+					if (++a_state.loadFrames >= 300) {
+						logger::warn("Overlay: icon SWF {} still not loaded after 300 frames (missing file?); shown without it", a_state.applied.source);
+						a_state.loading = false;
+						a_state.labelSet = true;
+						a_state.baseWidth = 0.0;
+						a_state.baseHeight = 0.0;
+						return true;
 					}
 					return false;
 				}
@@ -299,7 +304,7 @@ namespace dova::ui::overlay
 				a_state.applied.source = appliedSource;
 				a_state.labelSet = true;
 			}
-			return a_state.baseWidth > 0.0 && a_state.baseHeight > 0.0;
+			return true;  // shown, or known to have no size (missing label): DrawRow skips those
 		}
 
 		// "+N" text, drawn with the game's own font alias so the HUD skin's fontconfig applies.
@@ -390,10 +395,20 @@ namespace dova::ui::overlay
 				SetVisible(more, false);
 			}
 
-			const double total = icons.size() * a_size + (icons.size() > 1 ? (icons.size() - 1) * gap : 0.0) + (hasMore ? gap + moreWidth : 0.0);
+			std::size_t  shown = 0;
+			for (std::size_t k = 0; k < icons.size(); ++k) {
+				if (a_slot.icons[k].baseWidth > 0.0 && a_slot.icons[k].baseHeight > 0.0) {
+					++shown;
+				}
+			}
+			const double total = shown * a_size + (shown > 1 ? (shown - 1) * gap : 0.0) + (hasMore ? gap + moreWidth : 0.0);
 			double       cursor = -total / 2.0;
 			for (std::size_t k = 0; k < icons.size(); ++k) {
 				const auto&  st = a_slot.icons[k];
+				if (st.baseWidth <= 0.0 || st.baseHeight <= 0.0) {
+					SetVisible(clips[k], false);  // no such label in that SWF: skip it, show the rest
+					continue;
+				}
 				const double scale = 100.0 * a_size / std::max(st.baseWidth, st.baseHeight);
 				const double w = st.baseWidth * scale / 100.0, h = st.baseHeight * scale / 100.0;
 				RE::GFxValue::DisplayInfo info;

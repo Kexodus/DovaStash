@@ -11,7 +11,7 @@ iLogLevel = 2
 ; of your own can be restored there: Dova Stash keeps a copy of every setup in
 ; Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups).
 ; false = show a one-time notification and wait for you to press the hotkey.
-bAutoEnableTemplates = false
+bAutoEnableTemplates = true
 
 [Input]
 ; Keyboard hotkey as a DirectInput scan code (decimal). 37 = K.
@@ -56,18 +56,49 @@ iLearnUndoSeconds = 5
 ; plaques made for one item (dragon priest masks, claws, Elder Scrolls...) that item. Nothing is ever taken off a display; take things down by hand as usual.
 bFillDisplays = true
 
-; true = sit down at a crafting station in a home you set up (forge, smelter, tanning rack, sharpening
-; wheel, armor table, cooking pot, alchemy lab, enchanter, and modded stations) and the materials its
-; recipes use come out of your containers into your inventory. When you get up, what you didn't use goes
-; back where it came from. What you just made stays with you, and so do the copies you carried before.
-; The recipes are read from your load order, so modded materials and recipes work without a patch.
-; Alchemy labs bring your ingredients, enchanters your filled soul gems.
-bCraftingSupply = true
+; true = after a Deposit, Dova Stash tops you up from the home's containers to every keep quota marked
+; "Restock" (keep 10 health potions, 50 arrows... edit them under Keep rules). The menus also have
+; Restock on its own. Nothing happens without such a quota; it never gives you more than the quota.
+bRestockAfterDeposit = true
 
-; true = also bring weapons, armor and ammo that recipes use as materials (breakdown recipes at the
+; Materials at the workbench: at a crafting station in a home you set up (forge, smelter, tanning rack,
+; sharpening wheel, armor table, cooking pot, alchemy lab, enchanter, and modded stations), the materials
+; stored in your containers count as yours. The recipes are read from your load order, so modded
+; materials and recipes work without a patch.
+; 0 = auto: craft from storage (SE and AE; on VR: move). Off when another mod that crafts from storage
+;     is installed (Crafting Pulls Resources From Containers, Skyrim Crafting Inventory Extender, Smart
+;     Crafting Storage, Linked Crafting Storage, Workbench Containers): the log says which.
+; 1 = off
+; 2 = move: the materials come out of your containers into your inventory when you sit down. When you
+;     get up, what you didn't use goes back where it came from. What you just made stays with you, and
+;     so do the copies you carried before.
+; 3 = craft from storage: the crafting menu sees the materials where they are, and crafting takes what
+;     you lack from the containers (the one the item is sorted to first). Nothing moves when you sit
+;     down or get up, so big stores cause no lag. Alchemy labs count your ingredients. Enchanters
+;     always bring your filled soul gems (as move does).
+iCraftingSupply = 0
+
+; true = weapons, armor and ammo that recipes use as materials count too (breakdown recipes at the
 ; smelter, upgrade recipes like the Enhanced Crossbow). Off by default: with a breakdown mod, the
-; smelter would otherwise bring out every piece of gear you store. Tempered or enchanted copies never come.
+; smelter would otherwise offer every piece of gear you store. Tempered or enchanted copies never count.
 bCraftingSupplyGear = false
+
+[Selling]
+; The sell chest: look at a container, press the hotkey and choose "Make sell chest". Items reach it like
+; any container (its categories, or what you put in by hand), and nothing else is ever taken out of it.
+; What is in it is sold for gold only when you choose "Sell now" and confirm the total (or with timed
+; selling below). Stolen, improved, enchanted-by-you, renamed, quest and favorited items, potions you
+; made, and what your keep rules always keep (gold, lockpicks, torches) are never sold. Your last sale of
+; the session can be bought back for the same gold.
+
+; What a sale pays, in percent of the game's barter price for you (your Speech, Haggling and Fortify
+; Barter, as a merchant would pay). 100 = the game's price. 10 - 200.
+iSellPricePercent = 100
+
+; Timed selling: what has been in the sell chest for this many game hours is sold by itself when you
+; come home, close a container or wake up there (one HUD line says what it brought). Counted from when
+; Dova Stash first saw it this session, so never sooner. 0 = off: only "Sell now" sells. 0 - 168.
+iAutoSellHours = 0
 
 [UI]
 ; What the hotkey opens in the world. Dova Stash draws no menus of its own art: every option below

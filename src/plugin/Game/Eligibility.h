@@ -26,10 +26,10 @@ namespace dova::game
 	// A cell can host a layout when it is an interior (or a player-owned exterior) AND it is owned by the
 	// player / the player faction / a faction the player is a member of, OR unowned, OR its location (or
 	// a parent location) carries LocTypePlayerHouse.
-	// A cell from a home mod with its own sorting system (Clockwork, Legacy of the Dragonborn) is rejected.
+	// A cell of a home mod with its own sorting system (SortsItself) is rejected.
 	[[nodiscard]] Verdict CheckCell(RE::TESObjectCELL* a_cell);
-	// True for the plugins of home mods that sort and display items themselves.
-	[[nodiscard]] bool SortsItself(std::string_view a_plugin);
+	// The entry of the homes that sort themselves (SelfSorting/*.json, DESIGN §9.1) that leaves `a_cell` alone, or nullptr.
+	[[nodiscard]] const core::SelfSortingHome* SortsItself(const core::FormRef& a_cell);
 
 	// Per-container checks: base form is a CONT, the ref lives in `a_homeCell`, is persistent-identifiable,
 	// not disabled (including through its enable parent), not owned by someone else, and does not respawn
@@ -37,7 +37,8 @@ namespace dova::game
 	// Ownership: the ref's own ExtraOwnership, else the cell's owner (as the engine's crime logic does).
 	// A foreign ref owner is rejected. A foreign *cell* owner is rejected too, except in a player house
 	// (LocTypePlayerHouse), which CheckCell accepts by design (DESIGN §9): there it is only a warning.
-	// Containers with attached Papyrus scripts are accepted with a warning and `scripted` set.
+	// Containers with attached Papyrus scripts are accepted with a warning and `scripted` set. A container another
+	// mod sorts itself (SelfSorting `containers`, DESIGN §9.1) is rejected.
 	[[nodiscard]] Verdict CheckContainer(RE::TESObjectREFR* a_ref, RE::TESObjectCELL* a_homeCell);
 
 	// Names of the Papyrus scripts bound to `a_ref` (scripts on the base form are bound per reference,

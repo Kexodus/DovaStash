@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 #include "Util.h"
+#include "dova/core/DisplayCategories.h"
 #include "dova/core/Template.h"
 #include "esp/Items.h"
 
@@ -393,6 +394,7 @@ namespace dova::editor::home
 		core::ValidateTemplate(a_layout, "template", diags);
 		if (a_categories) {
 			core::ValidateLayoutCategories(a_layout, *a_categories, "template", diags);
+			core::ValidateDisplayCategories(a_layout, *a_categories, {}, "template", diags);  // by each entry's kind
 		}
 		std::vector<std::string> out;
 		for (const auto& d : diags.Items()) {
@@ -621,5 +623,14 @@ namespace dova::editor::home
 			};
 		}
 		return options;
+	}
+
+	std::vector<core::FormRef> HomeCellRefs(const esp::LoadOrder& a_lo, const HomeEntry& a_home)
+	{
+		std::vector<core::FormRef> out{ a_lo.ToFormRef(a_home.cell) };
+		for (const auto& e : a_home.extra) {
+			out.push_back(a_lo.ToFormRef(e.cell));
+		}
+		return out;
 	}
 }

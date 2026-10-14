@@ -58,7 +58,19 @@ int wmain(int argc, wchar_t** argv)
 	gui.tab = parsed.tab;
 	gui.select = parsed.select;
 	gui.drafts = parsed.drafts;
-	gui.home = parsed.only;
+	gui.home = parsed.home ? parsed.home : parsed.only;
+	gui.inspector = parsed.inspector;
+	gui.palette = parsed.palette;
+	gui.popover = parsed.popover;
+	gui.theme = parsed.theme;
+	gui.layers = parsed.layers;
+	gui.sort = parsed.sort;
+	gui.filter = parsed.tableFilter;
+	gui.quick = parsed.quick;
+	gui.window = parsed.window;
+	if (gui.screenshot && !gui.window) {
+		gui.window = std::pair{ 1600, 900 };  // the guide's figures: the same size on every display
+	}
 	gui.colours = parsed.colours;
 	gui.paint = parsed.paint;
 	gui.multi = parsed.multi;

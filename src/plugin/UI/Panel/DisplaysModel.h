@@ -10,7 +10,8 @@
 // is shown only re-reads the state of the displays already found (used, full, what they hold).
 //
 // Display kinds are handled generically (core::DisplayKindName): a kind added later shows up with its own
-// name, and gets the category picker when ui::DisplayCategoryChoices offers it any.
+// name, and gets the category picker when ui::DisplayCategoryChoices offers it any (per what it holds: a
+// shield rack's picker is not a weapon rack's).
 
 #include "Game/Displays.h"
 
@@ -43,6 +44,7 @@ namespace dova::ui::panel
 		std::string                      refText;
 		std::string                      name;  // the entry's label, else the game name
 		std::optional<core::DisplayKind> kind;  // nullopt: a layout entry without `kind` that is not loaded here
+		std::optional<core::DisplayFit>  fit;   // what it holds (its category picker); nullopt with `kind`
 		std::string                      kindName;
 		std::string                      area;  // multi-cell homes: its area ("" otherwise, or unknown)
 		bool                             here{ false };    // in the player's cell: Fill now works
@@ -80,7 +82,7 @@ namespace dova::ui::panel
 
 		std::vector<DisplayRow>                                 rows;
 		std::vector<DisplayKindInfo>                            kinds;    // kinds present, in enum order
-		std::map<core::DisplayKind, std::vector<DisplayChoice>> choices;  // category picker per kind (none for plaques, cases)
+		std::map<core::DisplayFit, std::vector<DisplayChoice>> choices;  // category picker per fit (none for plaques, cases)
 	};
 
 	class DisplaysModel
@@ -112,5 +114,6 @@ namespace dova::ui::panel
 		// home's other loaded cells).
 		std::vector<RE::FormID>         _scannedCells;
 		std::vector<game::FoundDisplay> _found;
+		std::map<RE::FormID, core::DisplayFit> _fits;  // what each found display holds (racks: read once per scan)
 	};
 }

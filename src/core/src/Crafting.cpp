@@ -244,6 +244,9 @@ namespace dova::core::crafting
 		for (const auto& p : a_ledger.pulled) {
 			pulled[StackKey{ p.form, p.key }] += p.count;
 			plan.pulled += p.count;
+			// Crafted copies land in the plain stack: every pulled form gets a plain line (pulled 0 when only
+			// keyed copies came), so they are counted there before spilling over to the keyed copies.
+			pulled.try_emplace(StackKey{ p.form, std::string{} }, 0);
 		}
 
 		std::map<FormRef, std::int32_t> craftedLeft;
@@ -269,7 +272,9 @@ namespace dova::core::crafting
 			line.back = std::clamp(available - line.before, 0, n);
 			backPer[key] = line.back;
 			plan.returned += line.back;
-			plan.lines.push_back(line);
+			if (n > 0 || line.crafted > 0) {
+				plan.lines.push_back(line);
+			}
 		}
 
 		// Spread each (form, key) over the containers it came from, in pull order.

@@ -21,6 +21,8 @@
 #include "render/Image.h"
 #include "render/Nif.h"
 #include "render/Scene.h"
+#include "ui/Tables.h"
+#include "ui/Themes.h"
 
 namespace dova::editor
 {
@@ -150,7 +152,7 @@ namespace dova::editor
 			}
 			const auto               start = Clock::now();
 			std::vector<std::string> errors;
-			auto                     lo = std::make_unique<esp::LoadOrder>(a_ws.Files(), a_ws.Language());
+			auto                     lo = a_ws.NewLoadOrder();
 			for (const auto& p : plugins) {
 				lo->AddWithMasters(p, errors);
 			}
@@ -183,7 +185,7 @@ namespace dova::editor
 					if (a_args.author) {
 						layout.author = *a_args.author;
 					}
-					const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), layout, false);
+					const auto r = home::SaveTemplateFile(PathFromUtf8(*a_args.saveTo), layout, {}, cell->name);
 					if (!r.ok) {
 						Err("error: " + r.error + "\n");
 						return 1;
@@ -322,7 +324,7 @@ namespace dova::editor
 			}
 			const auto               start = Clock::now();
 			std::vector<std::string> errors;
-			auto                     lo = std::make_unique<esp::LoadOrder>(a_ws.Files(), a_ws.Language());
+			auto                     lo = a_ws.NewLoadOrder();
 			for (const auto& p : plugins) {
 				lo->AddWithMasters(p, errors);
 			}
@@ -531,21 +533,41 @@ namespace dova::editor
 		       "                        --only <text>: homes whose name, EditorID or plugin contains it;\n"
 		       "                        --compare: drafts against the existing templates (how many agree);\n"
 		       "                        --save-to <folder> [--author <name>]: save the drafts of homes without a\n"
-		       "                        template (--include-templated: all), as the window saves (backup, version);\n"
+		       "                        template (--include-templated: all) as auto-drafts (\"autoDraft\": true;\n"
+		       "                        backup, version); a template someone made there is never replaced\n"
 		       "                        --base-game: only the game's own plugins (homes as shipped templates see them)\n"
 		       "  --preview <cell>      where items go: run Dova Stash's planner over a sample (--sample haul, all or\n"
 		       "                        a category pattern such as \"alchemy.*\") against the cell's template, or its\n"
 		       "                        draft with --draft; loads the active load order\n"
 		       "\n"
-		       "Window:\n"
+		       "Window (one workspace: homes rail, 3D view or plan, inspector, drawer):\n"
 		       "  --gui                 open the window even with --mod/--cell (they preselect)\n"
-		       "  --drafts              open the \"Draft all homes\" view (--only <text>: select that home)\n"
-		       "  --tab preview         the \"Where items go\" tab; --colours category|fill colours the containers\n"
-		       "  --paint <category>    paint mode on with that category; --multi <ref> selects more references\n"
-		       "  (no --mod/--cell/--drafts: the start page)\n"
-		       "  --tab <name>          3d, plan, containers, displays, doors or template\n"
-		       "  --select <ref>        select a reference once the cell is open\n"
+		       "  --mod <name or id>    the rail shows that mod's homes; with --cell, the cell is searched in its plugins\n"
+		       "  --cell <cell>         open that cell (a home of the rail opens with its draft)\n"
+		       "  --home <text>         open the first home whose name contains it\n"
+		       "  --drafts              start \"Draft all homes\"; the rail shows the homes without a template\n"
+		       "                        (with --home: that home's Draft panel; --only <text> is the same as --home)\n"
+		       "  --tab <name>          3d or plan (the view); containers, displays, doors or preview (the drawer);\n"
+		       "                        template (the inspector's Template panel)\n"
+		       "  --inspector <panel>   selection, template, draft or checks\n"
+		       "  --select <ref>        select a reference once the cell is open; --multi <ref> selects more\n"
+		       "  --paint <category>    paint mode on with that category\n"
+		       "  --colours <mode>      category or fill: colour the containers\n"
+		       "  --palette             open the command palette (Ctrl+K)\n"
+		       "  --popover <id>        open a popover (menu, setup, switcher, filter, draftmenu, layers, colours,\n"
+		       "                        camera, paintcat; savedrafts: the Save N drafts dialog;\n"
+		       "                        categories: the selection's category picker) for a screenshot\n"
+		       "  --window WxH          the window's client size (e.g. 1280x720)\n"
+		       "  --theme <name>        a colour theme for this run (Setup's Theme list, e.g. \"Windows10 Dark\")\n"
+		       "  --layers <names>      turn layers on, or off with a leading -, comma separated: structure, containers,\n"
+		       "                        displays, doors, furniture, people, disabled, effects, other, terrain\n"
+		       "  --sort <t>:<col>[:desc]  sort a drawer table (containers, displays, doors, preview) by a column\n"
+		       "                        (its header or number); repeat it to add columns\n"
+		       "  --filter <text>       the drawer tab's filter box (every word must match)\n"
+		       "  --quick <chip>        turn a quick filter of the drawer tab on (e.g. Ignored, Respawning, Used,\n"
+		       "                        \"Receives nothing\"); repeatable\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
+		       "  (no --mod/--cell/--home/--drafts: the start panel)\n"
 		       "  --help\n";
 	}
 
@@ -625,6 +647,46 @@ namespace dova::editor
 				}
 			} else if (s == "--gui") {
 				a.gui = true;
+			} else if (s == "--home") {
+				a.home = value();
+			} else if (s == "--inspector") {
+				a.inspector = value();
+			} else if (s == "--palette") {
+				a.palette = true;
+			} else if (s == "--popover") {
+				a.popover = value();
+			} else if (s == "--layers") {
+				a.layers = value();
+			} else if (s == "--theme") {
+				if (auto v = value()) {
+					if (!ui::w::FindTheme(*v)) {
+						a.errors.push_back("--theme: no theme named \"" + *v + "\" (Setup's Theme list)");
+					}
+					a.theme = std::move(v);
+				}
+			} else if (s == "--sort") {
+				if (auto v = value()) {
+					std::string why;
+					if (!ui::ParseSortArg(*v, &why)) {
+						a.errors.push_back(why);
+					}
+					a.sort.push_back(std::move(*v));
+				}
+			} else if (s == "--filter") {
+				a.tableFilter = value();
+			} else if (s == "--quick") {
+				if (auto v = value()) {
+					a.quick.push_back(std::move(*v));
+				}
+			} else if (s == "--window") {
+				if (auto v = value()) {
+					const auto n = Numbers(*v);
+					if (n.size() >= 2 && n[0] >= 320 && n[1] >= 240) {
+						a.window = std::pair{ static_cast<int>(n[0]), static_cast<int>(n[1]) };
+					} else {
+						a.errors.push_back("--window wants WIDTHxHEIGHT (at least 320x240)");
+					}
+				}
 			} else if (s == "--nif-info") {
 				a.nifInfo = value();
 			} else if (s == "--render-cell") {
@@ -675,6 +737,19 @@ namespace dova::editor
 				a.screenshot = value();
 			} else {
 				a.errors.push_back("unknown option " + s);
+			}
+		}
+		// --quick names a chip of the drawer tab --tab shows (the Containers tab without one).
+		const auto table = a.tab ? ui::ParseTableName(*a.tab) : std::optional<ui::DrawerTable>{};
+		for (const auto& q : a.quick) {
+			const auto t = table.value_or(ui::DrawerTable::Containers);
+			if (!ui::QuickFilterBit(t, q)) {
+				std::string chips;
+				for (const auto& f : ui::TableQuickFilters(t)) {
+					chips += (chips.empty() ? "" : ", ") + std::string(f.label);
+				}
+				a.errors.push_back("--quick: the " + std::string(ui::TableName(t)) + " table has no quick filter \"" + q + "\"" +
+				                   (chips.empty() ? std::string(" (it has none)") : " (" + chips + ")"));
 			}
 		}
 		return a;

@@ -121,6 +121,11 @@ namespace dova::game
 		return g_returns.contains(a_object);
 	}
 
+	void ItemMover::NoteTaken(RE::FormID a_object, RE::FormID a_from)
+	{
+		NoteMove(a_object, a_from, kPlayerRefID);
+	}
+
 	MoveReport ItemMover::Execute(std::span<const core::Move> a_moves, const StackTable& a_stacks, const EndpointResolver& a_resolve)
 	{
 		MoveReport report;

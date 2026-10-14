@@ -435,3 +435,82 @@ TEST_CASE("Keep config JSON round-trip", "[layout][keep]")
 	CHECK(parsed->always == defaults.always);
 	CHECK(KeepConfigToJson(*parsed).dump() == json.dump());
 }
+
+TEST_CASE("Duplicate container and display entries: the first is used, the rest kept verbatim", "[layout]")
+{
+	Diagnostics diags;
+	const auto  layout = ParseLayoutText(R"({
+		"$schema": "dovastash-layout-1",
+		"cell": "Skyrim.esm|0x1",
+		"containers": [
+			{ "ref": "Skyrim.esm|0x2", "ignored": true },
+			{ "ref": "skyrim.esm|0x00000002", "categories": ["weapons.*"], "future": 1 }
+		],
+		"displays": [
+			{ "ref": "Skyrim.esm|0x5", "categories": ["weapons.bows"] },
+			{ "ref": "Skyrim.esm|0x5", "ignored": true }
+		]
+	})", "dup.json", diags);
+	REQUIRE(layout);
+	CHECK_FALSE(diags.HasErrors());
+	CHECK(diags.WarningCount() == 3);  // the two duplicates, and the duplicate's unknown key
+	// The binding is the first entry everywhere (FindContainer, the planner): the duplicate never contradicts it.
+	REQUIRE(layout->containers.size() == 1);
+	CHECK(layout->containers[0].ignored);
+	CHECK(layout->containers[0].categories.empty());
+	REQUIRE(layout->displays.size() == 1);
+	CHECK_FALSE(layout->displays[0].ignored);
+	// Nothing is dropped: the duplicates are written back as they were, and the second parse says the same.
+	CHECK(layout->unparsedContainers.size() == 1);
+	CHECK(layout->unparsedDisplays.size() == 1);
+	const auto text = SerializeLayout(*layout);
+	CHECK(text.find("\"future\": 1") != std::string::npos);
+	CHECK(text.find("skyrim.esm|0x00000002") != std::string::npos);
+	Diagnostics again;
+	const auto  reparsed = ParseLayoutText(text, "dup.json", again);
+	REQUIRE(reparsed);
+	CHECK(reparsed->containers.size() == 1);
+	CHECK(SerializeLayout(*reparsed) == text);
+}
+
+TEST_CASE("Wrong-typed name, author, version and priority are kept verbatim, not replaced by defaults", "[layout]")
+{
+	Diagnostics diags;
+	const auto  layout = ParseLayoutText(R"({ "$schema": "dovastash-layout-1", "cell": "Skyrim.esm|0x1",
+		"name": 5, "author": ["x"], "version": 1.5, "priority": "high" })", "typed.json", diags);
+	REQUIRE(layout);
+	CHECK(diags.ErrorCount() == 4);
+	CHECK(layout->name.empty());
+	CHECK(layout->priority == 0);
+	const auto text = SerializeLayout(*layout);
+	CHECK(text.find("\"name\": 5") != std::string::npos);
+	CHECK(text.find("\"author\": [\"x\"]") != std::string::npos);
+	CHECK(text.find("\"version\": 1.5") != std::string::npos);
+	CHECK(text.find("\"priority\": \"high\"") != std::string::npos);
+	CHECK(text.find("\"name\": \"\"") == std::string::npos);
+	Diagnostics again;
+	const auto  reparsed = ParseLayoutText(text, "typed.json", again);
+	REQUIRE(reparsed);
+	CHECK(SerializeLayout(*reparsed) == text);
+
+	// Once the field has a value of its own (a template applied, a rename), that value is what is written.
+	auto named = *layout;
+	named.name = "Home";
+	named.priority = 2;
+	const auto renamed = SerializeLayout(named);
+	CHECK(renamed.find("\"name\": \"Home\"") != std::string::npos);
+	CHECK(renamed.find("\"name\": 5") == std::string::npos);
+	CHECK(renamed.find("\"priority\": 2") != std::string::npos);
+	CHECK(renamed.find("\"priority\": \"high\"") == std::string::npos);
+
+	// An integer outside int32 is an error kept verbatim too, never clamped or wrapped.
+	Diagnostics big;
+	const auto  huge = ParseLayoutText(R"({ "$schema": "dovastash-layout-1", "cell": "Skyrim.esm|0x1", "priority": 2147483648,
+		"keep": { "quotas": [ { "category": "ammo.*", "quota": 18446744073709551615 } ] } })", "big.json", big);
+	REQUIRE(huge);
+	CHECK(big.HasErrors());
+	CHECK(huge->priority == 0);
+	CHECK(huge->keep->quotas.empty());
+	CHECK(huge->keep->unparsedQuotas.size() == 1);
+	CHECK(SerializeLayout(*huge).find("2147483648") != std::string::npos);
+}

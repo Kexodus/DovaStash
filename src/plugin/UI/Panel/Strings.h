@@ -94,6 +94,9 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kSortHeader = "Sort";
 	inline constexpr auto             kDeposit = "Deposit";
 	inline constexpr auto             kDepositTip = "Moves your items into their containers. Keep rules decide what stays with you.";
+	inline constexpr auto             kRestock = "Restock";
+	inline constexpr auto             kRestockTip = "Takes from the containers what you are short of for every keep quota marked Restock, never more than the quota. The most valuable copies come first.";
+	inline constexpr auto             kRestockNoneTip = "Needs a keep quota marked Restock (Keep rules, here or under Settings).";
 	inline constexpr auto             kSortAll = "Sort all";
 	inline constexpr auto             kSortAllTip = "Moves every item in the master and in containers with categories to where it belongs. Containers without categories are never emptied.";
 	inline constexpr auto             kRetrieveHeader = "Retrieve";
@@ -105,14 +108,35 @@ namespace dova::ui::panel::text
 	inline constexpr std::string_view kNodeCount = "{} ({})";  // name, count
 	inline constexpr auto             kRetrieve = "Retrieve";
 	inline constexpr auto             kRetrieveTip = "Moves these items from the containers to you.";
-	inline constexpr auto             kTemplateHeader = "Template";
 	inline constexpr auto             kNoTemplate = "No template matches this home.";
+	inline constexpr auto             kTemplatesTip = "The templates made for this home whose plugins are loaded, the one offered first on top. Use switches the setup to it: the master, sell chest and categories come from it; learned items, keep rules and ignored containers stay. Nothing is moved.";
 	inline constexpr auto             kTemplateBest = "(recommended)";
 	inline constexpr auto             kTemplateApplied = "(in use)";
+	inline constexpr auto             kTemplateDraft = "(draft)";
+	inline constexpr auto             kTemplateDraftTip = "Drafted by the Dova Stash Editor for many homes at once. A template someone made comes first.";
 	inline constexpr auto             kUseTemplate = "Use";
 	inline constexpr auto             kUseTemplateAsk = "Use...";
-	inline constexpr auto             kReapplyTemplate = "Re-apply...";
-	inline constexpr std::string_view kConfirmTemplate = "Use the template \"{}\"? Its master and categories replace yours; learned items, keep rules and ignored containers stay. A backup is saved. No items are moved.";
+	inline constexpr auto             kReapplyTemplate = "Re-apply";
+	inline constexpr auto             kReapplyTemplateAsk = "Re-apply...";
+	// Asked only when the setup has changes of the player's own (HomeSnapshot::ownChanges).
+	inline constexpr std::string_view kConfirmTemplate = "Use the template \"{}\"? It replaces your changes: the master, sell chest and categories come from it; learned items, keep rules and ignored containers stay. Your setup is backed up first (Saved setups). No items are moved.";
+	// Sell chest (DESIGN §8.8; the hotkey menus and the buttons use the ui:: strings in UI/Labels.h)
+	inline constexpr auto             kSellHeader = "Sell chest";
+	inline constexpr auto             kSellTip = "Sells what is in the sell chest for what a merchant would pay you, only when you choose Sell now and confirm (or by timed selling, under Settings). Stolen, improved, enchanted-by-you, renamed and quest items, potions you made and what keep rules always keep stay; nothing else is ever taken out.";
+	inline constexpr auto             kSellNotHere = "No sell chest can be reached from here.";
+	inline constexpr auto             kSellNothing = "Nothing to sell.";
+	inline constexpr std::string_view kSellQuote = "{} for {} gold: {}";  // "14 items", gold, what
+	inline constexpr std::string_view kBuyBackInfo = "Last sale: {} for {} gold ({}).";  // "14 items", gold, what
+	inline constexpr std::string_view kItemCount = "{} item";   // count (singular)
+	inline constexpr std::string_view kItemsCount = "{} items";  // count (plural)
+	inline constexpr auto             kSalesHeader = "Sales this session";
+	inline constexpr std::string_view kSaleLine = "{}  {}: {} for {} gold{}";  // time, chests, "14 items", gold, tags
+	inline constexpr auto             kSaleTimed = " (timed)";
+	inline constexpr auto             kSaleBoughtBack = " (bought back)";
+	inline constexpr std::string_view kSaleItem = "{} x{}: {} gold";  // name, count, gold
+	inline constexpr auto             kSellTag = "[Sell] ";
+	inline constexpr auto             kSellChestInfo = "This is the sell chest. Items reach it like any container; only selling takes them out (Actions > Sell chest).";
+	inline constexpr auto             kNotSellChestTip = "Makes it an ordinary container again. Nothing is sold or moved.";
 	inline constexpr auto             kResetHeader = "Reset";
 	inline constexpr auto             kResetHome = "Reset home...";
 	inline constexpr std::string_view kConfirmReset = "Reset {}? Its setup is backed up (.bak). No items are moved.";
@@ -190,7 +214,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kStaleNotLoaded = "not loaded (plugin missing?)";
 
 	// Keep rules (this home's tab, and the defaults on the Settings page)
-	inline constexpr auto             kKeepIntro = "Keep rules decide what Deposit leaves in your inventory. Quest items and non-playable items are always kept.";
+	inline constexpr auto             kKeepIntro = "Keep rules decide what Deposit leaves in your inventory. Quest items and non-playable items are always kept. A quota marked Restock also tops you up to its number from the containers.";
 	inline constexpr auto             kKeepNoBlock = "This home uses the default keep rules only. Saving gives it its own.";
 	inline constexpr auto             kKeepInherit = "Also apply the default keep rules";
 	inline constexpr auto             kKeepInheritTip = "Keeps what the defaults keep, plus this home's rules. Off: only this home's rules.";
@@ -201,6 +225,9 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kKeepPickCategory = "Category...";
 	inline constexpr auto             kColCategory = "Category";
 	inline constexpr auto             kColQuota = "Quota";
+	inline constexpr auto             kColRestock = "Restock";
+	inline constexpr auto             kRestockColTip = "Tops you up to this many from the home's containers (Restock, and after Deposit when that setting is on). Off: the quota only limits what Deposit leaves on you.";
+	inline constexpr auto             kRestockMark = " (restock)";
 	inline constexpr auto             kColOther = "Other selectors";
 	inline constexpr auto             kAddQuota = "Add quota";
 	inline constexpr auto             kQuotaNeedsCategory = "Pick a category for every quota (rules without any selector are dropped).";
@@ -212,7 +239,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kNoCategory = "(none)";
 	inline constexpr std::string_view kKeywordsAny = "keywords: {}";
 	inline constexpr std::string_view kFormsCount = "{} form(s)";
-	inline constexpr std::string_view kQuotaLine = "{} x {}";  // quota, category
+	inline constexpr std::string_view kQuotaLine = "{} x {}{}";  // quota, category, kRestockMark or ""
 
 	// Template tab
 	inline constexpr auto             kExportIntro = "Saves this home's setup as a template, to bring back after a reset or to share. The hotkey's Save as template... does the same.";
@@ -254,6 +281,8 @@ namespace dova::ui::panel::text
 	inline constexpr auto kSetSortOnClose = "Sort the master when it closes";
 	inline constexpr auto kSetSortOnCloseTip = "Sorts whatever is left in the master when you close its menu.";
 	inline constexpr auto kSetFillDisplays = "Put gear on the home's displays";
+	inline constexpr auto kSetRestock = "Restock after Deposit";
+	inline constexpr auto kSetRestockTip = "Tops you up from the home's containers to every keep quota marked Restock after a Deposit, never more. Without such a quota nothing happens.";
 	inline constexpr auto kSetFillDisplaysTip = "Makes Deposit and Sort all fill the displays you use (racks, mannequins, bookshelves, plaques) with your best gear and books, one of each. Nothing is taken off a display.";
 	inline constexpr auto kSetLearningHeader = "Learning";
 	inline constexpr auto kSetLearn = "Learn where you put things by hand";
@@ -267,13 +296,27 @@ namespace dova::ui::panel::text
 	inline constexpr auto kSetUndoOff = "off";
 	inline constexpr auto kSetUndoTip = "Lets the hotkey take a learn back for this long after \"... now goes to ...\".";
 	inline constexpr auto kSetCraftingHeader = "Crafting";
-	inline constexpr auto kSetCrafting = "Materials at the workbench";
-	inline constexpr auto kSetCraftingTip = "Brings the stored materials a crafting station's recipes use when you sit down at it in your home, and puts back what you didn't use. What you made stays with you.";
-	inline constexpr auto kSetCraftingGear = "Weapons and armor used as materials too";
-	inline constexpr auto kSetCraftingGearTip = "Also brings gear that recipes use up, such as breakdown recipes (with a breakdown mod, every piece you store). Tempered or enchanted copies never come.";
+	inline constexpr auto             kSetCrafting = "Materials at the workbench";
+	inline constexpr auto             kSetCraftingTip = "Lets a crafting station in your home use what your containers hold. Craft from storage: the menu counts the containers and crafting takes from them. Move: the materials come to you and the rest goes back when you get up; what you made stays with you. Enchanters always bring your filled soul gems. Auto: Craft from storage, or Off when another crafting-from-storage mod is installed.";
+	inline constexpr auto             kSetCraftAuto = "Auto";
+	inline constexpr std::string_view kSetCraftAutoNow = "Auto (now: {})";  // the mode Auto resolves to
+	inline constexpr auto             kSetCraftOff = "Off";
+	inline constexpr auto             kSetCraftMove = "Move: bring them, put the rest back";
+	inline constexpr auto             kSetCraftStorage = "Craft from storage: nothing moves";
+	inline constexpr std::string_view kSetCraftNow = "Now {}: {}.";  // mode, why
+	inline constexpr auto             kSetCraftingGear = "Weapons and armor used as materials too";
+	inline constexpr auto             kSetCraftingGearTip = "Counts stored gear that recipes use up too, such as breakdown recipes (with a breakdown mod, every piece you store). Tempered or enchanted copies never count.";
 	inline constexpr auto kSetTemplatesHeader = "Templates";
 	inline constexpr auto kSetAutoEnable = "Set up homes from a template on first visit";
 	inline constexpr auto kSetAutoEnableTip = "Sets up a home with a template as soon as you walk in, instead of asking. Not while a saved setup of yours can be restored there.";
+	inline constexpr auto kSetSellHeader = "Sell chest";
+	inline constexpr auto kSetSellPrice = "Price";
+	inline constexpr auto kSetSellPriceFormat = "%d%% of the game's";
+	inline constexpr auto kSetSellPriceTip = "Sets what a sale pays, in percent of what a merchant would pay you (your Speech, Haggling and Fortify Barter).";
+	inline constexpr auto kSetAutoSell = "Sell by itself after";
+	inline constexpr auto kSetAutoSellFormat = "%d game hours";
+	inline constexpr auto kSetAutoSellOff = "off";
+	inline constexpr auto kSetAutoSellTip = "Sells what has been in the sell chest this long when you come home, close a container or wake up there, with one HUD line. Off: only Sell now sells, after you confirm.";
 	inline constexpr auto kSetQuickLootHeader = "QuickLoot IE";
 	inline constexpr auto kSetQuickLoot = "Use QuickLoot IE";
 	inline constexpr auto kSetQuickLootTip = "Shows Dova Stash in QuickLoot IE. Off: QuickLoot looks as it does without Dova Stash.";
@@ -311,7 +354,8 @@ namespace dova::ui::panel::text
 	inline constexpr auto kSetConfirmReset = "Reset every setting above to its default? Your hotkeys and the default keep rules are kept.";
 
 	// Templates page
-	inline constexpr auto             kTemplatesIntro = "Every template loaded from Data/SKSE/Plugins/DovaStash/Templates/. A template is offered in its home when all of its required plugins are loaded.";
+	inline constexpr auto             kTemplatesIntro = "Every template loaded from Data/SKSE/Plugins/DovaStash/Templates/. A template is offered in its home when all of its required plugins are loaded; one someone made comes before a (draft).";
+	inline constexpr std::string_view kTemplatesHere = "For {}";  // the current home's name
 	inline constexpr auto             kTemplatesNone = "No templates loaded.";
 	inline constexpr auto             kColTemplate = "Template";
 	inline constexpr auto             kColAuthor = "Author";
@@ -320,6 +364,8 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kColIssues = "Issues";
 	inline constexpr auto             kOk = "ok";
 	inline constexpr std::string_view kMissing = "missing: {}";
+	inline constexpr std::string_view kConflicts = "conflicts: {}";
+	inline constexpr auto             kConflictsTip = "Not offered: a mod that rebuilds this home is loaded.";
 	inline constexpr std::string_view kIssues = "{} warning(s)";
 	inline constexpr std::string_view kTemplateSourceTip = "{}\npriority {}";  // source, priority
 
@@ -328,6 +374,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kDiagCategories = "Categories";
 	inline constexpr auto             kDiagTemplates = "Templates";
 	inline constexpr auto             kDiagSettings = "Settings.json (default keep rules)";
+	inline constexpr auto             kDiagSelfSorting = "Homes that sort themselves (SelfSorting)";
 	inline constexpr std::string_view kDiagHome = "This home's setup: {}";  // home name
 	inline constexpr auto             kDiagNone = "No problems.";
 	inline constexpr std::string_view kDiagCounts = "{} error(s), {} warning(s)";

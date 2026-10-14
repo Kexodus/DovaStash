@@ -30,6 +30,14 @@ namespace dova::home
 			}
 		}
 
+		// Layout file name for a cell as a path element: FormRef plugin names are UTF-8 (FormUtil), so the
+		// name must not go through the narrow (ANSI) path constructor.
+		std::filesystem::path LayoutFile(const core::FormRef& a_cell)
+		{
+			const auto name = core::LayoutFileName(a_cell);
+			return std::filesystem::path(std::u8string(name.begin(), name.end()));
+		}
+
 		std::vector<core::FormRef> ResolveFormList(const core::FormRef& a_ref)
 		{
 			std::vector<core::FormRef> out;
@@ -76,8 +84,42 @@ namespace dova::home
 		LoadCategories();
 		LoadTemplates();
 		LoadGlobalKeep();
+		LoadSelfSorting();
 		BackupExistingLayouts();
 		LoadHomeCellIndex();
+	}
+
+	void Store::LoadSelfSorting()
+	{
+		core::Diagnostics                  diags;
+		std::vector<core::SelfSortingHome> entries;
+		try {
+			entries = core::LoadSelfSortingDirectory(Root() / "SelfSorting", diags);
+		} catch (const std::exception& e) {
+			logger::error("Homes that sort themselves: failed to load: {}", e.what());
+			entries.clear();
+		}
+		if (entries.empty()) {
+			// The shipped list is missing or unreadable: never let Dova Stash and these two sort the same items.
+			logger::warn("Homes that sort themselves: no list loaded; leaving Clockwork and Legacy of the Dragonborn alone");
+			for (const auto* plugin : { "Clockwork.esp", "LegacyoftheDragonborn.esm" }) {
+				core::SelfSortingHome home;
+				home.plugin = plugin;
+				home.source = "(built in)";
+				entries.push_back(std::move(home));
+			}
+		}
+		LogDiagnostics(diags, "Homes that sort themselves");
+		const auto listed = entries.size();
+		_selfSorting = core::SelfSortingHomes(std::move(entries), game::LoadedPlugins());
+		logger::info("Homes that sort themselves: {} listed, {} apply in this game ({} errors, {} warnings)", listed, _selfSorting.Entries().size(),
+			diags.ErrorCount(), diags.WarningCount());
+		for (const auto& e : _selfSorting.Entries()) {
+			logger::info("  {} ({}): {}", e.name.empty() ? e.plugin : e.name, e.plugin,
+				e.WholePlugin() ? "its cells are left alone"s :
+				                  std::format("{} cell(s) left alone, {} container(s) not used", e.cells.size(), e.containers.size()));
+		}
+		_selfSortingDiags = std::move(diags);
 	}
 
 	void Store::LoadCategories()
@@ -210,7 +252,7 @@ namespace dova::home
 
 	std::filesystem::path Store::LayoutPath(const core::FormRef& a_cell) const
 	{
-		return Root() / "Layouts" / core::LayoutFileName(a_cell);
+		return Root() / "Layouts" / LayoutFile(a_cell);
 	}
 
 	std::optional<core::Layout> Store::LoadPlayerLayout(const core::FormRef& a_cell, bool& a_broken) const
@@ -542,7 +584,7 @@ namespace dova::home
 		if (!dir) {
 			return;
 		}
-		auto path = *dir / core::LayoutFileName(a_cell);
+		auto path = *dir / LayoutFile(a_cell);
 		auto copy = a_layout;
 		copy.cell = a_cell;
 
@@ -611,7 +653,7 @@ namespace dova::home
 	std::optional<Store::HomeBackup> Store::LatestHomeBackup(const core::FormRef& a_cell) const
 	{
 		const auto& dir = BackupDir();
-		return dir ? DescribeBackup(*dir / core::LayoutFileName(a_cell), false) : std::nullopt;
+		return dir ? DescribeBackup(*dir / LayoutFile(a_cell), false) : std::nullopt;
 	}
 
 	std::vector<Store::HomeBackup> Store::HomeBackups(const core::FormRef& a_cell) const
@@ -621,7 +663,7 @@ namespace dova::home
 		if (!dir) {
 			return out;
 		}
-		const auto latest = *dir / core::LayoutFileName(a_cell);
+		const auto latest = *dir / LayoutFile(a_cell);
 		if (auto backup = DescribeBackup(latest, false)) {
 			out.push_back(std::move(*backup));
 		}

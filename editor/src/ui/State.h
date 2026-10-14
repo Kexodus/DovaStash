@@ -1,7 +1,7 @@
 #pragma once
 
 // What the editor remembers between runs (docs/EDITOR.md §3.6): the MO2 instance and profile last opened, the
-// author name, and each home's to-do stage (drafted -> reviewed -> validated -> saved) with where it was saved.
+// author name, the save target, the panels' layout, and each home's to-do stage (drafted -> reviewed -> validated -> saved) with where it was saved.
 // One JSON file, %LOCALAPPDATA%\DovaStashEditor\state.json, written atomically after each change. Homes are keyed
 // by their main cell's form reference ("Skyrim.esm|0x000165A8"), which does not depend on the load order.
 
@@ -31,6 +31,22 @@ namespace dova::editor::ui
 		std::string updated;  // "2026-10-12 14:03"
 	};
 
+	// The workspace's panels (docs/EDITOR-UX.md §2): open or collapsed, and their size in pixels.
+	struct UiLayout
+	{
+		bool  railOpen{ true };
+		float railWidth{ 0.0f };  // 0: the default
+		bool  inspectorOpen{ true };
+		float inspectorWidth{ 0.0f };
+		bool  drawerOpen{ false };
+		float drawerHeight{ 0.0f };  // 0: a third of the window
+		int   view{ 0 };             // 0 3D, 1 plan
+		float textScale{ 0.0f };     // UI size factor on top of the DPI; 0 = Auto (from the monitor)
+		std::string theme;           // the colour theme's name (ui/Themes.h); empty = Dova Stash
+
+		friend bool operator==(const UiLayout&, const UiLayout&) = default;
+	};
+
 	class EditorState
 	{
 	public:
@@ -41,6 +57,9 @@ namespace dova::editor::ui
 		std::optional<std::string> profile;
 		std::string                author;
 		std::map<std::string, HomeRecord> homes;  // main cell form ref -> record
+		UiLayout                   ui;
+		std::optional<UiLayout>    uiOnDisk;  // set: written instead of `ui` (the command line's view and drawer are for one run)
+		std::string                saveTarget;  // the mod templates are saved into; empty: "Dova Stash Templates"
 
 		// Raises a home's stage (never lowers it, except `a_force`) and saves.
 		void Advance(const std::string& a_cell, const std::string& a_name, HomeStage a_stage, const std::string& a_savedPath = {}, bool a_force = false);

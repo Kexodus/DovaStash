@@ -93,6 +93,11 @@ TEST_CASE("Shipped templates parse without errors", "[dist]")
 		Diagnostics lint;
 		for (const auto& t : templates) {
 			ValidateLayoutCategories(t.layout, categories, t.source, lint);
+			// A display's categories it can't take (by the entry's `kind`; the rack type is not known here).
+			Diagnostics displays;
+			ValidateDisplayCategories(t.layout, categories, {}, t.source, displays);
+			Report(displays);
+			CHECK(displays.Empty());
 		}
 		Report(lint);
 	}

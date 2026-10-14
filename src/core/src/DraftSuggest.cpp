@@ -22,6 +22,9 @@ namespace dova::core
 		constexpr std::string_view kDefaultRules = R"json({
 	"$schema": "dovastash-draftrules-1",
 	"acceptAt": 0.5,
+	// The fill pass (below) gives a group to a container on weaker evidence, but not below this, and never on loose
+	// items alone: a cupboard three metres from a mannequin is no armory, bones on an end table are decoration.
+	"fillAt": 0.3,
 
 	// First match wins. "when": respawns | upgrade | owned | match (editorIds, scripts, words).
 	"ignore": [
@@ -35,21 +38,40 @@ namespace dova::core
 
 	"harmlessScripts": ["BYOHDivertItemScript", "defaultsetstagecontainerscript"],
 
+	// Words that say nothing about what a container holds. A container whose name has any other word ("Dragonpriest
+	// Masks", "Food & Drinks") is named for its contents: only its name counts, never its EditorID, and it is no master.
+	// The master's "words" and "avoid" count as generic too.
+	"genericWords": ["large", "small", "big", "little", "tiny", "huge", "old", "new", "wooden", "iron", "steel", "noble", "common",
+	                 "rustic", "fancy", "ornate", "plain", "simple", "sturdy", "upper", "lower", "left", "right", "player", "house", "home", "my",
+	                 "personal", "private", "hidden", "secret", "empty", "open", "nordic", "nord", "imperial", "dwemer", "dwarven", "elven",
+	                 "orcish", "falmer", "dunmer", "telvanni", "redoran", "hlaalu", "upstairs", "downstairs", "bedroom", "container", "furniture",
+	                 "a", "an", "the", "of", "and"],
+	// A match found only in the EditorID (the name is generic) counts this much of the rule's confidence.
+	"editorIdFactor": 0.8,
+
 	"master": {
-		"words": ["chest", "trunk", "strongbox", "strong box", "coffer", "storage", "stash", "master"],
-		"avoid": ["sack", "satchel", "knapsack", "barrel", "basket", "urn", "jar", "pot", "pouch", "bag", "bucket", "end table",
-		          "night table", "nightstand", "cupboard", "dresser", "wardrobe", "box", "crate", "safe", "case", "cabinet", "shelf"],
-		"sizeWeight": 2.0, "wordWeight": 1.0, "entranceWeight": 1.0, "centralWeight": 0.5, "entranceRange": 1500
+		"words": ["chest", "trunk", "coffer", "storage", "stash", "master", "drop off", "dropoff", "deposit", "unsorted", "overflow"],
+		"avoid": ["strongbox", "strong box", "sack", "satchel", "knapsack", "backpack", "pack", "barrel", "basket", "urn", "jar", "pot", "pouch", "bag", "bucket", "end table",
+		          "night table", "nightstand", "cupboard", "dresser", "drawer", "wardrobe", "box", "crate", "safe", "case", "cabinet", "shelf",
+		          "bookcase", "bookshelf", "desk", "rack", "font", "pedestal", "planter", "coffin", "altar", "shrine", "display", "mount"],
+		// Size counts up to "fullSize" cubic units (a small chest is about 70000, a large one 230000): beyond that, bigger is not better.
+		"sizeWeight": 1.0, "fullSize": 100000, "wordWeight": 1.5, "avoidWeight": 1.0, "entranceWeight": 1.0, "centralWeight": 0.5,
+		"entranceRange": 1500, "namedPenalty": 3.0
 	},
 
 	"names": [
-		{ "label": "alchemy", "words": ["alchem*", "apothecary", "ingredient", "herb", "reagent"],
+		{ "label": "alchemy", "words": ["alchem*", "apothecary", "reagent"],
 		  "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"], "confidence": 0.85 },
+		{ "label": "ingredients", "words": ["ingredient", "herb"], "notWords": ["cooking", "cook", "food", "kitchen"],
+		  "categories": ["alchemy.ingredients"], "confidence": 0.85 },
 		{ "label": "potions", "words": ["potion", "elixir", "tonic"], "categories": ["alchemy.potions", "alchemy.poisons"], "confidence": 0.85 },
 		{ "label": "poisons", "words": ["poison"], "categories": ["alchemy.poisons"], "confidence": 0.85 },
-		{ "label": "food", "words": ["food", "pantry", "larder", "provision", "produce", "vegetable", "meat", "grain", "flour", "kitchen", "foodbarrel", "cheese", "bread"],
+		{ "label": "food", "words": ["food", "pantry", "larder", "provision", "produce", "vegetable", "fruit", "meat", "fish", "grain", "flour", "kitchen",
+		                             "foodbarrel", "cheese", "bread", "cooking", "drink", "beverage", "wine", "mead", "ale", "spice", "dumpling",
+		                             "soup", "stew", "egg"],
 		  "categories": ["alchemy.food"], "confidence": 0.8 },
 		{ "label": "weapons", "words": ["weapon", "armory", "armoury", "arsenal", "sword", "blade"], "categories": ["weapons.*"], "confidence": 0.85 },
+		{ "label": "staves", "words": ["staff", "staves", "stave"], "categories": ["weapons.staves"], "confidence": 0.85 },
 		{ "label": "armor", "words": ["armor", "armour", "cuirass"], "categories": ["armor.heavy", "armor.light", "armor.shields"], "confidence": 0.85 },
 		{ "label": "shields", "words": ["shield"], "categories": ["armor.shields"], "confidence": 0.8 },
 		{ "label": "ammunition", "words": ["arrow", "quiver", "ammo", "ammunition", "bolt"], "categories": ["ammo.*"], "confidence": 0.85 },
@@ -63,13 +85,16 @@ namespace dova::core
 		{ "label": "soul gems", "words": ["soul gem", "soulgem*", "soul"], "categories": ["soulgems.*"], "confidence": 0.85 },
 		{ "label": "enchanting", "words": ["enchant*", "arcane"], "categories": ["soulgems.*"], "confidence": 0.6 },
 		{ "label": "books", "words": ["book", "library", "tome", "journal", "literature"], "notWords": ["spell"], "categories": ["books.*"], "confidence": 0.8 },
+		{ "label": "notes", "words": ["note", "letter", "recipe", "bounty", "bounties"], "categories": ["books.notes"], "confidence": 0.8 },
 		{ "label": "spell tomes", "words": ["spell tome", "spelltome*", "spellbook*"], "categories": ["books.spelltomes"], "confidence": 0.85 },
 		{ "label": "scrolls", "words": ["scroll"], "categories": ["scrolls"], "confidence": 0.8 },
-		{ "label": "ingots and ores", "words": ["ingot", "ore", "metal", "smith*", "mining", "mineral", "blacksmith"], "categories": ["misc.ores_ingots"], "confidence": 0.8 },
+		{ "label": "ingots and ores", "words": ["ingot", "ore", "metal", "smith*", "smelt*", "mining", "mineral", "blacksmith"], "categories": ["misc.ores_ingots"], "confidence": 0.8 },
 		{ "label": "hides", "words": ["hide", "pelt", "leather", "fur", "tanning", "tanner"], "categories": ["misc.hides_pelts"], "confidence": 0.8 },
 		{ "label": "animal parts", "words": ["trophy", "bone", "claw", "horn", "tusk"], "categories": ["misc.animal_parts"], "confidence": 0.6 },
-		{ "label": "Dwemer", "words": ["dwemer", "dwarven"], "categories": ["misc.dwemer"], "confidence": 0.75 },
-		{ "label": "building materials", "words": ["building", "construction", "lumber", "material", "carpent*", "nail", "hinge"],
+		{ "label": "Dwemer parts", "words": ["scrap", "dwemer part", "dwarven part", "dwemer metal", "dwarven metal", "dwemer material", "dwarven material",
+		                                     "dwemer component", "dwarven component", "dwemer curio", "dwarven curio"],
+		  "categories": ["misc.dwemer"], "confidence": 0.75 },
+		{ "label": "building materials", "words": ["building", "construction", "lumber", "carpent*", "nail", "hinge"],
 		  "categories": ["misc.building_materials"], "confidence": 0.75 },
 		{ "label": "tools", "words": ["tool", "toolbox"], "categories": ["misc.tools"], "confidence": 0.75 },
 		{ "label": "keys", "words": ["key"], "categories": ["keys"], "confidence": 0.75 },
@@ -81,28 +106,34 @@ namespace dova::core
 		{ "label": "odds and ends (a sack)", "words": ["sack", "knapsack"], "categories": ["misc.clutter"], "confidence": 0.3 }
 	],
 
+	// A station counts for containers within "radius" (game units, about 70 per metre; height counts double), at full
+	// confidence next to it and half at the edge. Racks and mannequins are hints only: below fillAt, they add up with
+	// a name or items, never decide alone.
 	"stations": [
 		{ "label": "forge", "keywords": ["CraftingSmithingForge", "CraftingSmithingSkyforge", "CraftingSmithingArmorTable", "CraftingSmithingSharpeningWheel"],
-		  "words": ["forge", "anvil", "grindstone", "sharpening wheel", "armor table"], "categories": ["misc.ores_ingots"], "confidence": 0.65, "radius": 500 },
-		{ "label": "smelter", "keywords": ["CraftingSmelter"], "words": ["smelter"], "categories": ["misc.ores_ingots"], "confidence": 0.7, "radius": 500 },
-		{ "label": "tanning rack", "keywords": ["CraftingTanningRack"], "words": ["tanning rack", "tanningrack"], "categories": ["misc.hides_pelts"], "confidence": 0.65, "radius": 600 },
+		  "words": ["forge", "anvil", "grindstone", "sharpening wheel", "armor table"], "categories": ["misc.ores_ingots"], "confidence": 0.65, "radius": 400 },
+		{ "label": "smelter", "keywords": ["CraftingSmelter"], "words": ["smelter"], "categories": ["misc.ores_ingots"], "confidence": 0.7, "radius": 400 },
+		{ "label": "tanning rack", "keywords": ["CraftingTanningRack"], "words": ["tanning rack", "tanningrack"], "categories": ["misc.hides_pelts"], "confidence": 0.65, "radius": 400 },
 		{ "label": "alchemy lab", "keywords": ["WICraftingAlchemy", "CraftingAlchemy"], "words": ["alchemy lab", "alchemylab*", "alchemy table", "alchemy station"],
-		  "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"], "confidence": 0.7, "radius": 500 },
+		  "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"], "confidence": 0.7, "radius": 350 },
 		{ "label": "enchanter", "keywords": ["WICraftingEnchanting", "CraftingEnchanting"], "words": ["arcane enchanter", "enchanter", "enchanting table"],
-		  "categories": ["soulgems.*"], "confidence": 0.7, "radius": 500 },
+		  "categories": ["soulgems.*"], "confidence": 0.7, "radius": 350 },
 		{ "label": "cooking pot", "keywords": ["CraftingCookpot", "isCookingSpit", "BYOHCraftingOven", "CraftingOven"], "words": ["cookpot", "cooking pot", "oven", "cooking spit", "spit"],
-		  "categories": ["alchemy.food"], "confidence": 0.65, "radius": 450 },
-		{ "label": "bookshelf", "words": ["bookshelf", "bookcase", "bookshelves", "shelf book", "book shelf"], "categories": ["books.*"], "confidence": 0.55, "radius": 300 },
+		  "categories": ["alchemy.food"], "confidence": 0.65, "radius": 350 },
+		{ "label": "bookshelf", "keywords": ["display:bookshelf"], "words": ["bookshelf", "bookcase", "bookshelves", "shelf book", "book shelf"], "categories": ["books.*"],
+		  "confidence": 0.55, "radius": 250 },
 		{ "label": "carpenter's workbench", "keywords": ["BYOHCraftingDraftingTable", "BYOHCarpenterTableKeyword"], "words": ["drafting table", "carpenter*"],
 		  "categories": ["misc.building_materials"], "confidence": 0.6, "radius": 400 },
-		{ "label": "weapon rack", "keywords": ["display:rack"], "categories": ["weapons.*"], "confidence": 0.4, "radius": 350 },
-		{ "label": "mannequin", "keywords": ["display:mannequin"], "categories": ["armor.heavy", "armor.light"], "confidence": 0.4, "radius": 350 }
+		{ "label": "weapon rack", "keywords": ["display:rack"], "categories": ["weapons.*"], "confidence": 0.3, "radius": 250 },
+		{ "label": "mannequin", "keywords": ["display:mannequin"], "categories": ["armor.heavy", "armor.light"], "confidence": 0.3, "radius": 250 }
 	],
 
+	// Loose items on or next to a container: a hint (at most "max", below acceptAt), adding up with a name or a station.
+	// Weapons, armor and ammunition lying about are decoration (a shield on the wall, a sword on a table): skipped.
 	"nearby": {
-		"radius": 96, "confidence": 0.35, "perItem": 0.1, "max": 0.75,
-		"skip": ["misc.clutter"],
-		"groups": ["weapons", "ammo", "soulgems", "books"]
+		"radius": 96, "confidence": 0.25, "perItem": 0.05, "max": 0.45,
+		"skip": ["misc.clutter", "weapons.*", "armor.heavy", "armor.light", "armor.shields", "ammo.*"],
+		"groups": ["soulgems", "books"]
 	},
 
 	// What a home usually has a place for, as the shipped templates group it. A group nobody was given goes to the
@@ -311,14 +342,19 @@ namespace dova::core
 			DraftSource source{ DraftSource::Name };
 			float       best{ 0.0f };          // strongest piece
 			float       stationDistance{ 1e9f };  // nearest station that supports it (tie-break)
-			bool        dedicated{ false };  // its name is about this one category ("Poison Crate"), not a group it is part of ("Potion Basket")
+			// How the container's own name claims it: 2 named for exactly this category ("Poison Crate", "Soul Gems"),
+			// 1 its display name says it as part of a group ("Potion Basket", "Alchemy Satchel"), 0 no claim (EditorID,
+			// stations, items nearby).
+			int claim{ 0 };
+			bool hinted{ false };  // some piece is not loose items nearby (the fill pass needs one)
 		};
 
 		void Add(std::map<std::string, Evidence>& a_into, const std::string& a_pattern, float a_conf, std::string a_reason, DraftSource a_source, float a_dist = 1e9f,
-			bool a_dedicated = false)
+			int a_claim = 0)
 		{
 			auto& e = a_into[a_pattern];
-			e.dedicated |= a_dedicated;
+			e.claim = std::max(e.claim, a_claim);
+			e.hinted |= a_source != DraftSource::Nearby;
 			e.confidence = 1.0f - (1.0f - e.confidence) * (1.0f - std::clamp(a_conf, 0.0f, 1.0f));
 			e.reason += (e.reason.empty() ? "" : "; ") + a_reason;
 			if (a_conf > e.best) {
@@ -334,6 +370,55 @@ namespace dova::core
 		}
 
 		std::string Percent(float a_conf) { return std::format("{:.0f}%", a_conf * 100.0f); }
+
+		// A word that says nothing about what a container holds: the generic words, and the master's chest-like and
+		// small-or-odd furniture words ("chest", "barrel", "drawers").
+		bool GenericToken(std::string_view a_token, const DraftRules& a_rules)
+		{
+			if (std::ranges::any_of(a_rules.genericWords, [&](const std::string& w) { return TokenMatches(a_token, w); })) {
+				return true;
+			}
+			const auto inEntries = [&](const std::vector<std::vector<std::string>>& a_entries) {
+				return std::ranges::any_of(a_entries, [&](const std::vector<std::string>& e) {
+					return std::ranges::any_of(e, [&](const std::string& w) { return TokenMatches(a_token, w); });
+				});
+			};
+			return inEntries(a_rules.masterWords) || inEntries(a_rules.masterAvoid);
+		}
+
+		// What a container's name tells. The display name is what the home's author wrote for players: when it has a
+		// word beyond the generic ones it is specific ("Dragonpriest Masks", "Food & Drinks") and is all that counts.
+		// A generic or missing display name ("Chest", "Barrel") lets the EditorID speak too ("PlayerHouseChestAlchemy").
+		struct NameView
+		{
+			std::vector<std::string> name;      // display name tokens
+			std::vector<std::string> combined;  // what name rules read: the name, plus the EditorID when the name is generic
+			bool                     specific{ false };
+			std::string              core;      // the display name without its generic words ("Apple Crate" -> "apple")
+		};
+
+		NameView ViewName(const DraftObject& a_obj, const DraftRules& a_rules)
+		{
+			NameView v;
+			v.name = DraftTokens(a_obj.name);
+			for (const auto& t : v.name) {
+				if (!GenericToken(t, a_rules)) {
+					v.specific = true;
+					v.core += (v.core.empty() ? "" : " ") + t;
+				}
+			}
+			v.combined = v.name;
+			if (!v.specific) {
+				const auto ed = DraftTokens(a_obj.editorId);
+				v.combined.insert(v.combined.end(), ed.begin(), ed.end());
+			}
+			return v;
+		}
+
+		bool AnyToken(std::span<const std::string> a_tokens, std::span<const std::string> a_words)
+		{
+			return std::ranges::any_of(a_words, [&](const std::string& w) { return std::ranges::any_of(a_tokens, [&](const std::string& t) { return TokenMatches(t, w); }); });
+		}
 	}
 
 	std::string_view DefaultDraftRulesText() { return kDefaultRules; }
@@ -434,14 +519,20 @@ namespace dova::core
 			return std::nullopt;
 		}
 		WarnUnknown(*doc,
-			{ "acceptAt", "keepAt", "maxPerContainer", "categoryNameConfidence", "itemNameConfidence", "ignore", "harmlessScripts", "master", "names", "stations",
-				"nearby", "fill" },
+			{ "acceptAt", "keepAt", "fillAt", "maxPerContainer", "categoryNameConfidence", "itemNameConfidence", "editorIdFactor", "genericWords", "ignore",
+				"harmlessScripts", "master", "names", "stations", "nearby", "fill" },
 			a_source, "rules", a_diags);
 		DraftRules r;
 		ReadFloat(*doc, "acceptAt", r.acceptAt, a_source, "rules", a_diags);
 		ReadFloat(*doc, "keepAt", r.keepAt, a_source, "rules", a_diags);
+		ReadFloat(*doc, "fillAt", r.fillAt, a_source, "rules", a_diags);
 		ReadFloat(*doc, "categoryNameConfidence", r.categoryNameConfidence, a_source, "rules", a_diags);
 		ReadFloat(*doc, "itemNameConfidence", r.itemNameConfidence, a_source, "rules", a_diags);
+		ReadFloat(*doc, "editorIdFactor", r.editorIdFactor, a_source, "rules", a_diags);
+		ReadStrings(*doc, "genericWords", r.genericWords, a_source, "rules", a_diags);
+		for (auto& w : r.genericWords) {
+			w = ToLower(w);
+		}
 		{
 			float maxPer = static_cast<float>(r.maxPerContainer);
 			if (ReadFloat(*doc, "maxPerContainer", maxPer, a_source, "rules", a_diags) && maxPer >= 1.0f) {
@@ -487,13 +578,16 @@ namespace dova::core
 		}
 
 		if (const auto it = doc->find("master"); it != doc->end() && it->is_object()) {
-			WarnUnknown(*it, { "words", "avoid", "sizeWeight", "wordWeight", "entranceWeight", "centralWeight", "entranceRange", "namedPenalty" }, a_source, "master",
-				a_diags);
+			WarnUnknown(*it,
+				{ "words", "avoid", "sizeWeight", "fullSize", "wordWeight", "avoidWeight", "entranceWeight", "centralWeight", "entranceRange", "namedPenalty" },
+				a_source, "master", a_diags);
 			ReadFloat(*it, "namedPenalty", r.masterNamedPenalty, a_source, "master", a_diags);
 			ReadWordList(*it, "words", r.masterWords, a_source, "master", a_diags);
 			ReadWordList(*it, "avoid", r.masterAvoid, a_source, "master", a_diags);
 			ReadFloat(*it, "sizeWeight", r.masterSizeWeight, a_source, "master", a_diags);
+			ReadFloat(*it, "fullSize", r.masterFullSize, a_source, "master", a_diags);
 			ReadFloat(*it, "wordWeight", r.masterWordWeight, a_source, "master", a_diags);
+			ReadFloat(*it, "avoidWeight", r.masterAvoidWeight, a_source, "master", a_diags);
 			ReadFloat(*it, "entranceWeight", r.masterEntranceWeight, a_source, "master", a_diags);
 			ReadFloat(*it, "centralWeight", r.masterCentralWeight, a_source, "master", a_diags);
 			ReadFloat(*it, "entranceRange", r.masterEntranceRange, a_source, "master", a_diags);
@@ -649,7 +743,12 @@ namespace dova::core
 		std::vector<std::map<std::string, Evidence>> evidence(plan.containers.size());
 		std::vector<float>                           named(plan.containers.size(), 0.0f);
 		// Category names split into alternatives: "Ores & ingots" -> [ores] | [ingots].
-		std::vector<std::pair<std::string, std::vector<std::vector<std::string>>>> categoryWords;
+		struct CategoryWords
+		{
+			std::string                           pattern, displayName;
+			std::vector<std::vector<std::string>> alts;
+		};
+		std::vector<CategoryWords> categoryWords;
 		for (const auto& [pattern, displayName] : a_options.categoryNames) {
 			std::string display = displayName;
 			std::ranges::replace(display, '&', ',');
@@ -676,59 +775,78 @@ namespace dova::core
 				alts.push_back(std::move(cur));
 			}
 			if (!alts.empty()) {
-				categoryWords.emplace_back(pattern, std::move(alts));
+				categoryWords.push_back({ pattern, displayName, std::move(alts) });
 			}
 		}
+		std::vector<NameView> views(plan.containers.size());
 		for (std::size_t ci = 0; ci < plan.containers.size(); ++ci) {
 			const auto& c = plan.containers[ci];
+			const auto& o = a_objects[c.object];
+			views[ci] = ViewName(o, a_rules);
 			if (c.ignored) {
 				continue;
 			}
-			const auto& o = a_objects[c.object];
-			const auto  tokens = ObjectTokens(o);
+			const auto& view = views[ci];
 			auto&       ev = evidence[ci];
 			for (const auto& rule : a_rules.names) {
+				// The display name first; the EditorID only speaks for a generic name, and less.
 				std::string which;
-				if (!AnyWords(tokens, rule.words, &which)) {
+				bool        onName = AnyWords(view.name, rule.words, &which) && !AnyToken(view.name, rule.notWords);
+				const bool  onEditorId = !onName && view.combined.size() > view.name.size() && AnyWords(view.combined, rule.words, &which) &&
+				                        !AnyToken(view.combined, rule.notWords);
+				if (!onName && !onEditorId) {
 					continue;
 				}
-				if (std::ranges::any_of(rule.notWords, [&](const std::string& w) { return std::ranges::any_of(tokens, [&](const std::string& t) { return TokenMatches(t, w); }); })) {
-					continue;
-				}
+				const float conf = rule.confidence * (onName ? 1.0f : a_rules.editorIdFactor);
+				const auto  label = rule.label.empty() ? rule.categories.front() : rule.label;
+				const auto  reason = onName ? std::format("name \"{}\" says {} (\"{}\")", o.name, label, which) : std::format("EditorID {} says {} (\"{}\")", o.editorId, label, which);
 				for (const auto& cat : rule.categories) {
 					if (known(cat)) {
-						Add(ev, cat, rule.confidence, std::format("name \"{}\" says {} (\"{}\")", Title(o), rule.label.empty() ? cat : rule.label, which), DraftSource::Name, 1e9f,
-							rule.categories.size() == 1);
-						named[ci] = std::max(named[ci], rule.confidence);
+						// Only a rule that is sure on its own makes the container the place for exactly that category.
+						const bool sure = rule.confidence + 1e-4f >= a_rules.acceptAt;
+						Add(ev, cat, conf, reason, DraftSource::Name, 1e9f, !sure ? 0 : !onName ? (rule.categories.size() == 1 ? 1 : 0) : rule.categories.size() == 1 ? 2 : 1);
+						named[ci] = std::max(named[ci], conf);
 					}
 				}
 			}
-			const auto nameTokens = DraftTokens(o.name);
-			for (const auto& [pattern, alts] : categoryWords) {
+			for (const auto& [pattern, displayName, alts] : categoryWords) {
 				for (const auto& words : alts) {
 					// The whole name must be about the category: every word of the container's name is one of the
-					// category's words ("Soul Gems", "Ingots"), so "Chest of Drawers" is not "Chests".
-					if (nameTokens.empty() || !DraftWordsMatch(nameTokens, words)) {
+					// category's words or a generic one ("Soul Gems", "Large Ingot Crate"), so "Chest of Drawers" is not "Chests".
+					if (view.name.empty() || !DraftWordsMatch(view.name, words)) {
 						continue;
 					}
-					const bool onlyThose = std::ranges::all_of(nameTokens, [&](const std::string& t) {
-						return t == "and" || t == "of" || t == "the" || std::ranges::any_of(words, [&](const std::string& w) { return TokenMatches(t, w); }) ||
-						       std::ranges::any_of(a_rules.masterAvoid, [&](const std::vector<std::string>& e) { return e.size() == 1 && TokenMatches(t, e.front()); }) ||
-						       std::ranges::any_of(a_rules.masterWords, [&](const std::vector<std::string>& e) { return e.size() == 1 && TokenMatches(t, e.front()); });
+					const bool onlyThose = std::ranges::all_of(view.name, [&](const std::string& t) {
+						return std::ranges::any_of(words, [&](const std::string& w) { return TokenMatches(t, w); }) || GenericToken(t, a_rules);
 					});
 					if (onlyThose && known(pattern)) {
-						Add(ev, pattern, a_rules.categoryNameConfidence, std::format("named after the category \"{}\"", Title(o)), DraftSource::Name, 1e9f, true);
+						Add(ev, pattern, a_rules.categoryNameConfidence, std::format("named after the category \"{}\"", displayName), DraftSource::Name, 1e9f, 2);
 						named[ci] = std::max(named[ci], a_rules.categoryNameConfidence);
 					}
 					break;
 				}
 			}
-			if (a_options.itemCategoryByName && !o.name.empty()) {
-				if (const auto cat = a_options.itemCategoryByName(o.name); cat && known(*cat)) {
-					Add(ev, *cat, a_rules.itemNameConfidence, std::format("named after the item \"{}\"", o.name), DraftSource::Name, 1e9f, true);
+			if (a_options.itemCategoryByName && view.specific) {
+				// "Ash Hopper Jelly"; else the name without its generic words ("Garlic Basket" -> "garlic"). A generic
+				// name ("Storage") is no item's, whatever some book happens to be called. One item is a weak claim on
+				// its whole category: "Pearls" does not take every ingredient from the "Alchemy Satchel".
+				auto cat = a_options.itemCategoryByName(o.name);
+				std::string_view item = o.name;
+				if (!cat && !view.core.empty() && !IEquals(view.core, o.name)) {
+					cat = a_options.itemCategoryByName(view.core);
+					item = view.core;
+				}
+				if (cat && known(*cat)) {
+					Add(ev, *cat, a_rules.itemNameConfidence, std::format("named after the item \"{}\"", item), DraftSource::Name, 1e9f);
 					named[ci] = std::max(named[ci], a_rules.itemNameConfidence);
 				}
 			}
+		}
+		// Named for its contents: it gets what its name says and nothing else (stations and nearby items only add to
+		// those). A specific name the rules cannot read ("Dragonpriest Masks") gets nothing: the author knows best.
+		std::vector<bool> labelled(plan.containers.size(), false);
+		for (std::size_t ci = 0; ci < plan.containers.size(); ++ci) {
+			labelled[ci] = views[ci].specific || named[ci] + 1e-4f >= a_rules.acceptAt;
 		}
 
 		// ---- Master ----
@@ -749,7 +867,6 @@ namespace dova::core
 			       (!a_mainOnly || a_options.mainCell.empty() || o.cell == a_options.mainCell);
 		};
 		bool mainOnly = std::ranges::any_of(plan.containers, [&](const DraftContainer& c) { return usable(c, true); });
-		float maxVolume = 1.0f;
 		std::array<float, 3> centroid{};
 		int                  centroidCount = 0;
 		for (const auto& c : plan.containers) {
@@ -757,8 +874,6 @@ namespace dova::core
 				continue;
 			}
 			const auto& o = a_objects[c.object];
-			const float v = std::max(o.size[0], 1.0f) * std::max(o.size[1], 1.0f) * std::max(o.size[2], 1.0f);
-			maxVolume = std::max(maxVolume, v);
 			for (int k = 0; k < 3; ++k) {
 				centroid[static_cast<std::size_t>(k)] += o.center[static_cast<std::size_t>(k)];
 			}
@@ -776,13 +891,14 @@ namespace dova::core
 				maxSpread = std::max(maxSpread, std::hypot(o.center[0] - centroid[0], o.center[1] - centroid[1]));
 			}
 		}
+		const float fullSize = std::max(a_rules.masterFullSize, 1.0f);
 		for (std::size_t ci = 0; ci < plan.containers.size(); ++ci) {
 			const auto& c = plan.containers[ci];
 			if (!usable(c, mainOnly)) {
 				continue;
 			}
 			const auto& o = a_objects[c.object];
-			const auto  tokens = ObjectTokens(o);
+			const auto& tokens = views[ci].combined;
 			Candidate   cand{ c.object, 0.0f, std::max(o.size[0], 1.0f) * std::max(o.size[1], 1.0f) * std::max(o.size[2], 1.0f), AnyWords(tokens, a_rules.masterWords),
 				  AnyWords(tokens, a_rules.masterAvoid), -1.0f, {} };
 			for (const auto& d : a_objects) {
@@ -797,13 +913,15 @@ namespace dova::core
 					}
 				}
 			}
-			cand.score = a_rules.masterSizeWeight * (cand.volume / maxVolume) + (cand.word ? a_rules.masterWordWeight : 0.0f) - (cand.avoid ? a_rules.masterWordWeight : 0.0f);
+			// Size up to a usual chest's: one oversized shelf or urn must not win on volume alone.
+			cand.score = a_rules.masterSizeWeight * std::min(cand.volume / fullSize, 1.0f) + (cand.word ? a_rules.masterWordWeight : 0.0f) -
+			             (cand.avoid ? a_rules.masterAvoidWeight : 0.0f);
 			if (cand.entrance >= 0.0f) {
 				cand.score += a_rules.masterEntranceWeight * std::max(0.0f, 1.0f - cand.entrance / std::max(a_rules.masterEntranceRange, 1.0f));
 			}
 			cand.score += a_rules.masterCentralWeight * (1.0f - std::min(std::hypot(o.center[0] - centroid[0], o.center[1] - centroid[1]) / maxSpread, 1.0f));
-			// Named for what it holds: a strong name rule, a category's name or an item's name ("Firewood").
-			cand.named = named[ci] + 1e-4f >= std::min({ 0.75f, a_rules.itemNameConfidence, a_rules.categoryNameConfidence });
+			// Named for what it holds ("Soul Gems", "Firewood", "Dragonpriest Masks"): the master only when nothing else is usable.
+			cand.named = labelled[ci];
 			if (cand.named) {
 				cand.score -= a_rules.masterNamedPenalty;
 			}
@@ -814,28 +932,26 @@ namespace dova::core
 			const auto& best = candidates.front();
 			const auto& o = a_objects[best.object];
 			plan.master = best.object;
-			const auto rank = 1 + std::ranges::count_if(candidates, [&](const Candidate& c) { return c.volume > best.volume; });
-			std::string why = std::format("{}: ", Title(o));
-			const auto ordinal = [](long long n) {
-				const auto tens = n % 100;
-				const char* suffix = tens >= 11 && tens <= 13 ? "th" : n % 10 == 1 ? "st" : n % 10 == 2 ? "nd" : n % 10 == 3 ? "rd" : "th";
-				return std::format("{}{}", n, suffix);
-			};
-			why += rank == 1 ? std::string("the largest") : std::format("the {} largest", ordinal(rank));
-			why += std::format(" of {} usable containers ({:.0f} x {:.0f} x {:.0f} units)", candidates.size(), o.size[0], o.size[1], o.size[2]);
+			std::vector<std::string> parts;
 			if (best.word) {
-				why += ", named like a chest";
-			}
-			if (best.avoid) {
-				why += ", though its name sounds small";
+				parts.emplace_back("named like a chest");
+			} else if (best.avoid) {
+				parts.emplace_back("though its name sounds small or odd (nothing more chest-like is usable)");
 			}
 			if (best.named) {
-				why += ", though its name says what it holds";
+				parts.emplace_back(std::ranges::all_of(candidates, [](const Candidate& c) { return c.named; }) ?
+				                       "though its name says what it holds (every usable container's does)" :
+				                       "though its name says what it holds");
 			}
+			parts.push_back(std::format("{:.0f} x {:.0f} x {:.0f} units{}", o.size[0], o.size[1], o.size[2], best.volume * 2.0f >= fullSize ? "" : ", small"));
 			if (best.entrance >= 0.0f) {
-				why += std::format(", {} from the door{}", DraftMetres(best.entrance), best.door.empty() ? std::string{} : " to " + best.door);
+				parts.push_back(std::format("{} from the door{}", DraftMetres(best.entrance), best.door.empty() ? std::string{} : " to " + best.door));
 			}
-			why += "; usable: does not respawn, no script, nobody else's, there from the start";
+			std::string why = std::format("{}: ", Title(o));
+			for (std::size_t i = 0; i < parts.size(); ++i) {
+				why += (i ? ", " : "") + parts[i];
+			}
+			why += std::format("; usable (one of {}): does not respawn, no script, nobody else's, there from the start", candidates.size());
 			if (mainOnly && !a_options.mainCell.empty() && std::ranges::any_of(plan.containers, [&](const DraftContainer& c) { return usable(c, false) && !usable(c, true); })) {
 				why += ", in the home's main cell";
 			}
@@ -894,6 +1010,8 @@ namespace dova::core
 			}
 			const auto& o = a_objects[c.object];
 			auto&       ev = evidence[ci];
+			// A container named for its contents only hears more about what its name says.
+			const auto heard = [&](const std::string& a_pattern) { return known(a_pattern) && (!labelled[ci] || ev.contains(a_pattern)); };
 			// Each station rule counts once per container (the nearest station of that kind).
 			std::map<const DraftStationRule*, std::pair<float, std::size_t>> nearest;
 			for (const auto& s : stations) {
@@ -913,7 +1031,7 @@ namespace dova::core
 			for (const auto& [rule, hit] : nearest) {
 				const float conf = rule->confidence * (1.0f - 0.5f * hit.first / std::max(rule->radius, 1.0f));
 				for (const auto& cat : rule->categories) {
-					if (known(cat)) {
+					if (heard(cat)) {
 						Add(ev, cat, conf, std::format("{} from the {} ({})", DraftMetres(hit.first), rule->label, Title(a_objects[hit.second])), DraftSource::Station, hit.first);
 					}
 				}
@@ -936,7 +1054,7 @@ namespace dova::core
 				items[pattern].push_back(Title(it));
 			}
 			for (const auto& [pattern, names] : items) {
-				if (!known(pattern)) {
+				if (!heard(pattern)) {
 					continue;
 				}
 				const float conf = std::min(a_rules.nearbyConfidence + a_rules.nearbyPerItem * static_cast<float>(names.size() - 1), a_rules.nearbyMax);
@@ -962,12 +1080,12 @@ namespace dova::core
 					continue;
 				}
 				const auto& other = evidence[it->second].at(pattern);
-				// A container named for exactly this category beats one that gets it as part of a group, then confidence,
-				// then the nearer station.
-				const bool dedicatedWins = e.dedicated && !other.dedicated && e.confidence + 1e-4f >= a_rules.acceptAt;
-				const bool dedicatedLoses = other.dedicated && !e.dedicated && other.confidence + 1e-4f >= a_rules.acceptAt;
-				if (dedicatedWins ||
-					(!dedicatedLoses && (e.confidence > other.confidence + 1e-4f || (std::abs(e.confidence - other.confidence) <= 1e-4f && e.stationDistance < other.stationDistance)))) {
+				// The stronger claim by name wins (named for exactly this category, then a display name that says it as part
+				// of a group, then the rest), when it is sure enough; then confidence, then the nearer station.
+				const bool claimWins = e.claim > other.claim && e.confidence + 1e-4f >= a_rules.acceptAt;
+				const bool claimLoses = other.claim > e.claim && other.confidence + 1e-4f >= a_rules.acceptAt;
+				if (claimWins ||
+					(!claimLoses && (e.confidence > other.confidence + 1e-4f || (std::abs(e.confidence - other.confidence) <= 1e-4f && e.stationDistance < other.stationDistance)))) {
 					it->second = ci;
 				}
 			}
@@ -1001,14 +1119,16 @@ namespace dova::core
 			return !c.ignored && !(plan.master && *plan.master == c.object) &&
 			       std::ranges::none_of(c.suggestions, [](const DraftSuggestion& s) { return s.accepted; });
 		};
+		// A container takes the group's categories it has evidence of its own for: a shield hanging next to a cabinet
+		// is no reason to send it heavy armor.
+		auto open = [&](const std::string& a_pattern) { return known(a_pattern) && !acceptedAnywhere(a_pattern); };
 		std::vector<bool> groupDone(a_rules.fill.size(), false);
 		for (;;) {
 			float       best = 0.0f;
 			std::size_t bestGroup = 0, bestContainer = 0;
-			std::string bestPattern;
 			for (std::size_t g = 0; g < a_rules.fill.size(); ++g) {
 				const auto& group = a_rules.fill[g];
-				if (groupDone[g] || std::ranges::all_of(group.categories, [&](const std::string& p) { return !known(p) || acceptedAnywhere(p); })) {
+				if (groupDone[g]) {
 					continue;
 				}
 				for (std::size_t ci = 0; ci < plan.containers.size(); ++ci) {
@@ -1016,36 +1136,34 @@ namespace dova::core
 						continue;
 					}
 					for (const auto& [pattern, e] : evidence[ci]) {
-						if (std::ranges::find(group.categories, pattern) != group.categories.end() && e.confidence > best + 1e-4f) {
+						if (std::ranges::find(group.categories, pattern) != group.categories.end() && open(pattern) && e.hinted && e.confidence > best + 1e-4f) {
 							best = e.confidence;
 							bestGroup = g;
 							bestContainer = ci;
-							bestPattern = pattern;
 						}
 					}
 				}
 			}
-			if (best + 1e-4f < a_rules.keepAt) {
+			if (best + 1e-4f < a_rules.fillAt) {
 				break;
 			}
 			groupDone[bestGroup] = true;
 			auto&       c = plan.containers[bestContainer];
 			const auto& group = a_rules.fill[bestGroup];
-			const auto  hint = evidence[bestContainer].at(bestPattern).reason;
 			for (const auto& p : group.categories) {
-				if (!known(p) || acceptedAnywhere(p)) {
+				const auto e = evidence[bestContainer].find(p);
+				if (e == evidence[bestContainer].end() || e->second.confidence + 1e-4f < a_rules.fillAt || !e->second.hinted || !open(p)) {
 					continue;
 				}
 				auto s = std::ranges::find_if(c.suggestions, [&](const DraftSuggestion& x) { return x.pattern == p; });
 				if (s == c.suggestions.end()) {
-					c.suggestions.push_back({ p, best, {}, DraftSource::Fill, false, {} });
+					c.suggestions.push_back({ p, e->second.confidence, {}, DraftSource::Fill, false, {} });
 					s = std::prev(c.suggestions.end());
 				}
 				s->accepted = true;
 				s->source = DraftSource::Fill;
-				s->confidence = std::max(s->confidence, best);
 				s->lostTo.clear();
-				s->reason = std::format("best free place for {}: {}", group.label.empty() ? p : group.label, hint);
+				s->reason = std::format("best free place for {}: {}", group.label.empty() ? p : group.label, e->second.reason);
 			}
 		}
 

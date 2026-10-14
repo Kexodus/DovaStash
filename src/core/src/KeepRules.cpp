@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <format>
+#include <limits>
 #include <map>
 #include <utility>
 
@@ -12,6 +13,15 @@ namespace dova::core
 		KeepConfig cfg;
 		cfg.always = { "equipped", "favorited", "quest", kGoldForm.ToString(), kLockpickForm.ToString(), kTorchForm.ToString() };
 		return cfg;
+	}
+
+	bool RestockApplies(const KeepConfig& a_global, const KeepConfig* a_layoutKeep)
+	{
+		const auto any = [](const KeepConfig& a_keep) { return std::ranges::any_of(a_keep.quotas, [](const QuotaRule& a_q) { return a_q.restock; }); };
+		if (a_layoutKeep && any(*a_layoutKeep)) {
+			return true;
+		}
+		return (!a_layoutKeep || a_layoutKeep->Inherits()) && any(a_global);
 	}
 
 	namespace
@@ -47,6 +57,7 @@ namespace dova::core
 				}
 				quota.forms = q.forms;
 				quota.quota = std::max(0, q.quota);
+				quota.restock = q.restock;
 				layer.quotas.push_back(std::move(quota));
 			}
 			return layer;
@@ -138,6 +149,91 @@ namespace dova::core
 			}
 			return true;
 		}
+
+		ItemView MakeView(const ItemInfo& a_item, const CategorySet& a_categories)
+		{
+			ItemView view;
+			view.item = &a_item;
+			view.primary = a_categories.Classify(a_item);
+			for (const auto& k : a_item.keywords) {
+				view.keywords.push_back(ToLower(k));
+			}
+			return view;
+		}
+
+		// How Deposit sees an inventory: the views, the stacks kept whole (hard rule or `always`) with the rule
+		// behind each, and the stacks each quota rule claims.
+		struct Evaluation
+		{
+			std::vector<ItemView>                                                  views;
+			std::vector<bool>                                                      keptAll;
+			std::vector<std::string>                                               why;
+			std::map<std::pair<std::size_t, std::size_t>, std::vector<std::size_t>> claims;  // (layer, quota) -> stacks
+		};
+
+		Evaluation Evaluate(std::span<const KeepRules::Layer> a_layers, std::span<const ItemInfo> a_inventory, const CategorySet& a_categories)
+		{
+			const auto n = a_inventory.size();
+			Evaluation ev;
+			ev.views.reserve(n);
+			for (const auto& item : a_inventory) {
+				ev.views.push_back(MakeView(item, a_categories));
+			}
+			ev.keptAll.assign(n, false);
+			ev.why.assign(n, {});
+
+			for (std::size_t i = 0; i < n; ++i) {
+				const auto& item = a_inventory[i];
+				if (item.count <= 0) {
+					continue;
+				}
+				if (item.questItem || !item.playable || item.returns) {
+					ev.keptAll[i] = true;
+					ev.why[i] = item.questItem ? "quest item" : item.playable ? "comes back when stored" : "non-playable";
+					continue;
+				}
+				bool decided = false;
+				for (std::size_t l = 0; l < a_layers.size() && !decided; ++l) {
+					const auto& layer = a_layers[l];
+					if (const auto it = std::ranges::find_if(layer.always, [&](const KeepSelector& s) { return SelectorMatches(s, ev.views[i]); });
+						it != layer.always.end()) {
+						ev.keptAll[i] = true;
+						decided = true;
+						ev.why[i] = std::format("always {} ({})", SelectorLabel(*it), layer.name);
+					} else if (std::ranges::any_of(layer.never, [&](const KeepSelector& s) { return SelectorMatches(s, ev.views[i]); })) {
+						decided = true;
+					} else {
+						for (std::size_t q = 0; q < layer.quotas.size(); ++q) {
+							if (QuotaMatches(layer.quotas[q], ev.views[i])) {
+								ev.claims[{ l, q }].push_back(i);
+								decided = true;
+								break;
+							}
+						}
+					}
+				}
+			}
+			return ev;
+		}
+
+		// Copies the player carries of a quota rule, as Deposit counts them against it: stacks kept whole that
+		// match its selectors, plus the stacks it claims.
+		std::int64_t Carried(const Evaluation& a_ev, std::span<const ItemInfo> a_inventory, const KeepRules::Quota& a_quota,
+			const std::vector<std::size_t>* a_claimed)
+		{
+			std::int64_t have = 0;
+			for (std::size_t i = 0; i < a_inventory.size(); ++i) {
+				if (a_ev.keptAll[i] && a_inventory[i].count > 0 && QuotaMatches(a_quota, a_ev.views[i])) {
+					have += a_inventory[i].count;
+				}
+			}
+			if (a_claimed) {
+				for (const auto i : *a_claimed) {
+					have += a_inventory[i].count;
+				}
+			}
+			return have;
+		}
 	}
 
 	KeepRules KeepRules::Compile(const KeepConfig& a_global, const KeepConfig* a_layoutKeep, Diagnostics& a_diags)
@@ -154,71 +250,53 @@ namespace dova::core
 		return rules;
 	}
 
+	bool KeepRules::AlwaysKeeps(const ItemInfo& a_item, const CategorySet& a_categories, std::string* a_why) const
+	{
+		auto why = [&](std::string a_text) {
+			if (a_why) {
+				*a_why = std::move(a_text);
+			}
+			return true;
+		};
+		if (a_item.questItem) {
+			return why("quest item");
+		}
+		if (!a_item.playable) {
+			return why("non-playable");
+		}
+		if (a_item.returns) {
+			return why("comes back when stored");
+		}
+		ItemView view;
+		view.item = &a_item;
+		view.primary = a_categories.Classify(a_item);
+		for (const auto& layer : _layers) {
+			if (const auto it = std::ranges::find_if(layer.always, [&](const KeepSelector& s) { return SelectorMatches(s, view); }); it != layer.always.end()) {
+				return why(std::format("always {} ({})", SelectorLabel(*it), layer.name));
+			}
+			if (std::ranges::any_of(layer.never, [&](const KeepSelector& s) { return SelectorMatches(s, view); })) {
+				return false;
+			}
+		}
+		return false;
+	}
+
 	std::vector<std::int32_t> KeepRules::ComputeKeepCounts(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories,
 		std::vector<std::string>* a_why) const
 	{
 		const auto n = a_inventory.size();
+		auto       ev = Evaluate(_layers, a_inventory, a_categories);
 		std::vector<std::int32_t> keep(n, 0);
-		std::vector<std::string>  why(n);
-
-		std::vector<ItemView> views(n);
-		for (std::size_t i = 0; i < n; ++i) {
-			views[i].item = &a_inventory[i];
-			views[i].primary = a_categories.Classify(a_inventory[i]);
-			for (const auto& k : a_inventory[i].keywords) {
-				views[i].keywords.push_back(ToLower(k));
-			}
-		}
-
-		std::vector<bool>                                                   keptAll(n, false);
-		std::map<std::pair<std::size_t, std::size_t>, std::vector<std::size_t>> claims;  // (layer, quota) -> stacks
 
 		for (std::size_t i = 0; i < n; ++i) {
-			const auto& item = a_inventory[i];
-			if (item.count <= 0) {
-				continue;
-			}
-			if (item.questItem || !item.playable || item.returns) {
-				keptAll[i] = true;
-				why[i] = item.questItem ? "quest item" : item.playable ? "comes back when stored" : "non-playable";
-				continue;
-			}
-			bool decided = false;
-			for (std::size_t l = 0; l < _layers.size() && !decided; ++l) {
-				const auto& layer = _layers[l];
-				if (const auto it = std::ranges::find_if(layer.always, [&](const KeepSelector& s) { return SelectorMatches(s, views[i]); });
-					it != layer.always.end()) {
-					keptAll[i] = true;
-					decided = true;
-					why[i] = std::format("always {} ({})", SelectorLabel(*it), layer.name);
-				} else if (std::ranges::any_of(layer.never, [&](const KeepSelector& s) { return SelectorMatches(s, views[i]); })) {
-					decided = true;
-				} else {
-					for (std::size_t q = 0; q < layer.quotas.size(); ++q) {
-						if (QuotaMatches(layer.quotas[q], views[i])) {
-							claims[{ l, q }].push_back(i);
-							decided = true;
-							break;
-						}
-					}
-				}
-			}
-		}
-
-		for (std::size_t i = 0; i < n; ++i) {
-			if (keptAll[i]) {
+			if (ev.keptAll[i]) {
 				keep[i] = a_inventory[i].count;
 			}
 		}
 
-		for (auto& [key, stacks] : claims) {
+		for (auto& [key, stacks] : ev.claims) {
 			const auto& quota = _layers[key.first].quotas[key.second];
-			std::int64_t remaining = quota.quota;
-			for (std::size_t i = 0; i < n; ++i) {
-				if (keptAll[i] && QuotaMatches(quota, views[i])) {
-					remaining -= a_inventory[i].count;
-				}
-			}
+			std::int64_t remaining = quota.quota - Carried(ev, a_inventory, quota, nullptr);
 			std::ranges::stable_sort(stacks, [&](std::size_t a_lhs, std::size_t a_rhs) {
 				const auto& l = a_inventory[a_lhs];
 				const auto& r = a_inventory[a_rhs];
@@ -240,12 +318,68 @@ namespace dova::core
 				const auto k = static_cast<std::int32_t>(std::min<std::int64_t>(remaining, a_inventory[i].count));
 				keep[i] = k;
 				remaining -= k;
-				why[i] = std::format("{} ({})", QuotaLabel(quota), _layers[key.first].name);
+				ev.why[i] = std::format("{} ({})", QuotaLabel(quota), _layers[key.first].name);
 			}
 		}
 		if (a_why) {
-			*a_why = std::move(why);
+			*a_why = std::move(ev.why);
 		}
 		return keep;
+	}
+
+	bool KeepRules::Restocks() const noexcept
+	{
+		return std::ranges::any_of(_layers, [](const Layer& a_layer) {
+			return std::ranges::any_of(a_layer.quotas, [](const Quota& a_q) { return a_q.restock; });
+		});
+	}
+
+	std::vector<KeepRules::RestockGoal> KeepRules::RestockGoals(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories) const
+	{
+		std::vector<RestockGoal> goals;
+		if (!Restocks()) {
+			return goals;
+		}
+		const auto ev = Evaluate(_layers, a_inventory, a_categories);
+		for (std::size_t l = 0; l < _layers.size(); ++l) {
+			for (std::size_t q = 0; q < _layers[l].quotas.size(); ++q) {
+				const auto& quota = _layers[l].quotas[q];
+				if (!quota.restock) {
+					continue;
+				}
+				const auto it = ev.claims.find({ l, q });
+				const auto have = Carried(ev, a_inventory, quota, it != ev.claims.end() ? &it->second : nullptr);
+				goals.push_back(RestockGoal{
+					.rule = { l, q },
+					.quota = quota.quota,
+					.have = static_cast<std::int32_t>(std::min<std::int64_t>(have, std::numeric_limits<std::int32_t>::max())),
+					.label = std::format("{} ({})", QuotaLabel(quota), _layers[l].name) });
+			}
+		}
+		return goals;
+	}
+
+	std::optional<KeepRules::RuleId> KeepRules::RestockRuleFor(const ItemInfo& a_item, const CategorySet& a_categories) const
+	{
+		if (a_item.count <= 0 || a_item.questItem || !a_item.playable || a_item.returns) {
+			return std::nullopt;
+		}
+		const auto view = MakeView(a_item, a_categories);
+		for (std::size_t l = 0; l < _layers.size(); ++l) {
+			const auto& layer = _layers[l];
+			const bool  always = std::ranges::any_of(layer.always, [&](const KeepSelector& s) { return SelectorMatches(s, view); });
+			if (!always && std::ranges::any_of(layer.never, [&](const KeepSelector& s) { return SelectorMatches(s, view); })) {
+				return std::nullopt;
+			}
+			for (std::size_t q = 0; q < layer.quotas.size(); ++q) {
+				if (QuotaMatches(layer.quotas[q], view)) {
+					if (!layer.quotas[q].restock) {
+						return std::nullopt;
+					}
+					return RuleId{ l, q };
+				}
+			}
+		}
+		return std::nullopt;
 	}
 }

@@ -16,7 +16,9 @@ Design principles, in priority order:
 
 1. **Never lose an item.** Every move is a real `RemoveItem(... moveToRef)` that preserves extra data
    (enchantments, tempering, custom names, stolen flags, soul charge). If anything is ambiguous, the item
-   stays where it is.
+   stays where it is. The one place items leave the game is the sell chest (§8.8): a container the player
+   marks, sold only after a trigger the player chose (a confirmed *Sell now*, or timed selling they turned
+   on), every sale logged and the last one of the session bought back on request.
 2. **Zero-config for the common case.** Drop-in install; homes with a template just work.
 3. **Works anywhere it's safe.** Not limited to a hardcoded list of homes. Eligibility is decided by
    runtime safety checks (ownership, respawn), not by a whitelist.
@@ -62,7 +64,7 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 | Hotkey into the air → highlight managed containers     | Same: apply a timed effect shader to managed containers                            |
 | `Stash Organizer.ini` + `[Cell ID].ini` override       | `Layouts/` (player) + `Templates/` (community), resolved by cell identity (§6)     |
 | Settings persist across playthroughs                   | Same: layouts live in JSON, not in the save                                        |
-| Crafting pulls from storage                            | Materials at the workbench (§8.5): brought on sitting down, the rest put back      |
+| Crafting pulls from storage                            | Materials at the workbench (§8.5): the menu crafts from storage (or brings them)    |
 | Mojave Express (send items between stashes)            | Superseded by central storage (v2)                                                 |
 
 ---
@@ -84,17 +86,23 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 ### 4.1 Zero-touch (template exists)
 
 1. Player enters Breezehome (or any home with a template).
-2. Dova Stash finds a matching template and shows a one-time notification:
-   *"Dova Stash: Breezehome setup available (by &lt;author&gt;). Press [Hotkey] at any container to enable."*
+2. Dova Stash finds a matching template, applies it on entry and shows a one-time notification that says
+   what to do: *"Dova Stash: Breezehome is set up. Press [Hotkey] anywhere here to put your loot away."*
+   (the hotkey anywhere in the home opens the master menu; where the master is never needs saying).
    (In-game text says *setup* for what the files and this document call a layout, §10.3.)
-   Auto-enable on first entry is a config option, off by default.
+   Auto-enable on first entry is a config option (`bAutoEnableTemplates`), on by default. With it off,
+   nothing is applied and the notification offers the template instead:
+   *"Dova Stash: Breezehome setup available (by &lt;author&gt;). Press [Hotkey] at any container to enable."*
+   A template that does not fit the home as it is (another mod rebuilt it, §9.1) is never enabled on its own:
+   *"Dova Stash: Breezehome setup may not fit this home. Press [Hotkey] at any container to enable."*
 3. Player presses the hotkey: **Deposit** runs and loot flows into the right containers.
 
 ### 4.2 Manual setup (no template)
 
 1. Look at a container and press the hotkey → *"Make this the Dova Stash master container?"*
 2. The master's menu has these actions:
-   - **Deposit**: move eligible inventory items using the keep rules
+   - **Deposit**: move eligible inventory items using the keep rules (then restock, §8.7)
+   - **Restock**: top the player up to the keep quotas marked *Restock* (only listed when one applies, §8.7)
    - **Sort**: redistribute everything in the master
    - **Retrieve…**: by category, or everything
    - **Containers**: highlight managed containers
@@ -102,7 +110,7 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
    - **Save as template…** (§6.5)
    - **Reset**
 3. Look at any other container and press the hotkey to open its binding menu: assign categories, set
-   it as ignored, rename it, or promote it to master.
+   it as ignored, rename it, make it the sell chest (§8.8), or promote it to master.
 4. Or skip binding entirely: just **put items into containers by hand**. Each placement teaches Dova Stash
    where that item belongs (learned destinations).
 
@@ -110,7 +118,8 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 
 - Come home and press the hotkey (from anywhere in the cell, or at the master) → **Deposit**.
 - Dump things into the master and close it → items with a known destination move automatically.
-- Need arrows? Look at the master → **Retrieve → Ammo**.
+- Need arrows? Look at the master → **Retrieve → Ammo**. Or give the arrows a keep quota marked *Restock*
+  ("50 steel arrows"): every Deposit then tops you back up to 50 from storage (§8.7).
 
 ---
 
@@ -165,6 +174,11 @@ live `Home`/`Layout` or settings:
   from SKSE tasks (Controller, `HomeRegistry`, the panel's snapshot builder), never from the UI
   thread: saving a template rescans the list (`Store::ReloadTemplates`, which replaces it) and
   re-resolves the current home in the same task (§6.5).
+- Loading a game or starting a new one (kPreLoadGame / kNewGame, `main.cpp`) resets every per-session
+  state that belongs to the old game: `Controller::OnPreLoadGame` (the open container, deferred arrivals,
+  the undo/suggestion window, pending `Later` callbacks and *wait for the container menu to close* chains,
+  after flushing dirty learned destinations to the layout file), `crafting::Reset` (§8.5) and
+  `display::Reset` (§8.4).
 
 ---
 
@@ -177,6 +191,8 @@ All data paths are under `Data/SKSE/Plugins/DovaStash/`.
 Categories/
   00_Default.json             shipped category definitions
   50_<anything>.json          add-on packs (e.g. a Survival Mode or Requiem pack); loaded in name order
+SelfSorting/
+  00_Default.json             shipped list of homes that sort themselves (§9.1); add-ons/patches: any other name
 Templates/                    community/shipped layouts — read-only from the mod's perspective
   Vanilla/Breezehome.json
   <AnyAuthor>/<AnyName>.json  file names are free-form; identity is inside the file
@@ -203,6 +219,14 @@ runtime via `TESDataHandler::LookupForm(localID, plugin)`.
   memory at runtime.
 - An unresolvable reference (plugin removed) is logged and **skipped, never deleted**. User data
   survives a temporarily disabled mod.
+- Plugin names are **UTF-8** in every file Dova Stash reads or writes (and in layout file names). The
+  engine hands them over in the ANSI code page (Skyrim is not a Unicode application); `game::FormUtil`
+  converts them once when the file tables are built, so a `Château.esp` round-trips instead of turning
+  into `���.esp`.
+- A second `containers` or `displays` entry for the same `ref` is a warning: the first entry is the
+  binding everywhere (menus, prompts, the planner), the duplicate is kept verbatim and never used. A
+  `name`, `author`, `version`, `priority` or `autoDraft` of the wrong type is an error kept verbatim as well:
+  it is written back unchanged until the field gets a real value.
 
 ### 6.2 Layout resolution (per cell)
 
@@ -215,32 +239,56 @@ On entering an eligible cell:
    that layout is used, and the cell's own templates are not offered.
 2. Otherwise, use every template in `Templates/**` whose `cell` matches:
    - With one match, offer it.
-   - With several, pick the one with the highest `priority`, then the player's own saved templates
-     (`Templates/User/`, §6.5) before the others, then the newest `version`. The UI lists the
-     alternatives. A template is offered when its `cell` matches and every plugin in `requires` is
-     loaded; player exports follow the same rules.
+   - With several, templates someone made come before auto-drafts (`"autoDraft": true`, §6.8), whatever
+     their `priority` or `version`: an auto-draft is bulk-generated, so it is offered (and enabled by
+     `bAutoEnableTemplates`) only when the home has no eligible template someone made. Within each group,
+     pick the highest `priority`, then the player's own saved templates (`Templates/User/`, §6.5) before
+     the others, then the newest `version`, then the file path (`core::CompareTemplateRank`, the one
+     ranking: the hotkey's *Use template*, the setup prompt, the first-visit notice, auto-enable and the
+     panel all take `LayoutResolution::chosen` and its `alternatives`; the editor's template list sorts
+     with it too). The UI lists the alternatives. A template is offered when its `cell` matches, every
+     plugin in `requires` is loaded and none in `conflicts` is (`conflicts` names the mods that rebuild the
+     home, so its references no longer fit: the shipped Breezehome lists `WynterBreezehomeRedux.esp`; the log
+     says *template … not offered: … rebuilds this home (conflicts)*, the panel's Templates tab
+     *conflicts: …*); player exports follow the same rules. Before a template is enabled on its own, the
+     auto-enable guard (§9.1) checks that it fits the home as it is.
 3. Applying a template **copies** it into `Layouts/`, with a `"basedOn"` back-reference. Later edits
    never touch the template, and updating a template pack never clobbers player tweaks. A
    "Re-apply template" action exists (the hotkey menu says *Re-apply* for the template the layout's
    `basedOn` names, *Use template* for any other).
+4. **Switching templates** (the Menu Framework panel, §10.1): an enabled home lists every eligible
+   template in this order and switches to any of them. Switching is applying (`HomeRegistry::ApplyTemplate`,
+   as *Use template*): unsaved changes are written, the layout file is copied to a timestamped `.bak` and the
+   copy outside Data (§6.6) moves to its history with the save, so *Saved setups* can bring the old setup
+   back; the template is merged over the layout (`core::ApplyTemplate`: the master, sell chest and category bindings
+   come from the template; learned items, keep rules, ignored containers, explicit item bindings, the
+   player's own containers and displays stay). Only the setup changes: no item is taken out of a container
+   or off a display, and the next Deposit or Sort all follows the new setup. When the layout has changes of
+   the player's own that the switch replaces (`core::HasOwnChanges`: a custom setup, a layout whose
+   `basedOn` template is gone or has another version now, or one that applying its own template again
+   would change, after the plugin's display step), the panel asks first; otherwise one click switches.
+   Debug log: *&lt;home&gt;: template switched from &lt;basedOn or "a custom setup"&gt; to &lt;source@version&gt;*.
 
 ### 6.3 Layout / template schema (v1)
 
 ```jsonc
 {
   "$schema": "dovastash-layout-1",
+  // "autoDraft": true,                // only in files the editor's "Draft all homes" wrote and nobody saved since (§6.8)
   "name": "Breezehome",
   "note": "Each container takes the item categories listed...",  // optional, for people reading the file
   "author": "Dova Stash",
   "version": "1.0.0",
   "priority": 0,
   "requires": ["Skyrim.esm"],          // all must be loaded for the template to be offered
+  "conflicts": ["WynterBreezehomeRedux.esp"],  // optional: not offered while any of these is loaded (mods that rebuild the home)
   "cell": "Skyrim.esm|0x000165A7",     // illustrative IDs; real ones come from xEdit or esm_dump.py
   "master": "Skyrim.esm|0x000AAAAA",   // a container reference (REFR), not the base CONT
   "containers": [
     {"ref": "Skyrim.esm|0x000BBBBB", "label": "Armory chest",    "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields"]},
     {"ref": "Skyrim.esm|0x000CCCCC", "label": "Alchemy satchel", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
-    {"ref": "Skyrim.esm|0x000DDDDD", "label": "Barrel",          "ignored": true, "note": "Respawns: what you store here can disappear."}
+    {"ref": "Skyrim.esm|0x000DDDDD", "label": "Barrel",          "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "Skyrim.esm|0x000DDDDE", "label": "Junk crate",      "categories": ["misc.clutter"], "sell": true}  // the sell chest (§8.8); optional
   ],
   "displays": [                        // optional: the displays this home fills (§8.4)
     {"ref": "Skyrim.esm|0x000EEEEE", "label": "Bow rack", "categories": ["weapons.bows"]},
@@ -252,7 +300,8 @@ On entering an eligible cell:
   "keep": {
     "inherit": true,
     "rules": [
-      {"category": "ammo.arrows", "quota": 50}
+      {"category": "ammo.arrows", "quota": 50},
+      {"category": "alchemy.potions", "keywordsAny": ["MagicAlchRestoreHealth"], "quota": 10, "restock": true}  // §8.7
     ]
   },
 
@@ -263,7 +312,14 @@ On entering an eligible cell:
 }
 ```
 
-`label` is the name the player sees for a container (the panel, menus); `note` (top level, containers,
+`conflicts` (optional, templates) lists plugin files that rebuild the home: the template is not offered while
+any of them is loaded (§6.2). It is the negative of `requires`; an older DLL keeps it as an unknown key and
+offers the template as before. A player layout carries it from its template like `requires`, and it never
+counts as a change of the player's own (switching templates, §6.2).
+
+`label` is the name the player sees for a container (the panel, menus); `"sell": true` makes it the sell
+chest (§8.8; written only when true, inert on the master or an ignored container, an optional field of schema
+1 that an older DLL keeps as an unknown key); `note` (top level, containers,
 displays) is free text for people reading the file. Dova Stash never acts on a note; the panel shows a
 container's note under its name, so that is where a template says why it ignores a container.
 
@@ -305,7 +361,8 @@ lost `Layouts/` folder, or to share it. Every UI offers it, and all of them go t
 What is written:
 - `Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json` (under MO2: the overwrite folder). The file
   name keeps ASCII letters, digits, space, `-`, `_` and `.`; anything else becomes `_`
-  (`core::TemplateFileStem`).
+  (`core::TemplateFileStem`). A Windows device name before the first `.` (`con`, `con.txt`, `com1`) gets
+  a `_` too, since Windows reserves it with any extension.
 - `core::ExportAsTemplate` copies the layout and drops `basedOn`. Everything a template can hold is kept:
   master, containers (categories, explicit `forms`, label, note, ignored, unknown keys), displays (kind,
   label, note, categories, items, `only`, `set`, ignored), keep rules, the top-level note, unknown keys and
@@ -323,7 +380,8 @@ What is written:
   pairs are always dropped.
 - `requires` gets every plugin the template references (`core::ReferencedPlugins`: cell, master,
   containers and their forms, learned items kept as forms included, displays, keep forms; not the displays'
-  items or sets, which are soft references, §8.4), so it passes the same lint as shipped templates (`ValidateTemplate`, plus the category
+  items or sets, which are soft references, §8.4), so it passes the same lint as shipped templates (`ValidateTemplate`,
+  which checks the same list, a container's explicit `forms` and the keep forms included, plus the category
   check); warnings are shown in the panel and counted on the HUD.
 - `cell` is the home being edited; `author` defaults to the player character's name (else "Player");
   `version` defaults to 1.0.0.
@@ -477,8 +535,8 @@ containers of a multi-cell template that are `onlyReachableInTheirCell`.
 **In practice:**
 - *Deposit, Sort all, Retrieve* in any cell of the home use the containers of all its cells that are
   reachable from there (the master too).
-- *Materials at the workbench* (§8.5): a forge, smelter or tanning rack outside brings the materials stored in
-  the persistent containers inside, and puts what is left back there when the menu closes.
+- *Materials at the workbench* (§8.5): a forge, smelter or tanning rack outside crafts from the materials stored in
+  the persistent containers inside (or, in Move mode, brings them and puts what is left back there when the menu closes).
 - *Learn*, *Browse* and the container menus work on reachable containers (opening a remote container's menu
   is activation from afar; unverified in game).
 
@@ -509,6 +567,34 @@ HUD: *Dova Stash: Grounds is now part of Lakeview Manor* (*this area is now part
 **Feedback.** The log names the home's areas and, per container, its area and whether the other areas reach it
 (debug, once per load of the home). The panel's header says *in Grounds* in an extra area; container rows in
 another area show it (*In Cellar*, and *(Cellar)* next to *available* when used from here).
+
+### 6.8 Auto-drafts (the editor's "Draft all homes")
+
+The Dova Stash Editor (`docs/EDITOR.md` §3.4) can draft every home of a load order at once and save the
+drafts as templates (*Save N drafts...* in the window, `--draft-all --save-to` on the command line). Those
+files are machine-made, and a person may already have a template for the same home, so they carry a mark and
+a bulk save never replaces anyone's work:
+
+- **The mark.** A template written by the bulk save from a draft nobody changed has `"autoDraft": true` at
+  the top (`core::Layout::autoDraft`; written right after `$schema`, only when true). A draft the author
+  reviewed before the bulk save is theirs: it is saved without the mark.
+- **Never over a person's template** (`core::CheckAutoDraftTarget`, given the destination's template files
+  from `core::ScanTemplateFiles`): an auto-draft is written only where there is no file, or where the file is
+  that home's own earlier auto-draft (its `cell` or `cells` among the home's cells), which it refreshes (old
+  file kept as `.bak`, version raised, as any save). The file at the target is read again from disk just before
+  writing. Left alone, and said so: a file without the mark (hand-made, downloaded, or an auto-draft someone
+  has since saved), a file that cannot be read (in doubt, it is a person's), another home's auto-draft (two
+  homes with the same name share a folder), and any home that already has a template someone made anywhere in
+  the destination's `Templates/` (another author's file in the home's folder, or the older
+  `Templates/<Author>/<Name>.json` layout). Homes with a template elsewhere in the load order are not
+  drafted into files at all unless asked (`--include-templated`), and never over one.
+- **Taking it over.** Saving the file as a person (the editor's *Save*, *Save as...*, a single home's draft)
+  writes it without the mark: from then on no bulk draft touches it.
+- **In game** an auto-draft loads like any template. It ranks below every template someone made for the home,
+  whatever its priority or version (§6.2), so the hotkey, the first-visit notice and `bAutoEnableTemplates` use
+  it only in a home without one; the panel lists it after them with the word *(draft)* (§6.2 step 4).
+  Applying it gives a player layout without the mark (`ApplyTemplate`; `ExportAsTemplate` never writes it
+  either).
 
 ---
 
@@ -646,9 +732,11 @@ download that drops into the same `Categories/` folder, not in the main archive.
 | **Distribute** | Master → destinations                 | `ContainerMenu` closes on the master; also a "Sort" button        |
 | **Sort all**   | Master + bound containers → correct one (see §16) | Manual (e.g. after changing bindings)                             |
 | **Retrieve**   | Destinations → player                 | Menu: by category, or everything                                  |
+| **Restock**    | Managed containers → player, up to the keep quotas marked *Restock* (§8.7) | Hotkey menu and panel; after every Deposit (`bRestockAfterDeposit`) |
 | **Fill displays** | Player + managed containers → the empty displays in use (§8.4) | Part of Deposit and Sort all (`bFillDisplays`); one display with *Fill now* in its menu |
-| **Crafting supply** | Managed containers → player, the unused rest back (§8.5) | Sitting down at a crafting station in an enabled home (`bCraftingSupply`); back when the crafting menu closes |
+| **Crafting supply** | Craft from storage: the shortfall of each craft, managed containers → player, used up at once; Move: managed containers → player, the unused rest back (§8.5) | Crafting at a station in an enabled home (`iCraftingSupply`); Move: sitting down, back when the crafting menu closes |
 | **Learn**      | Records item → container (§8.6)       | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
+| **Sell**       | Sell chest → gold for the player (§8.8) | *Sell now* (hotkey menus, panel) after a confirmation with the total; timed selling when `[Selling] iAutoSellHours` > 0 |
 
 ### 8.2 Moving items safely (`ItemMover`)
 
@@ -686,11 +774,14 @@ download that drops into the same `Categories/` folder, not in the main archive.
 "keep": {
   "always":  ["equipped", "favorited", "quest", "Skyrim.esm|0x0000000F" /* gold */, "Skyrim.esm|0x0000000A" /* lockpick */],
   "never":   ["misc.clutter"],
-  "quotas":  [ { "category": "alchemy.potions", "keywordsAny": ["MagicAlchRestoreHealth"], "quota": 5 } ]
+  "quotas":  [ { "category": "alchemy.potions", "keywordsAny": ["MagicAlchRestoreHealth"], "quota": 5, "restock": true } ]
 }
 ```
 
 Global defaults live in `DovaStash.ini`/`Settings.json`. A layout may override them or set `"inherit": true`.
+A quota says "Deposit leaves up to N on you". With `"restock": true` it also says "Restock brings you up to
+N" (§8.7). `restock` is optional and off when absent, so files written before it mean what they meant; it is
+written only when on, and an older DLL keeps it as an unknown key of the rule.
 
 ---
 
@@ -704,9 +795,10 @@ player takes things down as usual.
 aims the hotkey at a rack, a mannequin (or the activator in front of it), an item plaque, a display case or a
 bookshelf (or a book on it), or at a weapon sitting on a rack, and gets a small menu (`ui::DisplayMenu`):
 *Use this rack* (*... bookshelf*) adds the entry (nothing goes up until Deposit or Sort all). Once used:
-*Categories...* picks what a rack, mannequin or bookshelf takes, like a container's categories (racks are
-offered All Weapons, each weapon category and Shields; mannequins the armor categories; bookshelves All
-Books and each book category); *Armor set... (Auto)* for a mannequin (see *Mannequins* below); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
+*Categories...* picks what a rack, mannequin or bookshelf takes, like a container's categories, offering only
+the categories it can hold (*Categories on displays* below: a rack for any weapon All Weapons and each weapon
+category, a shield rack the shields, a dagger display the daggers; mannequins the armor they wear; bookshelves
+All Books and each book category); *Armor set... (Auto)* for a mannequin (see *Mannequins* below); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
 plus what is stored; it also retries a display that failed earlier in the session, see *Filling*; a case is
 full once it holds every item it is made for, a bookshelf once its script has no room left); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
 does not turn it back on). Templates list the displays that should look hand-placed from the start. A
@@ -721,14 +813,46 @@ only a rack's own bookkeeping is written, see the table), in any home, with or w
 | Kind | Recognised by | Filled by |
 |---|---|---|
 | `rack` | An activator running `WeaponRackActivateSCRIPT`: weapon racks, wall plaques, dagger displays, coat-of-arms racks (the middle one takes a shield), and home mods' copies of them. `RackType` (1 any weapon, 2 shield, 3 or `Patch14COARacks` no dagger or bow, 4 daggers only, 5 the Unofficial Patch's large display case: any weapon) says what it takes. Crossbows carry `WeapTypeBow`; they only go on racks whose trigger has the Unofficial Patch's `CrossbowPivot01` node, and never on coat-of-arms racks. What the Unofficial Patch's script turns away is never put up: the Forsworn staves (its `USKPForswornStavesList`) on a rack whose trigger has `BogusPivot` (known before the drop, `game::RackFitOf`), and a long staff (one with the node `Staff3rdPerson:0` or `3rdPersonStaff04:1`) in a display case (trigger node `WRDisplayCase01`): that shows only once the dropped staff has its 3D, so it goes into the player's inventory, as the script hands it back, and that rack is not offered it again this session | Exactly what the script does with the equipped weapon: dropping the very copy in the open in front of the player, making it keyframed once its 3D is loaded and moving it onto the node of the trigger the script picks with Papyrus' own `MoveToNode`, the call the script makes. The node goes by the weapon's first `WeapType*` keyword in the script's order (`SwordPivot01`, `WarAxePivot01`, `MacePivot01`, `GreatSwordPivot01`, `BattleAxePivot01`, `WarhammerPivot01`, `BowPivot01`, `StaffPivot01`, `DaggerPivot01`; `ShieldPivot01` for `ArmorShield`; `core::RackPivot`), and with the Unofficial Patch's script also by the item itself once its 3D is loaded (`game::RackNode`): crossbows on `CrossbowPivot01` (the Dwarven crossbow on `CrossbowPivot02`); staves on `StaffPivotCorruption`, `StaffPivotSanguine`, `StaffPivotFalmer`, `StaffPivotForsworn`, `StaffPivot01`/`02`/`03` by form and mesh node (on coat-of-arms racks `StaffPivotFalmer` or `StaffPivot01`); Ysgramor's, dwarven, daedric and dragonbone shields on their own `ShieldPivot*` nodes. A node the trigger lacks falls back to the plain one. If the VM has not run the move within 2 s, it is done directly (`game::MoveToNodeDirect`): CommonLib's `TESObjectREFR::MoveToNode` is not used, as its `NiMatrix3::ToEulerAnglesXYZ` goes through a `NiFastATan2` whose sign is wrong whenever |y| <= |x| (and its gimbal-lock branches are wrong too), which hung a mace sideways on a wall rack. Then, a tick later (the script's own short wait, so the trigger events of the move are past), the script's bookkeeping (`game::DisableRack`, `game::RecordRackItem`): the activator is disabled, the weapon is recorded in the script (`PlayersDroppedWeapon`; the Unofficial Patch's `PlacedItemInit`), and the trigger is put in its `WaitingForReference` state. A disabled activator is how the game knows the rack holds something; the player picks the weapon up by activating it, and the trigger then re-enables the activator. In the vanilla game the trigger disables the activator itself when the weapon enters it; the Unofficial Patch's trigger never does (its activator script disables itself, and it leaves an empty rack's trigger in a state that ignores items leaving), which is why waiting for the trigger is not enough. A weapon dropped inside the rack is pushed out by its collision and never counted, which is why it is dropped in the open. Unlike with the script, it is never seen on the way (falling in front of the player, hanging in the air until the move): its 3D is hidden from the drop (and whenever it loads, `TESObjectLoadedEvent`) until the bookkeeping is done, then shown, so it appears on the rack (`game::HideDropped`/`ShowDropped`; only the rendering is culled, collision, trigger events and the keyframed motion are untouched). Every way out shows it again: placed, taken back, the player leaving |
-| `mannequin` | An actor running `MannequinActivatorSCRIPT` | Moving armor into its inventory; its script equips it |
-| `item` | A reference whose script holds playable items in its properties (or a form list of them) and a "placed" flag: the `ClawToPlace` display script that home mods copy for masks, claws, Elder Scrolls, books, artifacts | Bringing the item to the player and activating the plaque for the player, so the home's own script takes it and shows the model |
+| `mannequin` | An actor running `MannequinActivatorSCRIPT`. Many have no name (Whitepeak Tower's, home mods' copies of the vanilla one), so the game shows no prompt and SKSE's crosshair event names nothing: with nothing in the crosshair the hotkey takes the display the camera's line of sight passes through, within about 3.5 m of the player (`game::DisplayInView`), before falling back to the master menu; menus call an unnamed one "Mannequin" | Moving armor into its inventory; its script equips it |
+| `item` | A reference whose script holds playable items in its properties (or a form list of them) and a "placed" flag: the `ClawToPlace` display script that home mods copy for masks, claws, Elder Scrolls, books, artifacts. Or, without a flag, the Creation Club's display plaques (`defaultDisplayUniqueItemScript`, `defaultDisplayItemInListScript`, and copies): a `DisplayItem` function and a `LinkedMarkerKeyword` whose linked marker the item is shown on; one counts as filled while a copy of one of its items lies within 32 units of that marker (the script's own check), and a plaque made for a list is skipped while the player carries another item of the list (it would show that one). The fish plaques (a gift menu) are not displays | Bringing the item to the player and activating the plaque for the player, so the home's own script takes it and shows the model |
 | `case` | A container whose script holds playable items in its properties and handles `OnItemAdded` | Moving the items in; its script shows them |
 | `bookshelf` | A container running `PlayerBookShelfContainerScript` (vanilla and Hearthfire homes, Creation Club homes), or a home mod's copy of it: a script with `MaxBooksAllowed`, `CurrentBookAmount`, `PlacedBook01` and an `UpdateBooks` function (the Unofficial Patch's and Skyrim Souls' versions keep all of these). Checked before `case` (its `PlacedBookNN` slots hold books too). The player reaches it through the activator in front of it (`PlayerBookShelfClickTrigger`, linked with `BookShelfContainer`, which only activates the shelf) or a book standing on it (`game::BookshelfAt`). How the vanilla script works: on its first cell load it counts the markers linked to it with `BookShelfBook01`, `02`... up to the first missing (`MaxBooksAllowed`: 18 in Breezehome's living room, 11 in Hearthfire's alchemy laboratories). `OnItemAdded` (from the player's menu or a script alike) accepts a book while `CurrentBookAmount + count <= MaxBooksAllowed` and writes it into the first empty `PlacedBookNN` slot; anything else, and a book over the limit, goes back to the player with a message. The books only appear on their markers in `UpdateBooks` (each slot's copy is deleted and a plain copy placed at its marker with `PlaceAtMe`), which the script runs from `OnActivate` once its menu closes, with its `BookShelfTrigger01Ref`... triggers in `IgnoreBooks` meanwhile: in `WaitForBooks` a trigger removes a book from the shelf's container when its copy leaves the shelf (the player took it; the container's copy is destroyed, the player keeps the placed one) | Never more books than its room (`core::BookshelfRoom`: the smallest of `MaxBooksAllowed - CurrentBookAmount`, its empty slots among the first `MaxBooksAllowed`, and `MaxBooksAllowed` minus the books inside; never more than its markers; 0 until its cell first loaded), read again just before: moving the books into its container one by one, as the player puts them in, so its `OnItemAdded` writes each into a slot; Dova Stash checks the slots for each book (3 s). Then what the script does when its menu closes, without the menu or its messages (`game::RefreshBookshelf`): its triggers go to `IgnoreBooks`, the script's own `UpdateBooks` places the books on the markers, and 250 ms after it returned the triggers go back to `WaitForBooks` (while `UpdateBooks` has not returned they stay in `IgnoreBooks`: a book taken then stays counted, never one destroyed because its copy was replaced). A shelf whose script is busy (`PlacingBooks`, the Unofficial Patch's `PickingUp`) or has no `UpdateBooks` keeps the books in their slots; they show the next time the player opens it. A book the script hands back (it found no room after all) goes from the player back to where it came from; one it does not take within 3 s stays in the shelf's container, listed in its menu; either way Deposit and Sort all leave that shelf alone for the session (*Fill now* tries again) |
 
 Furniture and harvestables (chopping blocks list firewood and axes) are never displays. A container the
 layout uses for storage is not a case or a bookshelf (templates keep bookshelves in `containers` as `ignored`, so
 they are never storage, and may list them in `displays` too). `esm_dump.py cell` lists the displays it can see in the plugin files.
+
+**Categories on displays** (`core/DisplayCategories.h`, unit-tested; the one rule behind every picker, the
+editor's Checks, the plugin's log and `esm_dump.py check`). A category can go on a display when it can match at
+least one item the display holds:
+
+| Display | Holds |
+|---|---|
+| rack, `RackType` 1 (any weapon) or 5 (large display case) | weapons; crossbows only where the trigger has `CrossbowPivot01` |
+| rack, `RackType` 2 | shields |
+| rack, `RackType` 3 / `Patch14COARacks` | weapons but daggers, bows and crossbows |
+| rack, `RackType` 4 | daggers |
+| mannequin | the armor it wears: no shields, rings or necklaces (circlets yes) |
+| bookshelf | books |
+| item plaque, display case | nothing: they are made for their own items |
+
+What a category can match comes from its `match`, not its id, so user and OCF categories work too: its
+`formTypes` (absent: any type), narrowed by the predicates only some types have (`weaponTypes`: weapons,
+`armorTypes`: armor, `bookTeaches`: books; `alchemy`, `soulGem`, `ammo`: nothing a display holds). Weapons by
+`weaponTypes` (and `keywordsAny` / `keywordsAll` made of `WeapType*` keywords). Armor: shields are heavy or light
+armor (so *Heavy armor* fits a shield rack: heavy shields); a keyword with "shield" in its name marks a shield;
+the slot keywords of the game and OCF (`ArmorHelmet`, `ArmorJewelry`, `ClothingRing`, `OCF_HandTypeRing`...) mark
+pieces that are no shield, and rings and necklaces are no mannequin's. A predicate core can't see through
+(`forms`, `plugins`, other keywords) does not narrow: when in doubt, it fits. A pattern (`weapons.*`, `*`) fits
+when one of the categories it matches does. Pickers (`core::DisplayCategoryChoices`: per top-level group
+`<root>.*`, then each category below it) offer only what fits: the hotkey's and the panel's know the rack's type
+and its crossbow node (`game::FitOf`); the editor knows the rack type, and offers crossbows on any weapon rack.
+A category that does not fit and is already in a layout or template (written by hand, or by an older version) is
+kept in the file and ignored: the display only ever takes what it holds (`RackTakes`, `MannequinTakes`,
+`BookshelfTakes`), so nothing of it goes up, and a display all of whose categories are such takes nothing. The
+editor's Checks warn (`display Skyrim.esm|0x00102D37 (Weapon Plaque): Soul gems can't go on a weapon rack;
+nothing goes on it`, `core::ValidateDisplayCategories`), and the plugin logs it once per session and display on
+arrival (`Displays: Weapon Plaque [...]: Soul gems can't go on a weapon rack; ignored`).
 
 **Layouts and templates** (`displays`, §6.3) list the displays in use, by `ref`. `categories` (patterns, as
 for containers) limits what a rack, mannequin or bookshelf takes; without it, anything that fits (a bookshelf:
@@ -795,7 +919,8 @@ order (one line per entry, fields lined up, like containers):
 - **Lint** (`core::ValidateDisplays`, run by `ValidateTemplate` and mirrored by `esm_dump.py check`, warnings
   only): `set` on a rack, plaque, case or bookshelf; `categories` or `only` on a plaque or case; `only` without
   `items`, or next to `set` (the set decides); a display that is also the master or a container in use (it is
-  storage, never filled as a display). `esm_dump.py check` also warns about a bookshelf's `items` that are not
+  storage, never filled as a display). With the categories loaded, `ValidateDisplayCategories` (and `check`)
+  also warn about a category the display can't take (*Categories on displays*). `esm_dump.py check` also warns about a bookshelf's `items` that are not
   books, and about a bookshelf bound as storage.
 - Existing layouts and templates load and behave exactly as before (all fields optional; `only` is new and
   only written when set; `tests/ShippedTemplateTests.cpp` pins the shipped templates).
@@ -807,7 +932,9 @@ order (one line per entry, fields lined up, like containers):
   the cell, mannequin outfits, case contents, the books on bookshelves) are not put up again.
 - Items an item plaque or a case is made for are reserved for it: racks, mannequins and bookshelves never take
   them (a dragon priest mask waits for its plaque). So are the `items` of a rack, mannequin or bookshelf with
-  `only` (`DisplaySpot::only`): it takes nothing else, and no other display takes them.
+  `only` (`DisplaySpot::only`): it takes nothing else, and no other display takes them. *Fill now* on one
+  display plans it among the others (`DisplaySpot::reserveOnly`): what the plaques, cases and pinned displays
+  are made for stays reserved for them, and the display gets the best of the rest, as in a full Deposit.
 - A rack, mannequin or bookshelf with categories only takes items whose categories (every category the item matches,
   `CategorySet::MatchAll`, as containers use) match one of its patterns.
 - Item plaques swap the item for a model and recreate it when it is taken back, so they only get copies
@@ -856,7 +983,7 @@ mannequin* is all it takes; more control is one menu entry away, and the full li
   shows the sets the player owns (below); the panel's *Armor sets* page shows every set in the load order.
   A rack or mannequin pinned with `only` whose items are all missing stays empty (it waits, as above).
 - *A chosen set* (`set`): *Armor set... (Auto)* in the display menu lists `Auto` and the sets the player
-  has (carried, stored in the home, or on this mannequin), most complete first: `[x] Ebony (4/4)` (slot
+  has (carried, not worn or favorited; stored in the home; or on this mannequin), most complete first: `[x] Ebony (4/4)` (slot
   groups had / slot groups of the set). Choosing one writes its id; `Auto` removes it. The mannequin then
   takes only pieces of that set (enchanted copies count as the armor they are made from), before the
   mannequins on Auto, and only on slots it leaves free: it fills up as the pieces arrive (*Fill now* stays
@@ -879,17 +1006,60 @@ trigger did not disable it) gets nothing: the weapon goes into the player's inve
 and Deposit and Sort all leave the rack alone for the session. A plaque that hands an item back (it was full)
 is activated once more; one that takes nothing within 3 s gets its item back where it came from and Deposit
 and Sort all leave it alone for the session. *Fill now* on such a display tries again. In a home that spans several cells (§6.7) only the displays in the player's cell are filled (stock may still come from the reachable containers of its other cells). Filling stops if the player leaves the cell (a weapon dropped for a rack and not up yet goes into
-the player's inventory). The player gets one line at the end (`put 12 items on display`); the log has
+the player's inventory) and when a game is loaded (`display::Reset` at kPreLoadGame / kNewGame: the running
+fill belongs to the old game and touches nothing more; what is up stays as the loaded game has it). The player gets one line at the end (`put 12 items on display`); the log has
 a summary at info (`Displays in Whitepeak Tower: 77 rack (77 empty), 6 mannequin (6 empty), 50 item (50
 empty); 41 items to put up`), the plan and each placement at debug.
 
 ### 8.5 Materials at the workbench (crafting supply)
 
-Sitting down at a crafting station in an enabled home brings the stored materials its recipes use into the
-player's inventory; when the crafting menu closes, what is left of them goes back to the container each came
-from (`[Sorting] bCraftingSupply`, on by default: nothing is lost either way, and everything brought goes back
-on its own). Core logic in `core/Crafting.h` (unit-tested), the plugin side in `sort::crafting`
-(`Sort/CraftingSupply.*`) and `game::Recipes` (`Game/RecipeIndex.*`).
+At a crafting station in an enabled home, the materials stored in the home's containers count as the
+player's. Two ways, one setting (`[Sorting] iCraftingSupply`, *Materials at the workbench* on the Settings
+page, applied from the next station visit):
+- **Craft from storage** (default on SE and AE): the crafting menu counts the stored materials where they are,
+  and each craft takes what the player lacks from the containers. Nothing moves when the menu opens or closes,
+  so a big store costs nothing when sitting down (moving every material is what makes transfer-based crafting
+  mods lag in large hoards). See *Craft from storage* below.
+- **Move**: sitting down brings the stored materials the station's recipes use into the player's inventory;
+  when the crafting menu closes, what is left of them goes back to the container each came from. Nothing is
+  lost either way, and everything brought goes back on its own. Enchanters always use Move (below).
+- **Off**.
+
+Which materials, from which containers and with what exclusions is the same in both modes (below, up to *The
+ledger*). Core logic in `core/Crafting.h` and `core/CraftingStorage.h` (unit-tested), the plugin side in
+`sort::crafting` (`Sort/CraftingSupply.*` for Move and the triggers, `Sort/CraftingStorage.*` for the mode and
+the storage sessions, `Hooks/CraftingHooks.*`) and `game::Recipes` (`Game/RecipeIndex.*`).
+
+**The mode** (`core::crafting::ResolveMode`, resolved at `kDataLoaded` and whenever the setting changes; one
+log line when the result changes: `Materials at the workbench: craft from storage (auto, game data loaded)`):
+
+| `iCraftingSupply` | Result |
+|---|---|
+| `0` auto (default) | Off when another crafting-from-storage mod is loaded (the log and the Settings page name it: `Now off: Crafting Pulls Resources From Containers is loaded and already does this.`); else Craft from storage when the hooks are in; else Move (VR) |
+| `1` off, `2` move | As chosen |
+| `3` craft from storage | As chosen, also next to another crafting mod; Move when the hooks are not available (VR), with a log line |
+
+An older INI's `bCraftingSupply = false` reads as `1` (off) once; `true` was the old default (written by every
+save) and means nothing. The key is replaced by `iCraftingSupply` on the next save.
+
+**Other crafting-from-storage mods** (`core::crafting::KnownCraftingStorageMods`; research in
+`docs/research/SIMILAR-MODS.md`). Two of them in one home would both answer the same crafting menu: the hook
+mods would count the same containers twice or take the same materials, and the transfer mods (Linked Crafting
+Storage, Workbench Containers) move materials in and out on the same menu events as Move, so a stack can end up
+in the other mod's container. Auto therefore steps aside:
+
+| File | Mod | Kind | Name checked against |
+|---|---|---|---|
+| `CraftingPullFromContainer.dll` | Crafting Pulls Resources From Containers (Nexus 135613) | hooks | the mod's source (`JerryYOJ/CraftingPullFromContainer-SKSE`, CMake project name) |
+| `CraftingInventoryExtender.dll` | Skyrim Crafting Inventory Extender (SCIE) | hooks | the mod's source (`ohfor/scie`, release workflow) |
+| `SmartCraftingStorage.dll` | Smart Crafting Storage (Nexus 182056) | hooks | Nexus page |
+| `LinkedCraftingStorage.esp` | Linked Crafting Storage (Nexus 64772) | transfer | Nexus page |
+| `Workbench Containers.esp` | Workbench Containers (Nexus 130090) | transfer | Nexus page |
+
+None of them is in the developer's MO2 list. DLLs are found with `GetModuleHandle` (SKSE has loaded every
+plugin DLL by then), plugins in the load order, case-insensitively. Not detected: Handy Crafting and Spells
+(v4 turns itself off in player homes), Dynamic Autosorting System, Crafting Containers and Auto Chests (their
+file names are not confirmed), LOTD's craftloot (Dova Stash already leaves LOTD's cells alone, §9).
 
 **Which station, which materials.** The station is the furniture the player sits at (`TESFurnitureEvent`), so
 modded stations work like vanilla ones. Its materials come from the load order's own recipes, never from a
@@ -946,6 +1116,90 @@ player's inventory, never lost.
 **Feedback.** One HUD line each way: `Dova Stash: 34 materials at hand` and `Dova Stash: put 20 back` (nothing
 when nothing went back). The log has a line per stack brought and per (form, key) at the end at debug (`had 2,
 brought 10, crafted 3, now 9 -> 6 back`), and a summary each way at info.
+
+#### Craft from storage
+
+How the existing crafting-from-storage SKSE mods do it was read in their sources before designing this:
+Crafting Pulls Resources From Containers (`JerryYOJ/CraftingPullFromContainer-SKSE`), Skyrim Crafting
+Inventory Extender (`ohfor/scie`, MIT; SE, AE and VR) and DavidJCobb's Skyrim LE original
+(`DavidJCobb/skyrim-classic-crafting-containers`, which names the engine functions behind each patch). All
+three answer the crafting menus' inventory questions for the player and take consumption off the containers;
+the two SE mods hook the same four functions as Dova Stash. What Dova Stash does differently: only the home's
+own containers under the same rules as Move (never tempered, enchanted, favorited, worn or quest copies; gear
+only with `bCraftingSupplyGear`); counts cached for the whole session instead of scanning containers on every
+query; the shortfall comes into the player's inventory through the `ItemMover` (exact stacks, every move
+re-validated and logged) and the game then consumes it as usual, instead of removing copies from containers
+directly; no container entry is ever handed to a menu.
+
+**Session** (`sort::crafting::storage`). Starts when the player sits down at a station in an enabled home
+(`TESFurnitureEvent` kEnter, the same trigger as Move, before the crafting menu builds its lists): the home's
+reachable containers are snapshotted once (`detail::SnapshotStored`), and per material
+`core::crafting::MakeSupply` keeps how many copies the containers can give (the stacks Move would bring,
+`Judge`) and where, in take order: **the container the item is bound to first** (where Sort all would put it,
+`SortPlanner::ResolveDestination`), then the others in layout order (master first). One info line
+(`Crafting from storage at Forge in Breezehome: 340 materials (25 kinds) in 6 containers`), one per material at
+debug, and the same HUD line as Move (`Dova Stash: 340 materials at hand`). The session ends when the crafting
+menu closes, when the player gets up without it, on another station, and on loading a game (one info line:
+`... 14 materials taken from storage at Forge (5 crafts; Chest, Ore Barrel)`). The menu opening without the
+furniture event having been seen (its lists are already built) uses Move for that visit.
+
+**The hooks** (`Hooks/CraftingHooks.*`; installed the first time the mode resolves to Craft from storage, never
+on VR). Each calls the game first and only changes the answer while a session is active, on the main thread,
+while the player sits at the session's station, and never while Dova Stash itself is counting or moving items
+(`storage::Busy`, so the engine never sees inflated counts inside our moves or the game's own removal):
+
+| Hook | ID (SE / AE) | How | Why |
+|---|---|---|---|
+| InventoryChanges' count of one object (with an item filter) | 15869 / 16109 | MinHook detour | The recipe lists, the requirement lines (`Iron Ingot (3/2)`), the craftable check right before a craft and recipe conditions ask it. For the player's inventory it returns the game's count plus the cached supply. |
+| `TESObjectREFR::GetInventoryItemCount` | 19274 / 19700 | MinHook detour | How the alchemy menu counts the player's inventory entries before listing them. At an alchemy lab it adds one entry per stored ingredient the player does not carry. |
+| `TESObjectREFR::GetInventoryItemAt` | 19273 / 19699 | MinHook detour | How the alchemy menu gets each entry (a copy the caller owns and deletes). Past the player's own entries: a new plain entry (object, stored count). The player's own entry of a stored ingredient becomes one plain entry with both counts, unless it holds a worn, favorited or quest copy (then it is left alone). Never an entry of a container's, so no container's extra data ever reaches the menu. |
+| `PlayerCharacter::RemoveItem` | vtable slot 0x56 (`VTABLE_PlayerCharacter[0]`, `write_vfunc`) | vtable | How every crafting menu consumes materials: reason `kRemove`, no extra list, no target, no drop point, while the `Crafting Menu` is open. Anything else passes through untouched. |
+
+The IDs: 19273/19699 and 19274/19700 are the ones CommonLibSSE-NG's own `GetInventoryItemAt` /
+`GetInventoryItemCount` wrappers use, and the signatures are CommonLib's; 15869/16109 is the function after
+CommonLib's `InventoryChanges::GetItemCount` (15868/16108), signature `int32 (InventoryChanges*,
+TESBoundObject*, void* filter)` as both SE mods declare it; slot 0x56 is `TESObjectREFR::RemoveItem` in
+CommonLib (`ObjectRefHandle` returned through a hidden pointer after `this`, as both SE mods hook it). That
+`GetInventoryItemAt` hands out copies the caller deletes is how Exit-9B's StaffEnchanting uses it
+(`std::unique_ptr`), and CommonLib's `InventoryEntryData` copy shares the `ExtraDataList` pointers and frees
+only the list. Hook installation never throws into the game: a failed detour removes them all, logs, and the
+mode resolves to Move. On VR the SE IDs are not all in the VR Address Library, and a missing ID ends the game
+(CommonLib's `report_and_fail`), so they are never resolved there (SCIE has VR-specific offsets for these;
+unverified here, so VR uses Move).
+
+**Consumption** (`storage::Consume`, inside the `RemoveItem` hook, main thread). The game asks to remove *n*
+of an item:
+1. The player carries *n* or more, or the item is not a stored material: the game removes as usual.
+2. Else the shortfall (`core::crafting::Shortfall`) comes from the containers: the item's containers are
+   snapshotted fresh (not the cache), `core::crafting::PlanTake` picks stacks in take order (bound container
+   first; within a container plain copies before stolen or soul-keyed ones; partial stacks), and the
+   `ItemMover` brings exactly those to the player (`kRemove`, logged, never learned).
+3. The game's own `RemoveItem` runs on the player as it would have, and the crafted result goes to the player
+   as normal.
+4. If the craft took fewer copies than it asked for, the brought copies it did not use go straight back to the
+   containers they came from (`core::crafting::Unused`, `ReturnMoves`).
+5. The cache is updated from the fresh count (no rescan of the home).
+
+**Fallback.** Never lose an item: if the containers give fewer copies than the cache promised (a script took
+some meanwhile, a stack failed the `ItemMover`'s checks), the game removes what the player has (as without
+Dova Stash), the storage session stops answering at once, and a task switches the station to Move for the rest
+of the visit (the storage session ends, the materials are brought, the menu refreshes). The same when the home
+is no longer loaded. Nothing else can make a craft half-done: the hooks never remove anything themselves.
+
+**Enchanters use Move.** The enchanting menu reads a soul gem's soul from the copy's own extra data and hands
+that exact copy back when it consumes it; offering container copies would mean handing a container's
+`ExtraDataList` to the menu (SCIE does, and fixed "items disappearing at enchanting stations" bugs doing so).
+Bringing the filled soul gems is a handful of items, so it costs nothing.
+
+**Performance.** One snapshot of the home when sitting down; the hooks read a hash map. The alchemy list
+counts the player's inventory once per list build. Each craft that needs the containers snapshots only the
+containers that hold that material. Nothing per frame.
+
+**Known limits.** Recipe conditions that test the player's inventory through another engine path than the
+count above would still see only what the player carries (reported for Crafting Pulls Resources From
+Containers with Legacy's vanilla leather recipe; SCIE reports its count hook covers recipe visibility;
+unverified here). A mod that replaces a crafting menu with its own (not the vanilla menus) sees only the
+player's inventory.
 
 ### 8.6 Learning
 
@@ -1006,13 +1260,154 @@ read for one thing only: an item a script hands back right after Dova Stash stor
 does not count: through the open ContainerMenu, or through QuickLoot IE's loot menu (`LootMenu` open at the
 time of the event, decided in the sink), which has no ContainerMenu.
 
+### 8.7 Restock
+
+"Always carry 10 health potions, 50 steel arrows, 5 lockpicks." A keep quota (§8.3) already says how many of
+something Deposit leaves on the player; Restock is the other half: it brings the player *up to* that many from
+the home's containers. It reuses the quota model instead of a list of its own, so one rule says both. Core:
+`KeepRules::RestockGoals` / `RestockRuleFor` and `SortPlanner::Restock` (pure, unit-tested,
+`tests/RestockTests.cpp`); the plugin snapshots, plans and moves in one main-thread task (`sort::Run`) with
+`ItemMover`, as every operation does.
+
+**Per rule.** A quota rule restocks when it has `"restock": true` (§8.3). Off when absent, so existing quotas
+keep meaning "at most N" and nothing starts moving after an update. A quota added in the panel's or the
+editor's keep-rule editor starts with *Restock* ticked (a new quota is usually something to carry); the
+checkbox is in the quota's row. Rules in the home's keep block and in the global defaults (Settings.json)
+both count, with the same layering as Deposit (the global ones only when the home's block inherits).
+
+**When.** *Restock* in the master's hotkey menu (UIExtensions list and message boxes, listed only when a
+quota in force restocks) and on the panel's *Actions* tab (greyed out with a hint otherwise). And after every
+Deposit, in the same pass, when `[Sorting] bRestockAfterDeposit` is on (the default; the Settings page has
+it): it only acts on quotas the player marked, so it moves nothing for anyone who did not ask. Not on entering
+a home: moving items into the player's pockets without a key press is too surprising (Storehouse does it; an
+option could come later).
+
+**How many.** Per restocking rule: N minus what the player carries of it, counted exactly as Deposit counts
+against the quota (stacks kept whole by `always` or the hard rules that match the rule's selectors, plus the
+stacks the rule claims). Never more than N. So a Deposit right after a Restock moves nothing back, and Restock
+after Deposit only takes what Deposit could not have left (it never takes back what was just deposited).
+Storage running short takes what there is; the debug log says so.
+
+**Which stored stacks belong to a rule.** The first quota rule that matches the stack (the home's rules, then
+the global ones; file order within each), as Deposit would claim it on the player. If that rule does not
+restock, the stack is not restocked by a later one either (a home's "keep 5 health potions" without
+*Restock* is not overridden by a global restocking potions rule). A `never` rule of that layer or an earlier
+one that matches the stack blocks it (unless an `always` rule of the same layer matches too, as in Deposit);
+`always` does not block (it only protects what you carry: the default `always` lockpicks plus a restocking
+lockpick quota tops you up to 5). Never taken: quest, non-playable and nameless items, items that come back
+when stored, and anything outside the managed, available containers: the master and the non-ignored
+containers of the layout, with the same reachability rules as Retrieve in a multi-cell home (§6.7); ignored
+containers, containers outside the layout and displays are never touched. Stolen, tempered or renamed copies
+in storage are the player's own: they may come, with their extra data (§8.2).
+
+**Picking order** (deterministic): the most valuable copies first (unit value; the same order Deposit keeps
+copies in, so what you carry is the best of its kind and a later Deposit agrees with it), plain copies before
+customized ones (tempered, renamed, enchanted by the player, poisoned), then the stack in the container the
+item belongs in (its destination, §7) before other containers, then container order (master, then the
+layout's containers in file order), then form, the larger stack, stack id. A stack may be taken in part.
+
+**After Deposit with displays.** Deposit plans what goes on display first (§8.4); stored copies the display
+plan takes are left out of the restock, and the restock moves run after the deposit's (different stacks:
+stored ones, never the player's).
+
+**Feedback.** One HUD line: *Dova Stash: restocked 10 items*; after a Deposit it is appended: *Dova Stash:
+deposited 12 items into 3 containers, restocked 10*. Nothing to do: *Dova Stash: nothing to restock*; no
+restocking quota (panel button only): *Dova Stash: no keep quota restocks*. Log: one info line per run, and at
+debug one line per rule (`Restock: quota alchemy.potions magicalchrestorehealth 10 (layout): carried 3,
+taking 7`) and one per stack taken.
+
+### 8.8 The sell chest
+
+A container the player marks as the **sell chest** turns what lands in it into gold, like the sell piles and
+autosale chests of other home mods (Player houses overhaul's merchant chest, Handy Crafting, I.M.P.S. Autosale
+Chests). It is the only feature that destroys items, so it is opt-in at every step: nothing is ever sold from any
+other container, and nothing is sold before a trigger the player chose. Core: `core/Sell.h` (unit-tested:
+`tests/SellTests.cpp`); plugin: `sort::selling` (`Sort/SellChest.*`) and `Controller::SetSellChest` / `SellNow` /
+`SellConfirmed` / `BuyBack`.
+
+**The role.** `"sell": true` on a container entry (§6.3; `ContainerBinding::sell`, `Layout::IsSellChest`). Set from
+the container's hotkey menu (*Make sell chest...*, after a message box that says what it means; *Not the sell
+chest* turns it off), the panel's container page (the same two buttons, the first with an inline confirmation),
+a template, or the editor (*Sell chest* checkbox under the container's role). Inert on the master (a warning when
+a file says so) and on an ignored container; *Make master* and *Remove* drop it with the entry. A home may have
+several; *Sell now* from the master menu or the panel covers all of them, from a sell chest's own menu only that
+one. Marking a container that has no categories, fixed items or learned items yet also binds the junk category
+`misc.clutter` when the category set has it (HUD: *Dova Stash: Crate is now the sell chest (Clutter)*); no new
+taxonomy. Names in game: *sell chest*; the activate prompt (*Crate (Sell: Clutter)*), the Browse list and
+QuickLoot's info bar text say *Sell: ...*; the panel's table tags it *[Sell]*.
+
+**What reaches it.** The category engine, as for any container: its categories, fixed items, and learned items
+(putting something in by hand teaches it, so one copy of a junk item sends every later copy there). Deposit and
+Sort all route to it. It is a **target only**: Sort all never empties it (`SortPlanner::IsSortSource`), Retrieve,
+the Retrieve counts, display filling and the workbench never take from it (`SortPlanner::Retrieve`,
+`SortEngine`'s `SnapshotManaged`, `crafting::SnapshotStored`). What the player put there stays until it is sold
+or taken out by hand. The category question after a few learns (§8.6) is never asked for it: a *Yes* there would
+sell a whole category.
+
+**Triggers.**
+- **Sell now** (the default and only trigger out of the box): the sell chest's hotkey menu (*Sell now (862
+  gold)...*, shown when there is something to sell), the master menu (every sell chest of the home), and the
+  panel's *Actions > Sell chest*. The hotkey menus ask in a message box: *Sell 14 items for 862 gold?* with the
+  items that bring the most gold (*Iron Dagger x5, Silver Goblet x2 +6 more*) and what stays (*3 stay: 2 stolen,
+  1 quest item*); the panel shows the same above an inline *Yes*/*No*. *Yes* plans the sale again and sells only
+  if it is still the same number of items for the same gold; otherwise *the sell chest changed; sell again*.
+  Waits for an open container menu to close.
+- **Timed selling** (`[Selling] iAutoSellHours`, 0 = off by default, up to 168): what has been in a sell chest for
+  that many game hours is sold by itself when the player comes home (`OnCellMaybeChanged`), closes a container in
+  the home, or stops sleeping or waiting there (`TESSleepStopEvent`, `TESWaitStopEvent`). There is no co-save, so
+  arrival times are not known: per chest, Dova Stash keeps in memory the sellable copies per item it first saw and
+  when (game days), keeps the smaller count at each later look (taken out = gone; arrived since = not counted),
+  and once the period has passed sells the copies still there (`core::sell::StepAging`). An item is therefore
+  never sold sooner than the period after Dova Stash first saw it; after loading a game the period starts again.
+  Never while a container menu is open. Making a container the sell chest says when timed selling is on.
+
+**Never sold** (`core::sell::Judge`; they stay in the chest and the confirmation counts them): quest items,
+non-playable and nameless items, items that come back when stored (§8.2), worn or favorited copies, gold itself,
+forms without a load-order identity (potions and poisons the player made), customized copies (tempered, enchanted
+by the player, renamed, poisoned), soul-trapped gems and copies with any extra data besides a count or a unique id,
+stolen copies (any owner), anything an `always` keep rule protects (`KeepRules::AlwaysKeeps`, the layers decide as
+for Deposit: by default gold, lockpicks and torches; quotas say how many to carry, not what may be sold, so they
+do not protect), and items worth nothing. Only plain copies are sold, so a buy-back gives back exactly what went.
+
+**Price** (`core::sell::UnitPrice`), the vanilla barter formula without a merchant:
+`factor = fBarterMax - (fBarterMax - fBarterMin) × clamp(Speech, 0, 100) / 100` (3.3 at Speech 0, 2.0 at 100
+with vanilla GMSTs), `mult = min(fBarterSellMax, perks × (1 + FortifyBarter / 100) / factor) × iSellPricePercent / 100`,
+`price = floor(value × mult)`, at least 1 for an item worth anything. `value` is the game's own value of one item
+(`InventoryEntryData::GetValue`: base value plus a base enchantment); `perks` is what the player's *Mod Sell
+Prices* perk entries make of 1.0 for that item (`BGSEntryPoint::HandleEntryPoint`, with the player standing in for
+the merchant, so a perk that needs a merchant of the other sex never applies); Fortify Barter is the
+`SpeechcraftModifier` actor value. The GMSTs are read from the game (`fBarterSellMax` caps at the item's value when
+absent or above 1; the values are logged once at info). `[Selling] iSellPricePercent` (100, 10-200) is the
+player's own adjustment. Non-finite or out-of-range inputs fall back to vanilla.
+
+**Selling** (main thread): the chest is snapshotted (`ItemAdapter`), planned (`core::sell::PlanSale`), and each
+planned stack is checked against the live inventory (the same extra-data list, enough copies, not protected)
+before `RemoveItem(..., kRemove, extraList, nullptr)` removes it; what really went is measured (counts before and
+after). The gold for what went goes to the **player** (`AddObjectToContainer`; gold in the chest would be one more
+thing to fetch and could itself be swept by Deposit rules), under `ItemMover::SuppressScope` so nothing is learned
+or taken for a returning item. HUD: *Dova Stash: sold 14 items for 862 gold*. Log: one info line per stack (*Sell
+chest: sold Iron Dagger [Skyrim.esm|0x0001397E] x5 for 40 gold (8 each) from Crate [...]*) and a summary.
+
+**Sale log and buy-back.** The panel's *Actions* tab lists the session's sales, newest first (the last 20: game
+time, chests, items, gold, *(timed)*, *(bought back)*; each opens to its items). The last sale of the session can
+be **bought back** once, for the same gold, while the player is in that home and every chest it came from can be
+used: *Buy back (862 gold)...* in the sell chest's and the master's hotkey menus and in the panel, after a
+confirmation. It takes the gold (the player must have it: *buying back takes 862 gold*) and puts the same items
+back into the chests they came from (`AddObjectToContainer`; plain copies, so nothing is lost by recreating them).
+Loading a game or starting a new one forgets the log, the buy-back and what timed selling saw.
+
+**Templates.** A template may name a sell chest; applying or switching to a template takes the sell chest from
+the template, like the master and the categories (`core::ApplyTemplate` drops the player's own `sell` flags, since
+the template's categories could otherwise send other items to a container that sells). The shipped templates have
+none. `ExportAsTemplate` keeps it. `esm_dump.py check` knows the key.
+
 ## 9. Home eligibility & safety
 
 A cell can host a Dova Stash layout when **all** of the following hold:
 
-- It does not come from a home mod that sorts and displays items itself (`game::SortsItself`:
-  `Clockwork.esp`, `LegacyoftheDragonborn.esm`). Dova Stash leaves those homes alone entirely, so the two
-  systems never move the same items.
+- It is not a home that sorts and displays items itself (`game::SortsItself`, the list in §9.1: Clockwork,
+  Legacy of the Dragonborn, ...). Dova Stash leaves those homes alone entirely, so the two systems never move
+  the same items. The rejection says *&lt;plugin&gt; sorts items itself*.
 - It is an interior cell, or an exterior cell that is player-owned.
 - It is player-owned (`TESObjectCELL::GetOwner()` is the player or the player faction), **or** unowned, **or**
   the cell's **own** location has the `LocTypePlayerHouse` keyword. That keyword covers most vanilla, CC,
@@ -1031,9 +1426,75 @@ another cell that is not loaded also need a persistent reference, §6.7):
 - Reject owned containers whose owner is not the player.
 - Skip disabled references (for example, unbuilt Hearthfire furniture). They become valid automatically
   once built.
+- Reject containers another mod sorts itself (a §9.1 entry's `containers`): *&lt;plugin&gt; sorts this
+  container itself*. Like any container that fails these checks, a bound one stays in the layout and is
+  simply not used while that mod is loaded.
 
 Templates bypass none of these checks. A template binding to a now-respawning container (because of a
 mod conflict) is disabled with a warning.
+
+### 9.1 Other home mods: homes that sort themselves, rebuilt homes
+
+**Homes that sort themselves.** Some home mods sort, display or craft from storage with their own scripts.
+Two systems moving the same items undo each other (their sorting chest pushes items out, our Sort all pulls
+them back), so Dova Stash leaves those homes alone. The list is data, not code: every `*.json` directly in
+`SelfSorting/` is read at `kDataLoaded`, in file-name order like `Categories/` (`core::LoadSelfSortingDirectory`),
+so a patch or a player adds a home by dropping a file next to `00_Default.json`, without a new DLL. Only the
+entries whose plugin is loaded apply (`core::SelfSortingHomes`); the log lists them at startup.
+
+```jsonc
+{
+  "$schema": "dovastash-selfsorting-1",
+  "note": "...",                                          // optional, for people reading the file
+  "homes": [
+    {"plugin": "Clockwork.esp", "name": "Clockwork", "note": "..."},                    // every cell of the plugin
+    {"plugin": "LSESD_TundraHomestead.esp",                                              // these cells, whoever owns them
+     "cells": ["ccEEJSSE001-Hstead.esm|0x0000087F", "ccEEJSSE001-Hstead.esm|0x00000B06"]},
+    {"plugin": "Carpenter Chests.esp", "containers": ["HearthFires.esm|0x00003055"]}     // only these containers
+  ]
+}
+```
+
+- `plugin` (required): the entry applies while this plugin is loaded.
+- Neither `cells` nor `containers`: every cell that comes from `plugin` itself is left alone (§9's first rule).
+- `cells`: those cells are left alone, from whichever plugin. A patch that turns a Creation Club home into
+  Legacy of the Dragonborn storage does not own the cell, so the check is "this plugin is loaded → these cells".
+- `containers`: those containers are never used (§9's container rule) and the home stays usable. An entry is a
+  reference, or a base container: then every reference of it (Carpenter Storage Chests sorts the Hearthfire
+  building-supply chests, `BYOHHouseCraftingChest`). With `cells` as well, both apply.
+- `name`, `note`: for the log and for people reading the file (the shipped entries say how the plugin name was
+  verified).
+- A malformed entry is an error and skipped (a narrowed entry whose references are all bad never widens to the
+  whole plugin); errors show in the log and the panel's Diagnostics page. If no list loads at all, Clockwork
+  and Legacy of the Dragonborn are still left alone (built in, with a warning).
+
+The shipped list (`SelfSorting/00_Default.json`): Clockwork, Legacy of the Dragonborn, Mirele Bismath Reborn,
+LUFTSHIP K747 (`DA_Skyship.esp`), Skyfall Estate, Riverside Lodge (plugin names checked in an MO2 install),
+The Hoarder's Chest - Rebuilt, The Dovah Den (four plugin variants), Tundra Homestead - LotD Storage (the Tundra
+Homestead cells), Player houses overhaul (`PlayerHouse.esp`: the five city homes) and Carpenter Storage Chests
+for Hearthfire (the building-supply chests only) (names from the mods' Nexus file lists or pages). There is no
+opt-in: a player who wants Dova Stash in such a home removes the entry.
+
+**Rebuilt homes.** A mod that rebuilds a home (Wynter's Breezehome Redux, Player houses overhaul) takes out or
+replaces the references a template for that home names. Two guards keep a template from being enabled there:
+
+- `conflicts` in the template (§6.2, §6.3): it is not offered at all while one of those plugins is loaded. The
+  shipped Breezehome lists `WynterBreezehomeRedux.esp` (its auto-sort strongroom is an optional install, so the
+  home is not on the list above) and the five city homes `PlayerHouse.esp`.
+- The auto-enable guard, for the mods nobody listed: before a template is enabled on its own (the first visit
+  with `bAutoEnableTemplates`), the plugin looks up every reference it names (master, containers, ignored ones
+  included, displays: `core::TemplateFitRefs`) in the attached cell (`home::CheckTemplateFit`) and core judges
+  the share that is there (`core::JudgeTemplateFit`). Deleted, or taken out by xEdit's *undelete and disable*
+  (enable parent the player, opposite; or moved below z -29000) counts as **disabled**; not found, a container
+  entry that is no container any more, or found in a cell the template does not name counts as **missing**;
+  disabled any other way counts as there, **not built yet** (Hearthfire furniture and cellars start disabled
+  until built, many without an enable parent); a reference in another of the template's cells that is not
+  loaded is not counted. Under **60%** there (`kTemplateFitPercent`), the template is offered instead: the
+  first-visit notice says *"&lt;name&gt; setup may not fit this home. Press [Hotkey] at any container to
+  enable."*, the setup prompt says *may not fit*, and the counts are logged once per session (info when it does
+  not fit, debug when it does). The player can still use it from the setup prompt. The guard waits for the cell
+  to be attached (an interior cell comes back with `TESCellFullyLoadedEvent`). Nothing is moved or deleted
+  either way. The shipped templates are all 100% there in an unmodded game.
 
 ---
 
@@ -1061,6 +1522,22 @@ struct IStashUI {
   found from the DLL's own path). Every page follows one set of wording and layout conventions (labels,
   tooltips, buttons that ask first, help text, empty states, colours, section order), written at the top of
   `UI/Panel/Strings.h` and drawn with the shared helpers in `UI/Panel/Widgets.h`.
+- **Templates for this home** (switching, §6.2 step 4). On *This home*, the **Actions** tab's second section
+  (above *Retrieve*, so it is in sight), and the setup page of a home without a setup; the *Templates* page
+  shows the same list for the home the player is in (*For Breezehome*) above its table of every loaded
+  template. One row per eligible template in `core::ResolveLayout`'s order (`HomeSnapshot::templates`): *name
+  vN by author*, *(recommended)* on the first, *(draft)* on an auto-draft (tooltip: drafted by the editor for
+  many homes at once; a template someone made always comes first), *(in use)* on the one the layout's
+  `basedOn` names, and a small button, **Use** (**Re-apply** for the one in use). On a home with a setup that has
+  changes of the player's own (`HomeSnapshot::ownChanges`, `core::HasOwnChanges` with the plugin's
+  `RecordDisplayItems` run quietly on the copy) the button reads **Use...** / **Re-apply...** and asks first,
+  inline (*Use the template "X"? It replaces your changes: the master, sell chest and categories come from it;
+  learned items, keep rules and ignored containers stay. Your setup is backed up first (Saved setups). No items
+  are moved.* **Yes**/**No**); otherwise it switches at once. `ownChanges` is worked out on the main thread when the
+  snapshot is rebuilt: on a full refresh, or when the setup (as serialized) or the template list changed;
+  never per frame. **Use** posts `Controller::UseTemplate(cell, source)`, which takes only a template the
+  resolver found eligible for that cell and validates the cell like every action; the status line says
+  *Breezehome setup enabled*. The *Templates* table marks auto-drafts *(draft)* too.
 - **Displays page** (`UI/Panel/DisplaysPage.cpp`, `DisplaysModel.cpp`; §8.4). Every display Dova Stash
   recognises in the current home's loaded cells (the player's cell and the home's other attached cells), plus
   the setup's display entries it cannot see from there (*not loaded*): name, kind, area (multi-cell homes),
@@ -1080,7 +1557,7 @@ struct IStashUI {
   generically (`core::DisplayKindName`, the picker's choices per kind), so a new display kind shows up with no
   change to the page.
 - **MessageBoxUI:** native `RE::MessageBoxData` chains with pagination. It covers every *essential* action
-  (enable, restore a saved setup, bind categories, deposit, retrieve, keep defaults, save as template). Advanced editing on VR is done by editing
+  (enable, restore a saved setup, bind categories, deposit, restock, retrieve, keep defaults, save as template). Advanced editing on VR is done by editing
   JSON or by using a flat-screen session.
 
 Header: [QTR-Modding/SKSE-Menu-Framework-3-API](https://github.com/QTR-Modding/SKSE-Menu-Framework-3-API).
@@ -1305,7 +1782,8 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
   (disabled refs).
 - **Explicit per-item bindings:** `"forms": [FormRef…]` on a container entry.
 - **Keep:** both `quotas` and `rules` are accepted. `inherit` defaults to true. Quotas keep the most
-  valuable stacks first. Quest and non-playable items are always kept.
+  valuable stacks first. Quest and non-playable items are always kept. A quota with `"restock": true` also
+  brings the player up to N, the most valuable stored copies first (Restock, §8.7).
 - **Learn:** an unknown container that passes the safety checks is added to the layout with no
   categories. Learning is skipped when the container is already the item's rule-based destination.
   A variant is learned as its family root (§7, §8.6); a learn can be undone for a few seconds, and after a

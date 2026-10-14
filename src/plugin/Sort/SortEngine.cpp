@@ -78,7 +78,9 @@ namespace dova::sort
 				add(*a_layout.master);
 			}
 			for (const auto& c : a_layout.containers) {
-				if (!c.ignored) {
+				// The sell chest is a target only: nothing is taken out of it but by selling (DESIGN §8.8), so it is
+				// no source for Sort all, Retrieve, its counts or the displays.
+				if (!c.ignored && !a_layout.IsSellChest(c.ref)) {
 					add(c.ref);
 				}
 			}
@@ -106,8 +108,8 @@ namespace dova::sort
 		}
 
 		// What Deposit would move off the player may go on display instead, and so may what is already stored.
-		std::vector<core::DisplayStock> DepositStock(const core::Layout& a_layout, std::span<const core::ItemInfo> a_inventory,
-			std::span<const core::StackDecision> a_why, const Availability& a_available, game::StackTable& a_stacks)
+		std::vector<core::DisplayStock> DepositStock(std::span<const core::ItemInfo> a_inventory, std::span<const core::StackDecision> a_why,
+			const std::vector<core::ContainerContents>& a_stored)
 		{
 			std::vector<core::DisplayStock> stock;
 			for (std::size_t i = 0; i < a_inventory.size() && i < a_why.size(); ++i) {
@@ -115,13 +117,52 @@ namespace dova::sort
 					stock.push_back(core::DisplayStock{ core::ContainerRef::Player(), a_inventory[i], a_why[i].moved });
 				}
 			}
-			AddStock(stock, SnapshotManaged(a_layout, a_available, a_stacks));
+			AddStock(stock, a_stored);
 			return stock;
 		}
 
 		std::string Plural(std::int32_t a_n, std::string_view a_word)
 		{
 			return std::format("{} {}{}", a_n, a_word, a_n == 1 ? "" : "s");
+		}
+
+		// Restock (DESIGN §8.7): what to take from `a_stored` so the player carries every restocking quota.
+		// Stored copies the display plan takes are left out. Logs one line per rule and per move at debug.
+		std::vector<core::Move> PlanRestock(const core::SortPlanner& a_planner, std::span<const core::ItemInfo> a_inventory,
+			std::vector<core::ContainerContents> a_stored, const core::KeepRules& a_keep, const display::Prepared& a_displays)
+		{
+			std::map<std::uint32_t, std::int32_t> reserved;  // stored stack id -> copies going on display
+			for (const auto& a : a_displays.plan) {
+				if (a.stock < a_displays.stocks.size() && !a_displays.stocks[a.stock].from.IsPlayer()) {
+					reserved[a_displays.stocks[a.stock].item.stackId] += a.count;
+				}
+			}
+			for (auto& c : a_stored) {
+				for (auto& item : c.items) {
+					if (const auto it = reserved.find(item.stackId); it != reserved.end()) {
+						item.count = std::max(0, item.count - it->second);
+					}
+				}
+			}
+			std::vector<core::RestockLine> lines;
+			auto                           moves = a_planner.Restock(a_inventory, a_stored, a_keep, &lines);
+			for (const auto& line : lines) {
+				logger::debug("Restock: {}: carried {}, taking {}{}", line.label, line.have, line.taken,
+					line.have + line.taken < line.quota ? " (storage ran short)" : "");
+			}
+			if (spdlog::should_log(spdlog::level::debug)) {
+				for (const auto& m : moves) {
+					const auto c = std::ranges::find_if(a_stored, [&](const core::ContainerContents& a_c) { return a_c.ref == m.from.Ref(); });
+					if (c == a_stored.end()) {
+						continue;
+					}
+					const auto item = std::ranges::find_if(c->items, [&](const core::ItemInfo& a_i) { return a_i.stackId == m.stackId; });
+					if (item != c->items.end()) {
+						logger::debug("Restock: {} [{}] x{} from {}", item->name, item->form.ToString(), m.count, game::Describe(game::LookupRef(c->ref)));
+					}
+				}
+			}
+			return moves;
 		}
 
 		// One line per stack: where it goes and why, or why it stays (debug; homeless stays in the
@@ -170,6 +211,8 @@ namespace dova::sort
 			return "Sort all";
 		case Op::Retrieve:
 			return "Retrieve";
+		case Op::Restock:
+			return "Restock";
 		default:
 			return "?";
 		}
@@ -195,8 +238,10 @@ namespace dova::sort
 		core::SortPlanner planner(layout, categories, available);
 		game::StackTable  stacks;
 		std::vector<core::Move> moves;
+		std::vector<core::Move> restock;  // Deposit: what Restock after Deposit takes (bRestockAfterDeposit)
 		display::Prepared displays;
-		const bool        fill = Settings::GetSingleton().GetSorting().fillDisplays;
+		const auto        sorting = Settings::GetSingleton().GetSorting();
+		const bool        fill = sorting.fillDisplays;
 
 		logger::info("{} in {} ({}){}", OpName(a_op), a_home.name, a_home.cell.ToString(),
 			a_op == Op::Retrieve ? std::format(" pattern '{}'", a_pattern) : "");
@@ -219,13 +264,23 @@ namespace dova::sort
 				const auto                       keep = CompileKeep(layout);
 				std::vector<core::StackDecision> why;
 				const bool                       explain = spdlog::should_log(spdlog::level::info);
+				const bool                       restocks = sorting.restockAfterDeposit && keep.Restocks();
 				moves = planner.Deposit(inventory, keep, explain || fill ? &why : nullptr);
 				if (explain) {
 					LogDecisions(a_op, inventory, why);
 				}
+				std::vector<core::ContainerContents> stored;
+				if (fill || restocks) {
+					stored = SnapshotManaged(layout, available, stacks);
+				}
 				if (fill) {
-					displays = display::Prepare(a_home, cell, DepositStock(layout, inventory, why, available, stacks));
+					displays = display::Prepare(a_home, cell, DepositStock(inventory, why, stored));
 					core::ReserveForDisplays(moves, displays.stocks, displays.plan);
+				}
+				// Planned from the same snapshots: what Deposit keeps is what Restock counts (a quota the player is
+				// short of had nothing of it deposited), and what goes on display stays out of it.
+				if (restocks) {
+					restock = PlanRestock(planner, inventory, std::move(stored), keep, displays);
 				}
 			}
 			break;
@@ -260,15 +315,26 @@ namespace dova::sort
 		case Op::Retrieve:
 			moves = planner.Retrieve(SnapshotManaged(layout, available, stacks), a_pattern);
 			break;
+		case Op::Restock:
+			{
+				const auto keep = CompileKeep(layout);
+				if (!keep.Restocks()) {
+					result.message = "Dova Stash: no keep quota restocks";
+					return result;
+				}
+				const auto inventory = game::SnapshotInventory(player, stacks);
+				moves = PlanRestock(planner, inventory, SnapshotManaged(layout, available, stacks), keep, displays);
+			}
+			break;
 		}
 
 		result.ran = true;
-		if (moves.empty() && !displays.plan.empty()) {
+		if (moves.empty() && restock.empty() && !displays.plan.empty()) {
 			logger::info("{}: no moves", OpName(a_op));
 			display::Fill(a_home.cellId, displays, stacks);
 			return result;  // Fill tells the player what went on display
 		}
-		if (moves.empty()) {
+		if (moves.empty() && restock.empty()) {
 			switch (a_op) {
 			case Op::Deposit:
 				result.message = "Dova Stash: nothing to deposit";
@@ -282,6 +348,9 @@ namespace dova::sort
 			case Op::Retrieve:
 				result.message = "Dova Stash: nothing to retrieve";
 				break;
+			case Op::Restock:
+				result.message = "Dova Stash: nothing to restock";
+				break;
 			}
 			logger::info("{}: no moves", OpName(a_op));
 			return result;
@@ -293,14 +362,26 @@ namespace dova::sort
 			}
 			return available(a_end.Ref()) ? game::LookupRef(a_end.Ref()) : nullptr;
 		};
-		const auto report = game::ItemMover::Execute(moves, stacks, resolve);
-		result.items = report.items;
+		const auto report = moves.empty() ? game::MoveReport{} : game::ItemMover::Execute(moves, stacks, resolve);
+		// Restock after Deposit: other stacks (stored ones; the deposit's are the player's), moved after it.
+		const auto restocked = restock.empty() ? game::MoveReport{} : game::ItemMover::Execute(restock, stacks, resolve);
+		if (!restock.empty()) {
+			logger::info("Restock after Deposit: {} in {}", Plural(restocked.items, "item"), Plural(restocked.stacks, "stack"));
+		}
+		result.items = report.items + restocked.items;
 		display::Fill(a_home.cellId, displays, stacks);
 
 		const auto containers = static_cast<std::int32_t>(a_op == Op::Retrieve ? report.sources.size() : report.targets.size());
 		switch (a_op) {
 		case Op::Deposit:
-			result.message = std::format("Dova Stash: deposited {} into {}", Plural(report.items, "item"), Plural(containers, "container"));
+			if (moves.empty()) {
+				result.message = std::format("Dova Stash: restocked {}", Plural(restocked.items, "item"));
+			} else {
+				result.message = std::format("Dova Stash: deposited {} into {}", Plural(report.items, "item"), Plural(containers, "container"));
+				if (restocked.items > 0) {
+					result.message += std::format(", restocked {}", restocked.items);
+				}
+			}
 			break;
 		case Op::Distribute:
 			result.message = std::format("Dova Stash: sorted {} into {}", Plural(report.items, "item"), Plural(containers, "container"));
@@ -311,11 +392,19 @@ namespace dova::sort
 		case Op::Retrieve:
 			result.message = std::format("Dova Stash: retrieved {} from {}", Plural(report.items, "item"), Plural(containers, "container"));
 			break;
+		case Op::Restock:
+			result.message = std::format("Dova Stash: restocked {}", Plural(report.items, "item"));
+			break;
 		}
-		if (report.skipped > 0 || report.errors > 0) {
-			result.message += std::format(" ({} skipped, see log)", report.skipped + report.errors);
+		if (const auto skipped = report.skipped + report.errors + restocked.skipped + restocked.errors; skipped > 0) {
+			result.message += std::format(" ({} skipped, see log)", skipped);
 		}
 		return result;
+	}
+
+	bool Restocks(const home::Home& a_home)
+	{
+		return a_home.layout && core::RestockApplies(home::Store::Get().GlobalKeep(), a_home.layout->keep ? &*a_home.layout->keep : nullptr);
 	}
 
 	Result FillDisplay(home::Home& a_home, const core::FormRef& a_display)
@@ -354,7 +443,7 @@ namespace dova::sort
 		const auto        inventory = game::SnapshotInventory(player, stacks);
 		std::vector<core::StackDecision> why;
 		(void)planner.Deposit(inventory, CompileKeep(layout), &why);
-		const auto displays = display::Prepare(a_home, cell, DepositStock(layout, inventory, why, available, stacks), ref->GetFormID());
+		const auto displays = display::Prepare(a_home, cell, DepositStock(inventory, why, SnapshotManaged(layout, available, stacks)), ref->GetFormID());
 		if (displays.plan.empty()) {
 			result.message = std::format("Dova Stash: nothing you have or store fits {}", name);
 			return result;

@@ -36,6 +36,11 @@ namespace dova
 		// `a_byHand`: the player took it through a loot menu (QuickLoot IE), which is never a script.
 		void OnItemReturned(RE::FormID a_container, RE::FormID a_baseObject, bool a_byHand = false);
 		void OnSaveGame();
+		// kPreLoadGame / kNewGame (messaging thread, like OnSaveGame): forget everything that belongs
+		// to the save being left — the open container, learn/undo/suggestion state and arrivals waiting
+		// to be sorted. Pending Later callbacks are invalidated by bumping their serials, so a sort or
+		// a category question scheduled in the old save can never fire in the new one.
+		void OnPreLoadGame();
 
 		// --- actions (main thread; all validate a_cellId against the current cell) --------------------
 		void RunOperation(RE::FormID a_cellId, sort::Op a_op, std::string a_pattern = {});
@@ -49,6 +54,18 @@ namespace dova
 		void ToggleCategory(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_pattern);
 		void ClearCategories(RE::FormID a_cellId, const core::FormRef& a_container);
 		void SetIgnored(RE::FormID a_cellId, const core::FormRef& a_container, bool a_ignored);
+		// The sell chest (DESIGN §8.8). Marking one only changes the setup: nothing is sold. A container without
+		// categories or learned items gets the junk category (misc.clutter) when the category set has it.
+		void SetSellChest(RE::FormID a_cellId, const core::FormRef& a_container, bool a_sell);
+		// "Sell now": works out the sale (one sell chest, or every one of the home) and asks (message box: "Sell 14
+		// items for 862 gold?"); Yes sells exactly that (SellConfirmed). Waits for an open container menu to close.
+		void SellNow(RE::FormID a_cellId, std::optional<core::FormRef> a_chest);
+		// Sells, if the sale is still the one the player confirmed (`a_items`, `a_gold`). The panel calls it after
+		// its own confirmation.
+		void SellConfirmed(RE::FormID a_cellId, std::optional<core::FormRef> a_chest, std::int32_t a_items, std::int64_t a_gold);
+		// The last sale of the session, bought back for the same gold (asks first; BuyBackConfirmed does it).
+		void BuyBack(RE::FormID a_cellId);
+		void BuyBackConfirmed(RE::FormID a_cellId);
 		// Takes the container out of the layout: its entry (categories, explicit items, label) and the
 		// learned destinations pointing at it go; what is inside stays. Not the master. Unlike Ignore,
 		// nothing is kept, so Learn may add it again when items are put in by hand.
@@ -187,6 +204,9 @@ namespace dova
 		void EnsureUI();
 
 		ui::StashUIs _ui;
+		// Bumped by OnPreLoadGame: a RunWhenContainerMenuClosed retry chain started in the save being left
+		// (Distribute on master close, Browse, Fill now) stops instead of running in the next one.
+		std::uint64_t _loadSerial{ 0 };
 		std::uint64_t _arrivalSerial{ 0 };
 		RE::FormID    _arrivalDeferredCell{ 0 };  // arrivals waiting for a paused master menu to close
 		std::uint64_t _learnSerial{ 0 };
@@ -212,5 +232,6 @@ namespace dova
 		};
 		std::optional<PendingSuggestion> _suggestion;
 		std::uint64_t                    _suggestionSerial{ 0 };
+		int                              _suggestionRetries{ 0 };  // AskSuggestion attempts for the pending question
 	};
 }

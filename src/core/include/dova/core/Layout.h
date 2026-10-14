@@ -8,24 +8,35 @@
 // Serialization decisions:
 // - Output is indented with tabs and kept compact so people can read it: a short list or an entry without
 //   nested objects stays on one line (one line per container), and the fields of such lines are lined up
-//   in columns (detail::Dump). Fixed key order: $schema, name, note, author, version, priority, requires,
-//   cell, cells, master, containers, displays, keep, learned, declined, basedOn, then any unknown keys
+//   in columns (detail::Dump). Fixed key order: $schema, autoDraft, name, note, author, version, priority, requires,
+//   conflicts, cell, cells, master, containers, displays, keep, learned, declined, basedOn, then any unknown keys
 //   (sorted). `cells` (more cells of a multi-cell home, HomeCells.h) and `declined` (turned-down category
 //   suggestions, Learning.h) are only written when the layout has any.
-//   name/author/version/priority are always written; optional parts only when set.
+//   name/author/version/priority are always written; optional parts only when set (autoDraft only when true).
+// - `conflicts` (templates, DESIGN §6.2): plugins that rebuild the home; a template is not offered while any of them
+//   is loaded (the negative of `requires`). Written only when the layout has any.
+// - `autoDraft` (templates only, DESIGN §6.8): true marks a file written by the editor's bulk "Draft all homes"
+//   that no person has saved since. Such a file may be replaced by the next bulk draft; any other template file
+//   never is (CheckAutoDraftTarget, Template.h). Saving it as a person drops the mark. The game loads it as any
+//   template; a player layout never carries it (ApplyTemplate and ExportAsTemplate clear it).
 // - `note` (top level, containers, displays) is free text for people reading the file; Dova Stash never
 //   uses it (the panel shows a container's note).
 // - Unknown keys at the top level, in container entries, in keep, and in quota rules are preserved
 //   verbatim (sorted) so newer files survive a round-trip through an older DLL.
 // - Never lose user data: a container entry or learned pair with a malformed form reference is
 //   reported as an error but kept verbatim (`unparsedContainers` / `unparsedLearned`) and written back.
+//   A second container or display entry for the same ref is a warning: the first entry is the binding,
+//   the duplicate is kept verbatim the same way (never used, so it cannot contradict the first). A
+//   name/author/version/priority of the wrong type is kept verbatim in `extra` and written back as long
+//   as the field itself is still at its default.
 // - `learned` is written sorted by FormRef (plugin case-insensitive, then id) for stable diffs.
 // - Per-item explicit bindings (DESIGN §7 step 1) live in each container entry as
 //   `"forms": ["Plugin.esp|0x..."]`.
 // - keep: both spellings from the spec are accepted for quota rules — "quotas" (§8.3) and "rules"
 //   (§6.3). The key used on load is remembered and re-used on save. `inherit` defaults to TRUE when a
 //   layout has a keep block but omits it: a layout adding one quota should not silently drop the global
-//   gold/lockpick/torch keeps. Write `"inherit": false` to replace the globals.
+//   gold/lockpick/torch keeps. Write `"inherit": false` to replace the globals. A quota rule's `restock`
+//   (bool) is written after `quota`, only when true; a value of another type is a warning and kept verbatim.
 
 #include <cstdint>
 #include <filesystem>
@@ -69,12 +80,15 @@ namespace dova::core
 	};
 
 	// "keep up to `quota` items matching all given selectors". At least one selector is required.
+	// `restock` ("restock": true; optional, off when absent): Restock also tops the player up to `quota`
+	// from the home's containers (DESIGN §8.7). Written only when on, so files without it read as before.
 	struct QuotaRule
 	{
 		std::optional<std::string>              category;     // category pattern (wildcards allowed)
 		std::optional<std::vector<std::string>> keywordsAny;  // keyword EditorIDs
 		std::optional<std::vector<FormRef>>     forms;        // explicit base forms
 		std::int32_t                            quota{ 0 };
+		bool                                    restock{ false };
 		nlohmann::json                          extra = nlohmann::json::object();  // unknown keys, preserved
 	};
 
@@ -100,6 +114,10 @@ namespace dova::core
 		std::vector<FormRef>     forms;       // explicit per-item bindings
 		std::vector<std::string> unparsedForms;  // malformed "forms" entries, written back verbatim
 		bool                     ignored{ false };
+		// "sell": true (DESIGN §8.8): the sell chest. Items reach it like any container (categories, learned,
+		// fixed items); what is in it is sold for gold only when the player confirms "Sell now" (or turned on
+		// timed selling). Nothing else is ever taken out of it. Inert on the master or an ignored container.
+		bool                     sell{ false };
 		nlohmann::json           extra = nlohmann::json::object();
 	};
 
@@ -128,12 +146,14 @@ namespace dova::core
 
 	struct Layout
 	{
+		bool                          autoDraft{ false };  // "autoDraft": true: written by "Draft all homes", no person saved it since
 		std::string                   name;
 		std::string                   note;  // what the file is, for people reading it
 		std::string                   author;
 		std::string                   version;
 		std::int32_t                  priority{ 0 };
 		std::vector<std::string>      requiredPlugins;  // JSON "requires": plugin file names
+		std::vector<std::string>      conflictPlugins;  // JSON "conflicts": not offered while any of these is loaded
 		std::optional<FormRef>        cell;
 		std::vector<HomeCell>         cells;  // more cells of the same home (DESIGN §6.7); optional
 		std::optional<FormRef>        master;
@@ -158,6 +178,9 @@ namespace dova::core
 		[[nodiscard]] const DisplayBinding*   FindDisplay(const FormRef& a_ref) const;
 		[[nodiscard]] DisplayBinding*         FindDisplay(const FormRef& a_ref);
 		[[nodiscard]] bool                    IsMaster(const FormRef& a_ref) const { return master && *master == a_ref; }
+		// A container marked "sell" that is neither ignored nor the master (DESIGN §8.8).
+		[[nodiscard]] bool IsSellChest(const FormRef& a_ref) const;
+		[[nodiscard]] bool HasSellChest() const;
 	};
 
 	// --- Keep config JSON (also used by the plugin for global defaults in Settings.json) -----------

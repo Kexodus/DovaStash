@@ -4,6 +4,8 @@
 
 #include "Controller.h"
 #include "Sort/SortEngine.h"
+
+#include <dova/core/CraftingStorage.h>
 #include "UI/Labels.h"
 #include "UI/Panel/ArmorSetsPage.h"
 #include "UI/Panel/DisplaysPage.h"
@@ -324,11 +326,14 @@ namespace dova::ui::panel
 			ImGui::Separator();
 		}
 
-		// The templates for this home, one row each with a small Use button. `a_confirm`: this home has a setup
-		// that the template replaces, so the button asks first.
-		void RenderTemplateChoices(const HomeSnapshot& a_snap, bool a_confirm)
+		// The templates that fit this home, in the order the game offers them (core::ResolveLayout: a template someone
+		// made before an auto-draft), one row each with a small Use button; Use switches the setup to it
+		// (Controller::UseTemplate: backed up first, nothing moved). It asks first only when the setup has changes of
+		// the player's own that the switch replaces (HomeSnapshot::ownChanges); otherwise one click switches.
+		void RenderTemplateChoices(const HomeSnapshot& a_snap)
 		{
 			const auto cell = a_snap.cellId;
+			const bool confirm = a_snap.enabled && a_snap.ownChanges;
 			for (const auto& t : a_snap.templates) {
 				ImGui::PushID(t.source.c_str());
 				ImGui::AlignTextToFramePadding();
@@ -338,17 +343,22 @@ namespace dova::ui::panel
 					ImGui::SameLine();
 					Colored(kGreen, text::kTemplateBest);
 				}
+				if (t.autoDraft) {
+					ImGui::SameLine();
+					Disabled(text::kTemplateDraft);
+					Tooltip(text::kTemplateDraftTip);
+				}
 				if (t.applied) {
 					ImGui::SameLine();
 					Disabled(text::kTemplateApplied);
 				}
 				ButtonRow row(true);
 				bool      go = false;
-				if (a_confirm) {
-					go = RowConfirm(row, t.applied ? text::kReapplyTemplate : text::kUseTemplateAsk, "tpl:" + t.source, std::format(text::kConfirmTemplate, t.name), true);
+				if (confirm) {
+					go = RowConfirm(row, t.applied ? text::kReapplyTemplateAsk : text::kUseTemplateAsk, "tpl:" + t.source, std::format(text::kConfirmTemplate, t.name), true);
 				} else {
 					row.Next();
-					go = Button(text::kUseTemplate, true);
+					go = Button(t.applied ? text::kReapplyTemplate : text::kUseTemplate, true);
 				}
 				if (go) {
 					Do([cell, source = t.source]() { Controller::Get().UseTemplate(cell, source); }, Refresh::Full);
@@ -450,7 +460,8 @@ namespace dova::ui::panel
 			}
 			if (!a_snap.templates.empty()) {
 				ImGui::SeparatorText(text::kSetupTemplates);
-				RenderTemplateChoices(a_snap, false);
+				Tooltip(text::kTemplatesTip);
+				RenderTemplateChoices(a_snap);
 			}
 			if (!a_snap.backups.empty()) {
 				RenderBackups(a_snap, false);
@@ -561,7 +572,59 @@ namespace dova::ui::panel
 			}
 		}
 
-		// Everyday actions first (Sort, Retrieve), then the home's setup (Areas, Template, Saved setups), then Reset.
+		std::string Items(std::int64_t a_n)
+		{
+			return a_n == 1 ? std::format(text::kItemCount, a_n) : std::format(text::kItemsCount, a_n);
+		}
+
+		// The sell chest (DESIGN §8.8): Sell now with the total, the buy-back (both ask first), and the session's sales.
+		void RenderSell(const HomeSnapshot& a_snap)
+		{
+			const auto  cell = a_snap.cellId;
+			const auto& sell = a_snap.sell;
+			if (sell.chest) {
+				ImGui::SeparatorText(text::kSellHeader);
+				Tooltip(text::kSellTip);
+				if (!sell.reachable) {
+					Disabled(text::kSellNotHere);
+				} else if (sell.items <= 0) {
+					Disabled(sell.stays.empty() ? std::string(text::kSellNothing) : std::format("{} ({})", text::kSellNothing, sell.stays));
+				} else {
+					Wrapped(std::format(text::kSellQuote, Items(sell.items), sell.gold, sell.what));
+					if (!sell.stays.empty()) {
+						Hint(sell.stays);
+					}
+					if (ConfirmButton(std::format(ui::kSellNow, sell.gold), "sell", std::format(ui::kConfirmSell, Items(sell.items), sell.gold, sell.what))) {
+						Do([cell, items = sell.items, gold = sell.gold]() { Controller::Get().SellConfirmed(cell, std::nullopt, items, gold); }, Refresh::Full);
+					}
+				}
+				if (sell.buyBack) {
+					const auto [items, gold] = *sell.buyBack;
+					Hint(std::format(text::kBuyBackInfo, Items(items), gold, sell.buyBackWhat));
+					if (ConfirmButton(std::format(ui::kBuyBack, gold), "buyback", std::format(ui::kConfirmBuyBack, Items(items), gold, sell.buyBackWhat))) {
+						Do([cell]() { Controller::Get().BuyBackConfirmed(cell); }, Refresh::Full);
+					}
+				}
+			}
+			if (!sell.log.empty()) {
+				ImGui::SeparatorText(text::kSalesHeader);
+				for (std::size_t i = 0; i < sell.log.size(); ++i) {
+					const auto& sale = sell.log[i];
+					const auto  tags = std::string(sale.timed ? text::kSaleTimed : "") + (sale.boughtBack ? text::kSaleBoughtBack : "");
+					ImGui::PushID(static_cast<int>(i));
+					if (ImGui::TreeNodeEx(std::format(text::kSaleLine, sale.time, sale.chests, Items(sale.items), sale.gold, tags).c_str(), 0)) {
+						for (const auto& [name, count, gold] : sale.lines) {
+							ImGui::BulletText("%s", std::format(text::kSaleItem, name, count, gold).c_str());
+						}
+						ImGui::TreePop();
+					}
+					ImGui::PopID();
+				}
+			}
+		}
+
+		// Everyday actions first (Sort, Sell chest), the templates in sight above the long Retrieve tree, then the
+		// home's setup (Areas, Saved setups), then Reset.
 		void RenderActions(const HomeSnapshot& a_snap)
 		{
 			const auto cell = a_snap.cellId;
@@ -572,10 +635,28 @@ namespace dova::ui::panel
 			}
 			Tooltip(text::kDepositTip);
 			ImGui::SameLine();
+			const bool restocks = core::RestockApplies(a_snap.globalKeep, a_snap.keep ? &*a_snap.keep : nullptr);
+			ImGui::BeginDisabled(!restocks);
+			if (ImGui::Button(text::kRestock)) {
+				Do([cell]() { Controller::Get().RunOperation(cell, sort::Op::Restock); }, Refresh::Full);
+			}
+			ImGui::EndDisabled();
+			Tooltip(restocks ? text::kRestockTip : text::kRestockNoneTip);
+			ImGui::SameLine();
 			if (ImGui::Button(text::kSortAll)) {
 				Do([cell]() { Controller::Get().RunOperation(cell, sort::Op::SortAll); }, Refresh::Full);
 			}
 			Tooltip(text::kSortAllTip);
+
+			RenderSell(a_snap);
+
+			ImGui::SeparatorText(text::kSetupTemplates);
+			Tooltip(text::kTemplatesTip);
+			if (a_snap.templates.empty()) {
+				Disabled(text::kNoTemplate);
+			} else {
+				RenderTemplateChoices(a_snap);
+			}
 
 			ImGui::SeparatorText(text::kRetrieveHeader);
 			if (ImGui::Button(text::kRefreshCounts)) {
@@ -597,13 +678,6 @@ namespace dova::ui::panel
 			}
 
 			RenderAreas(a_snap);
-
-			ImGui::SeparatorText(text::kTemplateHeader);
-			if (a_snap.templates.empty()) {
-				Disabled(text::kNoTemplate);
-			} else {
-				RenderTemplateChoices(a_snap, true);
-			}
 
 			RenderBackups(a_snap, true);
 
@@ -728,6 +802,10 @@ namespace dova::ui::panel
 				Do([cell, ref, label = FromBuffer(g_state.label)]() { Controller::Get().SetLabel(cell, ref, label); });
 			}
 
+			if (a_row.sell) {
+				Hint(text::kSellChestInfo);
+			}
+
 			// Everyday actions, then the ones that clear or remove something (those that ask last).
 			{
 				ButtonRow row;
@@ -741,6 +819,16 @@ namespace dova::ui::panel
 				}
 				if (!a_row.ignored) {
 					Tooltip(text::kIgnoreTip);
+				}
+				if (a_row.sell) {
+					row.Next();
+					if (Button(ui::kNotSellChest)) {
+						Do([cell, ref]() { Controller::Get().SetSellChest(cell, ref, false); }, Refresh::Full);
+					}
+					Tooltip(text::kNotSellChestTip);
+				} else if (!a_row.ignored && a_row.available &&
+						   RowConfirm(row, ui::kMakeSellChest, "sellchest:" + a_row.refText, ui::SellChestQuestion(a_row.label))) {
+					Do([cell, ref]() { Controller::Get().SetSellChest(cell, ref, true); }, Refresh::Full);
 				}
 				if (a_row.available && RowConfirm(row, text::kMakeMaster, "master:" + a_row.refText, std::format(text::kConfirmMakeMaster, a_row.label))) {
 					Do([cell, ref]() { Controller::Get().MakeMaster(cell, ref); }, Refresh::Full);
@@ -841,7 +929,7 @@ namespace dova::ui::panel
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 					const bool selected = g_state.selected && *g_state.selected == row.ref;
-					const auto label = std::format("{}{}##{}", row.master ? text::kMasterTag : "", row.label, row.refText);
+					const auto label = std::format("{}{}##{}", row.master ? text::kMasterTag : row.sell ? text::kSellTag : "", row.label, row.refText);
 					if (ImGui::Selectable(label.c_str(), selected, ImGui::ImGuiSelectableFlags_SpanAllColumns)) {
 						Select(row);
 					}
@@ -1037,7 +1125,7 @@ namespace dova::ui::panel
 			}
 			for (const auto& q : a_keep.quotas) {
 				ImGui::Bullet();
-				Text(std::format(text::kQuotaLine, q.quota, q.category ? DescribeKeepEntry(*q.category, a_tree) : std::string(text::kNoCategory)));
+				Text(std::format(text::kQuotaLine, q.quota, q.category ? DescribeKeepEntry(*q.category, a_tree) : std::string(text::kNoCategory), q.restock ? text::kRestockMark : ""));
 			}
 			ImGui::Unindent();
 		}
@@ -1053,10 +1141,11 @@ namespace dova::ui::panel
 			ImGui::SeparatorText(text::kKeepQuotas);
 			std::optional<std::size_t> remove;
 			if (!a_draft.quotas.empty()) {
-				if (ImGui::BeginTable("##quotas", 4, kTableFlags)) {
-					ImGui::TableSetupColumn(text::kColCategory, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.45f);
-					ImGui::TableSetupColumn(text::kColQuota, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.2f);
-					ImGui::TableSetupColumn(text::kColOther, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.25f);
+				if (ImGui::BeginTable("##quotas", 5, kTableFlags)) {
+					ImGui::TableSetupColumn(text::kColCategory, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.4f);
+					ImGui::TableSetupColumn(text::kColQuota, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.17f);
+					ImGui::TableSetupColumn(text::kColRestock, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.11f);
+					ImGui::TableSetupColumn(text::kColOther, ImGui::ImGuiTableColumnFlags_WidthStretch, 0.22f);
 					ImGui::TableSetupColumn("##remove", ImGui::ImGuiTableColumnFlags_WidthStretch, 0.1f);
 					ImGui::TableHeadersRow();
 					for (std::size_t i = 0; i < a_draft.quotas.size(); ++i) {
@@ -1077,6 +1166,11 @@ namespace dova::ui::panel
 							q.quota = std::max(quota, 0);
 							a_dirty = true;
 						}
+						ImGui::TableNextColumn();
+						if (ImGui::Checkbox("##restock", &q.restock)) {
+							a_dirty = true;
+						}
+						Tooltip(text::kRestockColTip);
 						ImGui::TableNextColumn();
 						std::vector<std::string> other;
 						if (q.keywordsAny && !q.keywordsAny->empty()) {
@@ -1106,6 +1200,7 @@ namespace dova::ui::panel
 			if (ImGui::Button(text::kAddQuota)) {
 				core::QuotaRule rule;
 				rule.quota = 5;
+				rule.restock = true;  // a new quota is usually something to carry (files without the key stay off)
 				a_draft.quotas.push_back(std::move(rule));
 				a_dirty = true;
 			}
@@ -1487,6 +1582,8 @@ namespace dova::ui::panel
 			Help(text::kSetSortOnArrivalTip, "[Sorting] bSortOnArrival");
 			apply |= ImGui::Checkbox(text::kSetSortOnClose, &v.sorting.distributeOnMasterClose);
 			Help(text::kSetSortOnCloseTip, "[Sorting] bDistributeOnMasterClose");
+			apply |= ImGui::Checkbox(text::kSetRestock, &v.sorting.restockAfterDeposit);
+			Help(text::kSetRestockTip, "[Sorting] bRestockAfterDeposit");
 			apply |= ImGui::Checkbox(text::kSetFillDisplays, &v.sorting.fillDisplays);
 			Help(text::kSetFillDisplaysTip, "[Sorting] bFillDisplays");
 
@@ -1505,9 +1602,18 @@ namespace dova::ui::panel
 			ImGui::EndDisabled();
 
 			ImGui::SeparatorText(text::kSetCraftingHeader);
-			apply |= ImGui::Checkbox(text::kSetCrafting, &v.sorting.craftingSupply);
-			Help(text::kSetCraftingTip, "[Sorting] bCraftingSupply");
-			ImGui::BeginDisabled(!v.sorting.craftingSupply);
+			{
+				// [Sorting] iCraftingSupply 0-3 (core::crafting::SupplySetting); Auto says what it means here.
+				const auto autoLabel = v.sorting.craftingSupply == 0 && !global->craftingMode.empty() ? std::format(text::kSetCraftAutoNow, global->craftingMode) :
+				                                                                                         std::string(text::kSetCraftAuto);
+				const std::array<const char*, 4> kSupply{ autoLabel.c_str(), text::kSetCraftOff, text::kSetCraftMove, text::kSetCraftStorage };
+				apply |= IndexCombo(text::kSetCrafting, v.sorting.craftingSupply, kSupply);
+				Help(text::kSetCraftingTip, "[Sorting] iCraftingSupply");
+				if (!global->craftingWhy.empty()) {
+					Unavailable(std::format(text::kSetCraftNow, global->craftingMode, global->craftingWhy));
+				}
+			}
+			ImGui::BeginDisabled(global->craftingMode == core::crafting::SupplyModeName(core::crafting::SupplyMode::Off));
 			ImGui::Indent();
 			apply |= ImGui::Checkbox(text::kSetCraftingGear, &v.sorting.craftingSupplyGear);
 			Help(text::kSetCraftingGearTip, "[Sorting] bCraftingSupplyGear");
@@ -1517,6 +1623,14 @@ namespace dova::ui::panel
 			ImGui::SeparatorText(text::kSetTemplatesHeader);
 			apply |= ImGui::Checkbox(text::kSetAutoEnable, &v.templates.autoEnable);
 			Help(text::kSetAutoEnableTip, "[General] bAutoEnableTemplates");
+
+			ImGui::SeparatorText(text::kSetSellHeader);
+			ImGui::SliderInt(text::kSetSellPrice, &v.selling.pricePercent, 10, 200, text::kSetSellPriceFormat);
+			apply |= Released();
+			Help(text::kSetSellPriceTip, "[Selling] iSellPricePercent");
+			ImGui::SliderInt(text::kSetAutoSell, &v.selling.autoSellHours, 0, 168, v.selling.autoSellHours == 0 ? text::kSetAutoSellOff : text::kSetAutoSellFormat);
+			apply |= Released();
+			Help(text::kSetAutoSellTip, "[Selling] iAutoSellHours");
 
 			ImGui::SeparatorText(text::kSetQuickLootHeader);
 			ImGui::BeginDisabled(!global->quickLootReady);
@@ -1591,7 +1705,15 @@ namespace dova::ui::panel
 				Disabled(text::kLoading);
 				return;
 			}
+			PanelModel::Get().MarkRendered();  // keeps the current home's part fresh
 			Hint(text::kTemplatesIntro);
+			// The home the player is in: its templates, to switch to (the same list as This home).
+			if (const auto snap = PanelModel::Get().Home(); snap && snap->inHome && !snap->layoutBroken && !snap->templates.empty()) {
+				ImGui::SeparatorText(std::format(text::kTemplatesHere, snap->homeName).c_str());
+				Tooltip(text::kTemplatesTip);
+				RenderTemplateChoices(*snap);
+				ImGui::Spacing();
+			}
 			if (global->templates.empty()) {
 				Disabled(text::kTemplatesNone);
 				return;
@@ -1611,6 +1733,11 @@ namespace dova::ui::panel
 				ImGui::TableNextColumn();
 				Text(std::format(text::kNameVersion, t.name, t.version));
 				Tooltip(std::format(text::kTemplateSourceTip, t.source, t.priority));
+				if (t.autoDraft) {
+					ImGui::SameLine();
+					Disabled(text::kTemplateDraft);
+					Tooltip(text::kTemplateDraftTip);
+				}
 				ImGui::TableNextColumn();
 				if (t.author.empty()) {
 					Disabled(text::kNone);
@@ -1630,10 +1757,15 @@ namespace dova::ui::panel
 				} else {
 					Text(Join(t.required));
 				}
-				if (t.missing.empty()) {
+				if (t.missing.empty() && t.conflicting.empty()) {
 					Colored(kGreen, text::kOk);
-				} else {
+				}
+				if (!t.missing.empty()) {
 					Colored(kRed, std::format(text::kMissing, Join(t.missing)));
+				}
+				if (!t.conflicting.empty()) {
+					Colored(kRed, std::format(text::kConflicts, Join(t.conflicting)));
+					Tooltip(text::kConflictsTip);
 				}
 				ImGui::TableNextColumn();
 				if (t.diagnostics.empty()) {
@@ -1673,6 +1805,7 @@ namespace dova::ui::panel
 			DiagnosticsSection(text::kDiagCategories, global->categoryDiagnostics);
 			DiagnosticsSection(text::kDiagTemplates, global->templateDiagnostics);
 			DiagnosticsSection(text::kDiagSettings, global->settingsDiagnostics);
+			DiagnosticsSection(text::kDiagSelfSorting, global->selfSortingDiagnostics);
 
 			const auto snap = PanelModel::Get().Home();
 			if (snap && snap->inHome && snap->enabled) {

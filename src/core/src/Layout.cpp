@@ -38,7 +38,10 @@ namespace dova::core
 				return std::nullopt;
 			}
 			const auto v = a_value.get<std::int64_t>();
-			return static_cast<std::int32_t>(std::clamp<std::int64_t>(v, INT32_MIN, INT32_MAX));
+			if (v < INT32_MIN || v > INT32_MAX) {
+			return std::nullopt;
+			}
+			return static_cast<std::int32_t>(v);
 		}
 
 		void ValidateKeepList(const std::vector<std::string>& a_list, const std::string& a_source, const std::string& a_where, Diagnostics& a_diags)
@@ -98,6 +101,13 @@ namespace dova::core
 						a_diags.Error(a_source, where + ": expected a non-negative integer");
 						ok = false;
 					}
+				} else if (key == "restock") {
+					if (value.is_boolean()) {
+						rule.restock = value.get<bool>();
+					} else {
+						a_diags.Warn(a_source, where + ": expected true or false (kept, restock off)");
+						rule.extra[key] = value;
+					}
 				} else {
 					rule.extra[key] = value;
 				}
@@ -133,6 +143,9 @@ namespace dova::core
 				out["forms"] = std::move(forms);
 			}
 			out["quota"] = a_rule.quota;
+			if (a_rule.restock) {
+				out["restock"] = true;
+			}
 			AppendExtra(out, a_rule.extra);
 			return out;
 		}
@@ -167,6 +180,8 @@ namespace dova::core
 					c.note = value.get<std::string>();
 				} else if (key == "ignored" && value.is_boolean()) {
 					c.ignored = value.get<bool>();
+				} else if (key == "sell" && value.is_boolean()) {
+					c.sell = value.get<bool>();
 				} else if (key == "categories" && (value.is_array() || value.is_string())) {
 					if (auto list = detail::ReadStringList(value, a_source, where, a_diags)) {
 						c.categories = std::move(*list);
@@ -188,7 +203,7 @@ namespace dova::core
 						}
 					}
 				} else {
-					if (key == "label" || key == "note" || key == "ignored" || key == "categories" || key == "forms") {
+					if (key == "label" || key == "note" || key == "ignored" || key == "sell" || key == "categories" || key == "forms") {
 						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
 						a_diags.Warn(a_source, where + ": unknown field (preserved)");
@@ -221,6 +236,9 @@ namespace dova::core
 			}
 			if (a_c.ignored) {
 				out["ignored"] = true;
+			}
+			if (a_c.sell) {
+				out["sell"] = true;
 			}
 			if (!a_c.note.empty()) {
 				out["note"] = a_c.note;
@@ -399,6 +417,17 @@ namespace dova::core
 		return it == displays.end() ? nullptr : &*it;
 	}
 
+	bool Layout::IsSellChest(const FormRef& a_ref) const
+	{
+		const auto* c = FindContainer(a_ref);
+		return c && c->sell && !c->ignored && !IsMaster(a_ref);
+	}
+
+	bool Layout::HasSellChest() const
+	{
+		return std::ranges::any_of(containers, [&](const ContainerBinding& c) { return c.sell && !c.ignored && !IsMaster(c.ref); });
+	}
+
 	// --- Keep config -------------------------------------------------------------------------------
 
 	std::optional<KeepConfig> ParseKeepConfig(const json& a_value, std::string_view a_source, Diagnostics& a_diags)
@@ -522,6 +551,13 @@ namespace dova::core
 				} else {
 					layout.basedOn = std::move(s);
 				}
+			} else if (key == "autoDraft") {
+				if (value.is_boolean()) {
+					layout.autoDraft = value.get<bool>();
+				} else {
+					a_diags.Error(source, "autoDraft: expected true or false (kept verbatim)");
+					layout.extra[key] = value;
+				}
 			} else if (key == "priority") {
 				if (auto p = ReadInt32(value)) {
 					layout.priority = *p;
@@ -529,9 +565,9 @@ namespace dova::core
 					a_diags.Error(source, "priority: expected an integer (kept verbatim)");
 					layout.extra[key] = value;
 				}
-			} else if (key == "requires") {
+			} else if (key == "requires" || key == "conflicts") {
 				if (auto list = detail::ReadStringList(value, source, key, a_diags)) {
-					layout.requiredPlugins = std::move(*list);
+					(key == "requires" ? layout.requiredPlugins : layout.conflictPlugins) = std::move(*list);
 				} else {
 					layout.extra[key] = value;
 				}
@@ -559,7 +595,11 @@ namespace dova::core
 						continue;
 					}
 					if (layout.FindContainer(c->ref)) {
-						a_diags.Warn(source, "containers[" + std::to_string(i) + "]: duplicate ref " + c->ref.ToString() + "; the first entry is used");
+						// The first entry is the binding (FindContainer, the planner's availability check); a second one
+						// is kept verbatim and never used, so the two cannot disagree on ignored / categories.
+						a_diags.Warn(source, "containers[" + std::to_string(i) + "]: duplicate ref " + c->ref.ToString() + "; the first entry is used (this one is kept verbatim, ignored)");
+						layout.unparsedContainers.push_back(value[i]);
+						continue;
 					}
 					layout.containers.push_back(std::move(*c));
 				}
@@ -575,7 +615,9 @@ namespace dova::core
 						continue;
 					}
 					if (layout.FindDisplay(d->ref)) {
-						a_diags.Warn(source, "displays[" + std::to_string(i) + "]: duplicate ref " + d->ref.ToString() + "; the first entry is used");
+						a_diags.Warn(source, "displays[" + std::to_string(i) + "]: duplicate ref " + d->ref.ToString() + "; the first entry is used (this one is kept verbatim, ignored)");
+						layout.unparsedDisplays.push_back(value[i]);
+						continue;
 					}
 					layout.displays.push_back(std::move(*d));
 				}
@@ -652,6 +694,9 @@ namespace dova::core
 			if (const auto* c = layout.FindContainer(*layout.master); c && c->ignored) {
 				a_diags.Warn(source, "the master container is also listed as ignored");
 			}
+			if (const auto* c = layout.FindContainer(*layout.master); c && c->sell) {
+				a_diags.Warn(source, "the master container can't be the sell chest (\"sell\" ignored)");
+			}
 		}
 		return layout;
 	}
@@ -669,15 +714,32 @@ namespace dova::core
 	{
 		ojson out = ojson::object();
 		out["$schema"] = kLayoutSchema;
-		out["name"] = a_layout.name;
+		// A scalar of the wrong type was kept verbatim in `extra` (ParseLayout): while the field is still at its
+		// default it is written back as it was (AppendExtra, at the end), not replaced by the empty default.
+		const auto verbatim = [&](const char* a_key) { return a_layout.extra.is_object() && a_layout.extra.contains(a_key); };
+		if (a_layout.autoDraft) {
+			out["autoDraft"] = true;  // first, so a person opening the file sees it (DESIGN §6.8)
+		}
+		if (!a_layout.name.empty() || !verbatim("name")) {
+			out["name"] = a_layout.name;
+		}
 		if (!a_layout.note.empty()) {
 			out["note"] = a_layout.note;
 		}
-		out["author"] = a_layout.author;
-		out["version"] = a_layout.version;
-		out["priority"] = a_layout.priority;
+		if (!a_layout.author.empty() || !verbatim("author")) {
+			out["author"] = a_layout.author;
+		}
+		if (!a_layout.version.empty() || !verbatim("version")) {
+			out["version"] = a_layout.version;
+		}
+		if (a_layout.priority != 0 || !verbatim("priority")) {
+			out["priority"] = a_layout.priority;
+		}
 		if (!a_layout.requiredPlugins.empty()) {
 			out["requires"] = a_layout.requiredPlugins;
+		}
+		if (!a_layout.conflictPlugins.empty()) {
+			out["conflicts"] = a_layout.conflictPlugins;
 		}
 		if (a_layout.cell) {
 			out["cell"] = a_layout.cell->ToString();

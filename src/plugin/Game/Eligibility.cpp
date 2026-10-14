@@ -1,6 +1,7 @@
 #include "Game/Eligibility.h"
 
 #include "Game/FormUtil.h"
+#include "Home/Store.h"
 #include "Log.h"
 
 namespace dova::game
@@ -172,11 +173,10 @@ namespace dova::game
 		return out;
 	}
 
-	bool SortsItself(std::string_view a_plugin)
+	const core::SelfSortingHome* SortsItself(const core::FormRef& a_cell)
 	{
 		// Homes whose own scripts sort and display items: Dova Stash leaves them alone entirely.
-		constexpr std::array kSelfSorting{ "Clockwork.esp"sv, "LegacyoftheDragonborn.esm"sv };
-		return std::ranges::any_of(kSelfSorting, [&](std::string_view a_name) { return core::IEquals(a_name, a_plugin); });
+		return home::Store::Get().SelfSorting().ForCell(a_cell);
 	}
 
 	Verdict CheckCell(RE::TESObjectCELL* a_cell)
@@ -187,8 +187,10 @@ namespace dova::game
 		if ((a_cell->GetFormID() >> 24) == 0xFF) {
 			return Verdict::Reject("temporary cell");
 		}
-		if (const auto ref = ToFormRef(a_cell); ref && SortsItself(ref->plugin)) {
-			return Verdict::Reject(std::format("{} sorts items itself", ref->plugin));
+		if (const auto ref = ToFormRef(a_cell)) {
+			if (const auto* own = SortsItself(*ref)) {
+				return Verdict::Reject(std::format("{} sorts items itself", own->plugin));
+			}
 		}
 
 		auto*      owner = a_cell->GetOwner();
@@ -216,6 +218,12 @@ namespace dova::game
 		}
 		if ((a_ref->GetFormID() >> 24) == 0xFF) {
 			return Verdict::Reject("temporary container (cannot be remembered)");
+		}
+		if (const auto ref = ToFormRef(a_ref)) {
+			const auto baseRef = ToFormRef(cont);
+			if (const auto* own = home::Store::Get().SelfSorting().ForContainer(*ref, baseRef ? &*baseRef : nullptr)) {
+				return Verdict::Reject(std::format("{} sorts this container itself", own->plugin));
+			}
 		}
 		if (a_ref->GetParentCell() != a_homeCell) {
 			return Verdict::Reject("container is not in this home's cell");

@@ -12,20 +12,43 @@ namespace fs = std::filesystem;
 
 namespace dova::editor::home
 {
-	fs::path TemplatePath(const fs::path& a_base, const core::Layout& a_template)
+	fs::path TemplatePath(const fs::path& a_base, const core::Layout& a_template, std::string_view a_home)
 	{
-		const auto author = core::TemplateFileStem(a_template.author.empty() ? std::string("Unknown") : a_template.author);
-		const auto file = core::TemplateFileStem(a_template.name) + ".json";
-		return a_base / L"SKSE" / L"Plugins" / L"DovaStash" / L"Templates" / PathFromUtf8(author) / PathFromUtf8(file);
+		const auto home = core::TemplateFileStem(a_home.empty() ? a_template.name : std::string(a_home));
+		const auto file = core::TemplateFileStem(a_template.author.empty() ? std::string("Unknown") : a_template.author) + ".json";
+		return TemplatesDir(a_base) / PathFromUtf8(home.empty() ? std::string("Home") : home) / PathFromUtf8(file);
 	}
 
-	SaveResult SaveTemplateFile(const fs::path& a_base, core::Layout& a_template, bool a_modMeta)
+	fs::path TemplatesDir(const fs::path& a_base)
+	{
+		return a_base / L"SKSE" / L"Plugins" / L"DovaStash" / L"Templates";
+	}
+
+	SaveResult SaveTemplateFile(const fs::path& a_base, core::Layout& a_template, const SaveOptions& a_options, std::string_view a_home)
 	{
 		SaveResult      r;
 		std::error_code ec;
-		r.path = TemplatePath(a_base, a_template);
+		r.path = TemplatePath(a_base, a_template, a_home);
 		core::Layout out = a_template;
+		out.autoDraft = a_options.autoDraft;  // a person's save drops the mark: the template is theirs now
 		out.requiredPlugins = core::ReferencedPlugins(out);
+		if (a_options.autoDraft || a_options.onlyOverAutoDrafts) {
+			// The file at the target, read now: missing, or this home's own auto-draft (DESIGN §6.8).
+			std::vector<core::FormRef> cells;
+			if (out.cell) {
+				cells.push_back(*out.cell);
+			}
+			for (const auto& c : out.cells) {
+				cells.push_back(c.cell);
+			}
+			if (const auto check = core::CheckAutoDraftTarget({}, r.path, cells); check.verdict == core::AutoDraftVerdict::Person ||
+			                                                                       check.verdict == core::AutoDraftVerdict::OtherHome) {
+				r.skipped = true;
+				r.error = PathToUtf8(r.path) + (check.verdict == core::AutoDraftVerdict::Person ? " is a template someone made: left as it is"
+				                                                                                 : " is another home's auto-draft: left as it is");
+				return r;
+			}
+		}
 		if (out.version.empty()) {
 			out.version = "1.0.0";
 		}
@@ -50,7 +73,7 @@ namespace dova::editor::home
 			}
 			r.replaced = true;
 		}
-		if (a_modMeta && !fs::exists(a_base / L"meta.ini", ec)) {
+		if (a_options.modMeta && !fs::exists(a_base / L"meta.ini", ec)) {
 			fs::create_directories(a_base, ec);
 			std::ofstream meta(a_base / L"meta.ini", std::ios::binary);
 			meta << "[General]\r\nmodid=0\r\nversion=1.0.0\r\ncomments=Templates made with Dova Stash Editor\r\n";
@@ -62,6 +85,7 @@ namespace dova::editor::home
 		}
 		a_template.version = out.version;
 		a_template.requiredPlugins = out.requiredPlugins;
+		a_template.autoDraft = out.autoDraft;
 		r.version = out.version;
 		r.ok = true;
 		return r;

@@ -28,6 +28,7 @@ A cut-down version of the Breezehome template that ships with the mod. One line 
   "version": "1.0.0",
   "priority": 0,
   "requires": ["Skyrim.esm", "Update.esm", "HearthFires.esm"],
+  "conflicts": ["WynterBreezehomeRedux.esp", "PlayerHouse.esp"],
   "cell": "Skyrim.esm|0x000165A8",
   "master": "Skyrim.esm|0x000F3922",
   "containers": [
@@ -45,7 +46,8 @@ A cut-down version of the Breezehome template that ships with the mod. One line 
 [*][b]containers[/b]: every other container you use. [b]ref[/b] is the placed container in the world, never its base object. [b]label[/b] is the name players see for it in the editor, so keep it short and say where it is.
 [*][b]note[/b]: free text for people reading the file, at the top or on any entry. Dova Stash never acts on it; the editor shows a container's note under its name. Use it to say why a container is ignored.
 [*][b]requires[/b]: every plugin the file points into, including the one that owns the cell (display items and armor sets are the exception, see Displays). A template is only offered when all of them are loaded.
-[*][b]priority[/b] and [b]version[/b]: when several templates exist for one home, the highest priority wins, then the player's own saved templates, then the newest version. Write versions as numbers like [font=Courier New]1.2.0[/font]. Leave priority at 0 unless you are deliberately replacing another template.
+[*][b]conflicts[/b] (optional): mods that rebuild the home, so your containers are no longer where the template says. The template is not offered while one of them is loaded. Even without it, a template whose containers are mostly gone (under 60% there) is only offered, never enabled on its own.
+[*][b]priority[/b] and [b]version[/b]: when several templates exist for one home, the highest priority wins, then the player's own saved templates, then the newest version. A file the editor's Draft all homes saved ([font=Courier New]"autoDraft": true[/font]) always comes after them, whatever its priority; saving it yourself removes the mark. Players can switch to any of a home's templates in the SKSE Menu Framework. Write versions as numbers like [font=Courier New]1.2.0[/font]. Leave priority at 0 unless you are deliberately replacing another template.
 [/list]
 
 Form references are written as [font=Courier New]"Plugin.esp|0x00ABCDEF"[/font]: the file name of the plugin that created the record (not a mod that only edits it) and the [b]local[/b] form ID, with the load-order byte removed. For an ESL-flagged plugin, keep only the last three digits, for example [font=Courier New]"MyHome.esl|0x00000801"[/font]. In xEdit, a form ID such as [font=Courier New]1A0165A8[/font] becomes [font=Courier New]0x000165A8[/font].
@@ -95,7 +97,7 @@ Every entry has the same fields, in this order; all but [b]ref[/b] are optional:
 [list]
 [*][b]ref[/b]: the rack's activator, the plaque, the mannequin (the actor, not the trigger in front of it), the display case or the bookshelf (its container, not the activator in front of it). Dova Stash recognises the game's own racks, mannequins and bookshelves and most home mods' plaques and shelves by their scripts.
 [*][b]kind[/b]: only for a display Dova Stash doesn't recognise by itself: [font=Courier New]rack[/font], [font=Courier New]mannequin[/font], [font=Courier New]item[/font] (a plaque for one item) or [font=Courier New]case[/font]. ([font=Courier New]bookshelf[/font] is accepted too, but a shelf is only filled when its script is recognised: that is where Dova Stash reads how many books fit.)
-[*][b]categories[/b]: what a rack, mannequin or bookshelf takes, with the same ids as containers. Without it, anything that fits (a bookshelf: any book but notes).
+[*][b]categories[/b]: what a rack, mannequin or bookshelf takes, with the same ids as containers. Without it, anything that fits (a bookshelf: any book but notes). Only categories the display can hold count: weapons on a weapon rack, shields on a shield rack, daggers on a dagger display, worn armor on a mannequin, books on a bookshelf. Soul gems on a rack put nothing up; [b]check[/b] and the editor warn about it.
 [*][b]items[/b]: the items a rack, mannequin or bookshelf should get first.
 [*][b]only[/b]: [font=Courier New]true[/font] puts nothing but its [b]items[/b] on that rack, mannequin or bookshelf, and no other display takes them (here a rack that waits for the modded sword or Dawnbreaker).
 [*][b]set[/b]: the armor set a mannequin wears, named by any one of its pieces (here the Ebony Armor: the Ebony set). Without it, the mannequin wears the player's best matching set.
@@ -131,7 +133,7 @@ python -I esm_dump.py check MyHome.json --categories "<Data>\SKSE\Plugins\DovaSt
 [list]
 [*][b]cells[/b] finds the cell.
 [*][b]cell[/b] lists every container in it, with its ref, name, position, scripts and respawn flag, and the displays Dova Stash fills ([b]displays[/b]). [font=Courier New]--with FURN[/font] adds nearby crafting stations and beds, which tells you which room a container is in.
-[*][b]check[/b] validates your file (with [b]cells[/b], refs may be in any of the home's cells, and it lists the bound containers that are [b]onlyReachableInTheirCell[/b]). It fails on refs that are not containers in the cell, respawning containers that are bound, unknown categories, display entries that point at nothing in the cell, and plugins missing from [b]requires[/b]. Display items and sets from mods that aren't loaded are listed as [b]optionalPlugins[/b] instead, and fields a display doesn't use (a set on a rack, items on a plaque) are warnings.
+[*][b]check[/b] validates your file (with [b]cells[/b], refs may be in any of the home's cells, and it lists the bound containers that are [b]onlyReachableInTheirCell[/b]). It fails on refs that are not containers in the cell, respawning containers that are bound, unknown categories, display entries that point at nothing in the cell, and plugins missing from [b]requires[/b]. Display items and sets from mods that aren't loaded are listed as [b]optionalPlugins[/b] instead, and fields a display doesn't use (a set on a rack, items on a plaque) and categories it can't hold (soul gems on a weapon rack) are warnings.
 [/list]
 For a home from a mod, add its plugin before the command: [font=Courier New]python -I esm_dump.py --add "path\to\MyHome.esp" cells MyHome[/font]. Without it, [b]check[/b] can't see the home and skips the container checks. The full reference is in the [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]tools guide[/url].
 
@@ -141,7 +143,7 @@ For a home from a mod, add its plugin before the command: [font=Courier New]pyth
 [*]Put the file in [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/<YourName>/[/font].
 [*]Start the game. Templates are read at startup.
 [*]Load a save where you haven't set this home up yet. Your own setup (the home's layout file in [font=Courier New]Layouts/[/font], or its backup copy in Documents) always comes first, so no template is offered over it.
-[*]Enter the home. You should see "setup available". Press [b]K[/b] at any container to enable it.
+[*]Enter the home. You should see "is set up" (or "setup available" with [font=Courier New]bAutoEnableTemplates=false[/font]: then press [b]K[/b] at any container to enable it).
 [*]If nothing shows up, open [b]Dova Stash > Templates[/b] and [b]Diagnostics[/b] in the Menu Framework, or check [font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log[/font]. Every problem with a template is listed there, with the file and the entry it is in.
 [/list]
 

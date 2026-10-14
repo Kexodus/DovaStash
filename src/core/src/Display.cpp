@@ -71,7 +71,7 @@ namespace dova::core
 				Pass(DisplayKind::Item, [&](std::size_t i) { FillItem(i); });
 				Pass(DisplayKind::Case, [&](std::size_t i) { FillCase(i); });
 				for (std::size_t i = 0; i < _spots.size(); ++i) {  // chosen sets first: their pieces wait for them
-					if (_spots[i].kind != DisplayKind::Mannequin) {
+					if (_spots[i].kind != DisplayKind::Mannequin || _spots[i].reserveOnly) {
 						continue;
 					}
 					if (_spots[i].chosen || !_spots[i].set.empty()) {
@@ -87,7 +87,7 @@ namespace dova::core
 				});
 				for (const auto rack : { RackType::Shield, RackType::Dagger, RackType::NoDaggerOrBow, RackType::LargeCase, RackType::Any }) {
 					for (std::size_t i = 0; i < _spots.size(); ++i) {
-						if (_spots[i].kind == DisplayKind::Rack && _spots[i].rack == rack && !_spots[i].full) {
+						if (_spots[i].kind == DisplayKind::Rack && _spots[i].rack == rack && !_spots[i].full && !_spots[i].reserveOnly) {
 							FillRack(i);
 						}
 					}
@@ -101,7 +101,7 @@ namespace dova::core
 			void Pass(DisplayKind a_kind, F&& a_fill)
 			{
 				for (std::size_t i = 0; i < _spots.size(); ++i) {
-					if (_spots[i].kind == a_kind && (a_kind == DisplayKind::Case || !_spots[i].full)) {
+					if (_spots[i].kind == a_kind && !_spots[i].reserveOnly && (a_kind == DisplayKind::Case || !_spots[i].full)) {
 						a_fill(i);
 					}
 				}
@@ -320,7 +320,7 @@ namespace dova::core
 			{
 				std::vector<std::pair<std::size_t, std::int32_t>> shelves;  // spot, room left
 				for (std::size_t i = 0; i < _spots.size(); ++i) {
-					if (_spots[i].kind == DisplayKind::Bookshelf && !_spots[i].full && _spots[i].room > 0) {
+					if (_spots[i].kind == DisplayKind::Bookshelf && !_spots[i].full && !_spots[i].reserveOnly && _spots[i].room > 0) {
 						shelves.emplace_back(i, _spots[i].room);
 					}
 				}

@@ -552,3 +552,39 @@ TEST_CASE("Template file stems and re-save versions", "[templates][export]")
 	CHECK(NextPatchVersion("first") == "1.0.0");
 	CHECK(std::is_gt(CompareVersionStrings(NextPatchVersion("1.0.0-rc.1"), "1.0.0-rc.1")));
 }
+
+TEST_CASE("Template file stems avoid Windows device names with any extension", "[templates][export]")
+{
+	CHECK(TemplateFileStem("CON") == "CON_");
+	CHECK(TemplateFileStem("con.txt") == "con_.txt");
+	CHECK(TemplateFileStem("COM1.backup") == "COM1_.backup");
+	CHECK(TemplateFileStem("Console") == "Console");
+	CHECK(TemplateFileStem("my.con") == "my.con");
+}
+
+TEST_CASE("Template lint: container forms and keep forms need their plugins in requires too", "[templates]")
+{
+	Layout tpl;
+	tpl.cell = kCell;
+	tpl.master = Sk(0xAAAAA);
+	tpl.requiredPlugins = { "Skyrim.esm" };
+	tpl.containers.push_back({ .ref = Sk(0xB), .forms = { F("Mod.esp|0x9") } });
+	tpl.keep = KeepConfig{};
+	tpl.keep->always = { "Other.esp|0x5", "equipped" };
+	tpl.keep->quotas = { QuotaRule{ .forms = std::vector<FormRef>{ F("Third.esp|0x6") }, .quota = 2 } };
+	Diagnostics diags;
+	ValidateTemplate(tpl, "t.json", diags);
+	const auto mentions = [&](std::string_view a_text) {
+		return std::ranges::any_of(diags.Items(), [&](const Diagnostic& d) { return d.message.find(a_text) != std::string::npos; });
+	};
+	CHECK(mentions("container forms references Mod.esp"));
+	CHECK(mentions("keep references Other.esp"));
+	CHECK(mentions("keep quota forms references Third.esp"));
+	CHECK(diags.WarningCount() == 3);
+
+	// What ExportAsTemplate lists in requires (ReferencedPlugins) is exactly what the lint asks for.
+	const auto exported = ExportAsTemplate(tpl);
+	Diagnostics clean;
+	ValidateTemplate(exported, "t.json", clean);
+	CHECK(clean.Empty());
+}

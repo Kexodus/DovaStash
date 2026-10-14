@@ -16,7 +16,10 @@
 //   a "placed" flag (bool or int, named isPlaced, placed...): the plaques home mods copy from the
 //   "ClawToPlace" display script, for masks, claws, Elder Scrolls, books and artifacts. Activating one
 //   with the item in the player's inventory takes it and shows a model; activating it again gives the
-//   item back.
+//   item back. Also the Creation Club's display plaques (defaultDisplayUniqueItemScript,
+//   defaultDisplayItemInListScript, and copies), which keep no flag: activating one drops the player's copy
+//   onto the marker linked with its LinkedMarkerKeyword; it is filled while a copy lies within 32 units of
+//   that marker (`placed` is read from that).
 // - Case: a container whose script holds playable items in its properties and handles OnItemAdded (it
 //   shows a model of each item put in and sends anything else back).
 // - Bookshelf: a container running PlayerBookShelfContainerScript, or a home mod's copy of it (a script with
@@ -52,6 +55,11 @@ namespace dova::game
 	// the crosshair finds the weapon), a bookshelf through the activator in front of it or a book on it.
 	// nullopt when it is none of these.
 	[[nodiscard]] std::optional<FoundDisplay> DisplayAt(RE::TESObjectREFR* a_ref);
+	// The display the player looks at when the crosshair reports nothing: an unnamed mannequin (Whitepeak
+	// Tower's, home mods' copies of the vanilla one) shows no activation prompt, so SKSE's crosshair event
+	// never names it. The nearest display whose bounds the camera's line of sight passes through, within
+	// `a_reach` units. Null when there is none.
+	[[nodiscard]] RE::TESObjectREFR* DisplayInView(RE::TESObjectCELL* a_cell, float a_reach);
 	// The bookshelf container `a_ref` stands for: the shelf itself, the activator in front of it (its linked
 	// ref, plain or with BookShelfContainer, or an ObjectReference its script holds), or a book on it.
 	// Null when it is none of these.
@@ -92,6 +100,9 @@ namespace dova::game
 		std::vector<RE::TESBoundObject*> refuses;
 	};
 	[[nodiscard]] RackFit RackFitOf(const FoundDisplay& a_rack);
+	// What the display holds, for its category picker and lint (core::DisplayFit): its kind and, for a rack, its
+	// type and whether its trigger has a crossbow node (RackFitOf; needs the trigger's 3D).
+	[[nodiscard]] core::DisplayFit FitOf(const FoundDisplay& a_display);
 
 	// The node of the rack's trigger that WeaponRackActivateSCRIPT moves `a_item` to, once its 3D is
 	// loaded. `a_pivot` is core::RackPivot's choice, which is what the vanilla script does. The Unofficial

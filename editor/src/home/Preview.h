@@ -12,6 +12,7 @@
 #include "dova/core/Layout.h"
 #include "dova/core/Preview.h"
 #include "esp/Items.h"
+#include "home/ArmorSets.h"
 #include "home/Cell.h"
 
 namespace dova::editor::home
@@ -30,8 +31,10 @@ namespace dova::editor::home
 		const std::string& a_pattern = {});
 
 	// The displays the layout uses (listed, not ignored) as display spots: kind and rack type from the cells' references,
-	// items, categories and `only` from the layout. Mannequins pick a set themselves (a chosen `set` is not resolved here).
-	[[nodiscard]] std::vector<core::DisplaySpot> DisplaySpots(esp::LoadOrder& a_lo, std::span<const CellInfo> a_cells, const core::Layout& a_layout);
+	// items, categories and `only` from the layout. A mannequin's chosen `set` is resolved through `a_sets` (its pieces,
+	// as the DLL's ApplyChosenSet does); without it, or for a set not in the load order, it takes nothing.
+	[[nodiscard]] std::vector<core::DisplaySpot> DisplaySpots(esp::LoadOrder& a_lo, std::span<const CellInfo> a_cells, const core::Layout& a_layout,
+		const ArmorSetIndex* a_sets = nullptr);
 
 	// How full a container is in the preview, for the colours of the 3D view and the plan.
 	enum class Fill

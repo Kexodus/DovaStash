@@ -13,6 +13,14 @@ namespace dova::ui
 		constexpr std::size_t kMaxChoices = 100;  // UIListMenu takes at most 128 entries
 		constexpr std::size_t kPerPage = 5;       // + More / Back = at most 7 buttons
 
+		// Many mannequins have no name (Whitepeak Tower's, home mods' copies): menus and labels call one "Mannequin",
+		// as the display menu does (Controller's DisplayName).
+		std::string MannequinName(RE::TESObjectREFR* a_ref)
+		{
+			auto name = game::RefName(a_ref);
+			return name.empty() ? std::string("Mannequin") : name;
+		}
+
 		const core::DisplayBinding* FindBinding(RE::FormID a_cellId, const core::FormRef& a_mannequin)
 		{
 			auto* home = home::HomeRegistry::Get().CurrentIf(a_cellId);
@@ -96,7 +104,7 @@ namespace dova::ui
 		auto menu = std::make_shared<ArmorSetMenu>();
 		menu->cellId = a_cellId;
 		menu->ref = a_mannequin;
-		menu->name = game::RefName(game::LookupRef(a_mannequin));
+		menu->name = MannequinName(game::LookupRef(a_mannequin));
 		const bool automatic = !binding || !binding->set;
 		menu->choices.push_back({ std::format("{} Auto", automatic ? "[x]" : "[ ]"), std::nullopt });
 		for (const auto& r : rows) {
@@ -122,7 +130,7 @@ namespace dova::ui
 			return;
 		}
 		auto*      ref = game::LookupRef(a_mannequin);
-		const auto name = game::RefName(ref);
+		const auto name = MannequinName(ref);
 		auto*      binding = home->layout->FindDisplay(a_mannequin);
 		if (!binding) {
 			core::DisplayBinding entry;

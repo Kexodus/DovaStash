@@ -17,20 +17,41 @@ namespace dova::core
 			return std::ranges::any_of(a_loaded, [&](const std::string& p) { return IEquals(p, a_plugin); });
 		}
 
+		// "Name.esp" / ".esm" / ".esl": a file name, no path or form id.
+		bool IsPluginFileName(std::string_view a_name)
+		{
+			if (a_name.size() <= 4 || a_name.find_first_of("|/\\") != std::string_view::npos) {
+				return false;
+			}
+			const auto ext = a_name.substr(a_name.size() - 4);
+			return IEquals(ext, ".esp") || IEquals(ext, ".esm") || IEquals(ext, ".esl");
+		}
+
 		// True if a ranks before b.
 		bool RanksBefore(const TemplateCandidate& a_lhs, const TemplateCandidate& a_rhs)
 		{
-			if (a_lhs.layout.priority != a_rhs.layout.priority) {
-				return a_lhs.layout.priority > a_rhs.layout.priority;
-			}
-			if (const bool lhsUser = IsUserTemplate(a_lhs.source); lhsUser != IsUserTemplate(a_rhs.source)) {
-				return lhsUser;
-			}
-			if (const auto c = CompareVersionStrings(a_lhs.layout.version, a_rhs.layout.version); c != 0) {
-				return c > 0;
+			if (const auto c = CompareTemplateRank(a_lhs.layout, IsUserTemplate(a_lhs.source), a_rhs.layout, IsUserTemplate(a_rhs.source)); c != 0) {
+				return c < 0;
 			}
 			return ICompare(a_lhs.source, a_rhs.source) < 0;
 		}
+	}
+
+	int CompareTemplateRank(const Layout& a_lhs, bool a_lhsUser, const Layout& a_rhs, bool a_rhsUser)
+	{
+		if (a_lhs.autoDraft != a_rhs.autoDraft) {
+			return a_lhs.autoDraft ? 1 : -1;  // a template someone made before an auto-draft, whatever its priority (DESIGN §6.8)
+		}
+		if (a_lhs.priority != a_rhs.priority) {
+			return a_lhs.priority > a_rhs.priority ? -1 : 1;
+		}
+		if (a_lhsUser != a_rhsUser) {
+			return a_lhsUser ? -1 : 1;
+		}
+		if (const auto c = CompareVersionStrings(a_lhs.version, a_rhs.version); c != 0) {
+			return c > 0 ? -1 : 1;
+		}
+		return 0;
 	}
 
 	bool IsUserTemplate(std::string_view a_source)
@@ -115,9 +136,37 @@ namespace dova::core
 		}
 		for (const auto& c : a_template.containers) {
 			check(c.ref, "container");
+			for (const auto& f : c.forms) {
+				check(f, "container forms");  // hard references, as ReferencedPlugins counts them (DESIGN §6.5)
+			}
 		}
 		for (const auto& d : a_template.displays) {
 			check(d.ref, "display");  // its items and set are soft references: never needed in requires (TemplateDisplays.h)
+		}
+		if (a_template.keep) {
+			for (const auto* list : { &a_template.keep->always, &a_template.keep->never }) {
+				for (const auto& entry : *list) {
+					if (const auto sel = KeepSelector::Parse(entry); sel.kind == KeepSelector::Kind::Form) {
+						check(sel.form, "keep");
+					}
+				}
+			}
+			for (const auto& q : a_template.keep->quotas) {
+				if (q.forms) {
+					for (const auto& f : *q.forms) {
+						check(f, "keep quota forms");
+					}
+				}
+			}
+		}
+		for (const auto& c : a_template.conflictPlugins) {
+			if (!IsPluginFileName(c)) {
+				a_diags.Warn(source, "conflicts: \"" + c + "\" is not a plugin file name (.esp, .esm or .esl)");
+			} else if (PluginLoaded(c, a_template.requiredPlugins)) {
+				a_diags.Warn(source, "conflicts: " + c + " is also in \"requires\"; the template is never offered");
+			} else if (a_template.cell && IEquals(a_template.cell->plugin, c)) {
+				a_diags.Warn(source, "conflicts: " + c + " is the plugin of the template's own cell; the template is never offered");
+			}
 		}
 		ValidateDisplays(a_template, a_source, a_diags);
 	}
@@ -162,6 +211,17 @@ namespace dova::core
 		return missing;
 	}
 
+	std::vector<std::string> LoadedConflicts(const Layout& a_layout, std::span<const std::string> a_loadedPlugins)
+	{
+		std::vector<std::string> loaded;
+		for (const auto& c : a_layout.conflictPlugins) {
+			if (PluginLoaded(c, a_loadedPlugins) && !PluginLoaded(c, loaded)) {
+				loaded.push_back(c);
+			}
+		}
+		return loaded;
+	}
+
 	LayoutResolution ResolveLayout(const Layout* a_playerLayout, std::span<const TemplateCandidate> a_templates, const FormRef& a_cell,
 		std::span<const std::string> a_loadedPlugins)
 	{
@@ -173,8 +233,9 @@ namespace dova::core
 				continue;
 			}
 			auto missing = MissingRequirements(t.layout, a_loadedPlugins);
-			if (!missing.empty()) {
-				res.rejected.push_back({ i, std::move(missing) });
+			auto conflicting = LoadedConflicts(t.layout, a_loadedPlugins);
+			if (!missing.empty() || !conflicting.empty()) {
+				res.rejected.push_back({ i, std::move(missing), std::move(conflicting) });
 				continue;
 			}
 			eligible.push_back(i);
@@ -201,6 +262,29 @@ namespace dova::core
 		return out;
 	}
 
+	const TemplateCandidate* FindBasedOn(const Layout& a_layout, std::span<const TemplateCandidate> a_templates)
+	{
+		if (!a_layout.basedOn) {
+			return nullptr;
+		}
+		const auto it = std::ranges::find_if(a_templates, [&](const TemplateCandidate& t) { return MakeBasedOn(t.source, t.layout.version) == *a_layout.basedOn; });
+		return it != a_templates.end() ? &*it : nullptr;
+	}
+
+	bool HasOwnChanges(const Layout& a_layout, const TemplateCandidate* a_basedOn, const std::function<void(Layout&)>& a_afterApply)
+	{
+		if (!a_layout.basedOn || !a_basedOn || MakeBasedOn(a_basedOn->source, a_basedOn->layout.version) != *a_layout.basedOn) {
+			return true;
+		}
+		auto again = ApplyTemplate(*a_basedOn, &a_layout);
+		again.cell = a_layout.cell;
+		again.conflictPlugins = a_layout.conflictPlugins;  // only decides where a template is offered, never a setup
+		if (a_afterApply) {
+			a_afterApply(again);
+		}
+		return !SameSetup(again, a_layout);
+	}
+
 	Layout ApplyTemplate(const TemplateCandidate& a_template, const Layout* a_existing)
 	{
 		Layout layout = a_template.layout;
@@ -209,6 +293,7 @@ namespace dova::core
 		layout.declined.clear();
 		layout.unparsedDeclined = nlohmann::json::object();
 		layout.basedOn = MakeBasedOn(a_template.source, a_template.layout.version);
+		layout.autoDraft = false;  // the player's layout now, not a file "Draft all homes" may refresh
 
 		if (!a_existing) {
 			return layout;
@@ -226,7 +311,8 @@ namespace dova::core
 			}
 		};
 
-		// Containers in both: template categories win; the player's ignored flag, explicit forms,
+		// Containers in both: template categories and its sell chest win (the player's "sell" is not kept: the
+		// template's categories could otherwise send other items there); the player's ignored flag, explicit forms,
 		// label and note (when the template has none) and extra keys are kept.
 		for (auto& c : layout.containers) {
 			const auto* old = a_existing->FindContainer(c.ref);
@@ -262,6 +348,7 @@ namespace dova::core
 			}
 			ContainerBinding c = old;
 			c.categories.clear();
+			c.sell = false;  // a role, like the master: it comes from the template (DESIGN §8.8)
 			layout.containers.push_back(std::move(c));
 		}
 		// The previous master, if the template uses another one, stays known as a plain container.
@@ -445,6 +532,7 @@ namespace dova::core
 		out.declined.clear();  // the player's answers, not part of a shared setup
 		out.unparsedDeclined = nlohmann::json::object();
 		out.basedOn.reset();
+		out.autoDraft = false;  // the player's own setup
 		for (auto& plugin : ReferencedPlugins(out)) {
 			if (!PluginLoaded(plugin, out.requiredPlugins)) {
 				out.requiredPlugins.push_back(std::move(plugin));
@@ -475,9 +563,83 @@ namespace dova::core
 		}
 		static constexpr std::string_view kReserved[]{ "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
 			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
-		if (std::ranges::any_of(kReserved, [&](std::string_view a_reserved) { return IEquals(a_reserved, out); })) {
-			out += '_';
+		// Windows reserves these names with any extension too ("CON.txt" is the console): the part before the
+		// first '.' decides, and the '_' goes right after it.
+		const auto name = std::string_view(out).substr(0, out.find('.'));
+		if (std::ranges::any_of(kReserved, [&](std::string_view a_reserved) { return IEquals(a_reserved, name); })) {
+			out.insert(name.size(), 1, '_');
 		}
 		return out.empty() ? std::string("Template") : out;
+	}
+
+	std::optional<TemplateFileInfo> ReadTemplateFileInfo(const std::filesystem::path& a_path)
+	{
+		std::error_code ec;
+		if (!std::filesystem::exists(a_path, ec)) {
+			return std::nullopt;
+		}
+		TemplateFileInfo info;
+		info.path = a_path;
+		if (const auto text = detail::ReadTextFile(a_path)) {
+			Diagnostics diags;  // the file's own problems are not the bulk draft's business
+			if (const auto layout = ParseLayoutText(*text, detail::PathToUtf8(a_path), diags)) {
+				info.parsed = true;
+				info.autoDraft = layout->autoDraft;
+				if (layout->cell) {
+					info.cells.push_back(*layout->cell);
+				}
+				for (const auto& c : layout->cells) {
+					info.cells.push_back(c.cell);
+				}
+			}
+		}
+		return info;
+	}
+
+	std::vector<TemplateFileInfo> ScanTemplateFiles(const std::filesystem::path& a_dir)
+	{
+		std::vector<TemplateFileInfo> out;
+		std::error_code               ec;
+		if (!std::filesystem::is_directory(a_dir, ec)) {
+			return out;
+		}
+		for (auto it = std::filesystem::recursive_directory_iterator(a_dir, std::filesystem::directory_options::skip_permission_denied, ec);
+			 !ec && it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
+			if (it->is_regular_file(ec) && IEquals(detail::PathToUtf8(it->path().extension()), ".json")) {
+				if (auto info = ReadTemplateFileInfo(it->path())) {
+					out.push_back(std::move(*info));
+				}
+			}
+		}
+		std::ranges::sort(out, [](const auto& a_lhs, const auto& a_rhs) { return ICompare(detail::PathToUtf8(a_lhs.path), detail::PathToUtf8(a_rhs.path)) < 0; });
+		return out;
+	}
+
+	AutoDraftCheck CheckAutoDraftTarget(std::span<const TemplateFileInfo> a_files, const std::filesystem::path& a_target, std::span<const FormRef> a_cells)
+	{
+		const auto forHome = [&](const TemplateFileInfo& a_file) {
+			return std::ranges::any_of(a_file.cells, [&](const FormRef& c) { return std::ranges::find(a_cells, c) != a_cells.end(); });
+		};
+		const auto isTarget = [&](const std::filesystem::path& a_path) {
+			std::error_code ec;
+			return std::filesystem::equivalent(a_path, a_target, ec) ||
+			       IEquals(detail::PathToUtf8(a_path.lexically_normal()), detail::PathToUtf8(a_target.lexically_normal()));
+		};
+		AutoDraftCheck out;
+		if (const auto there = ReadTemplateFileInfo(a_target)) {
+			if (!there->parsed || !there->autoDraft) {
+				return { AutoDraftVerdict::Person, a_target };
+			}
+			if (!forHome(*there)) {
+				return { AutoDraftVerdict::OtherHome, a_target };
+			}
+			out.verdict = AutoDraftVerdict::Refresh;
+		}
+		for (const auto& f : a_files) {
+			if (f.parsed && !f.autoDraft && forHome(f) && !isTarget(f.path)) {
+				return { AutoDraftVerdict::Person, f.path };
+			}
+		}
+		return out;
 	}
 }

@@ -55,7 +55,7 @@
     <p class="lede">Dova Stash sorts your loot into the containers of a player home. A <b>template</b> tells it which container takes what in one particular home. The editor makes templates for you, outside the game.</p>
 
     <div class="how">
-      <div class="step"><div class="ic" data-icon="any_home" data-px="76"></div><h3>Open a home</h3><p>Pick it from your mod list or from every home in your load order.</p></div>
+      <div class="step"><div class="ic" data-icon="any_home" data-px="76"></div><h3>Open a home</h3><p>Every home of your load order, under the mod that adds it.</p></div>
       <div class="arrow"><svg width="54" height="12" viewBox="0 0 54 12"><path d="M0 6 H52 M46 1 L52 6 L46 11"/></svg></div>
       <div class="step"><div class="ic" data-icon="chest" data-px="76"></div><h3>Set up the chests</h3><p>Click it in 3D or on the plan: master, categories, or ignored.</p></div>
       <div class="arrow"><svg width="54" height="12" viewBox="0 0 54 12"><path d="M0 6 H52 M46 1 L52 6 L46 11"/></svg></div>
@@ -116,29 +116,31 @@
       </div>
       <div>
         <h2>The first start</h2>
-        <p>The editor finds MO2's instance and profile, reads your load order (about a second for 300 plugins) and counts your player homes. If it cannot find the instance, it asks once for the folder and remembers it.</p>
+        <p>The editor finds MO2's instance and profile, reads your load order (about two seconds for 300 plugins) and lists your player homes. If it cannot find the instance, it asks once for the folder and remembers it.</p>
       </div>
     </div>
-    <div class="note"><span class="k">Tip</span><p>To open one home straight away, add it to the arguments: <code>--gui --mod 92177 --cell bcr58WhiteTower</code> opens Whitepeak Tower (Nexus id 92177).</p></div>
+    <div class="note"><span class="k">Tip</span><p>To open one home straight away, add it to the arguments: <code>--gui --home "Whitepeak Tower"</code>. <code>--gui --mod 92177</code> starts with that Nexus id in the homes search.</p></div>
   </div>
 </section>
 
-<!-- ================================================================== 5 start page -->
+<!-- ================================================================== 5 the window -->
 <section class="page">
   <div class="body">
-    <header class="chapter-head" data-no="03" data-title="The start page" data-sub="Your setup, three ways in, homes in progress"></header>
-    <p class="lede">Every session starts here. It shows that your setup was found, how many homes your load order has, and the homes you are working on.</p>
+    <header class="chapter-head" data-no="03" data-title="The window" data-sub="One workspace, the start panel, homes in progress"></header>
+    <p class="lede">Everything happens in one window: your homes on the left, the home in the middle, its details on the right. Before you open a home, the middle shows the start panel.</p>
     <figure data-fig="start"></figure>
     <ol class="legend">
-      <li><b>Your setup.</b> The MO2 instance, profile and Data folder in use. Change them in the bar at the top (<span class="ui">Browse&hellip;</span>, <span class="ui">Profile</span>).</li>
-      <li><b>Player homes.</b> Every home in your active load order, and how many already have a template.</li>
-      <li><b>Three ways in.</b> <span class="ui">Open a home</span> from your mod list, <span class="ui">Draft all homes</span> at once, or <span class="ui">Open a template&hellip;</span> you already have.</li>
-      <li><b>Your homes in progress.</b> Each home you touched, with its stage. Click one to carry on.</li>
+      <li><b>Title row.</b> <span class="ui">&equiv;</span> menu, the home you have open, <span class="ui">3D | Plan</span>, <span class="ui">Draft</span>, <span class="ui">Save</span> and <span class="ui">&#9881;</span> Setup (MO2 folder, profile, author).</li>
+      <li><b>Homes rail.</b> Every home of your load order, under its mod (chapter 04).</li>
+      <li><b>Start panel.</b> Your setup, how many homes have a template, and three ways in: <span class="ui">Open a home</span>, <span class="ui">Draft all homes</span>, <span class="ui">Open a template&hellip;</span></li>
+      <li><b>Inspector.</b> <span class="ui">Selection</span>, <span class="ui">Template</span>, <span class="ui">Draft</span> and <span class="ui">Checks</span> for the open home.</li>
+      <li><b>Status row.</b> Home and cell, errors and warnings, what is loading, and one useful key.</li>
     </ol>
+    <p class="small">With a home open, a drawer under it holds the wide tables (<span class="ui">Containers</span>, <span class="ui">Displays</span>, <span class="ui">Doors</span>, <span class="ui">Where items go</span>), and <kbd>Ctrl</kbd> <kbd>K</kbd> finds any command, home or container by typing. Click the emblem for the start panel again: <span class="ui">In progress</span> lists each home you opened, with its stage. Click one to carry on.</p>
 
     <h2>Stages</h2>
     <div class="stages">
-      <div><span class="k">Drafted</span><p>You opened its draft.</p></div>
+      <div><span class="k">Drafted</span><p>You opened it.</p></div>
       <div class="arrow"><svg width="30" height="10" viewBox="0 0 30 10"><path d="M0 5 H28 M23 1 L28 5 L23 9"/></svg></div>
       <div><span class="k">Reviewed</span><p>You accepted or rejected a suggestion, or edited it.</p></div>
       <div class="arrow"><svg width="30" height="10" viewBox="0 0 30 10"><path d="M0 5 H28 M23 1 L28 5 L23 9"/></svg></div>
@@ -146,26 +148,32 @@
       <div class="arrow"><svg width="30" height="10" viewBox="0 0 30 10"><path d="M0 5 H28 M23 1 L28 5 L23 9"/></svg></div>
       <div><span class="k">Saved</span><p>Written to disk. The list shows where.</p></div>
     </div>
-    <p class="muted small">Stages, your MO2 folder and your author name are kept between runs, in <span class="path">%LOCALAPPDATA%\DovaStashEditor\state.json</span>.</p>
+    <p class="muted small">Stages, your MO2 folder, author name and the window's layout are kept between runs, in <span class="path">%LOCALAPPDATA%\DovaStashEditor\state.json</span>.</p>
   </div>
 </section>
 
 <!-- ================================================================== 6 opening a home -->
 <section class="page">
   <div class="body">
-    <header class="chapter-head" data-no="04" data-title="Opening a home" data-sub="Homes by mod, the 3D view, moving around"></header>
-    <p class="lede">You know a home by its mod. <span class="ui">Open a home</span> takes you to your mod list, where a name or a Nexus id finds it.</p>
-    <figure data-fig="mods"></figure>
-    <ol class="legend">
-      <li><b>Homes by mod</b> tab.</li>
-      <li><b>Filter.</b> Part of the name, or the Nexus id (<code>92177</code> is Whitepeak Tower).</li>
-      <li><b>The mod</b> with its Nexus id and plugins.</li>
-      <li><b>Likely homes only.</b> Untick to see every cell with containers.</li>
-      <li><b>The home</b> with its score and storage. Click it to open it.</li>
-    </ol>
+    <header class="chapter-head" data-no="04" data-title="Opening a home" data-sub="The homes rail, the 3D view, moving around"></header>
+    <p class="lede">You know a home by its mod. The rail on the left lists every home of your load order under the mod that adds it; a name or a Nexus id finds it.</p>
+    <div class="cols wide-left">
+      <figure data-fig="mods"></figure>
+      <div>
+        <ol class="legend one">
+      <li><b>Search.</b> Part of the home or mod name, a plugin, or the Nexus id (<code>92177</code> is Whitepeak Tower).</li>
+      <li><b>Filter</b>: only homes without a template, only enabled mods, and more. A number shows how many are on.</li>
+      <li><b>The mod</b> with its Nexus id.</li>
+      <li><b>The home</b>: its chests and displays, and a chip: <i>none</i>, <i>shipped</i>, <i>yours</i>, <i>drafted</i> or <i>saved</i>. Click it to open it.</li>
+      <li><b>All cells&hellip;</b> of this mod, for a home that is not listed.</li>
+      <li><b>Rescan</b> (<kbd>F5</kbd>) and what the last scan read.</li>
+        </ol>
+      </div>
+    </div>
     <h2>How the editor finds homes</h2>
-    <p>It reads every cell the mod adds or changes and ranks it: a player-house location, owned by the player, never resets, has containers and displays. Base-game homes and the DLC homes sit under <span class="ui">(Game Data folder)</span>.</p>
-    <p>Once a home opens, the lists fold away so the cell gets the whole window. <span class="ui">Mods and homes</span>, at the top left of the cell, brings them back.</p>
+    <p>It reads every cell of your load order once and keeps the homes: a player-house location, owned by the player, or mannequins and nothing that respawns. Each sits under the mod whose plugin adds it; base-game and DLC homes sit under <span class="ui">Game Data folder</span>. <span class="ui">Rescan</span> reads it again after you change mods in MO2.</p>
+    <p>A home owned by a faction, or an exterior, is not listed. Click <span class="ui">All cells&hellip;</span> under its mod: every cell of its plugins with containers is ranked, likely homes first. Untick <span class="ui">Likely homes only</span> in the filter to see them all.</p>
+    <p>The rail stays beside the home while you go from one to the next; <kbd>&uarr;</kbd> <kbd>&darr;</kbd> and <kbd>Enter</kbd> work too, and right-click a home for more. <kbd>Ctrl</kbd> <kbd>1</kbd> or its <span class="ui">&lsaquo;</span> folds it to a strip. The home's name in the title row is the same list, for a quick switch.</p>
 
     <h2>Moving around in 3D</h2>
     <table class="t keys">
@@ -184,17 +192,16 @@
 <section class="page" data-chapter="Opening a home">
   <div class="body">
     <h2>The 3D view</h2>
-    <p>The home as it looks in game, built from your own meshes and textures. It opens from above while the meshes load.</p>
+    <p>The home as it looks in game, built from your own meshes and textures. It opens from above while the meshes load; the status row shows the progress.</p>
     <figure data-fig="view3d"></figure>
-    <figure data-fig="view3dBar"></figure>
     <ol class="legend">
       <li><b>The home.</b> Hover anything to see its name; click to select it.</li>
-      <li><b>Details pane.</b> With nothing selected it shows the colour key.</li>
-      <li><b>Hint bar</b>: the controls for the mode you are in.</li>
-      <li><b>Tabs</b> for this cell: 3D view, Floor plan, Containers, Displays, Doors, Template, Where items go.</li>
-      <li><b>Select mode</b> (<kbd>S</kbd>): on, a click picks what a template can use. <b>Overview</b> (<kbd>Home</kbd>), <b>Frame</b> (<kbd>F</kbd>), <b>Speed</b>, <b>Light</b>.</li>
-      <li><b>Layers.</b> Hide structure, people, disabled upgrades or effects. <b>Height</b> cuts a tower into floors.</li>
-      <li><b>Paint</b> and <b>Colours</b>: see chapters 07 and 10.</li>
+      <li><b>Inspector.</b> With nothing selected: <span class="ui">Make the nearest chest the master</span>, <span class="ui">Draft this home</span>, <span class="ui">Open the containers list</span>.</li>
+      <li><b>Hint line</b>: the controls for the mode you are in.</li>
+      <li><b>Select</b> picks what a template can use; <kbd>S</kbd> lets it pick anything. <b>Paint</b>: chapter 07.</li>
+      <li><b>Layers</b> (<kbd>L</kbd>). Hide structure, people, disabled upgrades or effects. <b>Height cut</b> shows one floor of a tower.</li>
+      <li><b>Colours</b> (chapter 10) and <b>Camera</b>: <b>Overview</b> (<kbd>Home</kbd>), <b>Frame</b> (<kbd>F</kbd>), speed, light.</li>
+      <li><b>3D | Plan</b> (<kbd>1</kbd> <kbd>2</kbd>), in the title row.</li>
     </ol>
     <div class="note"><span class="k">What the colours mean</span>
       <p>Things you cannot see in game but a template can use, such as hidden chests and rack triggers, are drawn as see-through boxes: green containers, red respawning containers, blue weapon racks, magenta mannequins, orange plaques and cases, yellow doors, lavender furniture. A gray checker is a texture the editor could not find; it does not matter for the template.</p>
@@ -206,12 +213,12 @@
 <section class="page">
   <div class="body">
     <header class="chapter-head" data-no="05" data-title="The floor plan" data-sub="A quick map, one floor at a time"></header>
-    <p class="lede">The plan draws every object's footprint from above, north up. It is the fastest way to find a room or pick something that is hard to reach in 3D. Plan and 3D view share one selection.</p>
+    <p class="lede">Press <span class="ui">Plan</span> in the title row (<kbd>2</kbd>). The plan draws every object's footprint from above, north up. It is the fastest way to find a room or pick something that is hard to reach in 3D. Plan and 3D view share one selection.</p>
     <figure data-fig="plan"></figure>
     <ol class="legend">
-      <li><b>Select mode</b>, <b>Fit</b> (the whole cell in view) and <b>Height</b>: the lowest and highest heights shown. Narrow it to see one floor.</li>
-      <li><b>Layers</b>: structure, containers, displays, doors, furniture, other.</li>
-      <li><b>Colours</b>, as in the 3D view.</li>
+      <li><b>Select</b> and <b>Paint</b>, as in the 3D view.</li>
+      <li><b>Layers</b>: as in 3D, effects and triggers off at first, and <b>Height cut</b>: the lowest and highest heights shown. Narrow it to see one floor.</li>
+      <li><b>Colours</b> and <b>Camera</b>, as in the 3D view. <kbd>Home</kbd> fits the whole home in view.</li>
       <li><b>The selection</b>, marked on the plan.</li>
       <li><b>Scale bar</b>, in game units.</li>
       <li><b>North.</b></li>
@@ -221,13 +228,13 @@
         <h2>On the plan</h2>
         <ul>
           <li>Mouse wheel zooms, right or middle drag pans.</li>
-          <li>Left click selects. With select mode off, left drag pans.</li>
+          <li>Left click selects, left drag draws a box. Press <kbd>S</kbd> to make left drag pan instead.</li>
           <li>Hover a footprint to see its name.</li>
         </ul>
       </div>
       <div>
         <h2>Then in 3D</h2>
-        <p>Select a chest on the plan, switch to <span class="ui">3D view</span> and press <kbd>F</kbd>. The camera finds a side of it where no wall is in the way.</p>
+        <p>Select a chest on the plan, press <kbd>1</kbd> for the 3D view and <kbd>F</kbd>. The camera finds a side of it where no wall is in the way.</p>
       </div>
     </div>
   </div>
@@ -237,7 +244,7 @@
 <section class="page">
   <div class="body">
     <header class="chapter-head" data-no="06" data-title="Setting up containers" data-sub="Master, categories, ignore, notes"></header>
-    <p class="lede">Click a container in 3D, on the plan or in the <span class="ui">Containers</span> tab. Its details open on the right: what it is, its reference and base object, then, under <span class="ui">In the template</span>, the role editor.</p>
+    <p class="lede">Click a container in 3D, on the plan or in the drawer's <span class="ui">Containers</span> tab. The inspector's <span class="ui">Selection</span> panel shows what it is, its reference and base object, then, under <span class="ui">Role</span>, its job in the template.</p>
     <figure data-fig="select3d"></figure>
     <div class="cols wide-right">
       <figure data-fig="rolePane"></figure>
@@ -246,13 +253,13 @@
           <li><b>Make master</b>: this container takes everything without a place of its own, and is the hotkey&rsquo;s target. A home has one master; the old one becomes a plain container.</li>
           <li><b>Label</b>: the name players see. It starts as the game's name.</li>
           <li><b>Ignored</b>: Dova Stash never uses it.</li>
-          <li><b>Categories</b> it takes. <span class="ui">Add a category&hellip;</span> opens the category tree; <span class="ui">x</span> removes one.</li>
+          <li><b>Categories</b> it takes. <span class="ui">+ add</span> opens the category tree; <span class="ui">&times;</span> on a chip removes one.</li>
           <li><b>Note</b> for people who read the file.</li>
           <li><b>Remove from the template</b>: it is no longer listed (unlisted containers stay unused).</li>
         </ol>
       </div>
     </div>
-    <div class="note"><span class="k">Choosing the master</span><p>Pick a large chest near the front door that never respawns. It is the home&rsquo;s inbox: whatever has no container of its own ends up there. The master&rsquo;s details say <i>Master container</i> and offer <span class="ui">Not the master</span>.</p></div>
+    <div class="note"><span class="k">Choosing the master</span><p>Pick a large chest near the front door that never respawns. It is the home&rsquo;s inbox: whatever has no container of its own ends up there. The master&rsquo;s role shows a <i>master</i> chip and offers <span class="ui">Not the master</span>.</p></div>
   </div>
 </section>
 
@@ -267,7 +274,7 @@
       <figure data-fig="ignored"></figure>
       <div>
         <ol class="legend one">
-          <li><b>Respawns: never bind it.</b> Containers that reset lose what you put in them. The editor marks them in red.</li>
+          <li><b>Respawns.</b> Containers that reset lose what you put in them. The editor marks them <i>respawns</i> (red in the 3D view and on the plan) and never makes one the master.</li>
           <li><b>Ignored</b> is ticked.</li>
           <li><b>The reason</b> goes in the note, so other players know why.</li>
         </ol>
@@ -275,13 +282,13 @@
       </div>
     </div>
 
-    <h2>Every container in one table</h2>
+    <h2>Every container in one table: the drawer</h2>
     <figure data-fig="containers"></figure>
     <ol class="legend">
       <li><b>Role</b>: its categories, <i>no categories</i>, <i>ignored</i> or <i>not listed</i>.</li>
-      <li><b>Reference</b>. Click a row to select it; double-click to look at it in 3D. Hidden chests you cannot click are reachable here.</li>
+      <li><b>Reference</b>. Click a row to select it; double-click to look at it in 3D. Hidden chests you cannot click are reachable here. Click a header to sort by that column (<kbd>Shift</kbd>: add one); the chips and <span class="ui">Filter rows</span> box at the tab row's right narrow the list (<i>Ignored</i>, <i>Respawning</i>, a <i>Kind</i> such as sack).</li>
     </ol>
-    <div class="note"><span class="k">Good to know</span><p>A container with no categories still matters: it stays empty, and its items go to the master. In <span class="ui">Where items go</span> (chapter 10) it shows as <i>receives nothing</i>.</p></div>
+    <div class="note"><span class="k">Good to know</span><p>A container with no categories still matters: it stays empty, and its items go to the master. In <span class="ui">Where items go</span> (chapter 10) it shows as <i>receives nothing</i>. <kbd>Ctrl</kbd> <kbd>2</kbd> opens or folds the drawer; drag its top edge to make it taller.</p></div>
   </div>
 </section>
 
@@ -290,17 +297,17 @@
   <div class="body">
     <header class="chapter-head" data-no="07" data-title="Faster editing" data-sub="Paint mode, multi-select, undo and redo"></header>
     <h2>Paint mode</h2>
-    <p>Press <kbd>P</kbd> (or tick <span class="ui">Paint</span>), pick a category, then click containers, racks and mannequins to give it to them. Click again to take it away. The master, respawning and ignored containers tell you why they cannot be painted.</p>
+    <p>Press <kbd>P</kbd> (or <span class="ui">Paint</span> in the toolbar), pick a category, then click containers, racks and mannequins to give it to them. Click again to take it away. The master, respawning and ignored containers tell you why they cannot be painted.</p>
     <figure data-fig="paint"></figure>
     <ol class="legend">
-      <li><b>Paint</b> on, with the category to paint.</li>
-      <li><b>By category</b> colours and their key.</li>
+      <li><b>Paint</b> on: the paint bar, with the category to paint, <span class="ui">Pick another</span> and <span class="ui">Done</span>.</li>
+      <li><b>By category</b> colours; the key is under <span class="ui">Colours</span>.</li>
       <li><b>Click a container</b> to give it the category; click again to take it away.</li>
-      <li><b>Hint bar</b>: what a click does now. <kbd>P</kbd> stops painting.</li>
+      <li><b>Hint line</b>: what a click does now. <kbd>P</kbd> or <kbd>S</kbd> stops painting.</li>
     </ol>
-    <div class="note"><span class="k">Tip</span><p>Paint a room at a time: narrow <span class="ui">Height</span> to one floor, pick a category, and click every chest that should take it. Painted containers change colour at once, so you see what is left.</p></div>
+    <div class="note"><span class="k">Tip</span><p>Paint a room at a time: narrow <span class="ui">Layers</span> &rsaquo; <span class="ui">Height cut</span> to one floor, pick a category, and click every chest that should take it. Painted containers change colour at once, so you see what is left. While painting, <kbd>Ctrl</kbd> <kbd>K</kbd> and a few letters pick the next category.</p></div>
     <h2>Undo and redo</h2>
-    <p>Every change to the template can be undone: <kbd>Ctrl</kbd> <kbd>Z</kbd> undoes, <kbd>Ctrl</kbd> <kbd>Y</kbd> (or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd>) redoes, or use <span class="ui">Undo</span> and <span class="ui">Redo</span> next to the home's name. A text field counts as one step once you leave it. The editor keeps 200 steps, also while you move between the home's cells.</p>
+    <p>Every change to the template can be undone: <kbd>Ctrl</kbd> <kbd>Z</kbd> undoes, <kbd>Ctrl</kbd> <kbd>Y</kbd> (or <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd>) redoes, or use <span class="ui">Undo</span> and <span class="ui">Redo</span> in the <span class="ui">&equiv;</span> menu. A text field counts as one step once you leave it. The editor keeps 200 steps, also while you move between the home's cells.</p>
   </div>
 </section>
 
@@ -308,7 +315,7 @@
 <section class="page" data-chapter="Faster editing">
   <div class="body">
     <h2>Multi-select</h2>
-    <p><kbd>Ctrl</kbd> + click adds or removes one object, in 3D, on the plan or in the tables. In select mode, drag a box to select every container and display inside it (hold <kbd>Ctrl</kbd> to add). <kbd>Esc</kbd> clears the selection.</p>
+    <p><kbd>Ctrl</kbd> + click adds or removes one object, in 3D, on the plan or in the drawer's tables. Drag a box to select every container and display inside it (hold <kbd>Ctrl</kbd> to add). <kbd>Esc</kbd> clears the selection; <kbd>Delete</kbd> takes it out of the template.</p>
     <div class="cols">
       <figure data-fig="multi3d"></figure>
       <figure data-fig="multiPane"></figure>
@@ -319,11 +326,11 @@
       <li><b>Categories of the selection</b>, with how many have each (1 of 3). <span class="ui">x</span> takes it from all.</li>
       <li><b>Give all of them</b> a category, or <span class="ui">Clear their categories</span>.</li>
       <li><b>Ignore all</b> or <b>Use all</b>.</li>
-      <li><b>One note</b> for all of them.</li>
+      <li><b>One note</b> for all of them (<span class="ui">Set on all</span>).</li>
       <li><b>Clear the selection</b> (<kbd>Esc</kbd>).</li>
     </ol>
     <h2>Unsaved changes</h2>
-    <p>While a template has changes that are not saved, the top bar says <i>* unsaved changes</i>, the cell header says <i>(template not saved)</i> and the <span class="ui">Template</span> tab has a star. Closing the window asks first.</p>
+    <p>While a template has changes that are not saved, a dot follows the home's name in the title row, in the status row and in the rail, and the chip next to its name reads <i>draft</i>. Opening another home keeps them: the dot stays on its row until you save. Closing the window asks first.</p>
   </div>
 </section>
 
@@ -338,10 +345,14 @@
       <li><b>Rack triggers</b>, drawn as blue see-through boxes so you can click them.</li>
       <li><b>Display: mannequin</b> and the script that makes it one.</li>
       <li><b>Use this display</b>: Dova Stash fills it. Untick to leave it alone.</li>
-      <li><b>Categories</b>. Empty: it wears your most complete armor set.</li>
+      <li><b>Armor set</b>: <i>Auto</i> wears your most complete set; pick one (type to search every set of your load order) and it wears only that set, filling up as you get its pieces.</li>
+      <li><b>Categories</b>, for <i>Auto</i> only. Empty: any set.</li>
     </ol>
     <div class="cols wide-right">
-      <figure data-fig="rack"></figure>
+      <div>
+        <figure data-fig="rackKind"></figure>
+        <figure data-fig="rack"></figure>
+      </div>
       <div>
         <ol class="legend one">
           <li><b>Kind</b> of rack: any weapon, no daggers or bows, daggers, or a shield.</li>
@@ -352,7 +363,7 @@
         <h3>Plaques and display cases</h3>
         <p class="small">Each keeps what its own script was made for, such as a dragon priest mask. The editor lists those items for you.</p>
         <h3>Bookshelves</h3>
-        <p class="small">Listed in the <span class="ui">Displays</span> tab with the racks and plaques. Give one categories (skill books, spell tomes, notes) or leave it empty for the books most worth showing.</p>
+        <p class="small">Listed in the drawer's <span class="ui">Displays</span> tab with the racks and plaques. Give one categories (skill books, spell tomes, notes) or leave it empty for the books most worth showing.</p>
       </div>
     </div>
   </div>
@@ -361,31 +372,37 @@
 <!-- ================================================================== 14 drafts -->
 <section class="page">
   <div class="body">
-    <header class="chapter-head" data-no="09" data-title="Draft all homes" data-sub="Suggestions with reasons, then review"></header>
-    <p class="lede">Instead of starting from nothing, let the editor draft a template for every home in your load order. Open it from the start page, the top bar or <kbd>Ctrl</kbd> <kbd>D</kbd>.</p>
-    <figure data-fig="draftsPane"></figure>
-    <ol class="legend">
-      <li><b>The home</b>, whether it has a template, and the actions: <span class="ui">Open in the editor</span> (<kbd>Enter</kbd>), <span class="ui">Save template</span> (<kbd>Ctrl</kbd> <kbd>S</kbd>), <span class="ui">Accept all</span>, <span class="ui">Reject the weak ones</span>, <span class="ui">Draft again</span>.</li>
-      <li><b>The master</b> and why it was chosen, with the next best.</li>
-      <li><b>Suggested categories</b> per container, as checkboxes with a confidence. Hover one to read its reason.</li>
-      <li><b>Displays used</b> (click to open the list) and <b>Checks</b>: the draft against the game's own rules.</li>
-    </ol>
+    <header class="chapter-head" data-no="09" data-title="Drafts" data-sub="Suggestions with reasons, review, Draft all homes"></header>
+    <p class="lede">You never start from nothing: a home opens with a draft, a template the editor made from the home itself. The inspector's <span class="ui">Draft</span> panel shows what it suggests and why. Open it with the <span class="ui">Draft</span> tab, <span class="ui">Draft</span> &rsaquo; <span class="ui">Draft this home</span> in the title row, or right-click a home in the rail.</p>
+    <div class="cols wide-right">
+      <figure data-fig="draftsPane"></figure>
+      <div>
+        <ol class="legend one">
+      <li><b>Accept all</b>, <b>Reject the weak ones</b> (under 50%), <b>Draft again</b> (from the home's plugins).</li>
+      <li><b>The master</b> and why it was chosen. Hover it for the whole reason and the next best.</li>
+      <li><b>Suggested categories</b> per container, as chips with a confidence. Click a chip to accept or reject it; hover it to read its reason. Click a container's name to find it in the view.</li>
+      <li><b>How many</b> containers got a suggestion. <b>Displays</b> the draft uses are folded at the end; problems are in the <span class="ui">Checks</span> panel.</li>
+        </ol>
+      </div>
+    </div>
     <h2>Colours and confidence</h2>
-    <p><b>Green</b>: the container's name says so. <b>Yellow</b>: a crafting station or items nearby. <b>Orange</b>: a weaker hint, such as the kind of furniture. The number is the confidence; hover a suggestion to read its reason. Each category goes to one container and is ticked from 50%. Unticked ones are the alternatives (<i>Potion Basket has it with 93%</i>).</p>
+    <p><b>Green</b>: the container's name says so. <b>Yellow</b>: a crafting station or items nearby. <b>Orange</b>: a weaker hint, such as the kind of furniture. The number is the confidence. Each category goes to one container and is accepted from 50%; the chips left off are the alternatives (<i>Potion Basket has it with 93%</i>).</p>
+    <p>The Draft panel works on the template itself: a chip you accept is a category of that container at once, in the <span class="ui">Selection</span> panel, the checks and <span class="ui">Where items go</span>. <kbd>Ctrl</kbd> <kbd>Z</kbd> takes it back.</p>
   </div>
 </section>
 
 <!-- ================================================================== 15 drafts review -->
-<section class="page" data-chapter="Draft all homes">
+<section class="page" data-chapter="Drafts">
   <div class="body">
-    <h2>The list of homes</h2>
+    <h2>Draft all homes</h2>
     <div class="cols wide-right">
       <figure data-fig="draftsList"></figure>
       <div>
+        <p class="small"><kbd>Ctrl</kbd> <kbd>D</kbd> (or <span class="ui">Draft all homes</span> in the <span class="ui">Draft</span> menu, or on the start panel) drafts every home of your load order at once. The status row shows the progress; you can keep working.</p>
         <ol class="legend one">
-          <li><b>Filter</b> by home, plugin or cell; <span class="ui">Only homes without a template</span>; <span class="ui">Rescan</span> (<kbd>F5</kbd>).</li>
-          <li><b>Your author name</b>, and <span class="ui">Save N drafts&hellip;</span> for every opened draft at once.</li>
-          <li><b>Every home</b>, its template (none, shipped, yours) and its stage. <kbd>&uarr;</kbd> <kbd>&darr;</kbd> step through them.</li>
+          <li><b>Search and filter</b>: <span class="ui">Only homes without a template</span> finds the ones still to do.</li>
+          <li><b>Save N drafts&hellip;</b> saves every draft of a home without a template at once, after one question, as <i>auto-drafts</i>: it never overwrites a template someone made, and saving one yourself makes it yours. In game an auto-draft is offered only where no template someone made fits.</li>
+          <li><b>Every home</b> with its chip: <i>drafted</i> once it has a draft. Open one to review it in the <span class="ui">Draft</span> panel.</li>
         </ol>
       </div>
     </div>
@@ -393,26 +410,27 @@
     <div class="cols">
       <div>
         <h3>The name</h3>
-        <p>A container called <i>Soul Gems</i>, <i>Ingots</i> or <i>Potion Basket</i> takes those. Homes with named containers come out nearly complete.</p>
+        <p>A container called <i>Soul Gems</i>, <i>Ingots</i> or <i>Potion Basket</i> takes those, and only those. Homes with named containers come out nearly complete. A name the editor cannot read, such as <i>Dragonpriest Masks</i>, gets nothing: you decide.</p>
         <h3>What is near it</h3>
-        <p>A chest by the forge gets ores and ingots; one by the alchemy lab, ingredients and potions. Items placed on or next to it count too.</p>
+        <p>A chest by the forge gets ores and ingots; one by the alchemy lab, ingredients and potions. Items placed on it add to that; decoration, like a shield on the wall, says nothing.</p>
       </div>
       <div>
         <h3>The master</h3>
-        <p>The largest usable chest near the front door, named like a chest. Containers that respawn, are owned, or are scripted are never chosen.</p>
+        <p>A chest near the front door, never one named for what it holds. Containers that respawn, are owned, or are scripted are never chosen.</p>
         <h3>The rest</h3>
-        <p>Common groups nobody took (clothes, books, food&hellip;) go to the free container with the best hint, such as a dresser for clothes.</p>
+        <p>Common groups nobody took (clothes, books, food&hellip;) go to the free container with the best hint, such as a dresser for clothes or a safe for jewelry.</p>
       </div>
     </div>
 
     <h2>Reviewing a draft</h2>
     <ol class="steps">
-      <li>Read the master and its reason. If it is wrong, open the home and make another container the master.</li>
-      <li>Go down the containers. Tick what fits, untick what does not. <span class="ui">Reject the weak ones</span> clears the low ones in one go.</li>
-      <li>Press <span class="ui">Open in the editor</span> to finish in 3D: rename labels, set up displays, check <span class="ui">Where items go</span>. Your changes come back to the drafts view.</li>
-      <li>Press <span class="ui">Save template</span>. Or open several drafts and save them all with <span class="ui">Save N drafts&hellip;</span> (homes without a template only).</li>
+      <li>Open the home from the rail and pick the <span class="ui">Draft</span> panel.</li>
+      <li>Read the master and its reason. If it is wrong, select another container and press <span class="ui">Make master</span>.</li>
+      <li>Go down the containers. Click the chips that fit on, the others off. <span class="ui">Reject the weak ones</span> clears the low ones in one go.</li>
+      <li>Finish in the same window: rename labels, set up displays, check <span class="ui">Where items go</span>.</li>
+      <li>Press <span class="ui">Save</span> (<kbd>Ctrl</kbd> <kbd>S</kbd>). Or review several homes and save them all with <span class="ui">Save N drafts&hellip;</span> (homes without a template only): each keeps its draft while you open the next.</li>
     </ol>
-    <div class="note"><span class="k">Homes that already have a template</span><p>The drafts view says how many categories the draft sends to the same container as the existing template. Saving asks first; the old file is kept as a backup.</p></div>
+    <div class="note"><span class="k">Homes that already have a template</span><p>The Draft panel says how many categories the draft sends to the same container as the existing template, and whether the master is the same. Saving asks first; the old file is kept as a backup.</p></div>
   </div>
 </section>
 
@@ -420,16 +438,16 @@
 <section class="page">
   <div class="body">
     <header class="chapter-head" data-no="10" data-title="Where items go" data-sub="Preview the sort before you play"></header>
-    <p class="lede">The <span class="ui">Where items go</span> tab runs Dova Stash's own sorting over a sample of loot and shows which container would get what. It runs again by itself whenever the template changes.</p>
+    <p class="lede">The drawer's <span class="ui">Where items go</span> tab runs Dova Stash's own sorting over a sample of loot and shows which container would get what, with the home still in view above it. It runs again by itself whenever the template changes.</p>
     <figure data-fig="preview"></figure>
     <ol class="legend">
       <li><b>Sample</b>: <i>Typical haul</i>, <i>One category</i>, or <i>Every item in the load order</i>.</li>
       <li><b>Run again</b> (<kbd>R</kbd>).</li>
-      <li><b>Colours</b> for the 3D view and the plan.</li>
+      <li><b>Colours</b> for the 3D view and the plan: <span class="ui">By fill</span>, <span class="ui">By category</span>.</li>
       <li><b>Summary</b>: how much goes to containers, the master and displays.</li>
       <li><b>The master</b>: what has no other place. Here, nothing.</li>
       <li><b>Fill</b> and item counts, per category.</li>
-      <li><b>Receives nothing</b>, and why: give it categories or ignore it.</li>
+      <li><b>Receives nothing</b>, and why: give it categories or ignore it. The <i>Receives nothing</i> chip at the tab row's right shows only these; a header click sorts by any column.</li>
     </ol>
     <h2>Samples</h2>
     <table class="t">
@@ -444,10 +462,10 @@
 <section class="page" data-chapter="Where items go">
   <div class="body">
     <h2>See it in the home</h2>
-    <p>Tick <span class="ui">by fill</span> (<kbd>V</kbd>) and go back to the 3D view or the plan: every container takes the colour of how much it would get. Click one to list its items in the details pane.</p>
+    <p>Press <span class="ui">By fill</span> (<kbd>V</kbd>): every container in the 3D view or on the plan takes the colour of how much it would get. Click one to list its items in the <span class="ui">Selection</span> panel, under <span class="ui">Where its items go</span>.</p>
     <figure data-fig="fill3d"></figure>
     <ol class="legend">
-      <li><b>The key</b>: gray receives nothing, green a few (under 20), orange many, magenta the master.</li>
+      <li><b>The key</b>, under <span class="ui">Colours</span>: gray receives nothing, green a few (under 20), orange many, magenta the master.</li>
       <li><b>Containers</b> that get a few items.</li>
       <li><b>Master container</b>, selected.</li>
       <li><b>Its preview</b>: nothing falls to the master, so every item found a place.</li>
@@ -460,7 +478,7 @@
           <li><b>The master</b>, in magenta.</li>
         </ol>
         <h3>By category</h3>
-        <p>Tick <span class="ui">by category</span> (<kbd>C</kbd>) to colour each container by its first category instead, one hue per group: you see at a glance where the alchemy, the weapons and the materials live.</p>
+        <p>Press <span class="ui">By category</span> (<kbd>C</kbd>) to colour each container by its first category instead, one hue per group: you see at a glance where the alchemy, the weapons and the materials live.</p>
       </div>
     </div>
     <figure data-fig="catLegend"></figure>
@@ -471,10 +489,10 @@
 <section class="page">
   <div class="body">
     <header class="chapter-head" data-no="11" data-title="Multi-cell homes and doors" data-sub="Cellars, upper floors, the grounds outside"></header>
-    <p class="lede">Many homes are more than one cell: a cellar, a tower, the grounds with the forge. The <span class="ui">Doors</span> tab lists where the home's doors lead, so you can add those cells to the same home.</p>
+    <p class="lede">Many homes are more than one cell: a cellar, a tower, the grounds with the forge. The drawer's <span class="ui">Doors</span> tab lists where the home's doors lead, so you can add those cells to the same home. A home the editor already knows as several cells opens with all of them.</p>
     <figure data-fig="doors"></figure>
     <ol class="legend">
-      <li><b>Open</b> the cell behind the door. The template comes along; <span class="ui">Back</span> returns.</li>
+      <li><b>Double-click</b> a row to open the cell behind the door (a click selects the door). The template comes along; <span class="ui">Back</span> (&lsaquo; in the title row) returns.</li>
       <li><b>In the home</b>: tick to make that cell part of this home.</li>
       <li><b>Where it leads</b>: another interior, or the exterior cells around the home.</li>
     </ol>
@@ -482,22 +500,21 @@
       <div>
         <h2>Adding a cell</h2>
         <ol class="steps">
-          <li>Open the home's main cell, then the <span class="ui">Doors</span> tab.</li>
-          <li>Tick <span class="ui">In the home</span> next to the cellar, or press <span class="ui">Open</span> and then <span class="ui">Add this cell to the home</span> in the details pane.</li>
+          <li>Open the home, then <span class="ui">Doors</span> in the drawer.</li>
+          <li>Tick <span class="ui">In the home</span> next to the cellar, or double-click its row, select a chest there and press <span class="ui">Add this cell to the home</span>.</li>
           <li>Set up its containers as usual. In 3D, double-click a door to walk through it.</li>
         </ol>
       </div>
       <div>
         <h2>One file per home</h2>
-        <p>However many cells, the home is saved as one template. Its cells are listed in the <span class="ui">Template</span> tab with their names (<i>Cellar</i>, <i>Grounds</i>), which players see in game.</p>
+        <p>However many cells, the home is saved as one template. Its cells are listed in the <span class="ui">Template</span> panel with their names (<i>Cellar</i>, <i>Grounds</i>), which players see in game; &times; takes one out.</p>
         <p>Exteriors open with their terrain and the cells around them, so you can find the forge outside.</p>
       </div>
     </div>
     <figure data-fig="draftsCells"></figure>
     <ol class="legend">
-      <li><b>More cells of this home</b>, found from their doors.</li>
       <li><b>The shipped template</b> and how far the draft agrees with it.</li>
-      <li><b>Cell</b>: which cell each container is in.</li>
+      <li><b>Containers of every cell</b>, 348 over the two. One in another cell says so; click it to open that cell.</li>
     </ol>
   </div>
 </section>
@@ -505,32 +522,38 @@
 <!-- ================================================================== 19 saving -->
 <section class="page">
   <div class="body">
-    <header class="chapter-head" data-no="12" data-title="Checking and saving" data-sub="Problems, backups, the Templates mod"></header>
-    <p class="lede">The <span class="ui">Template</span> tab holds the template's details, checks it the way the game will, and saves it.</p>
-    <figure data-fig="template"></figure>
-    <ol class="legend">
-      <li><b>Name, Author, Version, Priority, Note.</b> Your author name is remembered.</li>
-      <li><b>Summary</b>: master, containers with categories, ignored, displays used, plugins required.</li>
-      <li><b>Cells</b> of the home.</li>
-      <li><b>Problems</b>: the same checks Dova Stash runs in game. Fix every error before you share.</li>
-      <li><b>Where it saves.</b></li>
-      <li><b>Save template</b> (<kbd>Ctrl</kbd> <kbd>S</kbd>) and <b>Copy JSON</b>.</li>
-      <li><b>The file</b> as it will be written.</li>
-    </ol>
+    <header class="chapter-head" data-no="12" data-title="Checking and saving" data-sub="Checks, keep rules, backups, the Templates mod"></header>
+    <p class="lede">The template is checked the way the game will check it while you work. The status row counts errors and warnings; click it for the <span class="ui">Checks</span> panel. The <span class="ui">Template</span> panel holds the template's details and saves it.</p>
+    <div class="cols wide-right">
+      <div>
+        <figure data-fig="template"></figure>
+        <figure data-fig="templateSave"></figure>
+      </div>
+      <div>
+        <ol class="legend one">
+          <li><b>Name, Author, Version, Priority, Note.</b> Your author name is remembered. Above them, <span class="ui">This home's templates</span> lists every template the home has (shipped, yours, other authors'), the open one marked; click another to open it.</li>
+          <li><b>Summary</b>: master, containers with categories, ignored, displays, plugins required.</li>
+          <li><b>Cells</b> of the home.</li>
+          <li><b>Keep rules</b> for this home: what players always or never keep on them, and how many of a category. None: their own rules apply.</li>
+          <li><b>Save</b> (<kbd>Ctrl</kbd> <kbd>S</kbd>) into the Templates mod (<span class="ui">Save to</span>, above the footer, picks another), <b>Save as&hellip;</b> a copy anywhere, <b>Copy JSON</b>.</li>
+        </ol>
+        <p class="small"><b>Checks</b> lists the problems, errors first: click one to select the object. Fix every error before you share; <span class="ui">Save</span> waits until there are none. Under <span class="ui">Still to do</span> it lists what the template lacks, such as containers without a role.</p>
+      </div>
+    </div>
     <div class="cols">
       <div>
         <h2>Where it goes</h2>
         <p>Into a mod of its own, <b>Dova Stash Templates</b>, created when missing:</p>
-        <p><span class="path">mods\Dova Stash Templates\SKSE\Plugins\DovaStash\Templates\&lt;Author&gt;\&lt;Home&gt;.json</span></p>
+        <p><span class="path">mods\Dova Stash Templates\SKSE\Plugins\DovaStash\Templates\&lt;Home&gt;\&lt;Author&gt;.json</span></p>
         <p>Never MO2's overwrite folder, so cleaning overwrite cannot delete it.</p>
       </div>
       <div>
         <h2>Then</h2>
         <ol class="steps">
           <li>In MO2, press <kbd>F5</kbd> and enable <span class="ui">Dova Stash Templates</span> (first save only).</li>
-          <li>In game, look at a container in that home, press the hotkey and pick the template.</li>
+          <li>In game, look at a container in that home, press the hotkey and pick the template. In a home that is already set up, switch to it in the SKSE Menu Framework: <span class="ui">Dova Stash</span> &rsaquo; <span class="ui">This home</span> &rsaquo; <span class="ui">Templates for this home</span>.</li>
         </ol>
-        <p class="small muted">Saving over a file asks first, keeps the old one as a <span class="path">.bak</span> and raises the version (1.0.0, 1.0.1&hellip;).</p>
+        <p class="small muted">Saving over a file asks first, keeps the old one as a <span class="path">.bak</span> and raises the version (1.0.0, 1.0.1&hellip;). <span class="ui">&#9881;</span> Setup picks another mod to save into.</p>
       </div>
     </div>
   </div>
@@ -541,20 +564,23 @@
   <div class="body">
     <header class="chapter-head" data-no="13" data-title="Troubleshooting and FAQ" data-sub="Answers to common questions"></header>
     <div class="faq">
-      <div><h3>It says it cannot find my MO2 instance.</h3><p>Type the MO2 folder in the top bar and press <span class="ui">Open</span>, or use <span class="ui">Browse&hellip;</span>. Or add <code>--mo2 "&lt;MO2 folder&gt;"</code> to the executable's arguments.</p></div>
-      <div><h3>The wrong profile is loaded.</h3><p>Pick another in the <span class="ui">Profile</span> list at the top. The editor reads that profile's mod list and load order.</p></div>
-      <div><h3>My home is not in the list.</h3><p>Untick <span class="ui">Likely homes only</span>, or tick <span class="ui">Exterior cells too</span>. Check the mod is enabled in the profile.</p></div>
-      <div><h3>I cannot click a chest.</h3><p>It may be hidden or behind a wall. Select it in the <span class="ui">Containers</span> tab, or turn off the <span class="ui">Structure</span> layer. Make sure <span class="ui">Select mode</span> is on.</p></div>
+      <div><h3>It says it cannot find my MO2 instance.</h3><p>Type the MO2 folder on the start panel and press <span class="ui">Open</span>, or use <span class="ui">Browse&hellip;</span>. Or add <code>--mo2 "&lt;MO2 folder&gt;"</code> to the executable's arguments.</p></div>
+      <div><h3>The wrong profile is loaded.</h3><p>Pick another under <span class="ui">&#9881;</span> Setup &rsaquo; <span class="ui">Profile</span>. The editor reads that profile's mod list and load order.</p></div>
+      <div><h3>My home is not in the list.</h3><p>Check the mod is enabled in the profile, then <span class="ui">Rescan</span>. Still missing: click <span class="ui">All cells&hellip;</span> under its mod, and in the filter untick <span class="ui">Likely homes only</span> or tick <span class="ui">Exteriors</span>.</p></div>
+      <div><h3>I cannot click a chest.</h3><p>It may be hidden or behind a wall. Select it in the drawer's <span class="ui">Containers</span> tab, or turn off <span class="ui">Structure</span> under <span class="ui">Layers</span>.</p></div>
+      <div><h3>Where is that button?</h3><p>Press <kbd>Ctrl</kbd> <kbd>K</kbd> and type what you want: a command, a home, a container.</p></div>
       <div><h3>Some surfaces are a gray checker.</h3><p>The editor could not find that texture. It does not affect the template.</p></div>
       <div><h3>Make master is grayed out.</h3><p>That container respawns. Its contents can vanish, so it can never be the master; ignore it.</p></div>
       <div><h3>A container &ldquo;receives nothing&rdquo;.</h3><p>It has no categories, or none of the sample matches them. Give it categories, or ignore it.</p></div>
-      <div><h3>My template does not show up in game.</h3><p>Press <kbd>F5</kbd> in MO2 and enable <span class="ui">Dova Stash Templates</span>. Then check its <span class="ui">Problems</span> list and fix any errors.</p></div>
+      <div><h3>My template does not show up in game.</h3><p>Press <kbd>F5</kbd> in MO2 and enable <span class="ui">Dova Stash Templates</span>. Then fix any errors in its <span class="ui">Checks</span> panel.</p></div>
       <div><h3>I saved over a template by mistake.</h3><p>The old file is next to it as a <span class="path">.bak</span>. Rename it back to <span class="path">.json</span>.</p></div>
       <div><h3>Can it break my game?</h3><p>No. It never edits plugins or game files. It only writes template files into its own mod.</p></div>
-      <div><h3>Can I edit a template I already have?</h3><p>Yes: <span class="ui">Open a template&hellip;</span> (<kbd>Ctrl</kbd> <kbd>O</kbd>) on the start page opens a shipped or downloaded template, or a setup you saved in game, on its home.</p></div>
+      <div><h3>Can I edit a template I already have?</h3><p>Yes: <span class="ui">Open a template&hellip;</span> (<kbd>Ctrl</kbd> <kbd>O</kbd>) opens a shipped or downloaded template, or a setup you saved in game, on its home.</p></div>
       <div><h3>How do I share a template?</h3><p>Upload the <span class="path">.json</span> file, keeping its <span class="path">SKSE\Plugins\DovaStash\Templates\</span> folders. The template lists the plugins it needs.</p></div>
       <div><h3>The window stays black.</h3><p>The editor needs Direct3D 11. Update your graphics driver.</p></div>
-      <div><h3>Where are my settings kept?</h3><p>In <span class="path">%LOCALAPPDATA%\DovaStashEditor\state.json</span>: the MO2 folder, profile, author and each home's stage.</p></div>
+      <div><h3>The text is too small (or too big).</h3><p><kbd>Ctrl</kbd> <kbd>=</kbd> and <kbd>Ctrl</kbd> <kbd>-</kbd> step the UI size, <kbd>Ctrl</kbd> <kbd>0</kbd> is back to <i>Auto</i>; the <span class="ui">UI size</span> slider under <span class="ui">&#9881;</span> Setup goes up to 250%. It is remembered.</p></div>
+      <div><h3>Can I change the colours?</h3><p>Yes: <span class="ui">&#9881;</span> Setup &rsaquo; <span class="ui">Theme</span> has dark and light themes. <span class="ui">Export&hellip;</span> saves one to a file you can edit; it then shows under <span class="ui">Yours</span>.</p></div>
+      <div><h3>Where are my settings kept?</h3><p>In <span class="path">%LOCALAPPDATA%\DovaStashEditor\state.json</span>: the MO2 folder, profile, author, each home's stage and the window's layout.</p></div>
     </div>
   </div>
 </section>
@@ -578,50 +604,45 @@
           <tr><td>Double-click a door</td><td>Open the cell behind it</td></tr>
           <tr><td><kbd>F</kbd></td><td>Frame the selection</td></tr>
           <tr><td><kbd>Home</kbd></td><td>Overview</td></tr>
-          <tr><td><kbd>S</kbd></td><td>Select mode on or off</td></tr>
         </table>
         <h2>Floor plan</h2>
         <table class="t keys">
           <tr><td>Wheel</td><td>Zoom</td></tr>
           <tr><td>Right or middle drag</td><td>Pan</td></tr>
           <tr><td>Left click</td><td>Select</td></tr>
-          <tr><td>Left drag, select mode off</td><td>Pan</td></tr>
+          <tr><td><kbd>S</kbd>, then left drag</td><td>Pan</td></tr>
         </table>
-        <h2>Tables</h2>
+        <h2>Tables and homes rail</h2>
         <table class="t keys">
           <tr><td>Click &middot; <kbd>Ctrl</kbd> + click</td><td>Select &middot; add to the selection</td></tr>
           <tr><td>Double-click</td><td>Select and look at it in 3D</td></tr>
+          <tr><td><kbd>&uarr;</kbd> <kbd>&darr;</kbd> &middot; <kbd>Enter</kbd></td><td>Previous, next home &middot; open it</td></tr>
         </table>
       </div>
       <div>
         <h2>Selecting and painting</h2>
         <table class="t keys">
-          <tr><td><kbd>Ctrl</kbd> + click</td><td>Add or remove one</td></tr>
-          <tr><td>Left drag (select mode)</td><td>Box select; <kbd>Ctrl</kbd> adds</td></tr>
-          <tr><td><kbd>Esc</kbd></td><td>Clear the selection</td></tr>
-          <tr><td><kbd>P</kbd></td><td>Paint mode on or off</td></tr>
-          <tr><td><kbd>C</kbd> &middot; <kbd>V</kbd></td><td>Colours by category &middot; by fill</td></tr>
+          <tr><td><kbd>Ctrl</kbd> + click &middot; left drag</td><td>Add or remove one &middot; box select (<kbd>Ctrl</kbd> adds)</td></tr>
+          <tr><td><kbd>Esc</kbd> &middot; <kbd>Delete</kbd></td><td>Clear the selection &middot; take it out of the template</td></tr>
+          <tr><td><kbd>P</kbd> &middot; <kbd>S</kbd></td><td>Paint mode &middot; back to Select (3D: pick anything)</td></tr>
+          <tr><td><kbd>C</kbd> &middot; <kbd>V</kbd> &middot; <kbd>L</kbd></td><td>Colours by category &middot; by fill &middot; Layers</td></tr>
         </table>
-        <h2>Anywhere in a home</h2>
+        <h2>The window</h2>
+        <table class="t keys">
+          <tr><td><kbd>Ctrl</kbd> <kbd>K</kbd></td><td>Find a command, home, container or category</td></tr>
+          <tr><td><kbd>1</kbd> &middot; <kbd>2</kbd></td><td>3D view &middot; floor plan</td></tr>
+          <tr><td><kbd>Ctrl</kbd> <kbd>1</kbd> &middot; <kbd>2</kbd> &middot; <kbd>3</kbd></td><td>Show or hide the rail &middot; drawer &middot; inspector</td></tr>
+          <tr><td><kbd>Ctrl</kbd> <kbd>=</kbd> &middot; <kbd>-</kbd> &middot; <kbd>0</kbd></td><td>UI size larger &middot; smaller &middot; auto</td></tr>
+          <tr><td><span class="ui">Back</span> (&lsaquo;)</td><td>Return to the cell opened before</td></tr>
+        </table>
+        <h2>Anywhere</h2>
         <table class="t keys">
           <tr><td><kbd>Ctrl</kbd> <kbd>Z</kbd></td><td>Undo</td></tr>
           <tr><td><kbd>Ctrl</kbd> <kbd>Y</kbd> &middot; <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd></td><td>Redo</td></tr>
           <tr><td><kbd>Ctrl</kbd> <kbd>S</kbd></td><td>Save the template</td></tr>
-          <tr><td><kbd>R</kbd></td><td>Where items go: run again</td></tr>
-          <tr><td><span class="ui">Mods and homes</span></td><td>Show or hide the lists</td></tr>
-          <tr><td><span class="ui">Back</span></td><td>Return to the cell opened before</td></tr>
-        </table>
-        <h2>Everywhere</h2>
-        <table class="t keys">
-          <tr><td><kbd>Ctrl</kbd> <kbd>D</kbd></td><td>Draft all homes</td></tr>
-          <tr><td><kbd>Ctrl</kbd> <kbd>O</kbd></td><td>Open a template file</td></tr>
-        </table>
-        <h2>Drafts view</h2>
-        <table class="t keys">
-          <tr><td><kbd>&uarr;</kbd> <kbd>&darr;</kbd></td><td>Previous, next home</td></tr>
-          <tr><td><kbd>Enter</kbd></td><td>Open it in the editor</td></tr>
-          <tr><td><kbd>Ctrl</kbd> <kbd>S</kbd></td><td>Save its template</td></tr>
+          <tr><td><kbd>Ctrl</kbd> <kbd>D</kbd> &middot; <kbd>Ctrl</kbd> <kbd>O</kbd></td><td>Draft all homes &middot; open a template file</td></tr>
           <tr><td><kbd>F5</kbd></td><td>Rescan the load order</td></tr>
+          <tr><td><kbd>R</kbd></td><td>Where items go: run again</td></tr>
         </table>
       </div>
     </div>

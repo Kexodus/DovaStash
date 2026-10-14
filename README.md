@@ -21,11 +21,14 @@ No ESP is needed.
   more. Works in any home.
 - **Dresses your mannequins:** each wears your best matching armor set, or one you pick from a searchable
   index of every set in your load order, modded sets included.
-- **Materials at the workbench:** at a home's forge, smelter, tanning rack, cooking pot, alchemy lab or
-  enchanter, the materials stored in the home come to you, and what you don't use goes back afterwards.
-  Never what you just crafted; modded recipes and materials work too.
+- **Restocks you:** mark a keep quota *Restock* ("10 health potions", "50 steel arrows") and every Deposit
+  tops you back up to it from the home's containers, the most valuable copies first and never more; *Restock*
+  is in the hotkey menu too.
+- **Materials at the workbench:** at a home's forge, smelter, tanning rack, cooking pot or alchemy lab, you
+  craft from what the home's containers hold, without moving anything when you sit down (no lag with big
+  stores); each craft takes only what you lack. Enchanters bring your soul gems. Modded recipes work too.
 - **Homes over several cells:** add the cellar or the grounds outside to a home (walk out of it, press the
-  hotkey: *Add this area*, give it a name), so the forge outside brings what is stored inside and Deposit
+  hotkey: *Add this area*, give it a name), so the forge outside crafts from what is stored inside and Deposit
   works in every area. Existing setups and templates, cellar templates included, work exactly as before.
 - **Templates:** a ready-made setup per home, as shareable JSON. 22 are included (vanilla, Hearthfire and
   Creation Club homes). Save your own from inside the game (hotkey menu → Save as template...), learned
@@ -62,11 +65,11 @@ cmake --preset plugin && cmake --build build/plugin --config Release --target Do
 See [docs/BUILDING.md](docs/BUILDING.md) for full instructions. You need VS 2022 and vcpkg with `VCPKG_ROOT` set.
 
 ## Dova Stash Editor (in development)
-A standalone program for making home templates without the game: pick the home's mod from your MO2 list
-(by name or Nexus mod id), and it finds the player homes in the mod's plugins and shows each cell in a Creation
-Kit style 3D view and as a floor plan, with its containers, racks, mannequins, plaques and doors. Click one to
-make it the master, give it categories, ignore it or use a display, then save the template into a "Dova Stash
-Templates" mod. Run it as an MO2 executable. See [docs/EDITOR.md](docs/EDITOR.md) (§9: how to try it); build
+A standalone program for making home templates without the game, in one window: a rail lists every player home of
+your MO2 load order under its mod (search by name or Nexus mod id); a click opens the home in a Creation Kit style
+3D view or as a floor plan, with a draft already made from the home itself. Click a container, rack or mannequin to
+make it the master, give it categories, ignore it or use a display, review the draft's suggestions, check, then save
+the template into a "Dova Stash Templates" mod. Run it as an MO2 executable. See [docs/EDITOR.md](docs/EDITOR.md) (§9: how to try it); build
 it with `cmake --preset editor && cmake --build --preset editor-release`.
 
 ## License

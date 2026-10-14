@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <utility>
 
 #include "Util.h"
 #include "dova/core/Template.h"
+#include "esp/Pex.h"
 #include "esp/Vmad.h"
 
 namespace dova::editor::home
@@ -267,6 +269,124 @@ namespace dova::editor::home
 
 	bool PlacedRef::IsContainer() const noexcept { return baseType == kCONT; }
 
+	namespace
+	{
+		// The words of an EditorID, lower case: "FXMistLow01" -> fx mist low, "defaultBlankTrigger" -> default blank
+		// trigger (CamelCase and acronyms split, digits and separators dropped).
+		std::vector<std::string> Words(std::string_view a_id)
+		{
+			std::vector<std::string> out;
+			std::string              cur;
+			auto flush = [&] {
+				if (!cur.empty()) {
+					out.push_back(std::exchange(cur, {}));
+				}
+			};
+			auto upper = [](char c) { return c >= 'A' && c <= 'Z'; };
+			auto lower = [](char c) { return c >= 'a' && c <= 'z'; };
+			for (std::size_t i = 0; i < a_id.size(); ++i) {
+				const char c = a_id[i];
+				if (!upper(c) && !lower(c)) {
+					flush();
+					continue;
+				}
+				// A new word at an upper-case letter after a lower-case one, or at the last capital of an acronym.
+				if (upper(c) && !cur.empty() && (lower(a_id[i - 1]) || (i + 1 < a_id.size() && lower(a_id[i + 1])))) {
+					flush();
+				}
+				cur.push_back(static_cast<char>(upper(c) ? c - 'A' + 'a' : c));
+			}
+			flush();
+			return out;
+		}
+
+		// Fog, mist, glows and light rays by name: Bethesda's effect statics all start with "FX" (FXMistLow01,
+		// fxFogRolling, FXLightRaysVol...), mods name theirs after them. Whole words only: an alchemist's shelf, a
+		// glowing mushroom, glow dust or a ceiling beam stay structure.
+		bool EffectName(std::string_view a_id)
+		{
+			if (a_id.size() >= 2 && (a_id[0] == 'f' || a_id[0] == 'F') && (a_id[1] == 'x' || a_id[1] == 'X')) {
+				return true;
+			}
+			const auto words = Words(a_id);
+			for (std::size_t i = 0; i < words.size(); ++i) {
+				const auto& w = words[i];
+				const std::string_view next = i + 1 < words.size() ? std::string_view(words[i + 1]) : std::string_view{};
+				if (w == "fx" || w == "mist" || w == "fog" || (w == "glow" && next != "dust") || w == "godrays" || w == "lightrays") {
+					return true;  // glow dust is an ingredient
+				}
+				if ((w == "light" || w == "god") && (next == "ray" || next == "rays" || next == "beam" || next == "beams" || next == "shaft" || next == "shafts")) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		// An effect mesh: under meshes\effects, or a file named fx*.
+		bool EffectModel(std::string_view a_model)
+		{
+			std::string m(a_model);
+			std::ranges::replace(m, '/', '\\');
+			std::ranges::transform(m, m.begin(), [](char c) { return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c); });
+			if (m.starts_with("meshes\\")) {
+				m.erase(0, 7);
+			}
+			if (m.starts_with("effects\\") || m.find("\\effects\\") != std::string::npos) {
+				return true;
+			}
+			const auto slash = m.rfind('\\');
+			const std::string_view file = slash == std::string::npos ? std::string_view(m) : std::string_view(m).substr(slash + 1);
+			return file.starts_with("fx");
+		}
+	}
+
+	RefLayer LayerOf(const PlacedRef& a_ref)
+	{
+		// What a template can use, doors and people keep their layer whatever their mesh (a hidden chest on a
+		// marker mesh, a rack's trigger).
+		if (a_ref.display) {
+			return RefLayer::Display;
+		}
+		if (a_ref.IsContainer()) {
+			return RefLayer::Container;
+		}
+		const Sig t = a_ref.baseType;
+		if (t == MakeSig("DOOR")) {
+			return RefLayer::Door;
+		}
+		if (a_ref.recordType == kACHR || t == kNPC_ || t == MakeSig("LVLN")) {
+			return RefLayer::Actor;
+		}
+		if (t == 0) {
+			return RefLayer::Other;  // the base is in no loaded plugin
+		}
+		if (t == MakeSig("FURN")) {
+			return RefLayer::Furniture;  // crafting stations and sit markers too (their mesh is a marker)
+		}
+		// Markers (room and portal bounds, multibounds, idle markers, xmarkers), trigger volumes, decals.
+		if (IContains(a_ref.model, "marker") || IContains(a_ref.baseEditorId, "marker") || IContains(a_ref.baseEditorId, "trigger") ||
+			IContains(a_ref.editorId, "trigger") || t == MakeSig("IDLM") || t == MakeSig("TXST")) {
+			return RefLayer::Other;
+		}
+		if (t == MakeSig("EXPL") || t == MakeSig("HAZD") || t == MakeSig("SOUN") || t == MakeSig("PROJ") || t == MakeSig("ARTO")) {
+			return RefLayer::Effect;
+		}
+		if (EffectName(a_ref.baseEditorId) || EffectName(a_ref.editorId) || (!a_ref.model.empty() && EffectModel(a_ref.model))) {
+			return RefLayer::Effect;
+		}
+		if (t == MakeSig("LIGH")) {
+			// A light emitter; a candle or a lantern (a light with a mesh) is an object, its flame an effect shader.
+			return a_ref.model.empty() ? RefLayer::Effect : RefLayer::Structure;
+		}
+		if (a_ref.model.empty()) {
+			return RefLayer::Other;  // activator volumes, statics without a mesh
+		}
+		if (t == MakeSig("ACTI")) {
+			return RefLayer::Furniture;
+		}
+		return RefLayer::Structure;
+	}
+
 	std::string DisplayLabel(const PlacedRef& a_ref)
 	{
 		if (!a_ref.display) {
@@ -447,10 +567,15 @@ namespace dova::editor::home
 				}
 			} else if (r.baseType == kCONT && findScript("PlayerBookShelfContainerScript")) {
 				r.display = core::DisplayKind::Bookshelf;
-			} else if (r.baseType == MakeSig("ACTI") || r.baseType == kCONT || r.baseType == MakeSig("MSTT") || r.baseType == MakeSig("STAT")) {
+			} else if (auto* pex = a_lo.Scripts();
+					   pex && (r.baseType == MakeSig("ACTI") || r.baseType == kCONT || r.baseType == MakeSig("MSTT") || r.baseType == MakeSig("STAT"))) {
+				// As the game sees it (src/plugin/Game/Displays.cpp InspectDisplay): a script pointing at items is a
+				// plaque only when it keeps a "placed" flag or shows the item on a linked marker (the Creation Club's
+				// display scripts), a case only when it takes items in (OnItemAdded). Any other script that names an
+				// item (a dining table that sets out a meal) is no display.
 				for (const auto& s : scripts) {
 					auto items = DisplayItems(a_lo, s);
-					if (!items.empty()) {
+					if (!items.empty() && (r.baseType == kCONT ? pex->Handles(s.name, "OnItemAdded") : pex->HasPlacedFlag(s.name) || pex->IsMarkerDisplay(s.name))) {
 						r.display = r.baseType == kCONT ? core::DisplayKind::Case : core::DisplayKind::Item;
 						r.displayItems = std::move(items);
 						break;

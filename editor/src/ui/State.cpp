@@ -65,6 +65,25 @@ namespace dova::editor::ui
 				profile = j["profile"].get<std::string>();
 			}
 			author = j.value("author", std::string{});
+			saveTarget = j.value("saveTarget", std::string{});
+			if (j.contains("ui") && j["ui"].is_object()) {
+				// Added with the one-workspace layout: older files have none, every key is optional.
+				const auto& u = j["ui"];
+				ui.railOpen = u.value("railOpen", ui.railOpen);
+				ui.railWidth = u.value("railWidth", ui.railWidth);
+				ui.inspectorOpen = u.value("inspectorOpen", ui.inspectorOpen);
+				ui.inspectorWidth = u.value("inspectorWidth", ui.inspectorWidth);
+				ui.drawerOpen = u.value("drawerOpen", ui.drawerOpen);
+				ui.drawerHeight = u.value("drawerHeight", ui.drawerHeight);
+				ui.view = std::clamp(u.value("view", ui.view), 0, 1);
+				ui.textScale = u.value("textScale", ui.textScale);
+				if (ui.textScale != 0.0f && (ui.textScale < 1.0f || ui.textScale > 2.5f)) {
+					ui.textScale = 0.0f;
+				}
+				if (u.contains("theme") && u["theme"].is_string()) {
+					ui.theme = u["theme"].get<std::string>();
+				}
+			}
 			if (j.contains("homes") && j["homes"].is_object()) {
 				for (const auto& [cell, h] : j["homes"].items()) {
 					HomeRecord r;
@@ -90,6 +109,15 @@ namespace dova::editor::ui
 			j["profile"] = *profile;
 		}
 		j["author"] = author;
+		if (!saveTarget.empty()) {
+			j["saveTarget"] = saveTarget;
+		}
+		const UiLayout& u = uiOnDisk ? *uiOnDisk : ui;
+		j["ui"] = { { "railOpen", u.railOpen }, { "railWidth", u.railWidth }, { "inspectorOpen", u.inspectorOpen }, { "inspectorWidth", u.inspectorWidth },
+			{ "drawerOpen", u.drawerOpen }, { "drawerHeight", u.drawerHeight }, { "view", u.view }, { "textScale", u.textScale } };
+		if (!u.theme.empty()) {
+			j["ui"]["theme"] = u.theme;
+		}
 		auto& hs = j["homes"] = nlohmann::ordered_json::object();
 		for (const auto& [cell, r] : homes) {
 			hs[cell] = { { "name", r.name }, { "stage", static_cast<int>(r.stage) }, { "saved", r.savedPath }, { "updated", r.updated } };

@@ -12,6 +12,8 @@
 #include "Integrations/QuickLoot.h"
 #include "Log.h"
 #include "Settings.h"
+#include "Sort/SellChest.h"
+#include "Sort/CraftingStorage.h"
 #include "UI/AreaPrompt.h"
 #include "UI/Labels.h"
 #include "UI/MessageBox.h"
@@ -22,6 +24,34 @@ namespace dova
 {
 	namespace
 	{
+		// How far in front of the player a display looked at counts when the crosshair names nothing (~3.5 m;
+		// the game's own activation reach is about 2.5 m).
+		constexpr float kDisplayReach = 250.0f;
+
+		// A display's name for menus and notices: its own, else what it is ("Mannequin": Whitepeak Tower's and
+		// many home mods' mannequins have no name, and the form id means nothing to a player).
+		std::string DisplayName(RE::TESObjectREFR* a_ref, core::DisplayKind a_kind)
+		{
+			const char* full = a_ref ? a_ref->GetDisplayFullName() : nullptr;
+			const auto* base = a_ref ? a_ref->GetBaseObject() : nullptr;
+			const char* baseName = base ? base->GetName() : nullptr;
+			if ((full && *full) || (baseName && *baseName)) {
+				return game::RefName(a_ref);
+			}
+			switch (a_kind) {
+			case core::DisplayKind::Mannequin:
+				return "Mannequin";
+			case core::DisplayKind::Rack:
+				return "Weapon rack";
+			case core::DisplayKind::Bookshelf:
+				return "Bookshelf";
+			case core::DisplayKind::Case:
+				return "Display case";
+			default:
+				return "Display";
+			}
+		}
+
 		home::HomeRegistry& Registry()
 		{
 			return home::HomeRegistry::Get();
@@ -205,6 +235,9 @@ namespace dova
 			_ui = ui::CreateStashUIs();
 			logger::info("UI rebuilt for iMode={}", now.GetUI().mode);
 		}
+		if (now.GetSorting().craftingSupply != before.sorting.craftingSupply) {
+			sort::crafting::ResolveMode("setting changed");  // the next station visit uses it
+		}
 		integrations::quickloot::Refresh();
 		UI().OnHomeChanged();
 		if (&Editor() != &UI()) {
@@ -298,6 +331,16 @@ namespace dova
 		}
 
 		logger::debug("Hotkey in {} (layout: {}), target {}", home->name, home->layout ? "yes" : "no", target ? game::Describe(target) : "none"s);
+		if (!target && cell) {
+			// Nothing in the crosshair: an unnamed mannequin shows no prompt, so the crosshair never names it. The
+			// display the player looks at, within reach, gets its menu instead of the master's.
+			if (auto* seen = game::DisplayInView(cell, kDisplayReach)) {
+				logger::debug("Hotkey: looking at {}", game::Describe(seen));
+				if (OpenDisplayMenu(*home, seen)) {
+					return;
+				}
+			}
+		}
 		if (target) {
 			const auto ref = game::ToFormRef(target);
 			if (home->layout && ref && home->layout->IsMaster(*ref)) {
@@ -463,8 +506,9 @@ namespace dova
 		ui::DisplayMenu menu;
 		menu.cellId = a_home.cellId;
 		menu.ref = *display;
-		menu.name = game::RefName(ref);
+		menu.name = DisplayName(ref, found->kind);
 		menu.kind = found->kind;
+		menu.fit = game::FitOf(*found);
 		menu.used = binding && !binding->ignored;
 		menu.full = game::DisplayFullFor(*found, binding);  // a mannequin with a chosen set: while it can take more
 		if (binding) {
@@ -486,6 +530,9 @@ namespace dova
 		if (home && home->layout && !home->layoutBroken && RecordDisplayItems(*home->layout)) {
 			SaveLayout(*home);
 		}
+		if (home && home->layout && !home->layoutBroken) {
+			sort::selling::CheckTimed("came home");  // timed selling, when it is on (DESIGN §8.8)
+		}
 		if (!home || home->layout || home->layoutBroken) {
 			return;
 		}
@@ -498,18 +545,36 @@ namespace dova
 			return;
 		}
 		const auto* best = home->BestTemplate();
-		if (!best || !Registry().MarkNotified(home->cellId)) {
+		if (!best) {
+			return;
+		}
+		// The auto-enable guard (DESIGN §9.1) looks at the template's references, so it waits for them: an interior
+		// cell that is not attached yet comes back here with TESCellFullyLoadedEvent.
+		const auto* fit = Registry().BestTemplateFit(*home);
+		if (!fit && !home->extra) {
+			auto* cell = game::Player() ? game::Player()->GetParentCell() : nullptr;
+			if (cell && cell->IsInteriorCell() && !cell->IsAttached()) {
+				return;
+			}
+		}
+		if (!Registry().MarkNotified(home->cellId)) {
 			return;
 		}
 		const auto name = best->layout.name;
 		const auto author = best->layout.author.empty() ? "unknown"s : best->layout.author;
 
+		if (fit && !fit->fits) {
+			// Another mod seems to have rebuilt the home: offer the template, never enable it on its own.
+			Notify(std::format("Dova Stash: {} setup may not fit this home. Press {} at any container to enable.", name, HotkeyName()));
+			return;
+		}
 		if (Settings::GetSingleton().GetTemplates().autoEnable) {
 			if (Registry().ApplyBestTemplate(*home)) {
 				if (RecordDisplayItems(*home->layout)) {
 					SaveLayout(*home);
 				}
-				Notify(std::format("Dova Stash: {} setup enabled (by {})", name, author));
+				// First visit: the player did nothing yet, so say what to do (the hotkey anywhere opens the master menu).
+				Notify(std::format("Dova Stash: {} is set up. Press {} anywhere here to put your loot away.", name, HotkeyName()));
 			}
 			return;
 		}
@@ -546,6 +611,9 @@ namespace dova
 			// The items that arrived while the paused menu was open. The menu can still be in its close
 			// animation here, so wait until it is really gone.
 			RunWhenContainerMenuClosed([this, deferred]() { SortArrivals(deferred); });
+		}
+		if (Settings::GetSingleton().GetSelling().autoSellHours > 0) {
+			RunWhenContainerMenuClosed([]() { sort::selling::CheckTimed("a container closed"); });
 		}
 		if (!closed || !Settings::GetSingleton().GetSorting().distributeOnMasterClose) {
 			return;
@@ -698,19 +766,18 @@ namespace dova
 		if (a_serial != _suggestionSerial || !_suggestion) {
 			return;
 		}
-		static int retries = 0;  // main thread only
-		auto*      ui = RE::UI::GetSingleton();
+		auto* ui = RE::UI::GetSingleton();
 		if (!ui || ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) || ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME) || ui->GameIsPaused()) {
 			// A menu is up: try again in a second, for up to a minute, then let the next learn bring it back.
-			if (++retries > 60) {
-				retries = 0;
+			if (++_suggestionRetries > 60) {
+				_suggestionRetries = 0;
 				logger::debug("Learn: suggestion put off (menus stayed open); asked again after the next learn");
 				return;
 			}
 			Later(std::chrono::seconds(1), [this, a_serial]() { AskSuggestion(a_serial); });
 			return;
 		}
-		retries = 0;
+		_suggestionRetries = 0;
 		const auto pending = std::exchange(_suggestion, std::nullopt);
 		auto*      home = Registry().CurrentIf(pending->cellId);
 		if (!home || !home->layout) {
@@ -855,6 +922,24 @@ namespace dova
 		Registry().Flush();
 	}
 
+	void Controller::OnPreLoadGame()
+	{
+		// Learned destinations waiting for the container to close (MarkDirty) belong to the layout file, not
+		// to the save: write them before the state below is dropped.
+		Registry().Flush();
+		// Bumping the serials makes every Later callback already in flight a no-op in the new save.
+		++_loadSerial;
+		++_arrivalSerial;
+		++_learnSerial;
+		++_suggestionSerial;
+		_arrivalDeferredCell = 0;
+		_learnBatch.clear();
+		_openContainer = 0;
+		_undo.reset();
+		_suggestion.reset();
+		_suggestionRetries = 0;
+	}
+
 	// --- actions -------------------------------------------------------------------------------------
 
 	void Controller::RunWhenContainerMenuClosed(std::function<void()> a_fn, int a_retries)
@@ -870,9 +955,15 @@ namespace dova
 			return;
 		}
 		// The SKSE task queue drains until empty, so re-queueing directly would spin within one frame.
-		std::thread([this, fn = std::move(a_fn), a_retries]() mutable {
+		// A game load meanwhile (OnPreLoadGame) ends the chain: the operation belonged to the old save.
+		const auto load = _loadSerial;
+		std::thread([this, fn = std::move(a_fn), a_retries, load]() mutable {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-			SKSE::GetTaskInterface()->AddTask([this, fn = std::move(fn), a_retries]() mutable {
+			SKSE::GetTaskInterface()->AddTask([this, fn = std::move(fn), a_retries, load]() mutable {
+				if (load != _loadSerial) {
+					logger::debug("Operation dropped: a game was loaded while a ContainerMenu was open");
+					return;
+				}
 				RunWhenContainerMenuClosed(std::move(fn), a_retries - 1);
 			});
 		}).detach();
@@ -1114,6 +1205,132 @@ namespace dova
 		Notify(std::format("Dova Stash: {} removed (what's inside stays)", label));
 	}
 
+	void Controller::SetSellChest(RE::FormID a_cellId, const core::FormRef& a_container, bool a_sell)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home) {
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			return;
+		}
+		if (!a_sell) {
+			if (auto* binding = home->layout ? home->layout->FindContainer(a_container) : nullptr; binding && binding->sell) {
+				binding->sell = false;
+				SaveLayout(*home);
+				logger::info("{}: {} is no longer the sell chest", home->name, game::Describe(game::LookupRef(a_container)));
+				Notify(std::format("Dova Stash: {} is no longer the sell chest", binding->label));
+			}
+			return;
+		}
+		if (home->layout && home->layout->IsMaster(a_container)) {
+			Notify("Dova Stash: the master can't be the sell chest");
+			return;
+		}
+		auto* ref = UsableContainer(*home, a_container);
+		if (!ref) {
+			return;
+		}
+		auto* binding = EnsureBinding(*home, a_container);
+		if (!binding) {
+			return;
+		}
+		binding->sell = true;
+		binding->ignored = false;
+		// Something to sell from the start: the junk category, when the container has no other job yet.
+		std::string junk;
+		const bool  learned = std::ranges::any_of(home->layout->learned, [&](const auto& a_pair) { return a_pair.second == a_container; });
+		if (binding->categories.empty() && binding->forms.empty() && !learned && home::Store::Get().Categories().Find("misc.clutter")) {
+			binding->categories.push_back("misc.clutter");
+			junk = ui::CategoryName("misc.clutter");
+		}
+		SaveLayout(*home);
+		logger::info("{}: {} is now the sell chest{}", home->name, game::Describe(ref), junk.empty() ? "" : " (bound misc.clutter)");
+		Notify(junk.empty() ? std::format("Dova Stash: {} is now the sell chest", binding->label) :
+		                      std::format("Dova Stash: {} is now the sell chest ({})", binding->label, junk));
+	}
+
+	void Controller::SellNow(RE::FormID a_cellId, std::optional<core::FormRef> a_chest)
+	{
+		RunWhenContainerMenuClosed([this, a_cellId, chest = std::move(a_chest)]() {
+			auto* home = Registry().CurrentIf(a_cellId);
+			if (!home || !home->layout) {
+				Notify("Dova Stash: you are no longer in that home");
+				return;
+			}
+			const auto quote = sort::selling::QuoteSale(*home, chest);
+			if (quote.chests.empty()) {
+				Notify("Dova Stash: no sell chest can be reached from here");
+				return;
+			}
+			if (quote.Empty()) {
+				Notify(quote.stays.empty() ? "Dova Stash: nothing to sell"s : std::format("Dova Stash: nothing to sell ({})", quote.stays));
+				return;
+			}
+			const auto items = std::format("{} item{}", quote.items, quote.items == 1 ? "" : "s");
+			const auto details = quote.stays.empty() ? quote.what : std::format("{}\n({})", quote.what, quote.stays);
+			logger::debug("Sell chest: asking to sell {} for {} gold", items, quote.gold);
+			ui::ShowMessageBox(std::format(ui::kConfirmSell, items, quote.gold, details), { "Yes", "No" },
+				[this, a_cellId, chest, count = quote.items, gold = quote.gold](std::size_t a_button) {
+					if (a_button == 0) {
+						SellConfirmed(a_cellId, chest, count, gold);
+					}
+				});
+		});
+	}
+
+	void Controller::SellConfirmed(RE::FormID a_cellId, std::optional<core::FormRef> a_chest, std::int32_t a_items, std::int64_t a_gold)
+	{
+		RunWhenContainerMenuClosed([this, a_cellId, chest = std::move(a_chest), a_items, a_gold]() {
+			auto* home = Registry().CurrentIf(a_cellId);
+			if (!home || !home->layout) {
+				Notify("Dova Stash: you are no longer in that home");
+				return;
+			}
+			const auto result = sort::selling::Sell(*home, chest, a_items, a_gold);
+			integrations::quickloot::Refresh();
+			UI().OnHomeChanged();
+			if (&Editor() != &UI()) {
+				Editor().OnHomeChanged();
+			}
+			Notify(result.message);
+		});
+	}
+
+	void Controller::BuyBack(RE::FormID a_cellId)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home) {
+			return;
+		}
+		const auto offer = sort::selling::BuyBackOffer(*home);
+		if (!offer) {
+			Notify("Dova Stash: nothing to buy back here");
+			return;
+		}
+		const auto items = std::format("{} item{}", offer->items, offer->items == 1 ? "" : "s");
+		ui::ShowMessageBox(std::format(ui::kConfirmBuyBack, items, offer->gold, offer->what), { "Yes", "No" }, [this, a_cellId](std::size_t a_button) {
+			if (a_button == 0) {
+				BuyBackConfirmed(a_cellId);
+			}
+		});
+	}
+
+	void Controller::BuyBackConfirmed(RE::FormID a_cellId)
+	{
+		RunWhenContainerMenuClosed([this, a_cellId]() {
+			auto* home = Registry().CurrentIf(a_cellId);
+			if (!home) {
+				Notify("Dova Stash: you are no longer in that home");
+				return;
+			}
+			const auto result = sort::selling::BuyBack(*home);
+			integrations::quickloot::Refresh();
+			Notify(result.message);
+		});
+	}
+
 	void Controller::ReopenDisplayMenu(RE::FormID a_cellId, const core::FormRef& a_display)
 	{
 		auto* home = Registry().CurrentIf(a_cellId);
@@ -1134,7 +1351,8 @@ namespace dova
 			return;
 		}
 		auto*      ref = game::LookupRef(a_display);
-		const auto name = game::RefName(ref);
+		const auto found = ref ? game::InspectDisplay(ref) : std::nullopt;
+		const auto name = found ? DisplayName(ref, found->kind) : game::RefName(ref);
 		auto&      displays = home->layout->displays;
 		const auto it = std::ranges::find(displays, a_display, &core::DisplayBinding::ref);
 		if (a_used) {
@@ -1461,7 +1679,7 @@ namespace dova
 		if (!a_keep) {
 			home->layout->keep.reset();
 			SaveLayout(*home);
-			Notify("Dova Stash: keep rules reset to the global defaults");
+			Notify("Dova Stash: keep rules reset to the defaults");
 			return;
 		}
 

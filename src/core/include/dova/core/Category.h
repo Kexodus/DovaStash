@@ -135,6 +135,7 @@ namespace dova::core
 			std::string  source;
 
 			std::optional<IconRef> icon;
+			CategoryMatch          match;  // as written (what it can match: DisplayCategories.h)
 		};
 
 		CategorySet() = default;

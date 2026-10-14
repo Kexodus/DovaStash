@@ -43,8 +43,8 @@ namespace dova
 
 		struct Templates
 		{
-			// DESIGN §4.1: auto-enable a matching template on first entry (off by default).
-			bool autoEnable{ false };
+			// DESIGN §4.1: auto-enable a matching template on first entry (on by default).
+			bool autoEnable{ true };
 
 			bool operator==(const Templates&) const = default;
 		};
@@ -66,13 +66,31 @@ namespace dova
 			// DESIGN §8.4: Deposit and Sort all put gear on the home's empty weapon racks, shield plaques,
 			// mannequins, item plaques and display cases.
 			bool fillDisplays{ true };
-			// DESIGN §8.5: sitting down at a crafting station in an enabled home brings the stored materials
-			// its recipes use; what is left goes back when you get up (never what you just crafted).
-			bool craftingSupply{ true };
+			// DESIGN §8.7: Deposit then tops you up to every keep quota marked "Restock" from the home's containers
+			// (nothing happens without such a quota).
+			bool restockAfterDeposit{ true };
+			// DESIGN §8.5 Materials at the workbench (core::crafting::SupplySetting):
+			// 0 = auto: craft from storage where the hooks are in (SE/AE), else move; off when another
+			//     crafting-from-storage mod is loaded,
+			// 1 = off, 2 = move (bring the stored materials when you sit down, the rest goes back when you get
+			//     up), 3 = craft from storage (the menu counts the containers; crafting takes from them).
+			std::int32_t craftingSupply{ 0 };
 			// ... including weapons, armor and ammo that recipes use as materials (breakdown, upgrades).
 			bool craftingSupplyGear{ false };
 
 			bool operator==(const Sorting&) const = default;
+		};
+
+		struct Selling
+		{
+			// DESIGN §8.8: what the sell chest pays, in percent of the game's own barter price for you (your
+			// Speech, perks and Fortify Barter). 10-200.
+			std::int32_t pricePercent{ 100 };
+			// Timed selling: what has been in the sell chest for this many game hours is sold by itself (you get
+			// the gold and one HUD line). 0 = off (the default): only "Sell now" sells, after you confirm. 0-168.
+			std::int32_t autoSellHours{ 0 };
+
+			bool operator==(const Selling&) const = default;
 		};
 
 		struct UIOptions
@@ -123,6 +141,7 @@ namespace dova
 			Input        input;
 			Templates    templates;
 			Sorting      sorting;
+			Selling      selling;
 			UIOptions    ui;
 			Integrations integrations;
 			Overlay      overlay;
@@ -145,6 +164,7 @@ namespace dova
 		[[nodiscard]] Input GetInput() const { return _v.load()->input; }
 		[[nodiscard]] Templates GetTemplates() const { return _v.load()->templates; }
 		[[nodiscard]] Sorting GetSorting() const { return _v.load()->sorting; }
+		[[nodiscard]] Selling GetSelling() const { return _v.load()->selling; }
 		[[nodiscard]] UIOptions GetUI() const { return _v.load()->ui; }
 		[[nodiscard]] Integrations GetIntegrations() const { return _v.load()->integrations; }
 		[[nodiscard]] Overlay GetOverlay() const { return _v.load()->overlay; }

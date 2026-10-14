@@ -955,6 +955,106 @@ DISPLAY_ITEM_TYPES = ["ARMO", "WEAP", "BOOK", "MISC", "ALCH", "INGR", "SLGM", "A
 RACK_TYPES = {1: "Any", 2: "Shield", 3: "NoDaggerOrBow", 4: "Dagger", 5: "LargeCase"}
 
 
+# Which categories a display can take (DESIGN 8.4 "Categories on displays"; the same rule as
+# src/core/src/DisplayCategories.cpp, keep the two in step): what a category can match, against what the display holds.
+_W, _DAGGER, _BOW, _XBOW, _SHIELD, _WORN, _BOOK = 1, 2, 4, 8, 16, 32, 64
+_ANY_WEAPON = _W | _DAGGER | _BOW | _XBOW
+_WEAPTYPE_KEYWORDS = {"weaptypedagger": _DAGGER, "weaptypebow": _BOW | _XBOW, **{k: _W for k in (
+    "weaptypesword", "weaptypewaraxe", "weaptypemace", "weaptypegreatsword", "weaptypebattleaxe", "weaptypewarhammer", "weaptypestaff")}}
+_PIECE_KEYWORDS = {k.lower() for k in (
+    "ArmorHelmet", "ArmorCuirass", "ArmorGauntlets", "ArmorBoots", "ArmorJewelry", "ClothingHead", "ClothingBody", "ClothingHands",
+    "ClothingFeet", "ClothingRing", "ClothingNecklace", "ClothingCirclet", "VendorItemJewelry", "VendorItemClothing",
+    "OCF_ArmorTypeHead_Main", "OCF_ArmorTypeBody_Main", "OCF_ArmorTypeHands_Main", "OCF_ArmorTypeFeet_Main", "OCF_HandTypeRing",
+    "OCF_BodyTypeAmulet", "OCF_BodyTypeTorc", "OCF_BodyTypeHighNecklace", "OCF_HeadTypeCirclet", "OCF_HeadTypeCrown")}
+_UNWORN_KEYWORDS = {k.lower() for k in (
+    "ClothingRing", "ClothingNecklace", "OCF_HandTypeRing", "OCF_BodyTypeAmulet", "OCF_BodyTypeTorc", "OCF_BodyTypeHighNecklace")}
+
+
+def _display_takes(kind, rack_type=None, crossbows=True):
+    if kind == "rack":
+        any_ = _W | _DAGGER | _BOW | (_XBOW if crossbows else 0)
+        return {"Any": any_, "LargeCase": any_, "Shield": _SHIELD, "NoDaggerOrBow": _W, "Dagger": _DAGGER}.get(rack_type, any_ | _SHIELD)
+    return {"mannequin": _WORN, "bookshelf": _BOOK}.get(kind, 0)
+
+
+def _category_holds(m):
+    if not m:
+        return 0  # a grouping category matches nothing itself
+    def low(key):
+        return [str(v).lower() for v in _as_list(m.get(key, []))]
+    types = set(_as_list(m["formTypes"])) if "formTypes" in m else None
+    weapon, armor, book = (types is None or t in types for t in ("WEAP", "ARMO", "BOOK"))
+    if "weaponTypes" in m:
+        armor = book = False
+    if "armorTypes" in m:
+        weapon = book = False
+    if "bookTeaches" in m:
+        weapon = armor = False
+    if any(k in m for k in ("alchemy", "soulGem", "ammo")):
+        weapon = armor = book = False  # potions, food, soul gems, ammo: on no display
+    out = 0
+    if weapon:
+        w = _ANY_WEAPON
+        if "weaponTypes" in m:
+            w = 0
+            for t in low("weaponTypes"):
+                w |= {"onehanddagger": _DAGGER, "bow": _BOW, "crossbow": _XBOW, "handtohand": 0}.get(t, _W)
+        anyk = low("keywordsAny")
+        if anyk and all(k in _WEAPTYPE_KEYWORDS for k in anyk):
+            bits = 0
+            for k in anyk:
+                bits |= _WEAPTYPE_KEYWORDS[k]
+            w &= bits
+        for k in low("keywordsAll"):
+            if k in _WEAPTYPE_KEYWORDS:
+                w &= _WEAPTYPE_KEYWORDS[k]
+        out |= w
+    if armor:
+        shield = worn = True
+        if "armorTypes" in m and not any(t in ("heavy", "light") for t in low("armorTypes")):
+            shield = False  # shields are heavy or light armor
+        for k in low("keywordsAll"):
+            shield = shield and k not in _PIECE_KEYWORDS
+            worn = worn and "shield" not in k and k not in _UNWORN_KEYWORDS
+        if "armorshield" in low("keywordsNone"):
+            shield = False
+        if "keywordsAny" in m:
+            anyk = low("keywordsAny")
+            shield = shield and any("shield" in k or k not in _PIECE_KEYWORDS for k in anyk)
+            worn = worn and any("shield" not in k and k not in _UNWORN_KEYWORDS for k in anyk)
+        out |= (_SHIELD if shield else 0) | (_WORN if worn else 0)
+    if book:
+        out |= _BOOK
+    return out
+
+
+def _pattern_fits(pattern, category_defs, takes):
+    """True / False, or None when the pattern matches no known category (besides groups)."""
+    p, known = pattern.lower(), False
+    for cid, c in category_defs.items():
+        hit = p == "*" or cid == p or (p.endswith(".*") and (cid == p[:-2] or cid.startswith(p[:-1])))
+        if not c.get("match") or not hit:
+            continue
+        known = True
+        if _category_holds(c["match"]) & takes:
+            return True
+    return False if known else None
+
+
+def _display_noun(kind, rack_type):
+    if kind == "rack":
+        return {"Shield": "shield rack", "Dagger": "dagger rack", "NoDaggerOrBow": "rack without daggers or bows",
+                "LargeCase": "weapon case", "Any": "weapon rack"}.get(rack_type, "rack")
+    return kind
+
+
+def _category_name(pattern, category_defs):
+    if pattern == "*":
+        return "Everything"
+    c = category_defs.get(pattern.lower()[:-2] if pattern.endswith(".*") else pattern.lower())
+    return (c.get("name") or pattern) if c else pattern
+
+
 def _scripts_with_props(lo: LoadOrder, rec: Record, base: Record) -> dict[str, dict]:
     """Script name (lower) -> properties: the base record's, overridden by the reference's. Object values are
     resolved to load-order keys."""
@@ -1137,9 +1237,17 @@ ENUMS = {
 MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms", "formLists", "plugins",
               "weaponTypes", "armorTypes", "bookTeaches", "alchemy", "soulGem", "enchanted", "ammo"}
 CELLS_KEYS = {"cell", "label", "note"}
-LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "cells", "master", "containers", "displays",
-               "keep", "learned", "declined", "basedOn"}
-CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
+LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "conflicts", "cell", "cells", "master", "containers",
+               "displays", "keep", "learned", "declined", "basedOn"}
+SELF_SORTING_KEYS = {"plugin", "name", "note", "cells", "containers"}
+PLUGIN_EXTS = (".esp", ".esm", ".esl")
+
+
+def _is_plugin_name(s):
+    return isinstance(s, str) and len(s) > 4 and s.lower().endswith(PLUGIN_EXTS) and not any(c in s for c in "|/\\")
+
+
+CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms", "sell"}
 DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "only", "set", "ignored"}
 DISPLAY_KINDS = {"rack", "mannequin", "item", "case", "bookshelf"}
 
@@ -1212,7 +1320,45 @@ def check_categories(lo, doc, errors, warnings):
     return ids
 
 
-def check_layout(lo, doc, errors, warnings, category_ids):
+def check_self_sorting(lo, doc, errors, warnings):
+    """Homes that sort themselves (SelfSorting/*.json, DESIGN 9.1). Cells are checked against the load order when
+    their plugin is loaded; containers (references or base containers) only for their syntax."""
+    homes = doc.get("homes")
+    if not isinstance(homes, list):
+        errors.append("'homes' must be a list")
+        return {}
+    for k in doc:
+        if k not in ("$schema", "homes", "note"):
+            warnings.append(f"unknown top-level key {k!r}")
+    loaded = {p.name.lower() for p in lo.plugins}
+    for i, h in enumerate(homes):
+        where = f"homes[{i}]"
+        if not isinstance(h, dict):
+            errors.append(f"{where}: expected an object")
+            continue
+        if not _is_plugin_name(h.get("plugin")):
+            errors.append(f"{where}: 'plugin' must be a plugin file name (.esp, .esm or .esl)")
+            continue
+        where = f"{where} ({h['plugin']})"
+        for k in h:
+            if k not in SELF_SORTING_KEYS:
+                warnings.append(f"{where}: unknown key {k!r}")
+        for k in ("name", "note"):
+            if k in h and not isinstance(h[k], str):
+                errors.append(f"{where}: {k!r} must be a string")
+        for k in ("cells", "containers"):
+            for j, s in enumerate(_as_list(h.get(k, []))):
+                key = _check_ref_syntax(s, f"{where}.{k}[{j}]", errors)
+                if not key or key[0].lower() not in loaded:
+                    continue
+                if k == "cells" and lo.cell_record(key)[0] is None:
+                    errors.append(f"{where}.cells[{j}]: {s} is not a cell")
+        if ("cells" in h or "containers" in h) and not _as_list(h.get("cells", [])) and not _as_list(h.get("containers", [])):
+            errors.append(f"{where}: empty 'cells' and 'containers' (the DLL skips the entry)")
+    return {"homes": len(homes)}
+
+
+def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
     for k in doc:
         if k not in LAYOUT_KEYS:
             warnings.append(f"unknown top-level key {k!r}")
@@ -1224,6 +1370,21 @@ def check_layout(lo, doc, errors, warnings, category_ids):
             warnings.append(f"{k!r} belongs in player Layouts only, not in shipped templates")
     requires = [r.lower() for r in doc.get("requires", [])]
     loaded = {p.name.lower() for p in lo.plugins}
+    # 'conflicts' (DESIGN 6.2): plugins that rebuild the home; the template is not offered while one is loaded.
+    conflicts = doc.get("conflicts", [])
+    if not isinstance(conflicts, list) or not all(isinstance(c, str) for c in conflicts):
+        errors.append("'conflicts' must be a list of plugin file names")
+        conflicts = []
+    cell_plugin = str(doc.get("cell", "")).split("|", 1)[0].strip().lower()
+    for c in conflicts:
+        if not _is_plugin_name(c):
+            warnings.append(f"conflicts: {c!r} is not a plugin file name (.esp, .esm or .esl)")
+        elif c.lower() in requires:
+            warnings.append(f"conflicts: {c} is also in 'requires'; the template is never offered")
+        elif c.lower() == cell_plugin:
+            warnings.append(f"conflicts: {c} is the plugin of the template's own cell; the template is never offered")
+        elif c.lower() in loaded:
+            warnings.append(f"conflicts: {c} is in the load order, so this template is not offered in it")
     missing_plugins = [r for r in doc.get("requires", []) if r.lower() not in loaded]
     if missing_plugins:
         warnings.append(f"required plugins not in the load order, refs not verified: {missing_plugins}")
@@ -1275,6 +1436,11 @@ def check_layout(lo, doc, errors, warnings, category_ids):
             warnings.append(f"{where}: no label")
         if c.get("ignored") and c.get("categories"):
             warnings.append(f"{where}: ignored container also has categories")
+        # The sell chest (DESIGN 8.8): a boolean; inert on an ignored container or the master.
+        if "sell" in c and not isinstance(c["sell"], bool):
+            errors.append(f"{where}: sell must be true or false")
+        elif c.get("sell") and (c.get("ignored") or (mk and kl(key) == kl(mk))):
+            warnings.append(f"{where}: sell has no effect on an ignored container or the master")
         for cat in c.get("categories", []):
             if cat in cats_seen:
                 warnings.append(f"{where}: category {cat!r} also bound at {cats_seen[cat]}")
@@ -1331,12 +1497,21 @@ def check_layout(lo, doc, errors, warnings, category_ids):
         info_optional = {}
     player_layout = "learned" in doc or "declined" in doc or "basedOn" in doc
 
-    def kind_warnings(script_kinds):
+    def kind_warnings(script_kinds, script_racks=None):
         # The kind the scripts give a display wins over the entry's 'kind' (as in the DLL).
         for where, key, d in display_entries:
             kind = script_kinds.get(kl(key)) or (str(d["kind"]).lower() if "kind" in d else None)
             if kind is None:
                 continue
+            if category_defs and kind in ("rack", "mannequin", "bookshelf") and not d.get("ignored"):
+                # Categories the display can't take (crossbow nodes are not read: crossbows count as possible).
+                rack_type = (script_racks or {}).get(kl(key))
+                takes = _display_takes(kind, rack_type)
+                cats = _as_list(d.get("categories", []))
+                unfit = [c for c in cats if _pattern_fits(c, category_defs, takes) is False]
+                for c in unfit:
+                    warnings.append(f"{where}: {_category_name(c, category_defs)} can't go on a {_display_noun(kind, rack_type)}"
+                                    + ("; nothing goes on it" if len(unfit) == len(cats) and c == unfit[-1] else ""))
             if "set" in d and kind != "mannequin":
                 warnings.append(f"{where}: 'set' is only used by mannequins (this is a {kind})")
             if kind in ("item", "case"):
@@ -1428,8 +1603,9 @@ def check_layout(lo, doc, errors, warnings, category_ids):
                     errors.append(f"{where}: {fmt_ref(key)} is not an armor piece (ARMO)")
             elif lo.lookup(key, DISPLAY_ITEM_TYPES) is None:
                 errors.append(f"{where}: {fmt_ref(key)} is not an item ({', '.join(DISPLAY_ITEM_TYPES)})")
-        script_kinds = {kl(parse_ref(d["ref"])): d["kind"] for hc in home_cells for d in find_displays(lo, hc)}
-        kind_warnings(script_kinds)
+        found = [d for hc in home_cells for d in find_displays(lo, hc)]
+        script_kinds = {kl(parse_ref(d["ref"])): d["kind"] for d in found}
+        kind_warnings(script_kinds, {kl(parse_ref(d["ref"])): d["rackType"] for d in found if "rackType" in d})
         info["displaysChecked"] = len(doc["displays"])
     return info
 
@@ -1472,7 +1648,7 @@ def cmd_check(lo, args):
             docs.append((f, None, f"invalid JSON: {e}"))
     # category files first, so layouts can be checked against the known category ids
     docs.sort(key=lambda t: 0 if t[1] and t[1].get("$schema") == "dovastash-categories-1" else 1)
-    cats, results, ok = None, [], True
+    cats, cat_defs, results, ok = None, {}, [], True
     for f, doc, err in docs:
         errors, warnings, info = ([err] if err else []), [], {}
         if doc is not None:
@@ -1480,9 +1656,14 @@ def cmd_check(lo, args):
             if schema == "dovastash-categories-1":
                 ids = check_categories(lo, doc, errors, warnings)
                 cats = (cats or []) + ids
+                for c in doc.get("categories", []):  # a later id replaces an earlier one (as the DLL merges them)
+                    if c.get("id"):
+                        cat_defs[str(c["id"]).lower()] = c
                 info["categories"] = len(ids)
             elif schema == "dovastash-layout-1":
-                info = check_layout(lo, doc, errors, warnings, cats)
+                info = check_layout(lo, doc, errors, warnings, cats, cat_defs)
+            elif schema == "dovastash-selfsorting-1":
+                info = check_self_sorting(lo, doc, errors, warnings)
             else:
                 errors.append(f"unknown $schema {schema!r}")
         ok = ok and not errors

@@ -1,6 +1,7 @@
 #include "UI/DisplayMenu.h"
 
 #include "Controller.h"
+#include "Home/Store.h"
 #include "Icons/IconService.h"
 #include "UI/ArmorSetMenu.h"
 #include "UI/Labels.h"
@@ -26,11 +27,6 @@ namespace dova::ui
 			default:
 				return "display";
 			}
-		}
-
-		bool IsUnder(std::string_view a_id, std::string_view a_root)
-		{
-			return core::IEquals(a_id, a_root) || (a_id.size() > a_root.size() && a_id[a_root.size()] == '.' && core::IEquals(a_id.substr(0, a_root.size()), a_root));
 		}
 
 		// The category root a display's picker starts from: weapons, armor, books.
@@ -71,9 +67,9 @@ namespace dova::ui
 		}
 
 		// The message-box picker: a page of choices, More..., Back (to the display menu).
-		void ShowCategoryBox(RE::FormID a_cellId, core::FormRef a_display, core::DisplayKind a_kind, std::string a_name, std::size_t a_page)
+		void ShowCategoryBox(RE::FormID a_cellId, core::FormRef a_display, core::DisplayFit a_fit, std::string a_name, std::size_t a_page)
 		{
-			const auto choices = DisplayCategoryChoices(a_kind);
+			const auto choices = DisplayCategoryChoices(a_fit);
 			const auto patterns = DisplayCategories(a_cellId, a_display);
 			const auto pages = std::max<std::size_t>(1, (choices.size() + kPerPage - 1) / kPerPage);
 			a_page = std::min(a_page, pages - 1);
@@ -84,12 +80,12 @@ namespace dova::ui
 				labels.push_back(DisplayCategoryEntry(patterns, choices[i]));
 				actions.emplace_back([=, choice = choices[i]]() {
 					Controller::Get().ToggleDisplayCategory(a_cellId, a_display, choice);
-					ShowCategoryBox(a_cellId, a_display, a_kind, a_name, a_page);
+					ShowCategoryBox(a_cellId, a_display, a_fit, a_name, a_page);
 				});
 			}
 			if (a_page + 1 < pages) {
 				labels.emplace_back("More...");
-				actions.emplace_back([=]() { ShowCategoryBox(a_cellId, a_display, a_kind, a_name, a_page + 1); });
+				actions.emplace_back([=]() { ShowCategoryBox(a_cellId, a_display, a_fit, a_name, a_page + 1); });
 			}
 			labels.emplace_back("Back");
 			actions.emplace_back([=]() { Controller::Get().ReopenDisplayMenu(a_cellId, a_display); });
@@ -105,34 +101,9 @@ namespace dova::ui
 		}
 	}
 
-	std::vector<std::string> DisplayCategoryChoices(core::DisplayKind a_kind)
+	std::vector<std::string> DisplayCategoryChoices(const core::DisplayFit& a_fit)
 	{
-		std::vector<std::string> out;
-		const auto               roots = RootCategories();
-		const auto               add = [&](const std::string& a_root, auto&& a_keep) {
-			if (std::ranges::find(roots, a_root) == roots.end()) {
-				return;
-			}
-			out.push_back(a_root + ".*");
-			for (const auto& id : ChildCategories(a_root)) {
-				if (a_keep(id)) {
-					out.push_back(id);
-				}
-			}
-		};
-		if (a_kind == core::DisplayKind::Rack) {
-			add("weapons", [](const std::string&) { return true; });
-			for (const auto& id : ChildCategories("armor")) {
-				if (IsUnder(id, "armor.shields")) {
-					out.push_back(id);
-				}
-			}
-		} else if (a_kind == core::DisplayKind::Mannequin) {
-			add("armor", [](const std::string& a_id) { return !IsUnder(a_id, "armor.shields"); });
-		} else if (a_kind == core::DisplayKind::Bookshelf) {
-			add("books", [](const std::string&) { return true; });
-		}
-		return out;
+		return core::DisplayCategoryChoices(home::Store::Get().Categories(), a_fit);
 	}
 
 	std::vector<std::string> DisplayCategories(RE::FormID a_cellId, const core::FormRef& a_display)
@@ -157,10 +128,14 @@ namespace dova::ui
 		const auto                 ref = a_menu.ref;
 		std::vector<DisplayOption> out;
 		if (!a_menu.used) {
-			out.push_back({ std::format("Use this {}", Noun(a_menu.kind)), [cellId, ref]() { Controller::Get().SetDisplayUsed(cellId, ref, true); } });
+			// Then its options right away (categories, armor set, fill now), not another press of the hotkey.
+			out.push_back({ std::format("Use this {}", Noun(a_menu.kind)), [cellId, ref]() {
+							   Controller::Get().SetDisplayUsed(cellId, ref, true);
+							   Controller::Get().ReopenDisplayMenu(cellId, ref);
+						   } });
 			return out;
 		}
-		if (!DisplayCategoryChoices(a_menu.kind).empty()) {
+		if (!DisplayCategoryChoices(a_menu.fit).empty()) {
 			auto icon = a_menu.categories.empty() ? icons::ForCategory(std::string(Root(a_menu.kind))) : icons::ForPattern(a_menu.categories.front());
 			out.push_back({ std::format("Categories... ({})", Summary(a_menu)), std::move(a_openCategories), std::move(icon) });
 		}
@@ -178,8 +153,8 @@ namespace dova::ui
 	{
 		std::vector<std::string>           labels;
 		std::vector<std::function<void()>> actions;
-		const auto openCategories = [cellId = a_menu.cellId, ref = a_menu.ref, kind = a_menu.kind, name = a_menu.name]() {
-			ShowCategoryBox(cellId, ref, kind, name, 0);
+		const auto openCategories = [cellId = a_menu.cellId, ref = a_menu.ref, fit = a_menu.fit, name = a_menu.name]() {
+			ShowCategoryBox(cellId, ref, fit, name, 0);
 		};
 		for (auto& o : DisplayMenuOptions(a_menu, openCategories)) {
 			labels.push_back(std::move(o.text));
