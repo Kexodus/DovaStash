@@ -103,8 +103,8 @@ The rail's, inspector's and drawer's sizes, which are open, and the view persist
    homes*, §3.4, read once and shared) under the mod whose plugin defines its cell: the enabled mod with the
    highest priority that has the plugin, as MO2 resolves it, in MO2's order (its Nexus id muted); *Game Data folder*
    holds the base game, the DLCs and Creation Club. A row is the home's name, its storage (containers a template can
-   use · displays, over its cells), a status chip (*none*, *shipped*, *yours*, *auto-draft*, *drafted*, *saved*) and the unsaved
-   dot. One search box takes part of a home or mod name, a plugin, or a Nexus id (`92177` finds Whitepeak Tower);
+   use · displays, over its cells), a status word (*yours*, *shipped*, *auto-draft*, *draft*, *none*), how many cells and templates it
+   has when more than one (`2 cells · 3 templates`) and the unsaved dot. One search box takes part of a home or mod name, a plugin, or a Nexus id (`92177` finds Whitepeak Tower);
    the filter popover (a count badge when one is on) has *Only homes without a template*, *Only enabled mods*,
    *Likely homes only*, *Exteriors*, *Group by mod*. Up/Down and Enter walk it; right-click: *Open*, *Draft*, *Open
    in Explorer* (its template file), *Copy form ref*. *Rescan* (F5) at the bottom reads the load order again after a
@@ -214,15 +214,15 @@ The homes rail (§2) lists every player home of the **active load order** (`Work
 plugins in `loadorder.txt` order with the base masters) with its template status; a home gets its draft when it is
 opened, or all of them at once with **Draft all homes**. That is an action, not a view (*Draft* ▾, the start
 panel, Ctrl+D, `--drafts`): the drafts are made on a worker with the progress in the status row; then the rail shows
-a *drafted* chip per home and a banner over it offers *Save N drafts...*. It does not advance the homes' stages
+a *draft* chip per home and a banner over it offers *Save N drafts...*. It does not advance the homes' stages
 (§3.6). `home::FindAllHomes` reads every interior cell once (the 302 plugins of the test profile
 in about a second), keeps the likely homes (§3.2), and resolves all their load doors in one pass: interior cells whose
 doors lead to each other and are homes too are **one home** (a hall and its cellar), and storage behind a home's door
 that nothing respawns in and nobody owns joins it (the main cell is the one whose name is not "cellar", "basement",
 "cave"..., then the best score). Status per home (the rail's chip): *none*, *shipped* (Dova Stash's or another
-mod's), *yours* (`Templates/User`, the "Dova Stash Templates" mod, overwrite), from every `Templates/**.json` of the
+mod's), *yours* (`Templates/User`, the "Dova Stash Templates" mod, the mod picked under *Save to*, overwrite; also a template saved this session), from every `Templates/**.json` of the
 merged Data folder (`home::LoadTemplateIndex`); *auto-draft* (only a file *Save N drafts...* wrote, nobody saved it
-since), *drafted* (a draft not saved), *saved* (saved this session).
+since), *draft* (a draft not saved). The title row and the Template panel use the same words; the counts are words in the row's summary, never "+N".
 
 **The suggestions are core code** (`core::SuggestDraft`, `DraftSuggest.h`, unit-tested in `tests/DraftSuggestTests.cpp`)
 over plain facts the editor extracts (`home::BuildDraftObjects`): containers, displays, load doors, loose items (each
@@ -752,7 +752,7 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
 8. Press P (paint), *Pick another* ▾ `alchemy.ingredients`, click two satchels: they turn green (*by category*). S
    returns to Select. Ctrl+Z takes it back, Ctrl+Y redoes it. Drag a box over a row of chests: the Selection panel
    edits them together.
-9. Ctrl+D (*Draft all homes*): progress in the status row, then a *drafted* chip on every home and a *Save N
+9. Ctrl+D (*Draft all homes*): progress in the status row, then a *draft* chip on every home and a *Save N
    drafts...* banner over the rail. Open a home without a template and pick the *Draft* panel: its master with the
    reason, each container's suggestions as chips (hover for why). Click a chip off, another on: the Selection panel
    and the preview follow. Open another home and come back: the draft is kept (the dot on its row).

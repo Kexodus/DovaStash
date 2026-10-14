@@ -67,14 +67,17 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
   Redo, Shortcuts…, About. Nothing here is only here: each item also lives where it is used.
 - Emblem + "Dova Stash Editor" in Cinzel. Clicking the emblem opens the start panel (§2.6).
 - **Home switcher**: the open home's name as a dropdown. The dropdown is the same searchable list as the rail
-  (§2.2) in compact form; typing filters it. Next to it: the unsaved dot and the template status chip
-  (*none*, *shipped*, *yours*, *auto-draft*, *draft*).
+  (§2.2) in compact form; typing filters it. Next to it: the unsaved dot, the template status chip
+  (one word, §2.2: *yours*, *shipped*, *auto-draft*, *draft*, *no template*) and, when the home has more than one
+  template, an *N templates ▾* dropdown listing them.
 - Centre: `3D | Plan` segmented control (keys `1` / `2`).
 - Right: **Draft ▾** (Draft this home, Accept all, Reject the weak ones, Draft again, Draft all homes…),
   **Save** (Ctrl+S; disabled with a tooltip when the checks have errors), `⚙` **Setup** popover (§2.7).
 
-> **Built:** the chip reads *no template* / *shipped* / *yours* / *auto-draft* / *draft* (neutral / info / ok / warn /
-> warn; *auto-draft*: the home's template, or the open file, is one *Save N drafts...* wrote, §2.8). Under
+> **Built:** the chip reads *no template* / *yours* / *shipped* / *auto-draft* / *draft* (neutral / ok / info / warn /
+> warn; *auto-draft*: the home's template, or the open file, is one *Save N drafts...* wrote, §2.8) and opens the
+> Template panel; its tooltip says whose it is and the file. *N templates ▾* shows the Template panel's list of the
+> home's templates in the game's order; click one to open it (`--popover templates`). Under
 > ~1400 px the title collapses to the emblem, and a long home name ends in "..." (the whole name in its tooltip),
 > so the row never runs into `3D | Plan`.
 
@@ -85,8 +88,10 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
   template*, *Only enabled mods*, *Likely homes only*, *Exteriors*, *Group by mod* (default on).
 - One list that replaces **By mod**, **Any cell** and the drafts list:
   - Grouped by mod (MO2 name, Nexus id muted), the game's Data folder last.
-  - A home row: name, muted storage summary (`89 chests · 170 displays`), a status chip at the right
-    (*none* / *shipped* / *yours* / *auto-draft* / *drafted* / *saved*), the unsaved dot when it is open and dirty.
+  - A home row: name, a muted summary in words (`89 chests · 170 displays · 2 cells · 3 templates`; cells and
+    templates only when more than one), one status word at the right (*yours* / *shipped* / *auto-draft* / *draft*,
+    a chip; *none* in muted, without a pill), the unsaved dot when it is open and dirty. No "+N" anywhere: counts
+    are words.
   - A mod group's footer link *All cells…* turns on the scored "any cell" listing for that mod only
     (what *Any cell* does today), with its evidence in the tooltip and *Likely homes only* respected.
   - Right-click: Open, Draft, Open in Explorer (its template file), Copy form ref.
@@ -97,7 +102,9 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 > **Built:** the storage summary counts what a template can use over the home's cells: containers that do not
 > respawn, are nobody else's and are not removed by a house upgrade, and displays (counted on the scan worker;
 > the home finder's own counts include every container reference). A narrow rail drops the displays first, then
-> ends the summary in "...". The row's tooltip shows the counts with icons and what its chip means.
+> the chests (the cells and templates stay), then ends the summary in "..."; the title row's home switcher shows
+> only the cells and templates. *yours* covers a template saved this session. The row's tooltip shows the counts
+> with icons, each template (its word, name, author and mod, in the game's order) and the other cells by name.
 
 ### 2.3 Centre: the viewport
 
@@ -191,19 +198,19 @@ MO2 instance path with *Browse…*, profile dropdown, *Author* name, *Save templ
 ### 2.8 Draft all homes
 
 Not a mode. The `≡` and **Draft ▾** menus (and Ctrl+D) run the bulk draft; progress shows in the status row;
-when it is done the rail shows a *drafted* chip per home and a banner over the rail offers *Save N drafts…*
+when it is done the rail shows a *draft* chip per home and a banner over the rail offers *Save N drafts…*
 (the existing confirmation dialog). Reviewing a draft means opening the home and using the Draft panel.
 `--drafts` on the command line opens the workspace with the bulk draft started and the rail filtered to
 homes without a template.
 
 > **Built:** the bulk draft does not advance the homes' stages (the start panel's *In progress*); a home's stage
-> starts when it is opened. The rail's *drafted* chip shows for every home with a draft.
+> starts when it is opened. The rail's *draft* chip shows for every home with a draft.
 
 > **Built:** *Save N drafts...* writes auto-drafts: each file is marked `"autoDraft": true` (DESIGN §6.8; a draft
 > the author reviewed first is saved as theirs, unmarked) and never replaces a template someone made. The dialog
 > counts new files and refreshed auto-drafts, then lists the homes left alone by name in `warn` (the file in the way
 > in the tooltip); an auto-draft is not the author's save, so it does not advance the stage. A home whose only
-> template is an auto-draft shows an *auto-draft* chip (`warn`, like *drafted*) in the rail, the title row and the
+> template is an auto-draft shows an *auto-draft* chip (`warn`, like *draft*) in the rail, the title row and the
 > Template panel's list, and still counts as without a template. Saving it (Ctrl+S) drops the mark.
 
 ### 2.9 Command palette (Ctrl+K)
@@ -238,7 +245,7 @@ The art set's palette (`presskit/README.md`, Style; `presskit/src/style.css`): e
 | `accent` | `#ffffff` | paper: wordmark, titles, icons, the active control, the selected row, links, the primary button |
 | `accentDim` | `#9c9c9c` | a pressed primary button, the slider track |
 | `select` | `#ffffff` | the 3D frame and plan highlight |
-| `ok` / `warn` / `error` / `info` | `#7fbf7f` / `#e0b04a` / `#d9634c` / `#6fa8dc` | status: pills, dots and status text (drafted, shipped, yours, saved, confidence, errors) |
+| `ok` / `warn` / `error` / `info` | `#7fbf7f` / `#e0b04a` / `#d9634c` / `#6fa8dc` | status: pills, dots and status text (yours, shipped, auto-draft, draft, confidence, errors) |
 
 Colour is for data and state only: the status hues above, category colours (`CategoryColour`), *Colours by
 fill*, and the see-through boxes in the 3D view and on the plan. Surfaces, type, icons and controls are the
