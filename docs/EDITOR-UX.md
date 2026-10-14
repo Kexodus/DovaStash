@@ -92,7 +92,7 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
   - Right-click: Open, Draft, Open in Explorer (its template file), Copy form ref.
 - The row of the open home is highlighted; Enter opens the selected row; `↑`/`↓` move.
 - Bottom of the rail: *Rescan (F5)* and the scan summary in one muted line (`124 homes · 302 plugins · 0.9 s`).
-- Collapsed, the rail is a 28 px strip with the `›` handle and the home count.
+- Collapsed, the rail is a 32 px strip with the `›` handle and the home count.
 
 > **Built:** the storage summary counts what a template can use over the home's cells: containers that do not
 > respawn, are nobody else's and are not removed by a house upgrade, and displays (counted on the scan worker;
@@ -125,7 +125,7 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 > only (off). Hidden layers are not hovered or clicked, and a layer change re-fits the plan, never to an effect or a
 > trigger, until the author pans or zooms. `--layers` sets them for one run.
 
-### 2.4 Right inspector (Ctrl+3 toggles, 340 px, remembers width)
+### 2.4 Right inspector (Ctrl+3 toggles, 380 px, remembers width)
 
 A segmented control at the top: **Selection · Template · Draft · Checks**. Each is a scrolling panel.
 
@@ -267,16 +267,20 @@ that does not parse, or whose name is taken, is skipped.
 
 | Role | Font | Size at 100 % |
 |---|---|---|
-| Title | Cinzel capitals, tracked 0.30 em | 22 px on the start panel and About, 15 px as the title row's wordmark |
-| Heading | Jost | 16 px; section heads are 13 px capitals tracked 0.24 em in `muted` |
-| Body | Jost | 15 px |
-| Small | Jost | 13 px |
+| Title | Cinzel capitals, tracked 0.30 em | 26 px on the start panel and About, 18 px as the title row's wordmark |
+| Heading | Jost | 20 px; section heads are 16 px capitals tracked 0.24 em in `muted` |
+| Body | Jost | 18 px |
+| Small | Jost | 16 px |
 | Mono | Cascadia Mono, else Consolas | 13 px, form refs and EditorIDs |
+
+ImGui sizes a font by its line (ascender + descender), not its em; Jost's tall line and small x-height make it
+read about a fifth smaller than the mono at the same size, so the body is 18 px: the x-height of the 13 px mono
+(5.7 px). Fonts are loaded at whole pixels at every UI size.
 
 Fonts are embedded as resources (`editor/res`, from `presskit/src/fonts`) so the look is identical on
 every machine. DPI: sizes scale with the window's DPI, times a **UI size** (a slider under Setup, 100–250 % in
 5 % steps; Ctrl+= / Ctrl+- step 10 %, Ctrl+0 is *Auto*; remembered in `state.json` as `ui.textScale`). *Auto* is
-125 % on a 1440p and 150 % on a 4K monitor at 100 % Windows scaling, where 15 px is too small to read at arm's
+125 % on a 1440p and 150 % on a 4K monitor at 100 % Windows scaling, where the text is too small to read at arm's
 length, else 100 %. A new size rebuilds the fonts between frames; moving the window to a monitor with another DPI
 does the same.
 
@@ -285,12 +289,12 @@ does the same.
 - Corners 3 px, borders 1 px `line`, no shadows except the floating toolbar and popovers (a 1 px darker rim).
 - Section head: tracked capitals in `muted`, then a hairline rule to the right edge. No diamonds or other
   ornament; the one divider (empty states, the start panel) is the art set's: the emblem between two hairlines.
-- Chips: 18 px pills with `bg2` fill and a 1 px border in the status gray; text in the same gray.
+- Chips: 22 px pills with `bg2` fill and a 1 px border in the status gray; text in the same gray.
 - Buttons: flat, `bg2`, hover `bg3`, active `accent` text on `bg2` with an underline. Primary (Save) is
   filled paper with ink text, gray-1 on hover.
-- Icons: drawn with draw-list primitives at 16 px (menu, search, funnel, layers, palette, camera, gear,
+- Icons: drawn with draw-list primitives at 18 px (menu, search, funnel, layers, palette, camera, gear,
   chevrons, check, warning, error, undo, redo, save, close, pin). No icon font.
-- Row height 24 px, inputs 26 px, toolbar 30 px, title row 38 px, status row 24 px, padding 8/6.
+- Row height 28 px, inputs 30 px, toolbar 34 px, title row 42 px, status row 28 px, padding 8/6.
 
 ### 3.4 Art the editor reads from the player's install (optional)
 
