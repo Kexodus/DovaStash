@@ -227,11 +227,11 @@ window.FIGS = {
     ]
   },
   templateSave: {
-    src: "template.png", crop: [1270, 660, 330, 150], width: 230,
+    src: "template.png", crop: [1270, 630, 330, 150], width: 230,
     caption: "Keep rules, and the Save footer.",
     callouts: [
-      { n: 4, box: [1285, 668, 1570, 740], c: "tr" },
-      { n: 5, box: [1285, 782, 1470, 806], c: "tr" }
+      { n: 4, box: [1285, 668, 1575, 740], c: "tr" },
+      { n: 5, box: [1285, 752, 1470, 776], c: "tr" }
     ]
   }
 };
