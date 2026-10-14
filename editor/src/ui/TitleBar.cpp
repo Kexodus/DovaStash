@@ -433,14 +433,17 @@ namespace dova::editor::ui
 		}
 		w::FieldLabel("UI size");
 		{
-			// The slider shows the size in effect; it applies when the drag ends (each change rebuilds the fonts).
-			if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+			// The slider shows the size in effect, except while it is held: a drag (or a click on the track) applies
+			// when the button is let go, the wheel at once (each change rebuilds the fonts). Not resynced on the frame
+			// the button comes up, or the release would apply the old size again.
+			if (!_uiSizeHeld) {
 				_uiSizeDrag = w::Th().textScale * 100.0f;
 			}
 			const bool  isAuto = _state.ui.textScale <= 0.0f;
 			const auto  label = isAuto ? std::string("Auto") : std::string("Set");
-			w::Slider(label.c_str(), _uiSizeDrag, 100.0f, 250.0f, "%.0f%%", false, "Everything in the window, on top of Windows' scaling. Ctrl+= and Ctrl+- step it; Ctrl+0 is back to Auto");
-			if (ImGui::IsItemDeactivatedAfterEdit()) {
+			const bool  moved = w::Slider(label.c_str(), _uiSizeDrag, 100.0f, 250.0f, "%.0f%%", false, "Everything in the window, on top of Windows' scaling. Ctrl+= and Ctrl+- step it; Ctrl+0 is back to Auto");
+			_uiSizeHeld = ImGui::IsItemActive();
+			if (ImGui::IsItemDeactivatedAfterEdit() || (moved && !_uiSizeHeld)) {
 				SetTextScale(std::round(_uiSizeDrag / 5.0f) * 0.05f);
 			}
 			if (!isAuto) {
