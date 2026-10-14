@@ -98,7 +98,8 @@ namespace dova::ui::panel
 		std::string  version;
 		std::int32_t priority{ 0 };
 		bool         best{ false };
-		bool         applied{ false };  // the layout's basedOn points at this template
+		bool         applied{ false };    // the layout's basedOn points at this template
+		bool         autoDraft{ false };  // "autoDraft": true (DESIGN §6.8): offered only when no template someone made fits
 	};
 
 	// A copy of this home's setup kept outside Data (Store::HomeBackups, DESIGN §6.6).
@@ -137,13 +138,16 @@ namespace dova::ui::panel
 		std::string                layoutAuthor;
 		std::string                layoutVersion;
 		std::optional<std::string> basedOn;
+		// Applying a template would replace changes the player made (core::HasOwnChanges: a custom setup, or one that
+		// differs from the template it is based on): switching asks first. Worked out on each rebuild, never per frame.
+		bool ownChanges{ false };
 
 		std::vector<ContainerRow>  containers;  // master first, then bindings, then the focus container if unmanaged
 		std::optional<std::size_t> masterRow;
 		std::vector<LearnedRow>    learned;
 		std::size_t                learnedUnused{ 0 };  // rows with `unused`
 		std::size_t                learnedStale{ 0 };   // rows with a `stale` reason (unused ones included)
-		std::vector<TemplateOption> templates;  // eligible templates for this cell, best first
+		std::vector<TemplateOption> templates;  // eligible templates for this cell, best first (core::ResolveLayout's order)
 		std::vector<std::string>   layoutWarnings;  // ValidateLayoutCategories on the current layout
 		// Saved setups outside Data: the latest copy first, then history, newest first. Listed on a full
 		// refresh (and when the home changes); carried over otherwise.
@@ -173,6 +177,7 @@ namespace dova::ui::panel
 		std::string              author;
 		std::string              version;
 		std::int32_t             priority{ 0 };
+		bool                     autoDraft{ false };
 		std::string              cellText;
 		std::string              cellName;
 		std::vector<std::string> required;  // JSON "requires"

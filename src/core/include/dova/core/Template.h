@@ -8,12 +8,13 @@
 // - A template is a candidate when its `cell` equals the requested cell. It is eligible when every
 //   plugin in `requires` is loaded (case-insensitive). The cell's own plugin is implied by the cell
 //   match, so it is not checked separately.
-// - Ranking: priority (desc), then templates a person made before auto-drafts (`autoDraft`, DESIGN §6.8: the
-//   editor's "Draft all homes" output nobody saved since), then the player's own exports (`source` under
-//   kUserTemplatePrefix) before the others, then semantic `version` (desc; unparseable versions rank lowest),
-//   then `source` path (case-insensitive asc) as a deterministic tie-break. The player's own saved setup is
-//   what they want back in their game, as their layout always wins over templates; an auto-draft never takes
-//   the place of a template someone made, whatever its version.
+// - Ranking (CompareTemplateRank): templates a person made before auto-drafts (`autoDraft`, DESIGN §6.8: the
+//   editor's "Draft all homes" output nobody saved since), whatever their priority or version; then priority
+//   (desc), then the player's own exports (`source` under kUserTemplatePrefix) before the others, then semantic
+//   `version` (desc; unparseable versions rank lowest), then `source` path (case-insensitive asc) as a
+//   deterministic tie-break. An auto-draft is bulk-generated, so its priority never lets it beat hand-made
+//   work: it is chosen only when the home has no eligible template someone made. The player's own saved setup
+//   is what they want back in their game, as their layout always wins over templates.
 // - Auto-drafts (DESIGN §6.8): the bulk draft writes an auto-draft only where CheckAutoDraftTarget allows it: no
 //   file at the target, or that home's own earlier auto-draft there. A file someone made (no `autoDraft`, or a
 //   file that cannot be read: in doubt it is a person's) is never replaced, and a home that already has one in
@@ -54,6 +55,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
@@ -113,6 +115,12 @@ namespace dova::core
 		std::vector<Rejected>      rejected;      // templates for this cell whose requirements are not met
 	};
 
+	// The order the templates of one home are offered in (ResolveLayout, DESIGN §6.2; see the ranking above):
+	// negative when `a_lhs` comes first, positive when `a_rhs` does, 0 when only the source path tells them apart.
+	// `a_lhsUser` / `a_rhsUser`: the player's own saved template (IsUserTemplate). The editor sorts its template
+	// list with this too, so both show the order the game offers.
+	[[nodiscard]] int CompareTemplateRank(const Layout& a_lhs, bool a_lhsUser, const Layout& a_rhs, bool a_rhsUser);
+
 	[[nodiscard]] LayoutResolution ResolveLayout(const Layout* a_playerLayout, std::span<const TemplateCandidate> a_templates, const FormRef& a_cell,
 		std::span<const std::string> a_loadedPlugins);
 
@@ -121,6 +129,20 @@ namespace dova::core
 
 	// Player layout created from a template. `a_existing` (optional) is the current player layout when re-applying.
 	[[nodiscard]] Layout ApplyTemplate(const TemplateCandidate& a_template, const Layout* a_existing = nullptr);
+
+	// The template a player layout's `basedOn` names, exactly ("<source>@<version>", MakeBasedOn), or nullptr: no
+	// `basedOn`, or that template is gone or now has another version.
+	[[nodiscard]] const TemplateCandidate* FindBasedOn(const Layout& a_layout, std::span<const TemplateCandidate> a_templates);
+
+	// The player layout has changes of their own that applying a template replaces (DESIGN §6.2, switching
+	// templates): it is a custom setup (no `basedOn`), `a_basedOn` is not the template it names (nullptr: gone, or
+	// another version now; in doubt it has changes), or applying `a_basedOn` over it again would change it
+	// (SameSetup). What ApplyTemplate always carries over (learned items, keep rules, ignored containers, explicit
+	// item bindings, containers only the player added) does not count. `a_afterApply` (optional) runs on the
+	// re-applied copy before the comparison: whatever the caller does after applying a template (the plugin
+	// records what item plaques and display cases are made for).
+	[[nodiscard]] bool HasOwnChanges(const Layout& a_layout, const TemplateCandidate* a_basedOn,
+		const std::function<void(Layout&)>& a_afterApply = {});
 
 	// Every plugin the layout's form references point into: cell, cells, master, containers and their explicit
 	// forms, displays (not their items or set: soft references, TemplateDisplays.h), and FormRefs in keep

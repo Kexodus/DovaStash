@@ -458,19 +458,10 @@ namespace dova::editor::ui
 			add(c.cell);
 		}
 		add(a_cell.lo->ToFormRef(a_cell.info.key));
-		// Priority, then made by a person before auto-drafts, then yours, then the newest version: the order the game
-		// offers them (core::ResolveLayout).
+		// Made by a person before auto-drafts (whatever the priority), then priority, then yours, then the newest
+		// version: the order the game offers them (core::CompareTemplateRank, as core::ResolveLayout ranks).
 		std::ranges::stable_sort(out, [](const home::KnownTemplate* a, const home::KnownTemplate* b) {
-			if (a->layout.priority != b->layout.priority) {
-				return a->layout.priority > b->layout.priority;
-			}
-			if (a->layout.autoDraft != b->layout.autoDraft) {
-				return !a->layout.autoDraft;
-			}
-			if (a->user != b->user) {
-				return a->user;
-			}
-			return core::CompareVersionStrings(a->layout.version, b->layout.version) == std::strong_ordering::greater;
+			return core::CompareTemplateRank(a->layout, a->user, b->layout, b->user) < 0;
 		});
 		return out;
 	}
@@ -489,7 +480,7 @@ namespace dova::editor::ui
             return !b.empty() && fs::equivalent(a, PathFromUtf8(b), ec);
 		};
 		w::SectionHead(list.size() == 1 ? "This home's template" : std::format("This home's templates  {}", list.size()).c_str(),
-			"Saved in one folder per home. In game the first of this list is offered: highest priority, then yours, then the newest version");
+			"Saved in one folder per home. In game the first of this list is offered: one someone made before an auto-draft, then highest priority, then yours, then the newest version");
 		for (std::size_t i = 0; i < list.size(); ++i) {
 			const auto* tp = list[i];
 			const bool  open = same(tp->path, a_cell.filePath) || same(tp->path, a_cell.savedPath);

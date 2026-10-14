@@ -292,7 +292,8 @@ home with a template someone made anywhere in the destination are left alone: th
 (the file in the tooltip) and the command line prints a *not saved* line for each. A home whose only template is an
 auto-draft counts as without one (the rail's *auto-draft* chip, the *Only homes without a template* filter). Opening
 it and saving (Ctrl+S, *Save as...*) drops the mark: the template is yours, and no bulk draft touches it again. The
-Template panel's list marks auto-drafts; in game they rank below a template someone made at the same priority.
+Template panel's list marks auto-drafts; in game they rank below every template someone made for the home, whatever
+its priority (DESIGN §6.2), and the list is sorted with the game's own ranking (`core::CompareTemplateRank`).
 
 **Accuracy** (`--draft-all --compare --base-game`: the game's own plugins, the homes as the shipped templates were
 written for them; 17 shipped templates). Masters: 11 of 17 the same. Of 245 template containers with categories, 20

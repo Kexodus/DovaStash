@@ -66,7 +66,7 @@ Homes with a template need no setup: they turn on as soon as you walk in. Set [f
 [*][b]Vanilla and DLC:[/b] Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall, Severin Manor, and Lakeview Manor, Heljarchen Hall and Windstad Manor with their cellars.
 [*][b]Creation Club:[/b] Bloodchill Manor, Gallows Hall, Goldenhills Plantation, Hendraheim, Myrwatch and its gallery, Nchuanthumz, Shadowfoot Sanctum, Tundra Homestead and its cellar. Each is offered only if you own that content.
 [/list]
-Applying a template copies it into your own setup, so your edits are never overwritten. Re-applying replaces only the master and the category bindings, and writes a backup first.
+Applying a template copies it into your own setup, so your edits are never overwritten. Re-applying replaces only the master and the category bindings, and writes a backup first. A home with several templates lets you switch between them in the SKSE Menu Framework (This home, or the Templates page): your learned items and keep rules stay, nothing leaves its container, and a template someone made always comes before one the editor drafted in bulk.
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-04-requirements.png[/img][/center]
 
@@ -104,7 +104,7 @@ Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right
 [*]Log detail
 [*]Keep rules for every home
 [/list]
-[*][b]This home:[/b] actions, containers and their categories, learned items, this home's keep rules, saving the home as a template, and restoring a saved copy of its setup.
+[*][b]This home:[/b] actions, switching between the home's templates, containers and their categories, learned items, this home's keep rules, saving the home as a template, and restoring a saved copy of its setup.
 [/list]
 [b]Keep rules[/b] decide what Deposit leaves in your inventory: equipped, favorited and quest items, gold, lockpicks and torches by default.
 

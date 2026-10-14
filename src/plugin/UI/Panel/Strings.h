@@ -61,14 +61,17 @@ namespace dova::ui::panel::text
 	inline constexpr std::string_view kRetrieveEverything = "Everything ({})";
 	inline constexpr std::string_view kNodeCount = "{} ({})";  // name, count
 	inline constexpr auto             kRetrieve = "Retrieve";
-	inline constexpr auto             kTemplateHeader = "Template";
 	inline constexpr auto             kNoTemplate = "No template matches this home.";
+	inline constexpr auto             kTemplatesTip = "Every template made for this home whose plugins are loaded, the one offered first at the top. Use switches this home's setup to it: the master and category bindings come from the template; your learned items, keep rules and ignored containers stay. Nothing is taken out of containers or off displays; Sort all then follows the new setup.";
 	inline constexpr std::string_view kTemplateLine = "{} v{} by {}";  // name, version, author
 	inline constexpr auto             kTemplateBest = "(recommended)";
 	inline constexpr auto             kTemplateApplied = "(in use)";
+	inline constexpr auto             kTemplateDraft = "(draft)";
+	inline constexpr auto             kTemplateDraftTip = "Drafted by the Dova Stash Editor for many homes at once. A template someone made always comes first.";
 	inline constexpr auto             kUseTemplate = "Use";
 	inline constexpr auto             kReapplyTemplate = "Re-apply";
-	inline constexpr std::string_view kConfirmTemplate = "Use the template \"{}\"? Your learned destinations, keep rules and ignored containers are kept; the master and category bindings are replaced by the template's. A backup is saved; no items are moved.";
+	// Asked only when the setup has changes of the player's own (HomeSnapshot::ownChanges).
+	inline constexpr std::string_view kConfirmTemplate = "Use the template \"{}\"? Your changes to this setup are replaced: the master and category bindings come from the template. Your learned items, keep rules and ignored containers stay. Your setup is backed up first (Saved setups); no items are moved.";
 	inline constexpr auto             kResetHeader = "Reset";
 	inline constexpr auto             kResetHome = "Reset home...";
 	inline constexpr std::string_view kConfirmReset = "Reset Dova Stash for {}? Your setup is backed up (.bak); no items are moved.";
@@ -190,7 +193,8 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kSettingsNote = "Changes apply immediately and are saved to Data/SKSE/Plugins/DovaStash.ini. No restart needed. Hover an option for details.";
 	inline constexpr auto             kColSetting = "Setting";
 	inline constexpr auto             kColValue = "Value";
-	inline constexpr auto             kTemplatesIntro = "Every template loaded from Data/SKSE/Plugins/DovaStash/Templates/. A template is offered in its home when all of its required plugins are loaded.";
+	inline constexpr auto             kTemplatesIntro = "Every template loaded from Data/SKSE/Plugins/DovaStash/Templates/. A template is offered in its home when all of its required plugins are loaded; one someone made comes before a (draft).";
+	inline constexpr std::string_view kTemplatesHere = "For {}";  // the current home's name
 	inline constexpr auto             kTemplatesNone = "No templates loaded.";
 	inline constexpr auto             kColTemplate = "Template";
 	inline constexpr auto             kColAuthor = "Author";

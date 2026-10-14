@@ -5,6 +5,7 @@
 #include "Game/FormUtil.h"
 #include "Home/HomeRegistry.h"
 #include "Home/Store.h"
+#include "Home/TemplateDisplays.h"
 #include "Settings.h"
 #include "UI/UIExtensions.h"
 #include "Integrations/QuickLoot.h"
@@ -450,6 +451,7 @@ namespace dova::ui::panel
 			option.priority = t.layout.priority;
 			option.best = a_best;
 			option.applied = layout && layout->basedOn && *layout->basedOn == core::MakeBasedOn(t.source, t.layout.version);
+			option.autoDraft = t.layout.autoDraft;
 			snap->templates.push_back(std::move(option));
 		};
 		if (home->resolution.chosen) {
@@ -457,6 +459,17 @@ namespace dova::ui::panel
 		}
 		for (const auto index : home->resolution.alternatives) {
 			addTemplate(index, false);
+		}
+		// Would switching templates replace something the player did? Re-applies the template the setup is based on
+		// to a copy, with the step every apply is followed by (what plaques and cases are made for, read from their
+		// scripts; quiet), and compares. Worked out again on Full, or when the setup or the template list changed.
+		if (layout && !home->layoutBroken && !snap->templates.empty()) {
+			auto key = std::format("{}|{}|{}|", snap->cellText, static_cast<const void*>(templates.data()), templates.size()) + core::SerializeLayout(*layout);
+			if (a_refresh == Refresh::Full || key != _ownChangesKey) {
+				_ownChanges = core::HasOwnChanges(*layout, core::FindBasedOn(*layout, templates), [](core::Layout& a_copy) { home::RecordDisplayItems(a_copy, false); });
+				_ownChangesKey = std::move(key);
+			}
+			snap->ownChanges = _ownChanges;
 		}
 
 		// Saved setups outside Data (a folder listing): on Full, or when the home changed; otherwise carried over.
@@ -523,6 +536,7 @@ namespace dova::ui::panel
 			info.author = t.layout.author;
 			info.version = t.layout.version;
 			info.priority = t.layout.priority;
+			info.autoDraft = t.layout.autoDraft;
 			if (t.layout.cell) {
 				info.cellText = t.layout.cell->ToString();
 				auto* form = game::LookupForm(*t.layout.cell);

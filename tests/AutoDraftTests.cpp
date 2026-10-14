@@ -78,7 +78,7 @@ TEST_CASE("Applying or exporting a template drops the auto-draft mark", "[templa
 	CHECK_FALSE(ExportAsTemplate(t.layout).autoDraft);
 }
 
-TEST_CASE("An auto-draft ranks below a template someone made at equal priority", "[templates][autodraft]")
+TEST_CASE("An auto-draft ranks below a template someone made", "[templates][autodraft]")
 {
 	auto make = [](std::string a_source, std::string a_version, bool a_auto, std::int32_t a_priority = 0) {
 		TemplateCandidate t;
@@ -99,10 +99,12 @@ TEST_CASE("An auto-draft ranks below a template someone made at equal priority",
 	list.push_back(make("Templates/User/Home.json", "1.0.0", true));
 	res = ResolveLayout(nullptr, list, kCell, loaded);
 	CHECK(res.chosen == 1u);
-	// An explicit priority still comes first.
+	// Nor does its priority: an auto-draft is offered only when no template someone made fits (TemplateSwitchTests).
 	list.push_back(make("Templates/Home/High.json", "1.0.0", true, 5));
 	res = ResolveLayout(nullptr, list, kCell, loaded);
-	CHECK(res.chosen == 3u);
+	CHECK(res.chosen == 1u);
+	REQUIRE(res.alternatives.size() == 3);
+	CHECK(res.alternatives[0] == 3u);  // the auto-drafts follow, in their own priority order
 }
 
 TEST_CASE("The bulk draft never replaces a template someone made", "[templates][autodraft][files]")

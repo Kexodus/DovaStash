@@ -231,16 +231,31 @@ On entering an eligible cell:
    that layout is used, and the cell's own templates are not offered.
 2. Otherwise, use every template in `Templates/**` whose `cell` matches:
    - With one match, offer it.
-   - With several, pick the one with the highest `priority`, then templates someone made before
-     auto-drafts (`"autoDraft": true`, §6.8: an auto-draft never takes the place of a person's template,
-     whatever its version), then the player's own saved templates (`Templates/User/`, §6.5) before the
-     others, then the newest `version`. The UI lists the
-     alternatives. A template is offered when its `cell` matches and every plugin in `requires` is
-     loaded; player exports follow the same rules.
+   - With several, templates someone made come before auto-drafts (`"autoDraft": true`, §6.8), whatever
+     their `priority` or `version`: an auto-draft is bulk-generated, so it is offered (and enabled by
+     `bAutoEnableTemplates`) only when the home has no eligible template someone made. Within each group,
+     pick the highest `priority`, then the player's own saved templates (`Templates/User/`, §6.5) before
+     the others, then the newest `version`, then the file path (`core::CompareTemplateRank`, the one
+     ranking: the hotkey's *Use template*, the setup prompt, the first-visit notice, auto-enable and the
+     panel all take `LayoutResolution::chosen` and its `alternatives`; the editor's template list sorts
+     with it too). The UI lists the alternatives. A template is offered when its `cell` matches and every
+     plugin in `requires` is loaded; player exports follow the same rules.
 3. Applying a template **copies** it into `Layouts/`, with a `"basedOn"` back-reference. Later edits
    never touch the template, and updating a template pack never clobbers player tweaks. A
    "Re-apply template" action exists (the hotkey menu says *Re-apply* for the template the layout's
    `basedOn` names, *Use template* for any other).
+4. **Switching templates** (the Menu Framework panel, §10.1): an enabled home lists every eligible
+   template in this order and switches to any of them. Switching is applying (`HomeRegistry::ApplyTemplate`,
+   as *Use template*): unsaved changes are written, the layout file is copied to a timestamped `.bak` and the
+   copy outside Data (§6.6) moves to its history with the save, so *Saved setups* can bring the old setup
+   back; the template is merged over the layout (`core::ApplyTemplate`: the master and category bindings
+   come from the template; learned items, keep rules, ignored containers, explicit item bindings, the
+   player's own containers and displays stay). Only the setup changes: no item is taken out of a container
+   or off a display, and the next Deposit or Sort all follows the new setup. When the layout has changes of
+   the player's own that the switch replaces (`core::HasOwnChanges`: a custom setup, a layout whose
+   `basedOn` template is gone or has another version now, or one that applying its own template again
+   would change, after the plugin's display step), the panel asks first; otherwise one click switches.
+   Debug log: *&lt;home&gt;: template switched from &lt;basedOn or "a custom setup"&gt; to &lt;source@version&gt;*.
 
 ### 6.3 Layout / template schema (v1)
 
@@ -553,9 +568,11 @@ a bulk save never replaces anyone's work:
   drafted into files at all unless asked (`--include-templated`), and never over one.
 - **Taking it over.** Saving the file as a person (the editor's *Save*, *Save as...*, a single home's draft)
   writes it without the mark: from then on no bulk draft touches it.
-- **In game** an auto-draft loads like any template. It ranks below a template someone made at the same
-  priority (§6.2), and applying it gives a player layout without the mark (`ApplyTemplate`; `ExportAsTemplate`
-  never writes it either). There is no in-game UI for it.
+- **In game** an auto-draft loads like any template. It ranks below every template someone made for the home,
+  whatever its priority or version (§6.2), so the hotkey, the first-visit notice and `bAutoEnableTemplates` use
+  it only in a home without one; the panel lists it after them with the word *(draft)* (§6.2 step 4).
+  Applying it gives a player layout without the mark (`ApplyTemplate`; `ExportAsTemplate` never writes it
+  either).
 
 ---
 
@@ -1108,6 +1125,22 @@ struct IStashUI {
   The section's pages: *This home* (the stash window's page), *Settings*, *Templates*, *Armor sets*,
   *Displays*, *Diagnostics*, *About* (version, runtime, what is installed, and *Dova Stash Editor: installed
   at <path>* when `Tools/DovaStashEditor.exe` sits in the plugin's mod folder, found from the DLL's own path).
+- **Templates for this home** (switching, §6.2 step 4). On *This home*, the **Actions** tab's second section
+  (above *Retrieve*, so it is in sight), and the setup page of a home without a setup; the *Templates* page
+  shows the same list for the home the player is in (*For Breezehome*) above its table of every loaded
+  template. One row per eligible template in `core::ResolveLayout`'s order (`HomeSnapshot::templates`): *name
+  vN by author*, *(recommended)* on the first, *(draft)* on an auto-draft (tooltip: drafted by the editor for
+  many homes at once; a template someone made always comes first), *(in use)* on the one the layout's
+  `basedOn` names, and a button, **Use** (**Re-apply** for the one in use). On a home with a setup that has
+  changes of the player's own (`HomeSnapshot::ownChanges`, `core::HasOwnChanges` with the plugin's
+  `RecordDisplayItems` run quietly on the copy) the button asks first, inline (*Use the template "X"? Your
+  changes to this setup are replaced: the master and category bindings come from the template. Your learned
+  items, keep rules and ignored containers stay. Your setup is backed up first (Saved setups); no items are
+  moved.* **Yes**/**No**); otherwise it switches at once. `ownChanges` is worked out on the main thread when the
+  snapshot is rebuilt: on a full refresh, or when the setup (as serialized) or the template list changed;
+  never per frame. **Use** posts `Controller::UseTemplate(cell, source)`, which takes only a template the
+  resolver found eligible for that cell and validates the cell like every action; the status line says
+  *Breezehome setup enabled*. The *Templates* table marks auto-drafts *(draft)* too.
 - **Displays page** (`UI/Panel/DisplaysPage.cpp`, `DisplaysModel.cpp`; §8.4). Every display Dova Stash
   recognises in the current home's loaded cells (the player's cell and the home's other attached cells), plus
   the setup's display entries it cannot see from there (*not loaded*): name, kind, area (multi-cell homes),

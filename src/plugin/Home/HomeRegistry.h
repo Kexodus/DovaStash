@@ -102,9 +102,11 @@ namespace dova::home
 		// Layout edits that create the player layout.
 		core::Layout& EnsureLayout(Home& a_home);  // new empty player layout for this cell if none
 		bool          ApplyBestTemplate(Home& a_home);
-		// Backs up the player layout file (timestamped .bak), then merges `a_template` over the current
-		// layout (core::ApplyTemplate keeps the player's learned/keep/ignored/forms data) and saves.
-		// Refused (false, nothing changed) when the layout file is broken or the backup fails.
+		// Writes unsaved changes, backs up the player layout file (timestamped .bak; the copy outside Data moves to
+		// its history with this save, so Saved setups can bring the old setup back), then merges `a_template` over
+		// the current layout (core::ApplyTemplate keeps the player's learned/keep/ignored/forms data) and saves.
+		// Only the setup changes: no item is moved. Refused (false, nothing changed) when the layout file is
+		// broken or the backup fails.
 		bool ApplyTemplate(Home& a_home, const core::TemplateCandidate& a_template);
 		bool          Reset(Home& a_home);
 		enum class RestoreResult : std::uint8_t

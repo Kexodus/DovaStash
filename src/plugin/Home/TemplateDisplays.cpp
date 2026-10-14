@@ -34,7 +34,7 @@ namespace dova::home
 		}
 	}
 
-	bool RecordDisplayItems(core::Layout& a_layout)
+	bool RecordDisplayItems(core::Layout& a_layout, bool a_log)
 	{
 		const auto* tmpl = core::BasedOnTemplate(a_layout, Store::Get().Templates());
 		bool        changed = false;
@@ -61,17 +61,17 @@ namespace dova::home
 			if (items.empty() || (templateCopy && items == b.items && b.unparsedItems.empty())) {
 				continue;
 			}
-			if (templateCopy) {
+			if (a_log && templateCopy) {
 				logger::debug("Display {}: made for {} item(s) by its script; the template's list ({}) is not used", game::Describe(ref), items.size(),
 					b.items.size() + b.unparsedItems.size());
-			} else {
+			} else if (a_log) {
 				logger::debug("Display {}: made for {} item(s); written to its layout entry", game::Describe(ref), items.size());
 			}
 			b.items = std::move(items);
 			b.unparsedItems.clear();  // only ever the template's copy here (the template file keeps its list)
 			changed = true;
 		}
-		if (tmpl) {
+		if (tmpl && a_log) {
 			ReportMissingTemplateItems(a_layout, *tmpl);
 		}
 		return changed;

@@ -340,9 +340,14 @@ namespace dova::ui::panel
 			ImGui::Separator();
 		}
 
-		void RenderTemplateChoices(const HomeSnapshot& a_snap, bool a_confirm)
+		// The templates that fit this home, in the order the game offers them (core::ResolveLayout: a template someone
+		// made before an auto-draft), the one in use marked; Use switches the setup to it (Controller::UseTemplate:
+		// backed up first, nothing moved). It asks first only when the setup has changes of the player's own that
+		// the switch replaces (HomeSnapshot::ownChanges); otherwise one click switches.
+		void RenderTemplateChoices(const HomeSnapshot& a_snap)
 		{
 			const auto cell = a_snap.cellId;
+			const bool confirm = a_snap.enabled && a_snap.ownChanges;
 			for (const auto& t : a_snap.templates) {
 				ImGui::PushID(t.source.c_str());
 				ImGui::AlignTextToFramePadding();
@@ -352,13 +357,18 @@ namespace dova::ui::panel
 					ImGui::SameLine();
 					Colored(kGreen, text::kTemplateBest);
 				}
+				if (t.autoDraft) {
+					ImGui::SameLine();
+					Disabled(text::kTemplateDraft);
+					Tooltip(text::kTemplateDraftTip);
+				}
 				if (t.applied) {
 					ImGui::SameLine();
 					Disabled(text::kTemplateApplied);
 				}
 				ImGui::SameLine();
 				const std::string label = t.applied ? text::kReapplyTemplate : text::kUseTemplate;
-				const bool        go = a_confirm ? ConfirmButton(label, "tpl:" + t.source, std::format(text::kConfirmTemplate, t.name)) : Button(label);
+				const bool        go = confirm ? ConfirmButton(label, "tpl:" + t.source, std::format(text::kConfirmTemplate, t.name)) : Button(label);
 				if (go) {
 					Do([cell, source = t.source]() { Controller::Get().UseTemplate(cell, source); }, Refresh::Full);
 				}
@@ -444,7 +454,8 @@ namespace dova::ui::panel
 			}
 			if (!a_snap.templates.empty()) {
 				ImGui::SeparatorText(text::kSetupTemplates);
-				RenderTemplateChoices(a_snap, false);
+				Tooltip(text::kTemplatesTip);
+				RenderTemplateChoices(a_snap);
 			}
 		}
 
@@ -582,6 +593,15 @@ namespace dova::ui::panel
 				PanelModel::Get().RequestRefresh(Refresh::Full);
 			}
 
+			// Above Retrieve (a tree that can be long), so switching templates is in sight.
+			ImGui::SeparatorText(text::kSetupTemplates);
+			Tooltip(text::kTemplatesTip);
+			if (a_snap.templates.empty()) {
+				Disabled(text::kNoTemplate);
+			} else {
+				RenderTemplateChoices(a_snap);
+			}
+
 			ImGui::SeparatorText(text::kRetrieveHeader);
 			if (!a_snap.countsValid) {
 				Disabled(text::kCounting);
@@ -594,13 +614,6 @@ namespace dova::ui::panel
 				for (const auto root : a_snap.categories->roots) {
 					RenderRetrieveNode(a_snap, root);
 				}
-			}
-
-			ImGui::SeparatorText(text::kTemplateHeader);
-			if (a_snap.templates.empty()) {
-				Disabled(text::kNoTemplate);
-			} else {
-				RenderTemplateChoices(a_snap, true);
 			}
 
 			RenderAreas(a_snap);
@@ -1563,7 +1576,15 @@ namespace dova::ui::panel
 				Disabled(text::kLoading);
 				return;
 			}
+			PanelModel::Get().MarkRendered();  // keeps the current home's part fresh
 			ColoredWrapped(kGrey, text::kTemplatesIntro);
+			// The home the player is in: its templates, to switch to (the same list as This home).
+			if (const auto snap = PanelModel::Get().Home(); snap && snap->inHome && !snap->layoutBroken && !snap->templates.empty()) {
+				ImGui::SeparatorText(std::format(text::kTemplatesHere, snap->homeName).c_str());
+				Tooltip(text::kTemplatesTip);
+				RenderTemplateChoices(*snap);
+				ImGui::Spacing();
+			}
 			if (global->templates.empty()) {
 				Disabled(text::kTemplatesNone);
 				return;
@@ -1585,6 +1606,11 @@ namespace dova::ui::panel
 				ImGui::TableNextColumn();
 				Text(std::format("{} v{}", t.name, t.version));
 				Tooltip(std::format("{}\npriority {}", t.source, t.priority));
+				if (t.autoDraft) {
+					ImGui::SameLine();
+					Disabled(text::kTemplateDraft);
+					Tooltip(text::kTemplateDraftTip);
+				}
 				ImGui::TableNextColumn();
 				Text(t.author.empty() ? std::string(text::kNone) : t.author);
 				ImGui::TableNextColumn();

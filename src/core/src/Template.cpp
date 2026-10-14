@@ -20,20 +20,28 @@ namespace dova::core
 		// True if a ranks before b.
 		bool RanksBefore(const TemplateCandidate& a_lhs, const TemplateCandidate& a_rhs)
 		{
-			if (a_lhs.layout.priority != a_rhs.layout.priority) {
-				return a_lhs.layout.priority > a_rhs.layout.priority;
-			}
-			if (a_lhs.layout.autoDraft != a_rhs.layout.autoDraft) {
-				return !a_lhs.layout.autoDraft;  // a template someone made before an auto-draft (DESIGN §6.8)
-			}
-			if (const bool lhsUser = IsUserTemplate(a_lhs.source); lhsUser != IsUserTemplate(a_rhs.source)) {
-				return lhsUser;
-			}
-			if (const auto c = CompareVersionStrings(a_lhs.layout.version, a_rhs.layout.version); c != 0) {
-				return c > 0;
+			if (const auto c = CompareTemplateRank(a_lhs.layout, IsUserTemplate(a_lhs.source), a_rhs.layout, IsUserTemplate(a_rhs.source)); c != 0) {
+				return c < 0;
 			}
 			return ICompare(a_lhs.source, a_rhs.source) < 0;
 		}
+	}
+
+	int CompareTemplateRank(const Layout& a_lhs, bool a_lhsUser, const Layout& a_rhs, bool a_rhsUser)
+	{
+		if (a_lhs.autoDraft != a_rhs.autoDraft) {
+			return a_lhs.autoDraft ? 1 : -1;  // a template someone made before an auto-draft, whatever its priority (DESIGN §6.8)
+		}
+		if (a_lhs.priority != a_rhs.priority) {
+			return a_lhs.priority > a_rhs.priority ? -1 : 1;
+		}
+		if (a_lhsUser != a_rhsUser) {
+			return a_lhsUser ? -1 : 1;
+		}
+		if (const auto c = CompareVersionStrings(a_lhs.version, a_rhs.version); c != 0) {
+			return c > 0 ? -1 : 1;
+		}
+		return 0;
 	}
 
 	bool IsUserTemplate(std::string_view a_source)
@@ -221,6 +229,28 @@ namespace dova::core
 		out += '@';
 		out += a_version;
 		return out;
+	}
+
+	const TemplateCandidate* FindBasedOn(const Layout& a_layout, std::span<const TemplateCandidate> a_templates)
+	{
+		if (!a_layout.basedOn) {
+			return nullptr;
+		}
+		const auto it = std::ranges::find_if(a_templates, [&](const TemplateCandidate& t) { return MakeBasedOn(t.source, t.layout.version) == *a_layout.basedOn; });
+		return it != a_templates.end() ? &*it : nullptr;
+	}
+
+	bool HasOwnChanges(const Layout& a_layout, const TemplateCandidate* a_basedOn, const std::function<void(Layout&)>& a_afterApply)
+	{
+		if (!a_layout.basedOn || !a_basedOn || MakeBasedOn(a_basedOn->source, a_basedOn->layout.version) != *a_layout.basedOn) {
+			return true;
+		}
+		auto again = ApplyTemplate(*a_basedOn, &a_layout);
+		again.cell = a_layout.cell;
+		if (a_afterApply) {
+			a_afterApply(again);
+		}
+		return !SameSetup(again, a_layout);
 	}
 
 	Layout ApplyTemplate(const TemplateCandidate& a_template, const Layout* a_existing)

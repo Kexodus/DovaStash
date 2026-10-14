@@ -315,17 +315,27 @@ namespace dova::home
 			logger::error("Not applying template {} to {}: the existing layout file could not be parsed", a_template.source, a_home.name);
 			return false;
 		}
+		// What is there now is kept: unsaved changes are written, then the file is copied to a .bak, and the copy
+		// outside Data (DESIGN §6.6) goes to its history with the next write, so Saved setups can bring it back.
+		if (a_home.layout && a_home.dirty) {
+			Save(a_home);
+		}
 		if (!Store::Get().BackupPlayerLayout(a_home.cell)) {
 			logger::error("Not applying template {} to {}: the current layout could not be backed up", a_template.source, a_home.name);
 			return false;
 		}
+		if (a_home.layout) {
+			Store::Get().KeepHomeBackupHistoryNext(a_home.cell);
+		}
 		const auto source = a_template.source;  // a_template may live in the store; copy what we log
 		const auto version = a_template.layout.version;
+		const auto before = !a_home.layout ? "no setup"s : a_home.layout->basedOn ? *a_home.layout->basedOn : "a custom setup"s;
 		auto       layout = core::ApplyTemplate(a_template, a_home.layout ? &*a_home.layout : nullptr);
 		layout.cell = a_home.cell;
 		a_home.layout = std::move(layout);
 		Resolve(a_home);
 		logger::info("Applied template {} v{} to {} (player data merged)", source, version, a_home.name);
+		logger::debug("{}: template switched from {} to {}", a_home.name, before, core::MakeBasedOn(source, version));
 		return Save(a_home);
 	}
 

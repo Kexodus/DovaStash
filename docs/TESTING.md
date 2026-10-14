@@ -310,7 +310,8 @@ where you put things by hand*, live).
    *Templates: N loaded* and the home's template line.
 6. **Offered right away.** Press K again (no restart): the master menu now has
    **Use template "My Breezehome"** (the player's own templates rank before the shipped one). The
-   panel's **Actions → Template** lists it as *(recommended)*, and **Dova Stash → Templates** lists it.
+   panel's **Actions → Templates for this home** lists it as *(recommended)*, and **Dova Stash → Templates**
+   lists it.
 7. **Same name again.** **Save as template...** → *My Breezehome* → a box asks *Replace the template
    "My Breezehome"? Templates/User/My Breezehome.json (v1.0.0) is saved as v1.0.1; the old file is
    backed up.* **No** writes nothing (check the file time). **Yes** writes v1.0.1 and leaves
@@ -355,7 +356,7 @@ to `DovaStash.log`; MO2 never puts it in `overwrite`.
    the log says *could not be parsed; it is not used*. Nothing is written; the home stays not set up.
 7. **No Documents access** (make `Backups` read-only): saving still works; the log warns once
    (*Home backup: could not write ...*), then only at debug.
-8. Panel: see 5.2 step 8.
+8. Panel: see 5.2 step 11.
 
 ### 3.7 Displays (DESIGN §8.4)
 
@@ -702,24 +703,50 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    **Retrieve** button. Retrieve *Swords*: only swords come back, and the counts drop.
 3. Click **Refresh counts** after moving items by hand. The counts match the containers.
 4. **Sort all** behaves like the M2 menu action (3.4).
-5. **Template** section: *Breezehome ... (recommended)* with **Use**. Click it. A yellow question
-   appears with **Yes**/**No**. **No** leaves things unchanged. **Yes** applies the template. The header
-   shows *Based on template: Templates/Vanilla/Breezehome.json@1.0.0*, the row shows *(in use)*, and
-   the button becomes **Re-apply**.
-6. If a second template for the same cell is installed (for example a copy under
-   `Templates/Test/` with another name and `priority: -1`), it is listed under the first with its own
-   **Use** button, and applying it works the same way.
-7. **Reset home...** → **Yes**. The layout is backed up to `.json.bak` and the window returns to the
+5. **Templates for this home** (the second section, above Retrieve): *Breezehome v1.0.0 by Dova Stash
+   (recommended)* with **Use**. The setup from 5.1 is your own (*Custom setup*), so **Use** asks first: a
+   yellow *Use the template "Breezehome"? Your changes to this setup are replaced: ... Your setup is backed
+   up first (Saved setups); no items are moved.* with **Yes**/**No**. **No** leaves things unchanged.
+   **Yes** applies the template: the header shows *Based on template:
+   Templates/Vanilla/Breezehome.json@1.0.0*, the row shows *(in use)*, the button becomes **Re-apply**, and
+   the status line reads *Dova Stash: Breezehome setup enabled*.
+6. **Switching templates** (DESIGN §6.2 step 4). Copy `Templates/Vanilla/Breezehome.json` to
+   `Templates/Test/Breezehome.json`, set its `name` to *Test* and `"priority": -1`, give one container other
+   categories and pick another master; restart (debug log level). Both rows are listed, *Breezehome* first
+   with *(recommended)*, then *Test*. Note what each container and display holds. Right after step 5 the
+   setup has no changes of your own, so **Use** on *Test* switches at once, with no question: the header
+   says *Based on template: Templates/Test/Breezehome.json@1.0.0* and *(in use)* moves to *Test*. Log:
+   *Breezehome: template switched from Templates/Vanilla/Breezehome.json@1.0.0 to
+   Templates/Test/Breezehome.json@1.0.0*. Nothing moved: every container and display holds what it held;
+   learned items, keep rules and ignored containers are still there (Containers, Learned, Keep rules tabs).
+   **Sort all** then follows *Test*. **Use** on *Breezehome* switches back the same way.
+7. **Asks when you changed something.** Tick one more category on a container (Containers tab), back to
+   Actions: **Use** on the other template now asks first. **Yes** switches; `Layouts/` has a new timestamped
+   `.bak`, and **Saved setups** → *Older copies* has a new entry whose **Restore** brings back the setup with
+   your extra category. **Re-apply** on the template in use, after no change of yours, does not ask. Leave the
+   panel open a minute: no repeated log lines (the check runs only when the setup changes).
+8. **Drafts come last.** Add an auto-draft for the cell: the editor's *Save N drafts...*, or a copy of the
+   Breezehome template under `Templates/Breezehome/Unknown.json` with `"autoDraft": true` and
+   `"priority": 10`. Restart. It is listed last with *(draft)* (hover: drafted by the editor for many homes
+   at once), never *(recommended)*, priority 10 or not; its **Use** works like the others. Reset the home
+   with `bAutoEnableTemplates = true` and walk in again: the template someone made is enabled, not the draft,
+   and with `false` the notice and the hotkey's *Use template* name it. Remove `Templates/Test/` and the
+   Vanilla Breezehome (or add a missing plugin to their `requires`) and restart: the draft is now
+   *(recommended)*, the notice and the hotkey offer it, and a first visit enables it.
+9. **Templates page.** In Breezehome, **Dova Stash → Templates** shows *For Breezehome* above the table, with
+   the same rows and buttons (and the same question when the setup has changes of your own); the table marks
+   the auto-draft *(draft)*. Outside a home the section is not shown.
+10. **Reset home...** → **Yes**. The layout is backed up to `.json.bak` and the window returns to the
    setup view. No items are moved. The setup view shows *Saved setups* with a **Restore your last setup
    (date)** button (no question: there is nothing to replace); it brings the setup back.
-8. **Saved setups** (below Reset; hover for where the copies are): **Restore last setup (date)...** →
+11. **Saved setups** (below Reset; hover for where the copies are): **Restore last setup (date)...** →
    *Restore the setup saved (date)? This home's current setup is backed up first (.bak); no items are
    moved.* **No** changes nothing; **Yes**: status *Dova Stash: Breezehome restored*, and `Layouts/` has a
    new timestamped `.bak` of the setup that was there. *Older copies (N)* lists the history copies (one per
    earlier session, newest first), each with **Restore the setup from (date)...**. With a broken layout
    file (4.1) the setup view offers the same buttons next to **Reset home...**.
-9. **Only meaningful restores.** Right after a save (bind a category, close the panel, open it again; or
-   after step 8's restore) the latest copy equals the setup, so **Saved setups** shows *The latest copy
+12. **Only meaningful restores.** Right after a save (bind a category, close the panel, open it again; or
+   after step 11's restore) the latest copy equals the setup, so **Saved setups** shows *The latest copy
    (date) is this setup as it is now.* instead of the **Restore last setup** button; *Older copies* stay.
    Change something (tick another category) and refresh: the button is back. The comparison ignores
    formatting: reformat `Backups/<file>.json` by hand (one line, spaces instead of tabs) and it still counts
@@ -812,8 +839,8 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 4b. Untick **Keep learned items** and export under another name: no `forms` from learned items, and the
    HUD has no *incl. ... learned items*. The box is ticked again in another home.
 5. No restart: **Dova Stash → Templates** lists *My Breezehome*, and in Breezehome the
-   **Actions → Template** section lists it as *(recommended)* (the player's own templates rank before
-   the shipped ones of the same priority). The hotkey's **Save as template...** (§3.6) writes the same
+   **Actions → Templates for this home** section lists it as *(recommended)* (the player's own templates
+   rank before the shipped ones of the same priority). The hotkey's **Save as template...** (§3.6) writes the same
    file.
 
 ### 5.7 Global pages (SKSE Menu Framework menu → Dova Stash)
@@ -822,7 +849,7 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 |---|---|---|
 | 5.7.1 | **Current home** | The same panel as the window, for the current cell. Actions work from here too. |
 | 5.7.2 | **Settings** | Hotkey *K (scan code 37)*, gamepad *disabled*, and the INI booleans, log level and UI mode, all read-only, with the note to edit `DovaStash.ini` and restart. |
-| 5.7.3 | **Templates** | Every loaded template with name and version, author, home name (hover: cell FormRef), requires (green *ok*, or red *missing: ...* when a required plugin is not loaded) and an issue count (hover: the warnings). Templates for DLC or CC homes you don't have show *missing*. |
+| 5.7.3 | **Templates** | In a home: *For &lt;home&gt;* with that home's templates to switch to (5.2 steps 6 to 9). Then every loaded template with name and version (*(draft)* on an auto-draft), author, home name (hover: cell FormRef), requires (green *ok*, or red *missing: ...* when a required plugin is not loaded) and an issue count (hover: the warnings). Templates for DLC or CC homes you don't have show *missing*. |
 | 5.7.4 | **Diagnostics** | Category, template and Settings.json load problems, matching the `[warning]`/`[error]` lines in the log (each listed once), plus *This home's setup* warnings, such as a container pattern that matches no category. Break a category file on purpose (`"formTypes": ["XXXX"]`) and restart: the error is listed in red. |
 | 5.7.5 | **About** | Version, runtime, Menu Framework version, category and template counts. *Dova Stash Editor: installed at ...\Tools\DovaStashEditor.exe* when the build deployed the editor next to the plugin (under MO2 the path may read as the game's `Data\Tools\...`); rename the exe and restart: *Dova Stash Editor: not installed*. |
 | 5.7.6 | **Displays** | See §3.7 Displays, step 8e. |
