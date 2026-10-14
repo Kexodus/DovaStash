@@ -71,6 +71,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Sort/DisplayFiller.cpp
 	Sort/CraftingSupply.h
 	Sort/CraftingSupply.cpp
+	Sort/SellChest.h
+	Sort/SellChest.cpp
 	Game/RecipeIndex.h
 	Game/RecipeIndex.cpp
 	Events/EventSinks.h

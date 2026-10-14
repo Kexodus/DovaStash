@@ -114,6 +114,10 @@ namespace dova::core
 		std::vector<FormRef>     forms;       // explicit per-item bindings
 		std::vector<std::string> unparsedForms;  // malformed "forms" entries, written back verbatim
 		bool                     ignored{ false };
+		// "sell": true (DESIGN §8.8): the sell chest. Items reach it like any container (categories, learned,
+		// fixed items); what is in it is sold for gold only when the player confirms "Sell now" (or turned on
+		// timed selling). Nothing else is ever taken out of it. Inert on the master or an ignored container.
+		bool                     sell{ false };
 		nlohmann::json           extra = nlohmann::json::object();
 	};
 
@@ -174,6 +178,9 @@ namespace dova::core
 		[[nodiscard]] const DisplayBinding*   FindDisplay(const FormRef& a_ref) const;
 		[[nodiscard]] DisplayBinding*         FindDisplay(const FormRef& a_ref);
 		[[nodiscard]] bool                    IsMaster(const FormRef& a_ref) const { return master && *master == a_ref; }
+		// A container marked "sell" that is neither ignored nor the master (DESIGN §8.8).
+		[[nodiscard]] bool IsSellChest(const FormRef& a_ref) const;
+		[[nodiscard]] bool HasSellChest() const;
 	};
 
 	// --- Keep config JSON (also used by the plugin for global defaults in Settings.json) -----------

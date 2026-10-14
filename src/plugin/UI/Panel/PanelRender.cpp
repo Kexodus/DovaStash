@@ -574,6 +574,57 @@ namespace dova::ui::panel
 			Tooltip(text::kAreasTip);
 		}
 
+		std::string Items(std::int64_t a_n)
+		{
+			return std::format("{} item{}", a_n, a_n == 1 ? "" : "s");
+		}
+
+		// The sell chest (DESIGN §8.8): Sell now with the total, the buy-back, and the session's sales.
+		void RenderSell(const HomeSnapshot& a_snap)
+		{
+			const auto  cell = a_snap.cellId;
+			const auto& sell = a_snap.sell;
+			if (sell.chest) {
+				ImGui::SeparatorText(text::kSellHeader);
+				Tooltip(text::kSellTip);
+				if (!sell.reachable) {
+					Disabled(text::kSellNotHere);
+				} else if (sell.items <= 0) {
+					Disabled(sell.stays.empty() ? std::string(text::kSellNothing) : std::format("{} ({})", text::kSellNothing, sell.stays));
+				} else {
+					Wrapped(std::format(text::kSellQuote, Items(sell.items), sell.gold, sell.what));
+					if (!sell.stays.empty()) {
+						Disabled(sell.stays);
+					}
+					if (ConfirmButton(std::format(ui::kSellNow, sell.gold), "sell", std::format(ui::kConfirmSell, Items(sell.items), sell.gold, sell.what))) {
+						Do([cell, items = sell.items, gold = sell.gold]() { Controller::Get().SellConfirmed(cell, std::nullopt, items, gold); }, Refresh::Full);
+					}
+				}
+				if (sell.buyBack) {
+					const auto [items, gold] = *sell.buyBack;
+					Disabled(std::format(text::kBuyBackInfo, Items(items), gold, sell.buyBackWhat));
+					if (ConfirmButton(std::format(ui::kBuyBack, gold), "buyback", std::format(ui::kConfirmBuyBack, Items(items), gold, sell.buyBackWhat))) {
+						Do([cell]() { Controller::Get().BuyBackConfirmed(cell); }, Refresh::Full);
+					}
+				}
+			}
+			if (!sell.log.empty()) {
+				ImGui::SeparatorText(text::kSalesHeader);
+				for (std::size_t i = 0; i < sell.log.size(); ++i) {
+					const auto& sale = sell.log[i];
+					const auto  tags = std::string(sale.timed ? text::kSaleTimed : "") + (sale.boughtBack ? text::kSaleBoughtBack : "");
+					ImGui::PushID(static_cast<int>(i));
+					if (ImGui::TreeNodeEx(std::format(text::kSaleLine, sale.time, sale.chests, Items(sale.items), sale.gold, tags).c_str(), 0)) {
+						for (const auto& [name, count, gold] : sale.lines) {
+							ImGui::BulletText("%s", std::format(text::kSaleItem, name, count, gold).c_str());
+						}
+						ImGui::TreePop();
+					}
+					ImGui::PopID();
+				}
+			}
+		}
+
 		void RenderActions(const HomeSnapshot& a_snap)
 		{
 			const auto cell = a_snap.cellId;
@@ -602,6 +653,8 @@ namespace dova::ui::panel
 			if (ImGui::Button(text::kRefreshCounts)) {
 				PanelModel::Get().RequestRefresh(Refresh::Full);
 			}
+
+			RenderSell(a_snap);
 
 			// Above Retrieve (a tree that can be long), so switching templates is in sight.
 			ImGui::SeparatorText(text::kSetupTemplates);
@@ -746,8 +799,22 @@ namespace dova::ui::panel
 				Do([cell, ref, label = FromBuffer(g_state.label)]() { Controller::Get().SetLabel(cell, ref, label); });
 			}
 
+			if (a_row.sell) {
+				ColoredWrapped(kAccent, text::kSellChestInfo);
+			}
 			if (ImGui::Button(a_row.ignored ? text::kStopIgnoring : text::kIgnore)) {
 				Do([cell, ref, ignored = !a_row.ignored]() { Controller::Get().SetIgnored(cell, ref, ignored); }, Refresh::Full);
+			}
+			if (a_row.sell) {
+				ImGui::SameLine();
+				if (Button(ui::kNotSellChest)) {
+					Do([cell, ref]() { Controller::Get().SetSellChest(cell, ref, false); }, Refresh::Full);
+				}
+			} else if (!a_row.ignored && a_row.available) {
+				ImGui::SameLine();
+				if (ConfirmButton(ui::kMakeSellChest, "sellchest:" + a_row.refText, ui::SellChestQuestion(a_row.label))) {
+					Do([cell, ref]() { Controller::Get().SetSellChest(cell, ref, true); }, Refresh::Full);
+				}
 			}
 			if (a_row.managed || a_row.learnedCount > 0) {  // something to remove (never the master: returned above)
 				ImGui::SameLine();
@@ -851,7 +918,7 @@ namespace dova::ui::panel
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 					const bool selected = g_state.selected && *g_state.selected == row.ref;
-					const auto label = std::format("{}{}##{}", row.master ? text::kMasterTag : "", row.label, row.refText);
+					const auto label = std::format("{}{}##{}", row.master ? text::kMasterTag : row.sell ? text::kSellTag : "", row.label, row.refText);
 					if (ImGui::Selectable(label.c_str(), selected, ImGui::ImGuiSelectableFlags_SpanAllColumns)) {
 						Select(row);
 					}
@@ -1524,6 +1591,14 @@ namespace dova::ui::panel
 			ImGui::EndDisabled();
 			apply |= ImGui::Checkbox("Enable a home's template automatically on first visit", &v.templates.autoEnable);
 			Help("Homes with a ready-made setup (a template) are set up as soon as you walk in, instead of asking. Not while a saved setup of your own can be restored there.", "[General] bAutoEnableTemplates");
+
+			ImGui::SeparatorText("Sell chest");
+			ImGui::SliderInt("Price (percent of the game's)", &v.selling.pricePercent, 10, 200, "%d%%");
+			apply |= ImGui::IsItemDeactivatedAfterEdit();
+			Help("What a sale pays, in percent of what a merchant would pay you (your Speech, Haggling and Fortify Barter). 100 = the game's price.", "[Selling] iSellPricePercent");
+			ImGui::SliderInt("Sell by itself after (game hours)", &v.selling.autoSellHours, 0, 168, v.selling.autoSellHours == 0 ? "off" : "%d h");
+			apply |= ImGui::IsItemDeactivatedAfterEdit();
+			Help("Timed selling: what has been in the sell chest this long is sold when you come home, close a container or wake up there, with one HUD line. Counted from when Dova Stash first saw it this session, so never sooner. Off: only Sell now sells, after you confirm the total.", "[Selling] iAutoSellHours");
 
 			ImGui::SeparatorText("QuickLoot IE");
 			ImGui::BeginDisabled(!global->quickLootReady);

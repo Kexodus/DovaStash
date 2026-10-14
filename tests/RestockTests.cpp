@@ -331,3 +331,19 @@ TEST_CASE("Deposit right after Restock leaves what was restocked", "[restock][pl
 		CHECK(line.taken == 0);
 	}
 }
+
+TEST_CASE("Restock never takes from the sell chest", "[restock][planner][sell]")
+{
+	Fixture f;
+	f.layout.containers[0].sell = true;  // the satchel sells
+	const auto keep = Compile(Only({ Restocking("alchemy.potions", 10) }));
+
+	const std::vector<ItemInfo>          inventory{};
+	const std::vector<ContainerContents> stored{
+		{ kMaster, { HealthPotion(kHealthBig, 2, 36, 10) } },
+		{ kSatchel, { HealthPotion(kHealth, 20, 17, 20) } },
+	};
+	const auto moves = f.Restock(inventory, stored, keep);
+	REQUIRE(moves.size() == 1);
+	CHECK(moves[0] == Move{ 10, kHealthBig, 2, ContainerRef(kMaster), ContainerRef::Player() });
+}

@@ -56,6 +56,7 @@ namespace dova::ui::panel
 		bool                     master{ false };
 		bool                     managed{ false };  // has a binding entry (or is the master)
 		bool                     ignored{ false };
+		bool                     sell{ false };  // the sell chest (Layout::IsSellChest, DESIGN §8.8)
 		bool                     available{ false };
 		std::string              reason;   // why it is unavailable
 		std::string              warning;  // accepted with a warning (e.g. respawn flag in a never-reset cell)
@@ -111,6 +112,32 @@ namespace dova::ui::panel
 		bool                  same{ false };  // says the same as the current setup: restoring it would change nothing (not offered)
 	};
 
+	// The sell chest (DESIGN §8.8): what Sell now would do, the buy-back, and the session's sales.
+	struct SaleRow
+	{
+		std::string                                          time;
+		std::string                                          home;
+		std::string                                          chests;
+		bool                                                 timed{ false };
+		bool                                                 boughtBack{ false };
+		std::int32_t                                         items{ 0 };
+		std::int64_t                                         gold{ 0 };
+		std::vector<std::tuple<std::string, std::int32_t, std::int64_t>> lines;  // name, count, gold
+	};
+
+	struct SellInfo
+	{
+		bool         chest{ false };  // the home has a sell chest
+		bool         reachable{ false };  // one can be used from here
+		std::int32_t items{ 0 };  // Sell now: what goes
+		std::int64_t gold{ 0 };
+		std::string  what;
+		std::string  stays;
+		std::optional<std::pair<std::int32_t, std::int64_t>> buyBack;  // items, gold
+		std::string  buyBackWhat;
+		std::vector<SaleRow> log;  // newest first
+	};
+
 	struct HomeSnapshot
 	{
 		std::uint64_t serial{ 0 };
@@ -152,6 +179,8 @@ namespace dova::ui::panel
 		// Saved setups outside Data: the latest copy first, then history, newest first. Listed on a full
 		// refresh (and when the home changes); carried over otherwise.
 		std::vector<BackupOption> backups;
+
+		SellInfo sell;  // worked out on every rebuild (one look into the sell chests)
 
 		std::optional<core::KeepConfig> keep;  // the layout's keep block
 		std::string                     keepJson;  // serialized keep block ("" = none): change detection for the editor draft

@@ -78,6 +78,18 @@ namespace dova
 			bool operator==(const Sorting&) const = default;
 		};
 
+		struct Selling
+		{
+			// DESIGN §8.8: what the sell chest pays, in percent of the game's own barter price for you (your
+			// Speech, perks and Fortify Barter). 10-200.
+			std::int32_t pricePercent{ 100 };
+			// Timed selling: what has been in the sell chest for this many game hours is sold by itself (you get
+			// the gold and one HUD line). 0 = off (the default): only "Sell now" sells, after you confirm. 0-168.
+			std::int32_t autoSellHours{ 0 };
+
+			bool operator==(const Selling&) const = default;
+		};
+
 		struct UIOptions
 		{
 			// DESIGN §10.1/§10.3: what the hotkey opens in the world.
@@ -126,6 +138,7 @@ namespace dova
 			Input        input;
 			Templates    templates;
 			Sorting      sorting;
+			Selling      selling;
 			UIOptions    ui;
 			Integrations integrations;
 			Overlay      overlay;
@@ -148,6 +161,7 @@ namespace dova
 		[[nodiscard]] Input GetInput() const { return _v.load()->input; }
 		[[nodiscard]] Templates GetTemplates() const { return _v.load()->templates; }
 		[[nodiscard]] Sorting GetSorting() const { return _v.load()->sorting; }
+		[[nodiscard]] Selling GetSelling() const { return _v.load()->selling; }
 		[[nodiscard]] UIOptions GetUI() const { return _v.load()->ui; }
 		[[nodiscard]] Integrations GetIntegrations() const { return _v.load()->integrations; }
 		[[nodiscard]] Overlay GetOverlay() const { return _v.load()->overlay; }

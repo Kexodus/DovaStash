@@ -94,6 +94,11 @@ namespace dova::core
 		[[nodiscard]] std::vector<RestockGoal> RestockGoals(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories) const;
 		// The restocking rule a stored stack belongs to, if any.
 		[[nodiscard]] std::optional<RuleId> RestockRuleFor(const ItemInfo& a_item, const CategorySet& a_categories) const;
+		// The sell chest's protection (DESIGN §8.8): true when an `always` entry keeps the item (quest items,
+		// non-playable items and items that come back when stored always count). Layers decide as above (a
+		// layout's `never` overrides a global `always`); quotas say how many to carry, not what may be sold, so
+		// they are not consulted. `a_why` receives the rule ("always misc.gems (layout)").
+		[[nodiscard]] bool AlwaysKeeps(const ItemInfo& a_item, const CategorySet& a_categories, std::string* a_why = nullptr) const;
 
 		struct Quota
 		{

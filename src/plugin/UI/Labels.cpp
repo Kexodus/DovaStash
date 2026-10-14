@@ -1,11 +1,37 @@
 #include "UI/Labels.h"
 
+#include "Controller.h"
 #include "Game/FormUtil.h"
 #include "Home/Store.h"
+#include "Settings.h"
+#include "Sort/SellChest.h"
 #include "Sort/SortEngine.h"
 
 namespace dova::ui
 {
+	std::vector<std::pair<std::string, std::function<void()>>> SellEntries(const home::Home& a_home, const std::optional<core::FormRef>& a_chest)
+	{
+		std::vector<std::pair<std::string, std::function<void()>>> out;
+		const auto cellId = a_home.cellId;
+		if (const auto quote = sort::selling::QuoteSale(a_home, a_chest); !quote.Empty()) {
+			out.emplace_back(std::format(kSellNow, quote.gold), [cellId, a_chest]() { Controller::Get().SellNow(cellId, a_chest); });
+		}
+		if (const auto offer = sort::selling::BuyBackOffer(a_home)) {
+			out.emplace_back(std::format(kBuyBack, offer->gold), [cellId]() { Controller::Get().BuyBack(cellId); });
+		}
+		return out;
+	}
+
+	std::string SellChestQuestion(std::string_view a_name)
+	{
+		auto       text = std::format(kConfirmSellChest, a_name);
+		const auto hours = Settings::GetSingleton().GetSelling().autoSellHours;
+		if (hours > 0) {
+			text += std::format(kTimedSellNote, hours);
+		}
+		return text;
+	}
+
 	namespace
 	{
 		std::string Capitalize(std::string a_text)
@@ -158,6 +184,9 @@ namespace dova::ui
 				}
 				if (patterns.size() > shown) {
 					out += std::format(" +{}", patterns.size() - shown);
+				}
+				if (a_role.binding->sell) {
+					return out.empty() ? "Sell"s : "Sell: " + out;  // the sell chest says so first ("Chest (Sell: Clutter)")
 				}
 				if (out.empty() && a_role.learned > 0) {
 					// Learned items only: where they belong ("Books, learned"), else how many there are.

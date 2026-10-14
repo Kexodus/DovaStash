@@ -334,6 +334,9 @@ namespace dova::editor::ui
 						w::Coloured(w::Kind::Error, "Respawns: ignore it");
 					}
 					if (!b->ignored) {
+						changed |= w::Check("Sell chest", b->sell, "What reaches it is sold for gold when the player confirms Sell now in game");
+					}
+					if (!b->ignored) {
 						changed |= CategoryEditor("cats", b->categories);
 						if (!b->forms.empty()) {
 							w::Muted(std::format("{} fixed items (kept)", b->forms.size()).c_str());

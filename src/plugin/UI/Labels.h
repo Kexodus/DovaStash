@@ -22,6 +22,22 @@ namespace dova::ui
 	inline constexpr std::string_view kRenameArea = "Rename {}...";  // the area's name
 	inline constexpr std::string_view kRemoveArea = "Remove this area from {}...";
 	inline constexpr std::string_view kConfirmRemoveArea = "Remove {} from {}?\nIts containers stay in the setup but are no longer used. No items are moved.";
+	// The sell chest (DESIGN §8.8), the same on every UI surface.
+	inline constexpr auto             kMakeSellChest = "Make sell chest...";
+	inline constexpr auto             kNotSellChest = "Not the sell chest";
+	inline constexpr std::string_view kConfirmSellChest = "Make {} the sell chest?\nWhat you put in it is sold for gold when you choose Sell now and confirm the total. Stolen, improved, quest and kept items stay. Nothing is sold now.";
+	inline constexpr std::string_view kTimedSellNote = "\nTimed selling is on: what stays in it {} hours is sold by itself.";  // hours
+	inline constexpr std::string_view kSellNow = "Sell now ({} gold)...";  // gold
+	inline constexpr std::string_view kConfirmSell = "Sell {} for {} gold?\n{}";  // "14 items", gold, what goes (+ what stays)
+	inline constexpr std::string_view kBuyBack = "Buy back ({} gold)...";  // gold
+	inline constexpr std::string_view kConfirmBuyBack = "Buy back {} for {} gold?\n{}";  // "14 items", gold, what
+
+	// The sell chest's entries in the hotkey menus (main thread: works out the sale): "Sell now (862 gold)..." when
+	// there is something to sell, and "Buy back (862 gold)..." after a sale in this home. `a_chest`: that sell chest;
+	// nullopt: every one of the home (the master menu).
+	[[nodiscard]] std::vector<std::pair<std::string, std::function<void()>>> SellEntries(const home::Home& a_home, const std::optional<core::FormRef>& a_chest);
+	// kConfirmSellChest for `a_name`, plus the timed-selling note when that is on.
+	[[nodiscard]] std::string SellChestQuestion(std::string_view a_name);
 
 	// Category display name ("Swords"), falling back to the capitalized id.
 	[[nodiscard]] std::string CategoryName(std::string_view a_id);

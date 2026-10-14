@@ -54,6 +54,18 @@ namespace dova
 		void ToggleCategory(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_pattern);
 		void ClearCategories(RE::FormID a_cellId, const core::FormRef& a_container);
 		void SetIgnored(RE::FormID a_cellId, const core::FormRef& a_container, bool a_ignored);
+		// The sell chest (DESIGN §8.8). Marking one only changes the setup: nothing is sold. A container without
+		// categories or learned items gets the junk category (misc.clutter) when the category set has it.
+		void SetSellChest(RE::FormID a_cellId, const core::FormRef& a_container, bool a_sell);
+		// "Sell now": works out the sale (one sell chest, or every one of the home) and asks (message box: "Sell 14
+		// items for 862 gold?"); Yes sells exactly that (SellConfirmed). Waits for an open container menu to close.
+		void SellNow(RE::FormID a_cellId, std::optional<core::FormRef> a_chest);
+		// Sells, if the sale is still the one the player confirmed (`a_items`, `a_gold`). The panel calls it after
+		// its own confirmation.
+		void SellConfirmed(RE::FormID a_cellId, std::optional<core::FormRef> a_chest, std::int32_t a_items, std::int64_t a_gold);
+		// The last sale of the session, bought back for the same gold (asks first; BuyBackConfirmed does it).
+		void BuyBack(RE::FormID a_cellId);
+		void BuyBackConfirmed(RE::FormID a_cellId);
 		// Takes the container out of the layout: its entry (categories, explicit items, label) and the
 		// learned destinations pointing at it go; what is inside stays. Not the master. Unlike Ignore,
 		// nothing is kept, so Learn may add it again when items are put in by hand.

@@ -9,6 +9,7 @@
 #include "Settings.h"
 #include "UI/UIExtensions.h"
 #include "Integrations/QuickLoot.h"
+#include "Sort/SellChest.h"
 #include "Sort/SortEngine.h"
 #include "UI/MenuFramework.h"
 #include "UI/Panel/Strings.h"
@@ -304,6 +305,7 @@ namespace dova::ui::panel
 			if (a_binding) {
 				row.patterns = a_binding->categories;
 				row.ignored = a_binding->ignored;
+				row.sell = layout && layout->IsSellChest(a_ref);
 				row.note = a_binding->note;
 				row.explicitForms = a_binding->forms.size();
 				for (const auto& p : a_binding->categories) {
@@ -379,6 +381,29 @@ namespace dova::ui::panel
 					break;
 				}
 			}
+		}
+
+		// The sell chest (DESIGN §8.8): what Sell now would do (one look into the sell chests), the buy-back, the log.
+		if (layout && !home->layoutBroken && layout->HasSellChest()) {
+			auto& sell = snap->sell;
+			sell.chest = true;
+			const auto quote = sort::selling::QuoteSale(*home, std::nullopt);
+			sell.reachable = !quote.chests.empty();
+			sell.items = quote.items;
+			sell.gold = quote.gold;
+			sell.what = quote.what;
+			sell.stays = quote.stays;
+			if (const auto offer = sort::selling::BuyBackOffer(*home)) {
+				sell.buyBack = std::pair{ offer->items, offer->gold };
+				sell.buyBackWhat = offer->what;
+			}
+		}
+		for (const auto& sale : sort::selling::SaleLog()) {
+			SaleRow row{ sale.time, sale.home, sale.chests, sale.timed, sale.boughtBack, sale.items, sale.gold, {} };
+			for (const auto& line : sale.lines) {
+				row.lines.emplace_back(line.name, line.count, line.gold);
+			}
+			snap->sell.log.push_back(std::move(row));
 		}
 
 		if (layout) {

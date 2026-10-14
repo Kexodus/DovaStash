@@ -1245,7 +1245,9 @@ PLUGIN_EXTS = (".esp", ".esm", ".esl")
 
 def _is_plugin_name(s):
     return isinstance(s, str) and len(s) > 4 and s.lower().endswith(PLUGIN_EXTS) and not any(c in s for c in "|/\\")
-CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
+
+
+CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms", "sell"}
 DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "only", "set", "ignored"}
 DISPLAY_KINDS = {"rack", "mannequin", "item", "case", "bookshelf"}
 
@@ -1434,6 +1436,11 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
             warnings.append(f"{where}: no label")
         if c.get("ignored") and c.get("categories"):
             warnings.append(f"{where}: ignored container also has categories")
+        # The sell chest (DESIGN 8.8): a boolean; inert on an ignored container or the master.
+        if "sell" in c and not isinstance(c["sell"], bool):
+            errors.append(f"{where}: sell must be true or false")
+        elif c.get("sell") and (c.get("ignored") or (mk and kl(key) == kl(mk))):
+            warnings.append(f"{where}: sell has no effect on an ignored container or the master")
         for cat in c.get("categories", []):
             if cat in cats_seen:
                 warnings.append(f"{where}: category {cat!r} also bound at {cats_seen[cat]}")

@@ -279,6 +279,11 @@ namespace dova::ui
 			items.push_back({ "Restock", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Restock); } });
 		}
 		items.push_back({ "Sort all", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::SortAll); } });
+		if (a_home.layout && a_home.layout->HasSellChest()) {
+			for (auto& entry : SellEntries(a_home, std::nullopt)) {
+				items.push_back({ std::move(entry.first), std::move(entry.second) });
+			}
+		}
 		items.push_back({ "Retrieve...", [this, cellId]() { OpenRetrieve(cellId); } });
 		items.push_back({ "Browse containers...", [this, cellId]() { OpenBrowse(cellId); } });
 		if (masterRef) {
@@ -291,7 +296,7 @@ namespace dova::ui
 			const bool basedOnTemplate = a_home.layout && a_home.layout->basedOn && a_home.layout->basedOn->starts_with(best->source + "@");
 			const auto name = best->layout.name;
 			items.push_back({ basedOnTemplate ? std::format("Re-apply template \"{}\"", name) : std::format("Use template \"{}\"", name), [cellId, name]() {
-								 Confirm(std::format("Use the template \"{}\"?\nYour learned destinations, keep rules and ignored containers are kept; the master and category bindings are replaced by the template's. A backup is saved; no items are moved.", name),
+								 Confirm(std::format("Use the template \"{}\"?\nYour learned destinations, keep rules and ignored containers are kept; the master, sell chest and category bindings are replaced by the template's. A backup is saved; no items are moved.", name),
 									 [cellId]() { Controller::Get().UseTemplate(cellId); });
 							 } });
 		}
@@ -335,6 +340,12 @@ namespace dova::ui
 		items.push_back({ std::format("Categories... ({})", summary), [this, cellId, ref = *ref]() { OpenAssignGroups(cellId, ref); },
 			icons::ForContainer(*a_home.layout, a_container) });
 		items.push_back({ std::format("Open {}", game::RefName(a_container)), [cellId, ref = *ref]() { Controller::Get().Browse(cellId, ref); } });
+		const bool sellChest = a_home.layout->IsSellChest(*ref);
+		if (sellChest) {
+			for (auto& entry : SellEntries(a_home, *ref)) {
+				items.push_back({ std::move(entry.first), std::move(entry.second) });
+			}
+		}
 		items.push_back({ "Rename...", [this, cellId, ref = *ref]() { OpenRename(cellId, ref); } });
 		if (HasCustomName(a_container)) {
 			items.push_back({ "Restore original name", [cellId, ref = *ref]() { Controller::Get().SetLabel(cellId, ref, {}); } });
@@ -353,6 +364,13 @@ namespace dova::ui
 		}
 		const bool ignored = binding && binding->ignored;
 		items.push_back({ ignored ? "Stop ignoring" : "Ignore", [cellId, ref = *ref, ignored]() { Controller::Get().SetIgnored(cellId, ref, !ignored); } });
+		if (sellChest) {
+			items.push_back({ kNotSellChest, [cellId, ref = *ref]() { Controller::Get().SetSellChest(cellId, ref, false); } });
+		} else if (!ignored) {
+			items.push_back({ kMakeSellChest, [cellId, ref = *ref, name = game::RefName(a_container)]() {
+								 Confirm(SellChestQuestion(name), [cellId, ref]() { Controller::Get().SetSellChest(cellId, ref, true); });
+							 } });
+		}
 		if (binding || learned > 0) {
 			items.push_back({ "Remove...", [this, cellId, ref = *ref, name = game::RefName(a_container)]() {
 								 Confirm(std::format("Remove {} from Dova Stash?\n{}", name, kRemoveExplained), [cellId, ref]() { Controller::Get().RemoveContainer(cellId, ref); });
