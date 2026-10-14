@@ -62,7 +62,7 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
 | Hotkey into the air → highlight managed containers     | Same: apply a timed effect shader to managed containers                            |
 | `Stash Organizer.ini` + `[Cell ID].ini` override       | `Layouts/` (player) + `Templates/` (community), resolved by cell identity (§6)     |
 | Settings persist across playthroughs                   | Same: layouts live in JSON, not in the save                                        |
-| Crafting pulls from storage                            | Materials at the workbench (§8.5): brought on sitting down, the rest put back      |
+| Crafting pulls from storage                            | Materials at the workbench (§8.5): the menu crafts from storage (or brings them)    |
 | Mojave Express (send items between stashes)            | Superseded by central storage (v2)                                                 |
 
 ---
@@ -513,8 +513,8 @@ containers of a multi-cell template that are `onlyReachableInTheirCell`.
 **In practice:**
 - *Deposit, Sort all, Retrieve* in any cell of the home use the containers of all its cells that are
   reachable from there (the master too).
-- *Materials at the workbench* (§8.5): a forge, smelter or tanning rack outside brings the materials stored in
-  the persistent containers inside, and puts what is left back there when the menu closes.
+- *Materials at the workbench* (§8.5): a forge, smelter or tanning rack outside crafts from the materials stored in
+  the persistent containers inside (or, in Move mode, brings them and puts what is left back there when the menu closes).
 - *Learn*, *Browse* and the container menus work on reachable containers (opening a remote container's menu
   is activation from afar; unverified in game).
 
@@ -711,7 +711,7 @@ download that drops into the same `Categories/` folder, not in the main archive.
 | **Sort all**   | Master + bound containers → correct one (see §16) | Manual (e.g. after changing bindings)                             |
 | **Retrieve**   | Destinations → player                 | Menu: by category, or everything                                  |
 | **Fill displays** | Player + managed containers → the empty displays in use (§8.4) | Part of Deposit and Sort all (`bFillDisplays`); one display with *Fill now* in its menu |
-| **Crafting supply** | Managed containers → player, the unused rest back (§8.5) | Sitting down at a crafting station in an enabled home (`bCraftingSupply`); back when the crafting menu closes |
+| **Crafting supply** | Craft from storage: the shortfall of each craft, managed containers → player, used up at once; Move: managed containers → player, the unused rest back (§8.5) | Crafting at a station in an enabled home (`iCraftingSupply`); Move: sitting down, back when the crafting menu closes |
 | **Learn**      | Records item → container (§8.6)       | `TESContainerChangedEvent` (player → non-master managed container) while `ContainerMenu` is open on that container |
 
 ### 8.2 Moving items safely (`ItemMover`)
@@ -952,11 +952,53 @@ empty); 41 items to put up`), the plan and each placement at debug.
 
 ### 8.5 Materials at the workbench (crafting supply)
 
-Sitting down at a crafting station in an enabled home brings the stored materials its recipes use into the
-player's inventory; when the crafting menu closes, what is left of them goes back to the container each came
-from (`[Sorting] bCraftingSupply`, on by default: nothing is lost either way, and everything brought goes back
-on its own). Core logic in `core/Crafting.h` (unit-tested), the plugin side in `sort::crafting`
-(`Sort/CraftingSupply.*`) and `game::Recipes` (`Game/RecipeIndex.*`).
+At a crafting station in an enabled home, the materials stored in the home's containers count as the
+player's. Two ways, one setting (`[Sorting] iCraftingSupply`, *Materials at the workbench* on the Settings
+page, applied from the next station visit):
+- **Craft from storage** (default on SE and AE): the crafting menu counts the stored materials where they are,
+  and each craft takes what the player lacks from the containers. Nothing moves when the menu opens or closes,
+  so a big store costs nothing when sitting down (moving every material is what makes transfer-based crafting
+  mods lag in large hoards). See *Craft from storage* below.
+- **Move**: sitting down brings the stored materials the station's recipes use into the player's inventory;
+  when the crafting menu closes, what is left of them goes back to the container each came from. Nothing is
+  lost either way, and everything brought goes back on its own. Enchanters always use Move (below).
+- **Off**.
+
+Which materials, from which containers and with what exclusions is the same in both modes (below, up to *The
+ledger*). Core logic in `core/Crafting.h` and `core/CraftingStorage.h` (unit-tested), the plugin side in
+`sort::crafting` (`Sort/CraftingSupply.*` for Move and the triggers, `Sort/CraftingStorage.*` for the mode and
+the storage sessions, `Hooks/CraftingHooks.*`) and `game::Recipes` (`Game/RecipeIndex.*`).
+
+**The mode** (`core::crafting::ResolveMode`, resolved at `kDataLoaded` and whenever the setting changes; one
+log line when the result changes: `Materials at the workbench: craft from storage (auto, game data loaded)`):
+
+| `iCraftingSupply` | Result |
+|---|---|
+| `0` auto (default) | Off when another crafting-from-storage mod is loaded (the log and the Settings page name it: `Now off: Crafting Pulls Resources From Containers is loaded and already does this.`); else Craft from storage when the hooks are in; else Move (VR) |
+| `1` off, `2` move | As chosen |
+| `3` craft from storage | As chosen, also next to another crafting mod; Move when the hooks are not available (VR), with a log line |
+
+An older INI's `bCraftingSupply = false` reads as `1` (off) once; `true` was the old default (written by every
+save) and means nothing. The key is replaced by `iCraftingSupply` on the next save.
+
+**Other crafting-from-storage mods** (`core::crafting::KnownCraftingStorageMods`; research in
+`docs/research/SIMILAR-MODS.md`). Two of them in one home would both answer the same crafting menu: the hook
+mods would count the same containers twice or take the same materials, and the transfer mods (Linked Crafting
+Storage, Workbench Containers) move materials in and out on the same menu events as Move, so a stack can end up
+in the other mod's container. Auto therefore steps aside:
+
+| File | Mod | Kind | Name checked against |
+|---|---|---|---|
+| `CraftingPullFromContainer.dll` | Crafting Pulls Resources From Containers (Nexus 135613) | hooks | the mod's source (`JerryYOJ/CraftingPullFromContainer-SKSE`, CMake project name) |
+| `CraftingInventoryExtender.dll` | Skyrim Crafting Inventory Extender (SCIE) | hooks | the mod's source (`ohfor/scie`, release workflow) |
+| `SmartCraftingStorage.dll` | Smart Crafting Storage (Nexus 182056) | hooks | Nexus page |
+| `LinkedCraftingStorage.esp` | Linked Crafting Storage (Nexus 64772) | transfer | Nexus page |
+| `Workbench Containers.esp` | Workbench Containers (Nexus 130090) | transfer | Nexus page |
+
+None of them is in the developer's MO2 list. DLLs are found with `GetModuleHandle` (SKSE has loaded every
+plugin DLL by then), plugins in the load order, case-insensitively. Not detected: Handy Crafting and Spells
+(v4 turns itself off in player homes), Dynamic Autosorting System, Crafting Containers and Auto Chests (their
+file names are not confirmed), LOTD's craftloot (Dova Stash already leaves LOTD's cells alone, §9).
 
 **Which station, which materials.** The station is the furniture the player sits at (`TESFurnitureEvent`), so
 modded stations work like vanilla ones. Its materials come from the load order's own recipes, never from a
@@ -1013,6 +1055,90 @@ player's inventory, never lost.
 **Feedback.** One HUD line each way: `Dova Stash: 34 materials at hand` and `Dova Stash: put 20 back` (nothing
 when nothing went back). The log has a line per stack brought and per (form, key) at the end at debug (`had 2,
 brought 10, crafted 3, now 9 -> 6 back`), and a summary each way at info.
+
+#### Craft from storage
+
+How the existing crafting-from-storage SKSE mods do it was read in their sources before designing this:
+Crafting Pulls Resources From Containers (`JerryYOJ/CraftingPullFromContainer-SKSE`), Skyrim Crafting
+Inventory Extender (`ohfor/scie`, MIT; SE, AE and VR) and DavidJCobb's Skyrim LE original
+(`DavidJCobb/skyrim-classic-crafting-containers`, which names the engine functions behind each patch). All
+three answer the crafting menus' inventory questions for the player and take consumption off the containers;
+the two SE mods hook the same four functions as Dova Stash. What Dova Stash does differently: only the home's
+own containers under the same rules as Move (never tempered, enchanted, favorited, worn or quest copies; gear
+only with `bCraftingSupplyGear`); counts cached for the whole session instead of scanning containers on every
+query; the shortfall comes into the player's inventory through the `ItemMover` (exact stacks, every move
+re-validated and logged) and the game then consumes it as usual, instead of removing copies from containers
+directly; no container entry is ever handed to a menu.
+
+**Session** (`sort::crafting::storage`). Starts when the player sits down at a station in an enabled home
+(`TESFurnitureEvent` kEnter, the same trigger as Move, before the crafting menu builds its lists): the home's
+reachable containers are snapshotted once (`detail::SnapshotStored`), and per material
+`core::crafting::MakeSupply` keeps how many copies the containers can give (the stacks Move would bring,
+`Judge`) and where, in take order: **the container the item is bound to first** (where Sort all would put it,
+`SortPlanner::ResolveDestination`), then the others in layout order (master first). One info line
+(`Crafting from storage at Forge in Breezehome: 340 materials (25 kinds) in 6 containers`), one per material at
+debug, and the same HUD line as Move (`Dova Stash: 340 materials at hand`). The session ends when the crafting
+menu closes, when the player gets up without it, on another station, and on loading a game (one info line:
+`... 14 materials taken from storage at Forge (5 crafts; Chest, Ore Barrel)`). The menu opening without the
+furniture event having been seen (its lists are already built) uses Move for that visit.
+
+**The hooks** (`Hooks/CraftingHooks.*`; installed the first time the mode resolves to Craft from storage, never
+on VR). Each calls the game first and only changes the answer while a session is active, on the main thread,
+while the player sits at the session's station, and never while Dova Stash itself is counting or moving items
+(`storage::Busy`, so the engine never sees inflated counts inside our moves or the game's own removal):
+
+| Hook | ID (SE / AE) | How | Why |
+|---|---|---|---|
+| InventoryChanges' count of one object (with an item filter) | 15869 / 16109 | MinHook detour | The recipe lists, the requirement lines (`Iron Ingot (3/2)`), the craftable check right before a craft and recipe conditions ask it. For the player's inventory it returns the game's count plus the cached supply. |
+| `TESObjectREFR::GetInventoryItemCount` | 19274 / 19700 | MinHook detour | How the alchemy menu counts the player's inventory entries before listing them. At an alchemy lab it adds one entry per stored ingredient the player does not carry. |
+| `TESObjectREFR::GetInventoryItemAt` | 19273 / 19699 | MinHook detour | How the alchemy menu gets each entry (a copy the caller owns and deletes). Past the player's own entries: a new plain entry (object, stored count). The player's own entry of a stored ingredient becomes one plain entry with both counts, unless it holds a worn, favorited or quest copy (then it is left alone). Never an entry of a container's, so no container's extra data ever reaches the menu. |
+| `PlayerCharacter::RemoveItem` | vtable slot 0x56 (`VTABLE_PlayerCharacter[0]`, `write_vfunc`) | vtable | How every crafting menu consumes materials: reason `kRemove`, no extra list, no target, no drop point, while the `Crafting Menu` is open. Anything else passes through untouched. |
+
+The IDs: 19273/19699 and 19274/19700 are the ones CommonLibSSE-NG's own `GetInventoryItemAt` /
+`GetInventoryItemCount` wrappers use, and the signatures are CommonLib's; 15869/16109 is the function after
+CommonLib's `InventoryChanges::GetItemCount` (15868/16108), signature `int32 (InventoryChanges*,
+TESBoundObject*, void* filter)` as both SE mods declare it; slot 0x56 is `TESObjectREFR::RemoveItem` in
+CommonLib (`ObjectRefHandle` returned through a hidden pointer after `this`, as both SE mods hook it). That
+`GetInventoryItemAt` hands out copies the caller deletes is how Exit-9B's StaffEnchanting uses it
+(`std::unique_ptr`), and CommonLib's `InventoryEntryData` copy shares the `ExtraDataList` pointers and frees
+only the list. Hook installation never throws into the game: a failed detour removes them all, logs, and the
+mode resolves to Move. On VR the SE IDs are not all in the VR Address Library, and a missing ID ends the game
+(CommonLib's `report_and_fail`), so they are never resolved there (SCIE has VR-specific offsets for these;
+unverified here, so VR uses Move).
+
+**Consumption** (`storage::Consume`, inside the `RemoveItem` hook, main thread). The game asks to remove *n*
+of an item:
+1. The player carries *n* or more, or the item is not a stored material: the game removes as usual.
+2. Else the shortfall (`core::crafting::Shortfall`) comes from the containers: the item's containers are
+   snapshotted fresh (not the cache), `core::crafting::PlanTake` picks stacks in take order (bound container
+   first; within a container plain copies before stolen or soul-keyed ones; partial stacks), and the
+   `ItemMover` brings exactly those to the player (`kRemove`, logged, never learned).
+3. The game's own `RemoveItem` runs on the player as it would have, and the crafted result goes to the player
+   as normal.
+4. If the craft took fewer copies than it asked for, the brought copies it did not use go straight back to the
+   containers they came from (`core::crafting::Unused`, `ReturnMoves`).
+5. The cache is updated from the fresh count (no rescan of the home).
+
+**Fallback.** Never lose an item: if the containers give fewer copies than the cache promised (a script took
+some meanwhile, a stack failed the `ItemMover`'s checks), the game removes what the player has (as without
+Dova Stash), the storage session stops answering at once, and a task switches the station to Move for the rest
+of the visit (the storage session ends, the materials are brought, the menu refreshes). The same when the home
+is no longer loaded. Nothing else can make a craft half-done: the hooks never remove anything themselves.
+
+**Enchanters use Move.** The enchanting menu reads a soul gem's soul from the copy's own extra data and hands
+that exact copy back when it consumes it; offering container copies would mean handing a container's
+`ExtraDataList` to the menu (SCIE does, and fixed "items disappearing at enchanting stations" bugs doing so).
+Bringing the filled soul gems is a handful of items, so it costs nothing.
+
+**Performance.** One snapshot of the home when sitting down; the hooks read a hash map. The alchemy list
+counts the player's inventory once per list build. Each craft that needs the containers snapshots only the
+containers that hold that material. Nothing per frame.
+
+**Known limits.** Recipe conditions that test the player's inventory through another engine path than the
+count above would still see only what the player carries (reported for Crafting Pulls Resources From
+Containers with Legacy's vanilla leather recipe; SCIE reports its count hook covers recipe visibility;
+unverified here). A mod that replaces a crafting menu with its own (not the vanilla menus) sees only the
+player's inventory.
 
 ### 8.6 Learning
 

@@ -56,17 +56,26 @@ iLearnUndoSeconds = 5
 ; plaques made for one item (dragon priest masks, claws, Elder Scrolls...) that item. Nothing is ever taken off a display; take things down by hand as usual.
 bFillDisplays = true
 
-; true = sit down at a crafting station in a home you set up (forge, smelter, tanning rack, sharpening
-; wheel, armor table, cooking pot, alchemy lab, enchanter, and modded stations) and the materials its
-; recipes use come out of your containers into your inventory. When you get up, what you didn't use goes
-; back where it came from. What you just made stays with you, and so do the copies you carried before.
-; The recipes are read from your load order, so modded materials and recipes work without a patch.
-; Alchemy labs bring your ingredients, enchanters your filled soul gems.
-bCraftingSupply = true
+; Materials at the workbench: at a crafting station in a home you set up (forge, smelter, tanning rack,
+; sharpening wheel, armor table, cooking pot, alchemy lab, enchanter, and modded stations), the materials
+; stored in your containers count as yours. The recipes are read from your load order, so modded
+; materials and recipes work without a patch.
+; 0 = auto: craft from storage (SE and AE; on VR: move). Off when another mod that crafts from storage
+;     is installed (Crafting Pulls Resources From Containers, Skyrim Crafting Inventory Extender, Smart
+;     Crafting Storage, Linked Crafting Storage, Workbench Containers): the log says which.
+; 1 = off
+; 2 = move: the materials come out of your containers into your inventory when you sit down. When you
+;     get up, what you didn't use goes back where it came from. What you just made stays with you, and
+;     so do the copies you carried before.
+; 3 = craft from storage: the crafting menu sees the materials where they are, and crafting takes what
+;     you lack from the containers (the one the item is sorted to first). Nothing moves when you sit
+;     down or get up, so big stores cause no lag. Alchemy labs count your ingredients. Enchanters
+;     always bring your filled soul gems (as move does).
+iCraftingSupply = 0
 
-; true = also bring weapons, armor and ammo that recipes use as materials (breakdown recipes at the
+; true = weapons, armor and ammo that recipes use as materials count too (breakdown recipes at the
 ; smelter, upgrade recipes like the Enhanced Crossbow). Off by default: with a breakdown mod, the
-; smelter would otherwise bring out every piece of gear you store. Tempered or enchanted copies never come.
+; smelter would otherwise offer every piece of gear you store. Tempered or enchanted copies never count.
 bCraftingSupplyGear = false
 
 [UI]

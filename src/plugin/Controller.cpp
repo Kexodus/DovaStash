@@ -12,6 +12,7 @@
 #include "Integrations/QuickLoot.h"
 #include "Log.h"
 #include "Settings.h"
+#include "Sort/CraftingStorage.h"
 #include "UI/AreaPrompt.h"
 #include "UI/Labels.h"
 #include "UI/MessageBox.h"
@@ -232,6 +233,9 @@ namespace dova
 			retired.push_back(std::move(_ui));
 			_ui = ui::CreateStashUIs();
 			logger::info("UI rebuilt for iMode={}", now.GetUI().mode);
+		}
+		if (now.GetSorting().craftingSupply != before.sorting.craftingSupply) {
+			sort::crafting::ResolveMode("setting changed");  // the next station visit uses it
 		}
 		integrations::quickloot::Refresh();
 		UI().OnHomeChanged();

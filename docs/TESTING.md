@@ -535,10 +535,11 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
      game says there is no more room, a book is handed back, the Elder Scroll or a note goes up uninvited, a
      title appears twice in the home, or a book disappears (check the `Inventory:` journal lines). Send the log.
 
-### 3.8 Materials at the workbench (DESIGN §8.5)
+### 3.8 Materials at the workbench: Move (DESIGN §8.5)
 
 Breezehome (forge, tanning rack, alchemy lab, enchanter, cooking pot) or any home with stations, set up with a
-master and a chest. `iLogLevel = 0`.
+master and a chest. `iLogLevel = 0`. Settings → *Materials at the workbench* → **Move** (`iCraftingSupply = 2`);
+3.8a tests the default, Craft from storage.
 
 1. Store materials: `player.additem 0005ACE4 10` (Iron Ingot), `player.additem 000800E4 10` (Leather Strips),
    `player.additem 00071CF3 6` (Iron Ore), `player.additem 000DB5D2 4` (Leather), `player.additem 00034CDF 5`
@@ -563,7 +564,7 @@ master and a chest. `iLogLevel = 0`.
 8. Sit at a station, wait for the HUD line, then quickload an older save before leaving the menu (or quit to
    the main menu and load). **Expected:** `Crafting supply: loading a game; the N items brought ... stay with
    you`; the loaded game is exactly as it was saved, and nothing is moved after it loads.
-9. Settings → turn off *Materials at the workbench*: sitting down brings nothing. Turn on *Weapons and armor used
+9. Settings → *Materials at the workbench* → **Off**: sitting down brings nothing. Turn on *Weapons and armor used
    as materials too*: with Dawnguard, a stored Crossbow comes to the forge (Enhanced Crossbow recipe); a tempered
    or enchanted one never does.
 10. A station outside a home (Warmaiden's forge in Whiterun): nothing comes. A modded station (any mod adding
@@ -572,6 +573,78 @@ master and a chest. `iLogLevel = 0`.
    an item disappears (check `Inventory:` journal lines), a favorited, worn, tempered or enchanted copy moves,
    or the forge's list misses recipes for materials that came (then the menu built its list before the pull:
    send the log).
+
+### 3.8a Materials at the workbench: Craft from storage (DESIGN §8.5)
+
+Same home as 3.8, Settings → *Materials at the workbench* → **Auto** (`iCraftingSupply = 0`, the default),
+no other crafting mod installed. `iLogLevel = 0`.
+
+1. Startup. **Expected:** `Crafting hooks: installed (item count ..., inventory list .../..., PlayerCharacter::RemoveItem)`
+   and `Materials at the workbench: craft from storage (auto, game data loaded)`. The Settings page shows
+   *Auto (now: craft from storage)*. On VR instead: `Crafting hooks: not on VR ...` and `move (auto, ...)`.
+2. Store materials as in 3.8 step 1 and carry none: Deposit everything, then make sure you carry no Iron Ingot,
+   Leather Strips or Leather. Put **one** Iron Ingot into the master and **one** into another container by hand
+   (two containers hold ingots), and keep the rest of the ingots where Deposit put them.
+3. Sit at the forge. **Expected:** HUD *Dova Stash: N materials at hand*; the log has `Crafting from storage at
+   <forge> in <home>: N materials (K kinds) in C containers` and a debug line per material (`Iron Ingot x12 in
+   Chest, Master`). **No** `ItemMover: moved` line and nothing in your inventory changes (check with Tab before
+   and after). The forge lists the recipes the stored materials allow, with counts like `Iron Ingot (12/1)`.
+4. Craft one Iron Dagger. **Expected:** the dagger is in your inventory; one ingot and one strip are gone from
+   the containers (open them), nothing else moved. Log (debug): `Crafting from storage: Iron Ingot ... x1:
+   carried 0, brought 1 from ...` and the same for the strip; one `ItemMover: moved 1 items` per material.
+   The ingot came from the container ingots are sorted to (bound container first), not from the master.
+5. A recipe needing more than one container holds: pick an iron recipe that needs several ingots (the
+   requirement line says how many, e.g. an Iron Greatsword). Leave the menu and arrange storage so that the
+   ingot container holds one ingot fewer than the recipe needs and the master holds one (put the others in an
+   ignored container). Sit down again and craft it. **Expected:** the item is made; the ingot container is
+   emptied first, then the master's ingot (`brought N from <container>, Master`); the menu's counts go down by
+   what was used.
+6. Carry some yourself: `player.additem 0005ACE4 1`, craft an Iron Dagger. **Expected:** your own ingot is used
+   (`carried 1, brought 0`, no move), the strip comes from storage.
+7. Leave the menu. **Expected:** `Crafting from storage (crafting menu closed): N materials taken from storage
+   at <forge> (... crafts; <containers>)`; no HUD *put back* line, nothing moves.
+8. Smelter (ore → ingot), tanning rack (leather → strips), cooking pot (any recipe whose ingredients are all
+   stored), grindstone and armor workbench (improve gear you carry). **Expected:** each lists what storage
+   allows; the gear you improve is your own (stored weapons are never offered for tempering); the new ingots,
+   strips, food stay with you; materials leave the containers only when used.
+9. Alchemy lab: store `player.additem 00077E1C 5` (Blue Mountain Flower) and `player.additem 0004B0BA 5`
+   (Wheat) by Deposit, carry **2** Blue Mountain Flowers yourself. Sit down. **Expected:** the ingredient list
+   shows Blue Mountain Flower **once** with 7, and Wheat with 5 (stored only); no duplicate lines. Make a potion
+   from both. **Expected:** one of your own flowers is used first (`carried 2`), one Wheat comes from storage;
+   the potion stays with you. Make 3 more: your second flower is used, then stored ones. Favorite one of your
+   flowers first and sit again: the flower line then shows only what you carry (the favorited copy keeps the
+   game's own entry).
+10. Enchanter: filled soul gems are **brought** as in Move (log `Crafting supply: brought ...`), the unused ones
+    go back when the menu closes. Expected log on sitting down: no `Crafting from storage at` line.
+11. Big hoard: a home with thousands of stored items (for example `player.additem 0005ACE4 2000`, the same for
+    20 other materials, Deposit). **Expected:** sitting down shows no hitch (compare with Move in 3.8: that
+    moves every stack); the log's `Crafting from storage at` line comes within a frame or two of sitting down.
+12. Menu closed mid-craft: start a craft and close the menu (Tab) on the confirmation, and once while the craft
+    sound plays. **Expected:** the session ends with its summary line; nothing else moves; no material is lost
+    (count the containers before and after), and a confirmed craft produced its item.
+13. Get up without crafting, sit again at another station, and quickload while seated. **Expected:** `...
+    (got up)`, `(another station)` and `(loading a game)` summary lines; nothing moves in any of them.
+14. Remove materials behind the menu's back: sit at the forge, open the console and `removeallitems` on the
+    container that holds the ingots (`prid <id>` first), then craft something that needs ingots. **Expected:** the
+    craft takes what you carry (as without Dova Stash), the log says `... of the ... needed could be brought;
+    bringing the materials for the rest of this visit`, and the menu refreshes with the materials brought (Move).
+    Nothing is lost.
+15. Settings: choose **Move**, sit down: 3.8 behaviour. Choose **Off**: nothing. Back to Auto: craft from storage
+    again, without a restart (the log says `Materials at the workbench: ... (..., setting changed)`).
+16. An older INI with `bCraftingSupply = false` (and no `iCraftingSupply`): **Expected:** `Settings: bCraftingSupply=false
+    (older INI) -> iCraftingSupply=1 (off)`; saving any setting writes `iCraftingSupply = 1` and removes
+    `bCraftingSupply`.
+17. With another crafting mod (install Crafting Pulls Resources From Containers, Nexus 135613, or Linked
+    Crafting Storage): **Expected:** `Materials at the workbench: off (auto, game data loaded): Crafting Pulls
+    Resources From Containers is loaded and already does this`, no `Crafting hooks: installed` line, and the
+    Settings page shows *Auto (now: off)* with the same note. Sitting at the forge: Dova Stash does nothing, the
+    other mod works alone. Then set `iCraftingSupply = 3` (your choice wins): `craft from storage (your setting,
+    ...)`. Both mods now answer the menu: counts may include the containers twice. **Fail if** anything is lost
+    or the game crashes; report what you see.
+18. **Fail if** a count in a crafting menu ignores stored materials, a craft takes from storage what you carry
+    yourself, a favorited, worn, tempered, enchanted or quest copy in a container is used, anything moves when
+    sitting down or getting up (except at enchanters), an item disappears, or the alchemy list shows the same
+    ingredient twice. Send the log.
 
 ### 3.9 Homes that span several cells (DESIGN §6.7)
 

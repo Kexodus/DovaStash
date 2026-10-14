@@ -2,6 +2,8 @@
 
 #include <SimpleIni.h>
 
+#include <dova/core/CraftingStorage.h>
+
 namespace dova
 {
 	namespace
@@ -64,7 +66,7 @@ namespace dova
 				DOVA_INT("Sorting", "iSuggestCategoryAfter", sorting.suggestCategoryAfter),
 				DOVA_INT("Sorting", "iLearnUndoSeconds", sorting.learnUndoSeconds),
 				DOVA_BOOL("Sorting", "bFillDisplays", sorting.fillDisplays),
-				DOVA_BOOL("Sorting", "bCraftingSupply", sorting.craftingSupply),
+				DOVA_INT("Sorting", "iCraftingSupply", sorting.craftingSupply),
 				DOVA_BOOL("Sorting", "bCraftingSupplyGear", sorting.craftingSupplyGear),
 				DOVA_INT("UI", "iMode", ui.mode),
 				DOVA_BOOL("UI", "bCenterMenus", ui.centerMenus),
@@ -112,6 +114,10 @@ namespace dova
 			logger::warn("Settings: iMode={} is not 0-3, using default {}", v.ui.mode, def.ui.mode);
 			v.ui.mode = def.ui.mode;
 		}
+		if (v.sorting.craftingSupply < 0 || v.sorting.craftingSupply > 3) {
+			logger::warn("Settings: iCraftingSupply={} is not 0-3, using default {}", v.sorting.craftingSupply, def.sorting.craftingSupply);
+			v.sorting.craftingSupply = def.sorting.craftingSupply;
+		}
 		v.sorting.suggestCategoryAfter = std::clamp(v.sorting.suggestCategoryAfter, 0, 20);  // same ranges as the settings page
 		v.sorting.learnUndoSeconds = std::clamp(v.sorting.learnUndoSeconds, 0, 30);
 		// "nan"/"inf" in the INI parse as floats that std::clamp passes through: back to the defaults.
@@ -151,6 +157,12 @@ namespace dova
 		for (const auto& key : Keys()) {
 			key.read(ini, values, def);
 		}
+		// Before iCraftingSupply there was bCraftingSupply (on by default, and written by every save): only its
+		// "false" was a choice, and it still means off.
+		if (!ini.GetValue("Sorting", "iCraftingSupply") && !ini.GetBoolValue("Sorting", "bCraftingSupply", true)) {
+			values.sorting.craftingSupply = static_cast<std::int32_t>(core::crafting::SupplySetting::Off);
+			logger::info("Settings: bCraftingSupply=false (older INI) -> iCraftingSupply=1 (off)");
+		}
 		Validate(values);
 		_v.store(std::make_shared<const Values>(values));
 		Log("Settings");
@@ -171,6 +183,7 @@ namespace dova
 		for (const auto& key : Keys()) {
 			ini.SetValue(key.section, key.name, key.write(current).c_str());
 		}
+		ini.Delete("Sorting", "bCraftingSupply");  // replaced by iCraftingSupply (read once by Load)
 		const auto rc = ini.SaveFile(path.string().c_str());
 		if (rc < 0) {
 			logger::error("Settings: could not write {} (code {})", kPath, static_cast<int>(rc));

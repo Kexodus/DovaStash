@@ -14,6 +14,7 @@
 #include "Integrations/QuickLoot.h"
 #include "Log.h"
 #include "Settings.h"
+#include "Sort/CraftingStorage.h"
 #include "Sort/CraftingSupply.h"
 #include "Sort/DisplayFiller.h"
 #include "UI/MenuFramework.h"
@@ -66,6 +67,7 @@ namespace
 			dova::Controller::Get().Init();
 			dova::events::RegisterSinks();
 			dova::sort::crafting::RegisterSinks();
+			dova::sort::crafting::ResolveMode("game data loaded");  // after InitFormUtil: reads the loaded plugins
 			dova::ui::uiext::RegisterSinks();
 			dova::input::RegisterInputSink();
 			dova::hooks::InstallActivatePrompt();

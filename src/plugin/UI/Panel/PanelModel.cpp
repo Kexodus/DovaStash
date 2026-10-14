@@ -9,6 +9,7 @@
 #include "Settings.h"
 #include "UI/UIExtensions.h"
 #include "Integrations/QuickLoot.h"
+#include "Sort/CraftingStorage.h"
 #include "Sort/SortEngine.h"
 #include "UI/MenuFramework.h"
 #include "UI/Panel/Strings.h"
@@ -518,6 +519,12 @@ namespace dova::ui::panel
 		global->isVR = REL::Module::IsVR();
 		global->quickLootReady = integrations::quickloot::IsReady();
 		global->uiExtensions = ui::uiext::IsInstalled();
+		{
+			const auto crafting = sort::crafting::Mode();
+			global->craftingMode = std::string(core::crafting::SupplyModeName(crafting.resolution.mode));
+			global->craftingWhy = crafting.resolution.why;
+			global->craftingFromStorage = crafting.hooksAvailable;
+		}
 		global->hotkeyName = Controller::HotkeyName();
 		global->globalKeep = home::Store::Get().GlobalKeep();
 		global->globalKeepJson = core::KeepConfigToJson(global->globalKeep).dump();

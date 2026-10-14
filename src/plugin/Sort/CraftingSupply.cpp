@@ -8,15 +8,145 @@
 #include "Game/RecipeIndex.h"
 #include "Home/HomeRegistry.h"
 #include "Settings.h"
+#include "Sort/CraftingDetail.h"
+#include "Sort/CraftingStorage.h"
 
 #include <dova/core/Crafting.h>
+#include <dova/core/CraftingStorage.h>
 
 namespace dova::sort::crafting
 {
+	namespace detail
+	{
+		namespace
+		{
+			namespace cc = core::crafting;
+
+			// A stack's identity within its form (core::crafting::Stack::key): "" for the plain remainder; the extra
+			// data that may travel (a soul, a stolen item's owner; the count and a unique id carry no meaning here);
+			// nullopt for anything else (tempered, enchanted, renamed, poisoned, worn, favorited, quest alias...).
+			std::optional<std::string> KeyOf(RE::ExtraDataList* a_extra)
+			{
+				std::string key;
+				if (!a_extra) {
+					return key;
+				}
+				for (const auto& data : *a_extra) {
+					switch (data.GetType()) {
+					case RE::ExtraDataType::kCount:
+					case RE::ExtraDataType::kUniqueID:
+						break;
+					case RE::ExtraDataType::kOwnership:
+						{
+							const auto* owner = static_cast<const RE::ExtraOwnership&>(data).owner;
+							key += std::format("owner={:08X};", owner ? owner->GetFormID() : 0);
+						}
+						break;
+					case RE::ExtraDataType::kSoul:
+						key += std::format("soul={};", static_cast<int>(static_cast<const RE::ExtraSoul&>(data).soul.get()));
+						break;
+					default:
+						return std::nullopt;
+					}
+				}
+				return key;
+			}
+		}
+
+		std::vector<cc::Stack> Stacks(RE::TESObjectREFR* a_ref, game::StackTable& a_table)
+		{
+			std::vector<cc::Stack> out;
+			for (auto& item : game::SnapshotInventory(a_ref, a_table)) {
+				std::optional<std::string> key;  // unknown stack: never moves
+				if (const auto* stack = a_table.Find(item.stackId)) {
+					key = KeyOf(stack->extra);
+				}
+				out.push_back(cc::Stack{ std::move(item), std::move(key) });
+			}
+			return out;
+		}
+
+		std::vector<cc::Stored> SnapshotStored(const home::Home& a_home, game::StackTable& a_table, const std::vector<core::FormRef>* a_only)
+		{
+			std::vector<cc::Stored> out;
+			const auto&             layout = *a_home.layout;
+			auto add = [&](const core::FormRef& a_ref) {
+				if (a_only && std::ranges::find(*a_only, a_ref) == a_only->end()) {
+					return;
+				}
+				if (std::ranges::any_of(out, [&](const cc::Stored& s) { return s.container == a_ref; })) {
+					return;
+				}
+				auto* ref = game::LookupRef(a_ref);
+				if (!ref || !home::CheckHomeContainer(ref, a_home).ok) {
+					return;
+				}
+				out.push_back(cc::Stored{ a_ref, Stacks(ref, a_table) });
+			};
+			if (layout.master) {
+				add(*layout.master);
+			}
+			for (const auto& c : layout.containers) {
+				if (!c.ignored) {
+					add(c.ref);
+				}
+			}
+			return out;
+		}
+
+		game::EndpointResolver Resolver(RE::TESObjectREFR* a_player, const home::Home& a_home)
+		{
+			return [a_player, place = &a_home](const core::ContainerRef& a_end) -> RE::TESObjectREFR* {
+				if (a_end.IsPlayer()) {
+					return a_player;
+				}
+				auto* ref = game::LookupRef(a_end.Ref());
+				return ref && home::CheckHomeContainer(ref, *place).ok ? ref : nullptr;
+			};
+		}
+
+		std::string FormName(const core::FormRef& a_form)
+		{
+			return game::Describe(game::LookupForm(a_form));
+		}
+
+		std::string Plural(std::int32_t a_n, std::string_view a_word)
+		{
+			return std::format("{} {}{}", a_n, a_word, a_n == 1 ? "" : "s");
+		}
+
+		cc::SupplyRequest RequestFor(const RE::TESFurniture* a_furniture)
+		{
+			using Bench = RE::TESFurniture::WorkBenchData::BenchType;
+			cc::SupplyRequest request;
+			switch (a_furniture->workBenchData.benchType.get()) {
+			case Bench::kAlchemy:
+			case Bench::kAlchemyExperiment:
+				request.station = cc::Station::Alchemy;
+				break;
+			case Bench::kEnchanting:
+			case Bench::kEnchantingExperiment:
+				request.station = cc::Station::Enchanting;
+				break;
+			default:
+				request.station = cc::Station::Recipes;
+				break;
+			}
+			const auto keywords = game::KeywordNames(a_furniture);
+			request.materials = game::Recipes().MaterialsFor(keywords);
+			request.gear = Settings::GetSingleton().GetSorting().craftingSupplyGear;
+			return request;
+		}
+	}
+
 	namespace
 	{
 		namespace cc = core::crafting;
 		using Control = RE::BSEventNotifyControl;
+		using detail::FormName;
+		using detail::Plural;
+
+		constexpr std::string_view kMenuTrigger = "crafting menu";
 
 		struct Session
 		{
@@ -53,165 +183,19 @@ namespace dova::sort::crafting
 			g_sources.clear();
 		}
 
-		// A stack's identity within its form (core::crafting::Stack::key): "" for the plain remainder; the extra
-		// data that may travel (a soul, a stolen item's owner; the count and a unique id carry no meaning here);
-		// nullopt for anything else (tempered, enchanted, renamed, poisoned, worn, favorited, quest alias...).
-		std::optional<std::string> KeyOf(RE::ExtraDataList* a_extra)
-		{
-			std::string key;
-			if (!a_extra) {
-				return key;
-			}
-			for (const auto& data : *a_extra) {
-				switch (data.GetType()) {
-				case RE::ExtraDataType::kCount:
-				case RE::ExtraDataType::kUniqueID:
-					break;
-				case RE::ExtraDataType::kOwnership:
-					{
-						const auto* owner = static_cast<const RE::ExtraOwnership&>(data).owner;
-						key += std::format("owner={:08X};", owner ? owner->GetFormID() : 0);
-					}
-					break;
-				case RE::ExtraDataType::kSoul:
-					key += std::format("soul={};", static_cast<int>(static_cast<const RE::ExtraSoul&>(data).soul.get()));
-					break;
-				default:
-					return std::nullopt;
-				}
-			}
-			return key;
-		}
-
-		std::vector<cc::Stack> Stacks(RE::TESObjectREFR* a_ref, game::StackTable& a_table)
-		{
-			std::vector<cc::Stack> out;
-			for (auto& item : game::SnapshotInventory(a_ref, a_table)) {
-				std::optional<std::string> key;  // unknown stack: never moves
-				if (const auto* stack = a_table.Find(item.stackId)) {
-					key = KeyOf(stack->extra);
-				}
-				out.push_back(cc::Stack{ std::move(item), std::move(key) });
-			}
-			return out;
-		}
-
-		// The home's master and non-ignored containers that pass the safety checks right now (DESIGN §9). In a
-		// multi-cell home also those of its other cells that can be reached from here (DESIGN §6.7: loaded, or
-		// persistent), so a forge outside brings what is stored inside.
-		std::vector<cc::Stored> SnapshotStored(const home::Home& a_home, game::StackTable& a_table)
-		{
-			std::vector<cc::Stored> out;
-			const auto&             layout = *a_home.layout;
-			auto add = [&](const core::FormRef& a_ref) {
-				if (std::ranges::any_of(out, [&](const cc::Stored& s) { return s.container == a_ref; })) {
-					return;
-				}
-				auto* ref = game::LookupRef(a_ref);
-				if (!ref || !home::CheckHomeContainer(ref, a_home).ok) {
-					return;
-				}
-				out.push_back(cc::Stored{ a_ref, Stacks(ref, a_table) });
-			};
-			if (layout.master) {
-				add(*layout.master);
-			}
-			for (const auto& c : layout.containers) {
-				if (!c.ignored) {
-					add(c.ref);
-				}
-			}
-			return out;
-		}
-
-		// Only used within the task that built it (the home outlives it).
-		game::EndpointResolver Resolver(RE::TESObjectREFR* a_player, const home::Home& a_home)
-		{
-			return [a_player, place = &a_home](const core::ContainerRef& a_end) -> RE::TESObjectREFR* {
-				if (a_end.IsPlayer()) {
-					return a_player;
-				}
-				auto* ref = game::LookupRef(a_end.Ref());
-				return ref && home::CheckHomeContainer(ref, *place).ok ? ref : nullptr;
-			};
-		}
-
-		std::string FormName(const core::FormRef& a_form)
-		{
-			return game::Describe(game::LookupForm(a_form));
-		}
-
-		std::string Plural(std::int32_t a_n, std::string_view a_word)
-		{
-			return std::format("{} {}{}", a_n, a_word, a_n == 1 ? "" : "s");
-		}
-
-		// What the station's furniture asks for, or an empty request.
-		cc::SupplyRequest RequestFor(const RE::TESFurniture* a_furniture)
-		{
-			using Bench = RE::TESFurniture::WorkBenchData::BenchType;
-			cc::SupplyRequest request;
-			switch (a_furniture->workBenchData.benchType.get()) {
-			case Bench::kAlchemy:
-			case Bench::kAlchemyExperiment:
-				request.station = cc::Station::Alchemy;
-				break;
-			case Bench::kEnchanting:
-			case Bench::kEnchantingExperiment:
-				request.station = cc::Station::Enchanting;
-				break;
-			default:
-				request.station = cc::Station::Recipes;
-				break;
-			}
-			const auto keywords = game::KeywordNames(a_furniture);
-			request.materials = game::Recipes().MaterialsFor(keywords);
-			request.gear = Settings::GetSingleton().GetSorting().craftingSupplyGear;
-			return request;
-		}
-
 		void FinishLocked(std::string_view a_why);
 
-		void BeginLocked(RE::TESObjectREFR* a_station, std::string_view a_trigger)
+		// Brings the station's materials (Move mode).
+		void PullLocked(RE::TESObjectREFR* a_station, const home::Home& a_home, const cc::SupplyRequest& a_request, std::string_view a_trigger)
 		{
-			if (!a_station) {
-				return;
-			}
-			if (g_session) {
-				if (g_session->station == a_station->GetFormID()) {
-					return;  // already brought (the furniture event, then the menu)
-				}
-				FinishLocked("another station");
-			}
-			auto* base = a_station->GetBaseObject();
-			const auto* furniture = base ? base->As<RE::TESFurniture>() : nullptr;
-			if (!furniture || !Settings::GetSingleton().GetSorting().craftingSupply) {
-				return;
-			}
-			const bool workbench = furniture->workBenchData.benchType.get() != RE::TESFurniture::WorkBenchData::BenchType::kNone;
-			auto*      home = home::HomeRegistry::Get().Current();
-			auto*      player = game::Player();
-			auto*      cell = player ? player->GetParentCell() : nullptr;
-			if (!home || !home->layout || home->layoutBroken || !cell || cell->GetFormID() != home->cellId) {
-				if (workbench) {
-					logger::debug("Crafting supply: {} is not in a home that is set up", game::Describe(a_station));
-				}
-				return;
-			}
-			const auto request = RequestFor(furniture);
-			if (request.Empty()) {
-				if (workbench) {
-					logger::debug("Crafting supply: no recipe uses {}'s keywords", game::Describe(a_station));
-				}
-				return;
-			}
-
-			game::StackTable table;
-			const auto       storedBefore = SnapshotStored(*home, table);
-			const auto       playerBefore = cc::CountStacks(Stacks(player, table));
-			const auto       pulls = cc::PlanPull(request, storedBefore);
+			auto*                         player = game::Player();
+			const storage::Busy           busy;  // our own moves: the crafting hooks stay out of them
+			game::StackTable              table;
+			const auto                    storedBefore = detail::SnapshotStored(a_home, table);
+			const auto                    playerBefore = cc::CountStacks(detail::Stacks(player, table));
+			const auto                    pulls = cc::PlanPull(a_request, storedBefore);
 			logger::debug("Crafting supply: {} ({}, {} materials in its recipes): {} stacks to bring", game::Describe(a_station), a_trigger,
-				request.materials.size(), pulls.size());
+				a_request.materials.size(), pulls.size());
 			if (pulls.empty()) {
 				return;
 			}
@@ -230,11 +214,11 @@ namespace dova::sort::crafting
 				g_open = true;
 			}
 			g_pulling = true;
-			const auto report = game::ItemMover::Execute(moves, table, Resolver(player, *home));
+			const auto report = game::ItemMover::Execute(moves, table, detail::Resolver(player, a_home));
 			g_pulling = false;
 
 			game::StackTable afterTable;
-			const auto       storedAfter = SnapshotStored(*home, afterTable);
+			const auto       storedAfter = detail::SnapshotStored(a_home, afterTable);
 			auto             ledger = cc::MakeLedger(pulls, storedBefore, storedAfter, playerBefore);
 			if (ledger.Empty()) {
 				StopCounting();
@@ -247,15 +231,85 @@ namespace dova::sort::crafting
 			}
 			const auto total = ledger.Total();
 			logger::info("Crafting supply: brought {} ({} kinds) to {} in {}", Plural(total, "item"), ledger.Keys().size(),
-				game::Describe(a_station), home->name);
-			g_session = Session{ home->cellId, a_station->GetFormID(), game::RefName(a_station), std::move(ledger) };
+				game::Describe(a_station), a_home.name);
+			g_session = Session{ a_home.cellId, a_station->GetFormID(), game::RefName(a_station), std::move(ledger) };
 
 			RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);  // in case the crafting menu is already up
 			Controller::Get().Notify(std::format("Dova Stash: {} at hand", Plural(total, "material")));
 		}
 
+		// `a_forceMove`: Craft from storage gave up at this station (FallBackToMove).
+		void BeginLocked(RE::TESObjectREFR* a_station, std::string_view a_trigger, bool a_forceMove = false)
+		{
+			if (!a_station) {
+				return;
+			}
+			if (g_session) {
+				if (g_session->station == a_station->GetFormID()) {
+					return;  // already brought (the furniture event, then the menu)
+				}
+				FinishLocked("another station");
+			}
+			if (storage::Active()) {
+				if (storage::StationId() == a_station->GetFormID() && !a_forceMove) {
+					return;  // already crafting from storage here (the furniture event, then the menu)
+				}
+				storage::End(a_forceMove ? "falling back to bringing the materials" : "another station");
+			}
+			auto* base = a_station->GetBaseObject();
+			const auto* furniture = base ? base->As<RE::TESFurniture>() : nullptr;
+			if (!furniture) {
+				return;
+			}
+			const bool workbench = furniture->workBenchData.benchType.get() != RE::TESFurniture::WorkBenchData::BenchType::kNone;
+			const auto status = Mode();
+			if (status.resolution.mode == cc::SupplyMode::Off) {
+				if (workbench) {
+					logger::debug("Crafting supply: off{}", status.resolution.why.empty() ? "" : std::format(" ({})", status.resolution.why));
+				}
+				return;
+			}
+			auto* home = home::HomeRegistry::Get().Current();
+			auto* player = game::Player();
+			auto* cell = player ? player->GetParentCell() : nullptr;
+			if (!home || !home->layout || home->layoutBroken || !cell || cell->GetFormID() != home->cellId) {
+				if (workbench) {
+					logger::debug("Crafting supply: {} is not in a home that is set up", game::Describe(a_station));
+				}
+				return;
+			}
+			const auto request = detail::RequestFor(furniture);
+			if (request.Empty()) {
+				if (workbench) {
+					logger::debug("Crafting supply: no recipe uses {}'s keywords", game::Describe(a_station));
+				}
+				return;
+			}
+
+			auto mode = cc::ModeFor(status.resolution.mode, request.station);
+			if (a_forceMove) {
+				mode = cc::SupplyMode::Move;
+			}
+			if (mode == cc::SupplyMode::Storage) {
+				if (a_trigger == kMenuTrigger) {
+					// The menu built its lists before Dova Stash saw the station: they would not show the stored
+					// materials, so this visit brings them instead.
+					logger::info("Crafting from storage: {} was already open when the station was noticed; bringing the materials instead",
+						game::Describe(a_station));
+				} else if (storage::Begin(a_station, *home, request)) {
+					return;
+				} else {
+					logger::info("Crafting from storage: could not start at {}; bringing the materials instead", game::Describe(a_station));
+				}
+			}
+			PullLocked(a_station, *home, request, a_trigger);
+		}
+
 		void FinishLocked(std::string_view a_why)
 		{
+			if (storage::Active()) {
+				storage::End(a_why);
+			}
 			if (!g_session) {
 				return;
 			}
@@ -287,9 +341,10 @@ namespace dova::sort::crafting
 					session.stationName);
 			}
 
-			game::StackTable table;
-			const auto       playerStacks = Stacks(player, table);
-			const auto       plan = cc::PlanReturn(session.ledger, cc::CountStacks(playerStacks), craftedRefs);
+			const storage::Busy busy;
+			game::StackTable    table;
+			const auto          playerStacks = detail::Stacks(player, table);
+			const auto          plan = cc::PlanReturn(session.ledger, cc::CountStacks(playerStacks), craftedRefs);
 			for (const auto& line : plan.lines) {
 				logger::debug("Crafting supply: {}{}: had {}, brought {}, crafted {}, now {} -> {} back", FormName(line.stack.form),
 					line.stack.key.empty() ? "" : std::format(" ({})", line.stack.key), line.before, line.pulled, line.crafted, line.now, line.back);
@@ -297,7 +352,7 @@ namespace dova::sort::crafting
 			const auto moves = cc::ReturnMoves(plan.back, playerStacks);
 			game::MoveReport report;
 			if (!moves.empty()) {
-				report = game::ItemMover::Execute(moves, table, Resolver(player, *place));
+				report = game::ItemMover::Execute(moves, table, detail::Resolver(player, *place));
 				RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
 			}
 			logger::info("Crafting supply ({}): put {} of the {} brought to {} back", a_why, report.items, plan.pulled, session.stationName);
@@ -306,11 +361,11 @@ namespace dova::sort::crafting
 			}
 		}
 
-		void Begin(RE::FormID a_station, std::string_view a_trigger)
+		void Begin(RE::FormID a_station, std::string_view a_trigger, bool a_forceMove = false)
 		{
 			std::scoped_lock lock(g_lock);
 			auto*            form = RE::TESForm::LookupByID(a_station);
-			BeginLocked(form ? form->AsReference() : nullptr, a_trigger);
+			BeginLocked(form ? form->AsReference() : nullptr, a_trigger, a_forceMove);
 		}
 
 		void Finish(std::string_view a_why)
@@ -323,7 +378,7 @@ namespace dova::sort::crafting
 		{
 			{
 				std::scoped_lock lock(g_lock);
-				if (g_session) {
+				if (g_session || storage::Active()) {
 					return;
 				}
 			}
@@ -333,7 +388,7 @@ namespace dova::sort::crafting
 			}
 			const auto station = player->GetOccupiedFurniture().get();
 			if (station) {
-				Begin(station->GetFormID(), "crafting menu");
+				Begin(station->GetFormID(), kMenuTrigger);
 			}
 		}
 
@@ -406,6 +461,19 @@ namespace dova::sort::crafting
 		ContainerSink g_containerSink;
 	}
 
+	void detail::FallBackToMove(RE::FormID a_station, std::string a_why)
+	{
+		Enqueue([a_station, why = std::move(a_why)]() {
+			std::scoped_lock lock(g_lock);
+			if (!storage::Active() || storage::StationId() != a_station) {
+				return;
+			}
+			logger::info("Crafting from storage: {}; bringing the materials for the rest of this visit", why);
+			auto* form = RE::TESForm::LookupByID(a_station);
+			BeginLocked(form ? form->AsReference() : nullptr, "fallback", true);
+		});
+	}
+
 	void RegisterSinks()
 	{
 		if (auto* holder = RE::ScriptEventSourceHolder::GetSingleton()) {
@@ -421,6 +489,9 @@ namespace dova::sort::crafting
 	void Reset(std::string_view a_why)
 	{
 		std::scoped_lock lock(g_lock);
+		if (storage::Active()) {
+			storage::End(a_why);
+		}
 		if (g_session) {
 			logger::info("Crafting supply: {}; the {} brought to {} stay with you", a_why, Plural(g_session->ledger.Total(), "item"),
 				g_session->stationName);

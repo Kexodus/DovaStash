@@ -31,6 +31,7 @@ if(NOT COMMAND add_commonlibsse_plugin)
 endif()
 
 find_package(spdlog CONFIG REQUIRED)
+find_package(minhook CONFIG REQUIRED)  # function detours for craft from storage (Hooks/CraftingHooks)
 find_path(SIMPLEINI_INCLUDE_DIRS "SimpleIni.h" REQUIRED)
 
 # ---- Plugin target -----------------------------------------------------------------------------
@@ -71,6 +72,9 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Sort/DisplayFiller.cpp
 	Sort/CraftingSupply.h
 	Sort/CraftingSupply.cpp
+	Sort/CraftingDetail.h
+	Sort/CraftingStorage.h
+	Sort/CraftingStorage.cpp
 	Game/RecipeIndex.h
 	Game/RecipeIndex.cpp
 	Events/EventSinks.h
@@ -121,6 +125,8 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/Overlay.cpp
 	Hooks/ActivatePrompt.h
 	Hooks/ActivatePrompt.cpp
+	Hooks/CraftingHooks.h
+	Hooks/CraftingHooks.cpp
 	Integrations/QuickLoot.h
 	Integrations/QuickLoot.cpp
 	Diagnostics/Environment.h
@@ -153,7 +159,7 @@ target_include_directories(DovaStash SYSTEM
 		"${SIMPLEINI_INCLUDE_DIRS}"
 )
 # dova::core: engine-independent logic (categories, layouts, templates, keep rules, sort planner).
-target_link_libraries(DovaStash PRIVATE spdlog::spdlog dova::core Version)  # Version: file version resources (Diagnostics)
+target_link_libraries(DovaStash PRIVATE spdlog::spdlog minhook::minhook dova::core Version)  # Version: file version resources (Diagnostics)
 
 target_precompile_headers(DovaStash PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/PCH.h")
 

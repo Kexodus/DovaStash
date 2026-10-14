@@ -66,9 +66,12 @@ namespace dova
 			// DESIGN §8.4: Deposit and Sort all put gear on the home's empty weapon racks, shield plaques,
 			// mannequins, item plaques and display cases.
 			bool fillDisplays{ true };
-			// DESIGN §8.5: sitting down at a crafting station in an enabled home brings the stored materials
-			// its recipes use; what is left goes back when you get up (never what you just crafted).
-			bool craftingSupply{ true };
+			// DESIGN §8.5 Materials at the workbench (core::crafting::SupplySetting):
+			// 0 = auto: craft from storage where the hooks are in (SE/AE), else move; off when another
+			//     crafting-from-storage mod is loaded,
+			// 1 = off, 2 = move (bring the stored materials when you sit down, the rest goes back when you get
+			//     up), 3 = craft from storage (the menu counts the containers; crafting takes from them).
+			std::int32_t craftingSupply{ 0 };
 			// ... including weapons, armor and ammo that recipes use as materials (breakdown, upgrades).
 			bool craftingSupplyGear{ false };
 
