@@ -1470,7 +1470,7 @@ namespace dova::editor::ui::w
 		dl->AddRectFilledMultiColor(ImVec2(a_viewportMin.x, y0), a_viewportMax, IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 120), IM_COL32(0, 0, 0, 120));
 		const ImVec2 p(a_viewportMin.x + t.pad + 2.0f * t.scale, a_viewportMax.y - ts.y - 6.0f * t.scale);
 		Text(dl, font, p + ImVec2(0, 1), IM_COL32(0, 0, 0, 160), a_text);
-		Text(dl, font, p, t.muted, a_text);
+		Text(dl, font, p, t.viewportText, a_text);
 	}
 
 	bool Row(const char* a_id, const char* a_label, bool a_selected, const char* a_right, Kind a_rightKind)

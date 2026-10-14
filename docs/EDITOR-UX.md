@@ -172,7 +172,9 @@ column, centred, in this order:
 MO2 instance path with *Browse…*, profile dropdown, *Author* name, *Save templates to* (the target list), 
 *Rescan*. The one-line summary of the current setup. Closing applies.
 
-> **Built:** the summary is one line ("N of M mods enabled"), the full description in its tooltip.
+> **Built:** the summary is one line ("N of M mods enabled"), the full description in its tooltip. After *Save
+> templates to* come *Theme* (§3.1: Dova Stash, Dark, Light and Yours, applied on pick, with *Export...* under it)
+> and *UI size* (§3.2).
 
 ### 2.8 Draft all homes
 
@@ -222,6 +224,25 @@ The art set's palette (`presskit/README.md`, Style; `presskit/src/style.css`): e
 Colour is for data and state only: the status hues above, category colours (`CategoryColour`), *Colours by
 fill*, and the see-through boxes in the 3D view and on the plan. Surfaces, type, icons and controls are the
 brand's black, white and grays.
+
+**Themes.** The tokens above are *Dova Stash*, the default. `⚙` Setup › *Theme* (also *Theme: <name>* in the
+palette, `--theme <name>` for one run) offers other palettes in two groups, named after and inspired by the VCL
+styles xEdit offers under Options › UI Theme (colour cues only; no style art is copied). *Dark*: Windows10 Dark,
+Carbon, Charcoal Dark Slate, Tablet Dark, Cyan Night, Golden Graphite, Ruby Graphite. *Light*: Windows10, Light,
+Tablet Light, Aqua Light Slate, Lavender Classico, Emerald Light Slate. Each fills the same roles (`ui/Themes.cpp`):
+body text at least 7:1 on `bg0` to `bg2`, captions, links and status hues at least 4.5:1; light themes take darker
+status hues and accents so the text on a filled accent (`bg0`) stays readable. The disabled gray, the scrollbar and
+the table's alternate rows follow the tokens. The viewport stays dark in every theme (the 3D view draws its own
+sky; the plan's ground is `bg0` in a dark theme, `#1c1f24` in a light one), and the data colours never change. A
+pick applies before the next frame (the fonts stay) and is remembered as `ui.theme` in `state.json` (empty: Dova
+Stash).
+
+*Yours* in the same list: JSON files in `%LOCALAPPDATA%\DovaStashEditor\Themes\` or a `Themes` folder next to the
+exe, `{"name": "My Carbon", "dark": true, "colours": {"bg0": "#141414", "text": "#e6e6e6", ...}}` with the table's
+keys (`disabled` included); a key left out comes from Dova Stash (dark) or Light (light). *Export...* under the list
+writes the theme in effect there (a shipped one as "My <name>"; an existing file is never overwritten) and shows it
+in Explorer. The folder is read again each time the list opens, so an edited file applies when it is picked; a file
+that does not parse, or whose name is taken, is skipped.
 
 ### 3.2 Type
 

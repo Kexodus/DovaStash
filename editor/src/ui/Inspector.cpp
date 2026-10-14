@@ -123,6 +123,9 @@ namespace dova::editor::ui
 		if (_scene && _device) {
 			if (!_thumbs) {
 				_thumbs = std::make_unique<render::Thumbnails>(_device, _context);
+			}
+			if (_thumbs->Background() != t.bg2) {  // another theme: the pictures are drawn again on its panel colour
+				_thumbs->Clear();
 				_thumbs->SetBackground(t.bg2);
 			}
 			thumb = _thumbs->For(*_scene, a_index);

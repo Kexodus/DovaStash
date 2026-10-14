@@ -42,6 +42,7 @@ namespace dova::editor::ui
 		float drawerHeight{ 0.0f };  // 0: a third of the window
 		int   view{ 0 };             // 0 3D, 1 plan
 		float textScale{ 0.0f };     // UI size factor on top of the DPI; 0 = Auto (from the monitor)
+		std::string theme;           // the colour theme's name (ui/Themes.h); empty = Dova Stash
 
 		friend bool operator==(const UiLayout&, const UiLayout&) = default;
 	};

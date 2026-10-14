@@ -67,7 +67,9 @@ one workspace.
   switcher** (the rail's list in compact form, type to filter) with the unsaved dot and the template's chip (*no
   template*, *shipped*, *yours*, *draft*), `3D | Plan` (keys `1`/`2`), *Draft* ▾ (Draft this home, Accept all,
   Reject the weak ones, Draft again, Draft all homes, Save N drafts...), *Save* (Ctrl+S; disabled while the checks
-  find errors) and `⚙` *Setup* (MO2 instance, profile, author, save target, Rescan; closing applies).
+  find errors) and `⚙` *Setup* (MO2 instance, profile, author, save target, theme, UI size, Rescan; closing applies;
+  *Theme* picks the window's colours: Dova Stash, the default, or a dark or light palette inspired by xEdit's UI
+  themes, or one of your own files, EDITOR-UX.md §3.1).
 - **Homes rail** (left, Ctrl+1; collapses to a strip): the home list (step 2).
 - **Viewport** (centre): the 3D view or the plan, never both, with a floating toolbar: *Select* / *Paint* (`S` /
   `P`), *Layers* ▾ (`L`: the layers and the height cut), *Colours* ▾ (none, by category, by fill, `C` / `V`, with the
@@ -310,10 +312,11 @@ Ctrl+D; *Open a template...*, Ctrl+O: a shipped or downloaded template or a layo
 and **In progress**: each home's stage, *drafted* (opened with its draft) -> *reviewed* (a suggestion accepted or
 rejected, or the template edited) -> *validated* (reviewed and no problems) -> *saved*, with where it was saved. A
 home's stage starts when it is opened; *Draft all homes* does not advance it. The stages, the instance, the author,
-the save target and the layout (rail, inspector and drawer: open or collapsed, their sizes; the view) persist in
-`%LOCALAPPDATA%\DovaStashEditor\state.json` (`DOVASTASH_EDITOR_STATE` points tests elsewhere); a click on a home in
-progress opens it. A `--tab` on the command line applies to that run only: the file keeps the remembered layout
-until a panel is changed by hand.
+the save target, the layout (rail, inspector and drawer: open or collapsed, their sizes; the view), the UI size and
+the theme persist in `%LOCALAPPDATA%\DovaStashEditor\state.json` (`DOVASTASH_EDITOR_STATE` points tests elsewhere);
+a click on a home in progress opens it. A `--tab` on the command line applies to that run only: the file keeps the
+remembered layout until a panel is changed by hand; `--theme` never touches the file. The player's own colour themes
+are files in `%LOCALAPPDATA%\DovaStashEditor\Themes\` (EDITOR-UX.md §3.1).
 
 ### 3.7 Editing helpers (built)
 
@@ -381,7 +384,8 @@ editor/src/
   ui/Edit.cpp         undo/redo, multi-select and the bulk editor, paint mode
   ui/Theme.cpp, Widgets.*, Icons.cpp, Art.*   the look (EDITOR-UX.md §3): tokens, embedded fonts, widgets, drawn icons,
                       optional art from the player's install and mesh thumbnails
-  ui/State.*          what is remembered between runs (instance, author, save target, each home's to-do stage, layout)
+  ui/Themes.*         the colour themes: Dova Stash, the built-in dark and light ones, the player's theme files
+  ui/State.*          what is remembered between runs (instance, author, save target, each home's to-do stage, layout, theme)
 ```
 
 Core additions for the editor (engine-independent, unit-tested, usable by the DLL later): `DraftSuggest.h` (the draft
@@ -575,8 +579,9 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    3d|plan` (the view), `--tab containers|displays|doors|preview` (the drawer on that tab), `--tab template` or
    `--inspector selection|template|draft|checks` (the inspector's panel), `--select <ref>` / `--multi <ref>`,
    `--paint <category>`, `--colours category|fill`, `--palette` (the command palette open), `--popover <id>` (`menu`,
-   `setup`, `switcher`, `filter`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`) and `--window WxH` (the
-   client size); `--screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit).
+   `setup`, `switcher`, `filter`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`), `--window WxH` (the
+   client size) and `--theme <name>` (a colour theme for this run, EDITOR-UX.md §3.1; the remembered one stays);
+   `--screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit).
    `--draft-all` drafts every home of the active load order and prints the master with its reason and each container's
    accepted and rejected suggestions (`--verbose`: every reason); `--compare` measures the drafts against the existing
    templates (§3.4); `--save-to <folder> [--author <name>]` saves the drafts of homes without a template

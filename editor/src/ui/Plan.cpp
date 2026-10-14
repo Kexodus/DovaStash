@@ -111,7 +111,7 @@ namespace dova::editor::ui
 		};
 
 		ImDrawList* dl = ImGui::GetWindowDrawList();
-		dl->AddRectFilled(origin, ImVec2(origin.x + canvasSize.x, origin.y + canvasSize.y), w::Th().bg0);
+		dl->AddRectFilled(origin, ImVec2(origin.x + canvasSize.x, origin.y + canvasSize.y), w::Th().viewport);
 		dl->PushClipRect(origin, ImVec2(origin.x + canvasSize.x, origin.y + canvasSize.y), true);
 
 		struct Hit
@@ -280,10 +280,10 @@ namespace dova::editor::ui
 		const auto&  t = w::Th();
 		const float  bar = 512.0f * _zoom;
 		const ImVec2 b0(origin.x + t.pad, origin.y + canvasSize.y - t.rowH - 10.0f * t.scale);
-		dl->AddLine(b0, ImVec2(b0.x + bar, b0.y), t.muted, 2.0f);
+		dl->AddLine(b0, ImVec2(b0.x + bar, b0.y), t.viewportText, 2.0f);
 		ImGui::PushFont(t.smallFont);
-		dl->AddText(ImVec2(b0.x, b0.y - ImGui::GetFontSize() - 2.0f), t.muted, "512 units");
-		dl->AddText(ImVec2(origin.x + canvasSize.x - ImGui::GetFontSize() * 1.5f, origin.y + t.pad), t.muted, "N");
+		dl->AddText(ImVec2(b0.x, b0.y - ImGui::GetFontSize() - 2.0f), t.viewportText, "512 units");
+		dl->AddText(ImVec2(origin.x + canvasSize.x - ImGui::GetFontSize() * 1.5f, origin.y + t.pad), t.viewportText, "N");
 		ImGui::PopFont();
 		dl->PopClipRect();
 	}

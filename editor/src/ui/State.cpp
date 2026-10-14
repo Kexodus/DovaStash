@@ -80,6 +80,9 @@ namespace dova::editor::ui
 				if (ui.textScale != 0.0f && (ui.textScale < 1.0f || ui.textScale > 2.5f)) {
 					ui.textScale = 0.0f;
 				}
+				if (u.contains("theme") && u["theme"].is_string()) {
+					ui.theme = u["theme"].get<std::string>();
+				}
 			}
 			if (j.contains("homes") && j["homes"].is_object()) {
 				for (const auto& [cell, h] : j["homes"].items()) {
@@ -112,6 +115,9 @@ namespace dova::editor::ui
 		const UiLayout& u = uiOnDisk ? *uiOnDisk : ui;
 		j["ui"] = { { "railOpen", u.railOpen }, { "railWidth", u.railWidth }, { "inspectorOpen", u.inspectorOpen }, { "inspectorWidth", u.inspectorWidth },
 			{ "drawerOpen", u.drawerOpen }, { "drawerHeight", u.drawerHeight }, { "view", u.view }, { "textScale", u.textScale } };
+		if (!u.theme.empty()) {
+			j["ui"]["theme"] = u.theme;
+		}
 		auto& hs = j["homes"] = nlohmann::ordered_json::object();
 		for (const auto& [cell, r] : homes) {
 			hs[cell] = { { "name", r.name }, { "stage", static_cast<int>(r.stage) }, { "saved", r.savedPath }, { "updated", r.updated } };

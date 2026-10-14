@@ -41,6 +41,12 @@ namespace dova::editor::ui::w
 		float stripW{ 28.0f };    // a collapsed rail
 		float stroke{ 1.5f };     // icon strokes
 		ImU32 shadow{ IM_COL32(0, 0, 0, 102) };  // the 1 px rim under popups and overlays (40 % black)
+
+		// Added by the themes (ui/Themes.h).
+		ImU32 disabled{ 0 };      // disabled text (Dova Stash: gray-3)
+		bool  dark{ true };       // a dark theme (light: text and accents are the dark colours)
+		ImU32 viewport{ 0 };      // the plan's ground: bg0 in dark themes, a dark gray in light ones (the 3D view is dark)
+		ImU32 viewportText{ 0 };  // text drawn straight on the viewport (the hint line, the plan's scale)
 	};
 
 	// Installs the style, colours and fonts on the current ImGui context. Call after CreateContext (Window.cpp),
@@ -48,6 +54,16 @@ namespace dova::editor::ui::w
 	// DPI) rebuilds the atlas, so only between frames.
 	void          ApplyTheme(float a_dpiScale, float a_textScale = 1.0f);
 	const Theme&  Th();
+
+	// Colour themes (ui/Themes.h, Setup's Theme). SetTheme picks the colours ApplyTheme and ApplyColours use (empty
+	// or unknown: Dova Stash); ApplyColours re-runs the tokens and the style without the fonts, between frames. A
+	// pick in the window goes through RequestTheme; the window applies it before the next frame (TakePendingTheme).
+	struct ThemeColours;
+	void                       SetTheme(std::string_view a_name);
+	void                       ApplyColours();
+	const ThemeColours&        CurrentTheme();
+	void                       RequestTheme(std::string_view a_name);
+	std::optional<std::string> TakePendingTheme();
 
 	// UI size (Setup's slider, Ctrl+= / Ctrl+-): a factor on top of the DPI, 0 = Auto. The window applies a request
 	// between frames (TakePendingTextScale) and sets the Auto value from the monitor at start.

@@ -11,6 +11,7 @@
 #include "Util.h"
 #include "ui/App.h"
 #include "ui/Common.h"
+#include "ui/Themes.h"
 
 namespace dova::editor::ui
 {
@@ -111,6 +112,9 @@ namespace dova::editor::ui
 		add("UI size: larger", "Ctrl+=", true, [this] { StepTextScale(1); });
 		add("UI size: smaller", "Ctrl+-", true, [this] { StepTextScale(-1); });
 		add("UI size: auto", "Ctrl+0", true, [this] { SetTextScale(0.0f); });
+		for (const auto& theme : w::AllThemes()) {
+			add("Theme: " + theme.name, "", true, [this, name = theme.name] { PickTheme(name); });
+		}
 		add("Shortcuts", "", true, [this] { _showShortcuts = true; });
 		return out;
 	}

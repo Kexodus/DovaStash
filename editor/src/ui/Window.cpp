@@ -211,12 +211,20 @@ namespace dova::editor::ui
 		// Text size: the remembered setting (ui.textScale in state.json), or Auto from the monitor. Screenshots
 		// and DOVASTASH_UI_SCALE runs keep 100 % so their pixels mean the same on every machine.
 		w::SetAutoTextScale(a_screenshot || fixedScale ? 1.0f : AutoTextScaleFor(primary, g_dpi));
-		float textSetting = 0.0f;
-		if (!a_screenshot && !fixedScale) {
+		// The theme: --theme for this run, else the remembered one (screenshots: Dova Stash unless --theme).
+		float       textSetting = 0.0f;
+		std::string theme = a_gui.theme.value_or(std::string{});
+		if (!a_screenshot) {
 			EditorState saved;
 			saved.Load();
-			textSetting = saved.ui.textScale;
+			if (!fixedScale) {
+				textSetting = saved.ui.textScale;
+			}
+			if (!a_gui.theme) {
+				theme = saved.ui.theme;
+			}
 		}
+		w::SetTheme(theme);
 		w::RequestTextScale(textSetting);
 		float scale = g_dpi * *w::TakePendingTextScale();
 		const bool demo = EnvVar(L"DOVASTASH_WIDGETS_DEMO") == L"1";
@@ -310,6 +318,11 @@ namespace dova::editor::ui
 					CreateRenderTarget();
 				}
 
+				// A new theme (Setup, the palette): colours and style between frames, the fonts stay.
+				if (const auto name = w::TakePendingTheme()) {
+					w::SetTheme(*name);
+					w::ApplyColours();
+				}
 				// A new text size (Setup, Ctrl+= / Ctrl+-) or DPI: fonts and sizes are rebuilt between frames.
 				if (const auto text = w::TakePendingTextScale(); text || g_dpiChanged) {
 					g_dpiChanged = false;
@@ -326,7 +339,8 @@ namespace dova::editor::ui
 					app.Frame();
 				}
 				ImGui::Render();
-				const float clear[4] = { 0x11 / 255.0f, 0x11 / 255.0f, 0x13 / 255.0f, 1.0f };  // bg0
+				const ImVec4 bg0 = ImGui::ColorConvertU32ToFloat4(w::Th().bg0);
+				const float  clear[4] = { bg0.x, bg0.y, bg0.z, 1.0f };
 				g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
 				g_context->ClearRenderTargetView(g_rtv, clear);
 				ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());

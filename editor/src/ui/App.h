@@ -62,6 +62,7 @@ namespace dova::editor::ui
 		bool                       palette{ false };  // open the command palette (Ctrl+K)
 		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat
 		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
+		std::optional<std::string> theme;     // a colour theme for this run (ui/Themes.h); the remembered one stays
 	};
 
 	// Win32 + Direct3D 11 + Dear ImGui host (Window.cpp). Returns the process exit code.
@@ -234,6 +235,8 @@ namespace dova::editor::ui
 		void DrawSetupPopover();  // TitleBar.cpp: ⚙
 		void SetTextScale(float a_setting);  // TitleBar.cpp: Text size (0 = Auto), remembered and applied next frame
 		void StepTextScale(int a_dir);       // Ctrl+= / Ctrl+-: 10 % a step
+		void PickTheme(const std::string& a_name);  // TitleBar.cpp: a colour theme, remembered and applied next frame
+		void ExportTheme();                         // TitleBar.cpp: the theme in effect into a file under Themes (ui/Themes.h)
 		float _uiSizeDrag{ 100.0f };         // the Setup slider while it is dragged (percent)
 		void DrawSetupConfirm();  // TitleBar.cpp
 		void DrawHelpPopups();    // TitleBar.cpp: Shortcuts..., About

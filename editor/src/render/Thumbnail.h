@@ -26,6 +26,7 @@ namespace dova::editor::render
 
 		// Background (RGBA8); the editor passes its bg2 so the picture sits in the panel.
 		void SetBackground(std::uint32_t a_rgba) { _background = a_rgba; }
+		[[nodiscard]] std::uint32_t Background() const { return _background; }
 
 	private:
 		ComPtr<ID3D11Device>                 _device;

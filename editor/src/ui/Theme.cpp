@@ -18,6 +18,7 @@
 #include <imgui_internal.h>
 
 #include "ui/ThemeDetail.h"
+#include "ui/Themes.h"
 #include "ui/Widgets.h"
 
 namespace dova::editor::ui::w
@@ -27,36 +28,49 @@ namespace dova::editor::ui::w
 
 	namespace
 	{
-		Theme                g_theme{};
-		bool                 g_themeApplied{ false };
-		float                g_autoText{ 1.0f };
-		float                g_textSetting{ 0.0f };
-		std::optional<float> g_pendingText;
+		Theme                      g_theme{};
+		bool                       g_themeApplied{ false };
+		float                      g_autoText{ 1.0f };
+		float                      g_textSetting{ 0.0f };
+		std::optional<float>       g_pendingText;
+		std::optional<std::string> g_pendingTheme;
+
+		// The colours in effect (ui/Themes.h): Dova Stash until SetTheme picks another.
+		ThemeColours& Colours()
+		{
+			static ThemeColours s_colours = BuiltInThemes().front();
+			return s_colours;
+		}
 
 		// Resource ids in res/DovaStashEditor.rc.
 		constexpr int kCinzelResource = 101;
 		constexpr int kJostResource = 102;
 
-		void InitTokens(float a_scale)
+		void InitTokens(const ThemeColours& a_c, float a_scale)
 		{
-			// The art set's palette (presskit/README.md, Style): black, white and neutral grays only, every
-			// gray with R = G = B. Surfaces step through the darkest grays; text uses the set's five.
-			g_theme.bg0 = Rgb(0x000000);  // ink
-			g_theme.bg1 = Rgb(0x0e0e0e);
-			g_theme.bg2 = Rgb(0x1e1e1e);  // gray-5: faint frames
-			g_theme.bg3 = Rgb(0x2a2a2a);
-			g_theme.line = Rgb(0x3c3c3c);  // gray-4: rules
-			g_theme.text = Rgb(0xd4d4d4);  // gray-1: secondary text (titles and marks are paper)
-			g_theme.muted = Rgb(0x9c9c9c);  // gray-2: captions
-			g_theme.accent = Rgb(0xffffff);  // paper: primary marks, the active control, the selected row
-			g_theme.accentDim = Rgb(0x9c9c9c);
-			g_theme.select = Rgb(0xffffff);
-			// Status hues stay for pills, dots and status text: they encode state (drafted, shipped, yours,
-			// saved, a confidence, an error), as the viewport's data colours do.
-			g_theme.ok = Rgb(0x7fbf7f);
-			g_theme.warn = Rgb(0xe0b04a);
-			g_theme.error = Rgb(0xd9634c);
-			g_theme.info = Rgb(0x6fa8dc);
+			// Dova Stash (the default) is the art set's palette (presskit/README.md, Style): black, white and neutral
+			// grays only, every gray with R = G = B; the status hues stay for pills, dots and status text, as the
+			// viewport's data colours do. The other themes fill the same roles (ui/Themes.cpp).
+			g_theme.bg0 = Rgb(a_c.bg0);
+			g_theme.bg1 = Rgb(a_c.bg1);
+			g_theme.bg2 = Rgb(a_c.bg2);
+			g_theme.bg3 = Rgb(a_c.bg3);
+			g_theme.line = Rgb(a_c.line);
+			g_theme.text = Rgb(a_c.text);
+			g_theme.muted = Rgb(a_c.muted);
+			g_theme.accent = Rgb(a_c.accent);
+			g_theme.accentDim = Rgb(a_c.accentDim);
+			g_theme.select = Rgb(a_c.select);
+			g_theme.ok = Rgb(a_c.ok);
+			g_theme.warn = Rgb(a_c.warn);
+			g_theme.error = Rgb(a_c.error);
+			g_theme.info = Rgb(a_c.info);
+			g_theme.disabled = Rgb(a_c.disabled);
+			g_theme.dark = a_c.dark;
+			// The viewport stays dark in every theme (the 3D view draws its own dark sky; the plan's data colours
+			// are made for a dark ground): light themes give the plan and the hint line a dark ground of their own.
+			g_theme.viewport = a_c.dark ? g_theme.bg0 : Rgb(0x1c1f24);
+			g_theme.viewportText = a_c.dark ? g_theme.muted : Rgb(0xb4b4b4);
 			g_theme.scale = a_scale;
 			g_theme.rowH = 24.0f * a_scale;
 			g_theme.inputH = 26.0f * a_scale;
@@ -70,7 +84,7 @@ namespace dova::editor::ui::w
 			g_theme.chipH = 18.0f * a_scale;
 			g_theme.stripW = 28.0f * a_scale;
 			g_theme.stroke = 1.5f * a_scale;
-			g_theme.shadow = IM_COL32(0, 0, 0, 102);
+			g_theme.shadow = IM_COL32(0, 0, 0, a_c.dark ? 102 : 51);
 		}
 
 		// ---- Fonts ----
@@ -291,7 +305,7 @@ namespace dova::editor::ui::w
 			const ImVec4 none(0, 0, 0, 0);
 			ImVec4*      c = s.Colors;
 			c[ImGuiCol_Text] = V4(t.text);
-			c[ImGuiCol_TextDisabled] = V4(Rgb(0x6a6a6a));  // gray-3
+			c[ImGuiCol_TextDisabled] = V4(t.disabled);  // Dova Stash: gray-3
 			c[ImGuiCol_WindowBg] = V4(t.bg0);
 			c[ImGuiCol_ChildBg] = none;
 			c[ImGuiCol_PopupBg] = V4(t.bg2);
@@ -305,8 +319,8 @@ namespace dova::editor::ui::w
 			c[ImGuiCol_TitleBgCollapsed] = V4(t.bg0);
 			c[ImGuiCol_MenuBarBg] = V4(t.bg1);
 			c[ImGuiCol_ScrollbarBg] = none;
-			c[ImGuiCol_ScrollbarGrab] = V4(Rgb(0x3c3c3c));
-			c[ImGuiCol_ScrollbarGrabHovered] = V4(Rgb(0x6a6a6a));
+			c[ImGuiCol_ScrollbarGrab] = V4(t.line);
+			c[ImGuiCol_ScrollbarGrabHovered] = V4(t.disabled);
 			c[ImGuiCol_ScrollbarGrabActive] = V4(t.accentDim);
 			c[ImGuiCol_CheckMark] = V4(t.accent);
 			c[ImGuiCol_CheckboxSelectedBg] = V4(t.bg2);
@@ -340,7 +354,7 @@ namespace dova::editor::ui::w
 			c[ImGuiCol_TableBorderStrong] = V4(t.line);
 			c[ImGuiCol_TableBorderLight] = V4(detail::Mix(t.line, t.bg1, 0.7f));
 			c[ImGuiCol_TableRowBg] = none;
-			c[ImGuiCol_TableRowBgAlt] = ImVec4(1, 1, 1, 0.018f);
+			c[ImGuiCol_TableRowBgAlt] = t.dark ? ImVec4(1, 1, 1, 0.018f) : ImVec4(0, 0, 0, 0.03f);  // a faint band either way
 			c[ImGuiCol_TextLink] = V4(t.accent);
 			c[ImGuiCol_TextSelectedBg] = V4(WithAlpha(t.accent, 0.30f));
 			c[ImGuiCol_TreeLines] = V4(t.line);
@@ -359,7 +373,7 @@ namespace dova::editor::ui::w
 		const float dpi = a_dpiScale > 0.0f ? a_dpiScale : 1.0f;
 		const float text = a_textScale > 0.0f ? a_textScale : 1.0f;
 		const float scale = dpi * text;
-		InitTokens(scale);
+		InitTokens(Colours(), scale);
 		g_theme.dpi = dpi;
 		g_theme.textScale = text;
 		ApplyStyle(scale);
@@ -368,6 +382,33 @@ namespace dova::editor::ui::w
 			InstallRimHook();
 		}
 		g_themeApplied = true;
+	}
+
+	void SetTheme(std::string_view a_name)
+	{
+		const ThemeColours* found = a_name.empty() ? nullptr : FindTheme(a_name);
+		Colours() = found ? *found : BuiltInThemes().front();
+	}
+
+	void ApplyColours()
+	{
+		InitTokens(Colours(), g_theme.scale);
+		ApplyStyle(g_theme.scale);
+	}
+
+	const ThemeColours& CurrentTheme()
+	{
+		return Colours();
+	}
+
+	void RequestTheme(std::string_view a_name)
+	{
+		g_pendingTheme = std::string(a_name);
+	}
+
+	std::optional<std::string> TakePendingTheme()
+	{
+		return std::exchange(g_pendingTheme, std::nullopt);
 	}
 
 	void RequestTextScale(float a_setting)
@@ -399,7 +440,7 @@ namespace dova::editor::ui::w
 	const Theme& Th()
 	{
 		if (!g_themeApplied && g_theme.bg0 == 0) {
-			InitTokens(1.0f);
+			InitTokens(Colours(), 1.0f);
 		}
 		return g_theme;
 	}

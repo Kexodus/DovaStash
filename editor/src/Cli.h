@@ -58,6 +58,7 @@ namespace dova::editor
 		bool                       palette{ false };    // --gui --palette: the command palette open
 		std::optional<std::string> popover;             // --gui --popover <id>: a popover open (screenshots of the guide)
 		std::optional<std::pair<int, int>> window;      // --gui --window WxH: the window's client size
+		std::optional<std::string> theme;               // --gui --theme <name>: a colour theme for this run
 		std::vector<std::string>   errors;
 
 		[[nodiscard]] bool Headless() const noexcept

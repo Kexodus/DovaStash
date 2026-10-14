@@ -62,6 +62,7 @@ int wmain(int argc, wchar_t** argv)
 	gui.inspector = parsed.inspector;
 	gui.palette = parsed.palette;
 	gui.popover = parsed.popover;
+	gui.theme = parsed.theme;
 	gui.window = parsed.window;
 	if (gui.screenshot && !gui.window) {
 		gui.window = std::pair{ 1600, 900 };  // the guide's figures: the same size on every display

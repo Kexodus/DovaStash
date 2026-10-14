@@ -5,6 +5,11 @@
 #include <algorithm>
 #include <format>
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+#include <shellapi.h>
+
 #include <imgui.h>
 #include <imgui_stdlib.h>
 
@@ -12,6 +17,7 @@
 #include "home/TemplateFile.h"
 #include "ui/App.h"
 #include "ui/Common.h"
+#include "ui/Themes.h"
 
 namespace dova::editor::ui
 {
@@ -280,6 +286,42 @@ namespace dova::editor::ui
 		}
 	}
 
+	void EditorApp::PickTheme(const std::string& a_name)
+	{
+		// Stored by name; Dova Stash (the default) as empty so a renamed default never strands anyone.
+		const std::string stored = a_name == w::BuiltInThemes().front().name ? std::string{} : a_name;
+		_state.ui.theme = stored;
+		if (_state.uiOnDisk) {
+			_state.uiOnDisk->theme = stored;  // a one-run layout (--tab) still remembers the theme
+		}
+		_state.Save();
+		w::RequestTheme(a_name);
+	}
+
+	void EditorApp::ExportTheme()
+	{
+		// A shipped theme is written under a name of its own ("My Carbon"), so the file shows under Yours next to it.
+		// An existing file is never overwritten (it may hold the player's edits): the folder opens on it instead.
+		w::ThemeColours out = w::CurrentTheme();
+		if (!out.user) {
+			out.name = "My " + out.name;
+		}
+		std::string file = out.name;
+		for (char& c : file) {
+			if (std::string_view("<>:\"/\\|?*").find(c) != std::string_view::npos || static_cast<unsigned char>(c) < 32) {
+				c = '_';
+			}
+		}
+		const auto path = out.user && !out.file.empty() ? out.file : w::UserThemesDir() / PathFromUtf8(file + ".json");
+		std::error_code ec;
+		if (!std::filesystem::exists(path, ec) && !w::SaveThemeFile(out, path)) {
+			return;
+		}
+		w::RescanThemes();
+		const auto args = L"/select,\"" + path.wstring() + L"\"";
+		::ShellExecuteW(nullptr, L"open", L"explorer.exe", args.c_str(), nullptr, SW_SHOWNORMAL);
+	}
+
 	void EditorApp::DrawSetupPopover()
 	{
 		const auto& t = w::Th();
@@ -328,6 +370,48 @@ namespace dova::editor::ui
 				ImGui::EndCombo();
 			}
 			w::Tip(PathToUtf8(SaveBase()).c_str());
+		}
+		w::FieldLabel("Theme");
+		{
+			// Grouped like xEdit's UI Theme menu; the player's files are read again each time the list opens.
+			const std::string current = w::CurrentTheme().name;
+			if (ImGui::BeginCombo("##theme", current.c_str(), ImGuiComboFlags_HeightLargest)) {
+				if (ImGui::IsWindowAppearing()) {
+					w::RescanThemes();
+				}
+				const auto& all = w::AllThemes();
+				std::string picked;
+				auto group = [&](const char* a_head, auto a_pred) {
+					bool headed = false;
+					for (std::size_t i = 0; i < all.size(); ++i) {
+						if (!a_pred(i, all[i])) {
+							continue;
+						}
+						if (!headed) {
+							w::SectionHead(a_head);
+							headed = true;
+						}
+						if (ImGui::Selectable(all[i].name.c_str(), all[i].name == current)) {
+							picked = all[i].name;
+						}
+						if (all[i].user) {
+							w::Tip(PathToUtf8(all[i].file).c_str());
+						}
+					}
+				};
+				group("Dova Stash", [](std::size_t a_i, const w::ThemeColours&) { return a_i == 0; });
+				group("Dark", [](std::size_t a_i, const w::ThemeColours& a_t) { return a_i > 0 && !a_t.user && a_t.dark; });
+				group("Light", [](std::size_t a_i, const w::ThemeColours& a_t) { return a_i > 0 && !a_t.user && !a_t.dark; });
+				group("Yours", [](std::size_t, const w::ThemeColours& a_t) { return a_t.user; });
+				ImGui::EndCombo();
+				if (!picked.empty()) {
+					PickTheme(picked);  // picking the one in effect again reloads its file
+				}
+			}
+			if (w::LinkButton("Export...")) {
+				ExportTheme();
+			}
+			w::Tip("Writes this theme to a file in the Themes folder and shows it. Edit its hex colours, then pick it under Yours");
 		}
 		w::FieldLabel("UI size");
 		{

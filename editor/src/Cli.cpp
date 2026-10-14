@@ -21,6 +21,7 @@
 #include "render/Image.h"
 #include "render/Nif.h"
 #include "render/Scene.h"
+#include "ui/Themes.h"
 
 namespace dova::editor
 {
@@ -554,6 +555,7 @@ namespace dova::editor
 		       "  --popover <id>        open a popover (menu, setup, switcher, filter, draftmenu, layers, colours,\n"
 		       "                        camera, paintcat) for a screenshot\n"
 		       "  --window WxH          the window's client size (e.g. 1280x720)\n"
+		       "  --theme <name>        a colour theme for this run (Setup's Theme list, e.g. \"Windows10 Dark\")\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
 		       "  (no --mod/--cell/--home/--drafts: the start panel)\n"
 		       "  --help\n";
@@ -643,6 +645,13 @@ namespace dova::editor
 				a.palette = true;
 			} else if (s == "--popover") {
 				a.popover = value();
+			} else if (s == "--theme") {
+				if (auto v = value()) {
+					if (!ui::w::FindTheme(*v)) {
+						a.errors.push_back("--theme: no theme named \"" + *v + "\" (Setup's Theme list)");
+					}
+					a.theme = std::move(v);
+				}
 			} else if (s == "--window") {
 				if (auto v = value()) {
 					const auto n = Numbers(*v);
