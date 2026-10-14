@@ -150,7 +150,7 @@ namespace dova::editor
 			}
 			const auto               start = Clock::now();
 			std::vector<std::string> errors;
-			auto                     lo = std::make_unique<esp::LoadOrder>(a_ws.Files(), a_ws.Language());
+			auto                     lo = a_ws.NewLoadOrder();
 			for (const auto& p : plugins) {
 				lo->AddWithMasters(p, errors);
 			}
@@ -322,7 +322,7 @@ namespace dova::editor
 			}
 			const auto               start = Clock::now();
 			std::vector<std::string> errors;
-			auto                     lo = std::make_unique<esp::LoadOrder>(a_ws.Files(), a_ws.Language());
+			auto                     lo = a_ws.NewLoadOrder();
 			for (const auto& p : plugins) {
 				lo->AddWithMasters(p, errors);
 			}

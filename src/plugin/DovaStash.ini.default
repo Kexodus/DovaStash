@@ -11,7 +11,7 @@ iLogLevel = 2
 ; of your own can be restored there: Dova Stash keeps a copy of every setup in
 ; Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups).
 ; false = show a one-time notification and wait for you to press the hotkey.
-bAutoEnableTemplates = false
+bAutoEnableTemplates = true
 
 [Input]
 ; Keyboard hotkey as a DirectInput scan code (decimal). 37 = K.

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <format>
 #include <numbers>
+#include <unordered_map>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -173,13 +174,17 @@ namespace dova::editor::ui
 		}
 		_pendingHomeSelect = a_gui.home;
 		_mode = a_gui.mod || a_gui.cell ? Mode::Browse : a_gui.drafts ? Mode::Drafts : Mode::Welcome;
+		_listsHidden = a_gui.cell.has_value();  // a cell asked for by name gets the whole window; picking from the lists keeps them
 		OpenWorkspace();
 		if (_ws && _mode != Mode::Browse) {
 			ScanHomes(_mode == Mode::Drafts);
 		}
 		bool opened = false;
 		if (_ws && a_gui.mod) {
+			// --mod: its homes (By mod tab), or with --cell its plugins' cells (Any cell tab), as the --cell command finds them.
 			std::snprintf(_modFilter, sizeof(_modFilter), "%s", a_gui.mod->c_str());
+			std::snprintf(_homeFilter, sizeof(_homeFilter), "%s", a_gui.mod->c_str());
+			_requestListTab = a_gui.cell ? 1 : 0;
 			if (const auto found = _ws->FindMods(*a_gui.mod); !found.empty()) {
 				_pendingCell = a_gui.cell;
 				SelectMod(static_cast<int>(found.front() - _ws->Mods().data()));
@@ -191,7 +196,7 @@ namespace dova::editor::ui
 			const Workspace* ws = _ws.get();
 			const auto       wanted = *a_gui.cell;
 			StartJob("Opening cell...", [this, ws, wanted]() -> std::function<void()> {
-				auto                     lo = std::make_shared<esp::LoadOrder>(ws->Files(), ws->Language());
+				auto                     lo = std::shared_ptr<esp::LoadOrder>(ws->NewLoadOrder());
 				std::vector<std::string> errors;
 				for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
 					lo->AddWithMasters(p, errors);
@@ -219,7 +224,7 @@ namespace dova::editor::ui
 
 	bool EditorApp::Idle() const
 	{
-		if (_mode == Mode::Drafts && !_homes && _ws) {
+		if ((_mode == Mode::Drafts || (_mode == Mode::Browse && !_listsHidden && _listTab == 0)) && !_homes && _ws) {
 			return false;
 		}
 		return !_job.valid() && !_pendingCell && (_mode != Mode::Browse || !_scene || _scene->Progress().finished);
@@ -261,6 +266,7 @@ namespace dova::editor::ui
 		_assets.reset();
 		_history.clear();
 		_selectedMod = -2;
+		_homeGroups.clear();
 		_categoriesLoaded = false;
 		_categories.clear();
 		_categorySet.reset();
@@ -461,7 +467,6 @@ namespace dova::editor::ui
 				_selectedRef = -1;
 				_hoveredRef = -1;
 				_fitPending = true;
-				_listsHidden = true;
 				// Height range (shared by the plan and the 3D view).
 				_zMin = FLT_MAX;
 				_zMax = -FLT_MAX;
@@ -518,18 +523,13 @@ namespace dova::editor::ui
 			ImGui::BeginChild("cell");
 			DrawCell();
 			ImGui::EndChild();
-		} else if (ImGui::BeginTable("columns", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV, ImGui::GetContentRegionAvail())) {
-			ImGui::TableSetupColumn("Mods", ImGuiTableColumnFlags_WidthStretch, 0.22f);
-			ImGui::TableSetupColumn("Homes", ImGuiTableColumnFlags_WidthStretch, 0.20f);
-			ImGui::TableSetupColumn("Cell", ImGuiTableColumnFlags_WidthStretch, 0.58f);
+		} else if (ImGui::BeginTable("columns", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_BordersInnerV, ImGui::GetContentRegionAvail())) {
+			ImGui::TableSetupColumn("Homes", ImGuiTableColumnFlags_WidthStretch, 0.36f);
+			ImGui::TableSetupColumn("Cell", ImGuiTableColumnFlags_WidthStretch, 0.64f);
 			ImGui::TableNextRow(ImGuiTableRowFlags_None, ImGui::GetContentRegionAvail().y);
 			ImGui::TableNextColumn();
-			ImGui::BeginChild("mods");
-			DrawMods();
-			ImGui::EndChild();
-			ImGui::TableNextColumn();
-			ImGui::BeginChild("homes");
-			DrawHomes();
+			ImGui::BeginChild("lists");
+			DrawLists();
 			ImGui::EndChild();
 			ImGui::TableNextColumn();
 			ImGui::BeginChild("cell");
@@ -567,7 +567,7 @@ namespace dova::editor::ui
 			ImGui::SameLine();
 		};
 		modeButton("Start", Mode::Welcome, "The start page: your setup, the homes found, what you are working on.");
-		modeButton(_cell ? "Home editor" : "Homes by mod", Mode::Browse, "Pick a home by its mod, open its cells, give its containers their jobs.");
+		modeButton(_cell ? "Home editor" : "Homes by mod", Mode::Browse, "Pick a home under the mod that adds it, open its cells, give its containers their jobs.");
 		ImGui::BeginDisabled(!_ws || (busy && !_homes));
 		modeButton("Draft all homes (Ctrl+D)", Mode::Drafts, "Every player home of the load order with a draft template to review and save.");
 		ImGui::EndDisabled();
@@ -619,13 +619,227 @@ namespace dova::editor::ui
 		}
 	}
 
-	void EditorApp::DrawMods()
+	void EditorApp::DrawLists()
 	{
-		ImGui::SeparatorText("1. Home mod");
+		ImGui::SeparatorText("1. Player homes");
 		if (!_ws) {
 			ImGui::TextWrapped("Open an MO2 instance above, or add the editor to MO2 as an executable and start it from there.");
 			return;
 		}
+		if (ImGui::BeginTabBar("lists")) {
+			const int request = std::exchange(_requestListTab, -1);
+			if (ImGui::BeginTabItem("By mod", nullptr, request == 0 ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None)) {
+				_listTab = 0;
+				DrawHomeMods();
+				ImGui::EndTabItem();
+			}
+			ImGui::SetItemTooltip("Every player home of your load order, under the mod that adds it.");
+			if (ImGui::BeginTabItem("Any cell", nullptr, request == 1 ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None)) {
+				_listTab = 1;
+				ImGui::BeginChild("mods", ImVec2(0, ImGui::GetContentRegionAvail().y * 0.5f), ImGuiChildFlags_ResizeY);
+				DrawMods();
+				ImGui::EndChild();
+				ImGui::BeginChild("cells");
+				DrawHomes();
+				ImGui::EndChild();
+				ImGui::EndTabItem();
+			}
+			ImGui::SetItemTooltip("Any mod, then any cell with containers in its plugins: for a home the finder misses (owned by a faction, an exterior).");
+			ImGui::EndTabBar();
+		}
+	}
+
+	void EditorApp::GroupHomes()
+	{
+		_homeGroups.clear();
+		if (!_homes || !_ws) {
+			return;
+		}
+		// Plugin (lower case) -> the mod providing it: the enabled mod with the highest priority (MO2's rule), -1 the game's Data folder.
+		std::unordered_map<std::string, int> owner;
+		for (const auto& p : _ws->BasePlugins()) {
+			owner[core::ToLower(p)] = -1;
+		}
+		const auto& mods = _ws->Mods();
+		for (std::size_t i = 0; i < mods.size(); ++i) {
+			const auto& m = mods[i];
+			if (m.separator || m.unmanaged || !m.enabled) {
+				continue;
+			}
+			for (const auto& p : m.plugins) {
+				owner[core::ToLower(p)] = static_cast<int>(i);  // Mods() is lowest priority first
+			}
+		}
+		std::map<int, std::vector<int>> byMod;
+		for (std::size_t i = 0; i < _homes->homes.size(); ++i) {
+			const auto it = owner.find(core::ToLower(_homes->homes[i].plugin));
+			byMod[it == owner.end() ? -2 : it->second].push_back(static_cast<int>(i));
+		}
+		// The game's Data folder, then the mods highest priority first (as MO2 lists them), then the rest.
+		if (const auto it = byMod.find(-1); it != byMod.end()) {
+			_homeGroups.push_back({ -1, std::move(it->second) });
+		}
+		for (auto it = byMod.rbegin(); it != byMod.rend() && it->first >= 0; ++it) {
+			_homeGroups.push_back({ it->first, std::move(it->second) });
+		}
+		if (const auto it = byMod.find(-2); it != byMod.end()) {
+			_homeGroups.push_back({ -2, std::move(it->second) });
+		}
+	}
+
+	void EditorApp::DrawHomeMods()
+	{
+		const bool busy = _job.valid();
+		if (!_homes) {
+			if (busy && _progress) {
+				const auto  done = _progress->done.load();
+				const auto  total = _progress->total.load();
+				std::string stage;
+				{
+					std::scoped_lock lock(_progress->mutex);
+					stage = _progress->stage;
+				}
+				ImGui::TextUnformatted("Finding every player home of the active load order...");
+				ImGui::ProgressBar(total ? static_cast<float>(done) / static_cast<float>(total) : 0.0f, ImVec2(-FLT_MIN, 0), stage.c_str());
+			} else if (busy) {
+				ImGui::TextDisabled("%s", _jobLabel.c_str());
+			} else {
+				ScanHomes(false);
+			}
+			return;
+		}
+		ImGui::SetNextItemWidth(-FLT_MIN);
+		ImGui::InputTextWithHint("##homefilter", "Filter: home, mod name or Nexus mod id", _homeFilter, sizeof(_homeFilter));
+
+		const std::string filter = _homeFilter;
+		auto modName = [&](int a_mod) -> std::string {
+			return a_mod >= 0 ? _ws->Mods()[static_cast<std::size_t>(a_mod)].name : a_mod == -1 ? "(Game Data folder: base game, Creation Club)" : "(Plugins no mod provides)";
+		};
+		// What the filter leaves of each group: all of a matching mod, else its matching homes.
+		std::vector<std::vector<int>> shown(_homeGroups.size());
+		std::size_t                   homes = 0, groups = 0;
+		for (std::size_t g = 0; g < _homeGroups.size(); ++g) {
+			const auto&      group = _homeGroups[g];
+			const mo2::Mod*  mod = group.mod >= 0 ? &_ws->Mods()[static_cast<std::size_t>(group.mod)] : nullptr;
+			const bool       modMatch = filter.empty() || IContains(modName(group.mod), filter) || (mod && mod->nexusId && std::to_string(*mod->nexusId) == filter);
+			for (const int i : group.homes) {
+				const auto& h = _homes->homes[static_cast<std::size_t>(i)];
+				if (modMatch || IContains(h.name, filter) || IContains(h.editorId, filter) || IContains(h.plugin, filter) || IContains(h.cellRef, filter)) {
+					shown[g].push_back(i);
+				}
+			}
+			homes += shown[g].size();
+			groups += shown[g].empty() ? 0 : 1;
+		}
+		ImGui::TextDisabled("%zu %s in %zu %s", homes, homes == 1 ? "home" : "homes", groups, groups == 1 ? "mod" : "mods");
+		HelpMarker("Every player home of the active load order (as Draft all homes finds them: a player-house location, owned by the player, or "
+		           "mannequins and nothing that respawns), under the mod whose plugin adds its cell. Click a home to open it. Not listed? The Any cell "
+		           "tab shows every cell with containers of a mod's plugins.");
+		ImGui::SameLine();
+		ImGui::BeginDisabled(busy);
+		if (ImGui::SmallButton("Rescan") || (!ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F5, false) && !busy)) {
+			if (!AnyUnsaved()) {
+				_homes.reset();
+				_homeGroups.clear();
+				ScanHomes(false);
+				ImGui::EndDisabled();
+				return;
+			}
+		}
+		ImGui::EndDisabled();
+		ImGui::SetItemTooltip("Read the load order again after changing mods in MO2 (F5). Waits until nothing is unsaved.");
+
+		if (ImGui::BeginTable("homemods", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY)) {
+			ImGui::TableSetupScrollFreeze(0, 1);
+			ImGui::TableSetupColumn("Home", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("Storage", ImGuiTableColumnFlags_WidthStretch, 0.55f);
+			ImGui::TableSetupColumn("Template", ImGuiTableColumnFlags_WidthFixed, ImGui::GetFontSize() * 5.0f);
+			ImGui::TableHeadersRow();
+			for (std::size_t g = 0; g < _homeGroups.size(); ++g) {
+				if (shown[g].empty()) {
+					continue;
+				}
+				const int       modIndex = _homeGroups[g].mod;
+				const mo2::Mod* mod = modIndex >= 0 ? &_ws->Mods()[static_cast<std::size_t>(modIndex)] : nullptr;
+				const auto      name = modName(modIndex);
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::PushID(modIndex);
+				if (!filter.empty()) {
+					ImGui::SetNextItemOpen(true);
+				}
+				const auto modLabel = mod && mod->nexusId ? std::format("{}   (Nexus {})", name, *mod->nexusId) : name;
+				const bool open = ImGui::TreeNodeEx(modLabel.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_LabelSpanAllColumns);
+				if (ImGui::BeginItemTooltip()) {
+					std::string plugins;
+					for (const auto& p : mod ? mod->plugins : _ws->BasePlugins()) {
+						plugins += (plugins.empty() ? "" : ", ") + p;
+					}
+					ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0f);
+					ImGui::TextUnformatted(name.c_str());
+					ImGui::Text("%zu %s", shown[g].size(), shown[g].size() == 1 ? "home" : "homes");
+					if (modIndex != -2) {
+						ImGui::Text("Plugins: %s", plugins.c_str());
+					}
+					ImGui::PopTextWrapPos();
+					ImGui::EndTooltip();
+				}
+				if (open) {
+					for (const int i : shown[g]) {
+						const auto& h = _homes->homes[static_cast<std::size_t>(i)];
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::PushID(i);
+						const auto label = h.extra.empty() ? h.name : std::format("{}  (+{})", h.name, h.extra.size());
+						const bool selected = _cell && _cell->lo == _homes->lo &&
+						                      (_cell->info.key == h.cell || std::ranges::any_of(h.extra, [&](const home::HomeEntry::Extra& e) { return e.cell == _cell->info.key; }));
+						ImGui::BeginDisabled(busy);
+						if (ImGui::Selectable(label.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns)) {
+							RequestNewHome(_homes->lo, h.cell);
+						}
+						ImGui::EndDisabled();
+						if (ImGui::BeginItemTooltip()) {
+							ImGui::Text("%s  %s", h.cellRef.c_str(), h.editorId.c_str());
+							for (const auto& e : h.extra) {
+								ImGui::Text("+ %s (%s)%s", e.name.empty() ? e.editorId.c_str() : e.name.c_str(), e.cellRef.c_str(), e.likely ? "" : ": storage behind a door");
+							}
+							std::string why;
+							for (const auto& r : h.candidate.reasons) {
+								why += (why.empty() ? "" : ", ") + r;
+							}
+							ImGui::Text("Why: %s", why.empty() ? "only containers" : why.c_str());
+							if (!h.lastPlugin.empty() && !core::IEquals(h.lastPlugin, h.plugin)) {
+								ImGui::Text("Last edited by %s", h.lastPlugin.c_str());
+							}
+							ImGui::EndTooltip();
+						}
+						ImGui::PopID();
+						ImGui::TableNextColumn();
+						ImGui::Text("%d chests", h.containers);
+						if (h.displays > 0) {
+							ImGui::SameLine();
+							ImGui::TextDisabled("%d displays", h.displays);
+						}
+						ImGui::TableNextColumn();
+						bool       user = false;
+						const auto status = HomeStatus(h, &user);
+						if (status.empty()) {
+							ImGui::TextDisabled("none");
+						} else {
+							ImGui::TextColored(user ? ImVec4(0.45f, 0.85f, 0.5f, 1.0f) : ImVec4(0.55f, 0.75f, 1.0f, 1.0f), "%s", status.c_str());  // the drafts list's colours
+						}
+					}
+					ImGui::TreePop();
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+	}
+
+	void EditorApp::DrawMods()
+	{
+		ImGui::SeparatorText("Any mod");
 		ImGui::SetNextItemWidth(-FLT_MIN);
 		ImGui::InputTextWithHint("##filter", "Filter: mod name or Nexus mod id", _modFilter, sizeof(_modFilter));
 		ImGui::Checkbox("Enabled only", &_onlyEnabled);
@@ -696,10 +910,10 @@ namespace dova::editor::ui
 
 	void EditorApp::DrawHomes()
 	{
-		ImGui::SeparatorText("2. Player homes in its plugins");
+		ImGui::SeparatorText("Cells in its plugins");
 		if (_selectedMod < -1 || !_ws) {
-			ImGui::TextWrapped("Pick the mod that adds the home. Its plugins are searched for player homes: cells whose location is a player "
-			                   "house, owned by the player, that never reset, with containers and displays.");
+			ImGui::TextWrapped("Pick a mod above. Its plugins are searched for cells with containers, likely homes first: cells whose location is "
+			                   "a player house, owned by the player, that never reset, with containers and displays.");
 			return;
 		}
 		const bool busy = _job.valid();
@@ -786,16 +1000,16 @@ namespace dova::editor::ui
 
 	void EditorApp::DrawCell()
 	{
-		ImGui::SeparatorText("3. Cell");
+		ImGui::SeparatorText("2. Cell");
 		if (!_cell) {
-			ImGui::TextWrapped(_job.valid() ? _jobLabel.c_str() : "Open a cell from the list of homes.");
+			ImGui::TextWrapped(_job.valid() ? _jobLabel.c_str() : "Open a home from the list.");
 			return;
 		}
 		auto& c = *_cell;
-		if (ImGui::SmallButton(_listsHidden ? "> Mods and homes" : "< Hide lists")) {
+		if (ImGui::SmallButton(_listsHidden ? "> Homes" : "< Hide lists")) {
 			_listsHidden = !_listsHidden;
 		}
-		ImGui::SetItemTooltip(_listsHidden ? "Show the mod list and the homes found in it" : "Give the cell the whole window");
+		ImGui::SetItemTooltip(_listsHidden ? "Show the list of homes" : "Give the cell the whole window");
 		ImGui::SameLine();
 		if (!_history.empty()) {
 			ImGui::BeginDisabled(_job.valid());

@@ -157,7 +157,11 @@ namespace dova::ui
 		const auto                 ref = a_menu.ref;
 		std::vector<DisplayOption> out;
 		if (!a_menu.used) {
-			out.push_back({ std::format("Use this {}", Noun(a_menu.kind)), [cellId, ref]() { Controller::Get().SetDisplayUsed(cellId, ref, true); } });
+			// Then its options right away (categories, armor set, fill now), not another press of the hotkey.
+			out.push_back({ std::format("Use this {}", Noun(a_menu.kind)), [cellId, ref]() {
+							   Controller::Get().SetDisplayUsed(cellId, ref, true);
+							   Controller::Get().ReopenDisplayMenu(cellId, ref);
+						   } });
 			return out;
 		}
 		if (!DisplayCategoryChoices(a_menu.kind).empty()) {

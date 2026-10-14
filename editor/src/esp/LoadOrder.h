@@ -28,6 +28,8 @@ namespace dova::editor
 
 namespace dova::editor::esp
 {
+	class ScriptLibrary;
+
 	// A form identified by the file that defines it (index into LoadOrder's file table) and its local id.
 	struct FormKey
 	{
@@ -79,6 +81,11 @@ namespace dova::editor::esp
 		// Adds the plugin after its masters (recursively, each once). Missing masters are reported in
 		// `a_errors` and skipped; returns false when `a_name` itself cannot be loaded.
 		bool AddWithMasters(std::string_view a_name, std::vector<std::string>& a_errors);
+
+		// The compiled scripts the game would run (display detection in home::LoadCell); Workspace sets them.
+		// nullptr: none known, so script-dependent displays (plaques, cases) are not recognised.
+		void                         SetScripts(std::shared_ptr<ScriptLibrary> a_scripts) { _scripts = std::move(a_scripts); }
+		[[nodiscard]] ScriptLibrary* Scripts() const noexcept { return _scripts.get(); }
 
 		[[nodiscard]] std::size_t                 PluginCount() const noexcept { return _plugins.size(); }
 		[[nodiscard]] const Plugin&               PluginAt(std::size_t a_index) const { return *_plugins[a_index].plugin; }
@@ -158,6 +165,7 @@ namespace dova::editor::esp
 		Bsa*        OpenBsa(const std::filesystem::path& a_path);
 
 		const DataFiles&                                       _files;
+		std::shared_ptr<ScriptLibrary>                         _scripts;
 		std::string                                            _language;
 		std::vector<Loaded>                                    _plugins;
 		std::vector<std::string>                               _fileNames;

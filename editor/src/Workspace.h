@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -14,6 +15,7 @@
 
 #include "data/DataFiles.h"
 #include "esp/LoadOrder.h"
+#include "esp/Pex.h"
 #include "mo2/Instance.h"
 
 namespace dova::editor
@@ -55,6 +57,11 @@ namespace dova::editor
 			const std::function<void(std::size_t, std::size_t)>& a_progress = {}) const;
 		[[nodiscard]] std::vector<std::string> ActivePlugins() const;
 
+		// An empty load order with the workspace's compiled scripts attached (every load order the editor opens).
+		[[nodiscard]] std::unique_ptr<esp::LoadOrder> NewLoadOrder() const;
+		// Papyrus scripts (.pex) as the game finds them: loose files over archives (shared, read on demand).
+		[[nodiscard]] std::shared_ptr<esp::ScriptLibrary> Scripts() const;
+
 		[[nodiscard]] std::string Describe() const;
 
 	private:
@@ -66,5 +73,7 @@ namespace dova::editor
 		std::vector<std::string>     _basePlugins;
 		std::string                  _language;
 		bool                         _underVfs{ false };
+		mutable std::mutex                          _scriptsMutex;
+		mutable std::shared_ptr<esp::ScriptLibrary> _scripts;
 	};
 }

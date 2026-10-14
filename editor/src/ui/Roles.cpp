@@ -126,6 +126,68 @@ namespace dova::editor::ui
 		return changed;
 	}
 
+	bool EditorApp::ArmorSetEditor(OpenCell& a_cell, std::optional<core::FormRef>& a_set)
+	{
+		const auto& index = ArmorSets(a_cell);
+		const auto  label = [&](const core::ArmorSet& a_s) {
+			return std::format("{}  ({}/4 slots, {} piece{})", a_s.name, core::SlotGroupCount(a_s.slots), a_s.pieces.size(), a_s.pieces.size() == 1 ? "" : "s");
+		};
+		std::string current = "Auto: the most complete set the player has";
+		if (a_set) {
+			const auto s = index.SetOf(*a_set);
+			current = s ? label(index.sets[*s]) : a_set->ToString() + " (not in this load order)";
+		}
+		bool changed = false;
+		ImGui::TextDisabled("Armor set");
+		ImGui::SetNextItemWidth(-FLT_MIN);
+		if (ImGui::BeginCombo("##armorset", current.c_str(), ImGuiComboFlags_HeightLarge)) {
+			if (ImGui::IsWindowAppearing()) {
+				ImGui::SetKeyboardFocusHere();
+			}
+			ImGui::SetNextItemWidth(-FLT_MIN);
+			ImGui::InputTextWithHint("##armorsetfilter", "Search: set, plugin or piece", &_armorSetFilter);
+			if (ImGui::Selectable("Auto: the most complete set the player has", !a_set)) {
+				a_set.reset();
+				changed = true;
+			}
+			std::vector<std::size_t> shown;
+			for (std::size_t i = 0; i < index.sets.size(); ++i) {
+				if (core::ArmorSetMatches(index.sets[i], index.pieces, _armorSetFilter)) {
+					shown.push_back(i);
+				}
+			}
+			const auto chosen = a_set ? index.SetOf(*a_set) : std::nullopt;
+			ImGuiListClipper clipper;
+			clipper.Begin(static_cast<int>(shown.size()));
+			while (clipper.Step()) {
+				for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+					const auto  i = shown[static_cast<std::size_t>(row)];
+					const auto& s = index.sets[i];
+					ImGui::PushID(static_cast<int>(i));
+					if (ImGui::Selectable(label(s).c_str(), chosen == i)) {
+						a_set = s.id;
+						changed = true;
+					}
+					if (ImGui::BeginItemTooltip()) {
+						ImGui::TextUnformatted(s.plugin.c_str());
+						for (const auto p : s.pieces) {
+							ImGui::BulletText("%s", index.pieces[p].name.c_str());
+						}
+						ImGui::EndTooltip();
+					}
+					ImGui::PopID();
+				}
+			}
+			if (shown.empty()) {
+				ImGui::TextDisabled("No set matches.");
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::SetItemTooltip("%s", a_set ? "The mannequin wears only this set and fills up as the player gets its pieces; nothing is taken off it." :
+		                                   "Auto: it wears the most complete matching set the player has (its categories, if any, narrow it).");
+		return changed;
+	}
+
 	void EditorApp::DrawRoleEditor(OpenCell& a_cell, int a_index)
 	{
 		const auto& r = a_cell.info.refs[static_cast<std::size_t>(a_index)];
@@ -246,8 +308,12 @@ namespace dova::editor::ui
 				ImGui::SetNextItemWidth(-FLT_MIN);
 				changed |= ImGui::InputText("##label", &d->label);
 				changed |= ImGui::Checkbox("Ignored (never filled)", &d->ignored);
-				const bool takesCategories = *r.display == core::DisplayKind::Rack || *r.display == core::DisplayKind::Mannequin ||
+				// A mannequin with a chosen set wears that set: its categories and "only" are not used (core::PlanDisplays).
+				const bool takesCategories = *r.display == core::DisplayKind::Rack || (*r.display == core::DisplayKind::Mannequin && !d->set) ||
 				                             *r.display == core::DisplayKind::Bookshelf;
+				if (*r.display == core::DisplayKind::Mannequin && !d->ignored) {
+					changed |= ArmorSetEditor(a_cell, d->set);
+				}
 				if (takesCategories && !d->ignored) {
 					changed |= CategoryEditor("dcats", d->categories);
 					ImGui::TextDisabled(*r.display == core::DisplayKind::Rack      ? "Empty: any weapon that fits the rack." :

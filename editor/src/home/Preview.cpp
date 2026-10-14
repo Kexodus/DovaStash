@@ -95,7 +95,7 @@ namespace dova::editor::home
 		return out;
 	}
 
-	std::vector<core::DisplaySpot> DisplaySpots(esp::LoadOrder& a_lo, std::span<const CellInfo> a_cells, const core::Layout& a_layout)
+	std::vector<core::DisplaySpot> DisplaySpots(esp::LoadOrder& a_lo, std::span<const CellInfo> a_cells, const core::Layout& a_layout, const ArmorSetIndex* a_sets)
 	{
 		std::vector<core::DisplaySpot> out;
 		for (const auto& d : a_layout.displays) {
@@ -129,6 +129,14 @@ namespace dova::editor::home
 			}
 			s.categories = d.categories;
 			s.only = d.only;
+			if (s.kind == core::DisplayKind::Mannequin && d.set) {
+				s.chosen = true;
+				if (const auto set = a_sets ? a_sets->SetOf(*d.set) : std::nullopt) {
+					for (const auto p : a_sets->sets[*set].pieces) {
+						s.set.push_back(a_sets->pieces[p].form);
+					}
+				}
+			}
 			out.push_back(std::move(s));
 		}
 		return out;

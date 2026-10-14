@@ -179,6 +179,24 @@ namespace dova::editor::ui
 		}
 	}
 
+	const esp::ItemCatalog& EditorApp::Catalog(OpenCell& a_cell)
+	{
+		if (_catalogLo != a_cell.lo || !_catalog) {
+			_catalog = _homes && _homes->lo == a_cell.lo && _homes->catalog ? _homes->catalog : std::make_shared<esp::ItemCatalog>(esp::BuildItemCatalog(*a_cell.lo));
+			_catalogLo = a_cell.lo;
+		}
+		return *_catalog;
+	}
+
+	const home::ArmorSetIndex& EditorApp::ArmorSets(OpenCell& a_cell)
+	{
+		if (_armorSetsLo != a_cell.lo || !_armorSets) {
+			_armorSets = std::make_shared<home::ArmorSetIndex>(home::BuildArmorSetIndex(*a_cell.lo, Catalog(a_cell)));
+			_armorSetsLo = a_cell.lo;
+		}
+		return *_armorSets;
+	}
+
 	void EditorApp::RunPreview(OpenCell& a_cell)
 	{
 		LoadCategories();
@@ -186,18 +204,14 @@ namespace dova::editor::ui
 			return;
 		}
 		const auto start = std::chrono::steady_clock::now();
-		if (_catalogLo != a_cell.lo || !_catalog) {
-			_catalog = _homes && _homes->lo == a_cell.lo && _homes->catalog ? _homes->catalog : std::make_shared<esp::ItemCatalog>(esp::BuildItemCatalog(*a_cell.lo));
-			_catalogLo = a_cell.lo;
-		}
 		PreviewState p;
 		p.kind = _sampleKind;
 		p.pattern = _samplePattern;
 		p.json = a_cell.json;
 		p.cell = &a_cell;
 		const auto kind = _sampleKind == 0 ? home::SampleKind::Haul : _sampleKind == 1 ? home::SampleKind::Category : home::SampleKind::All;
-		p.items = home::MakeSample(*_catalog, *_categorySet, kind, _samplePattern);
-		const auto spots = home::DisplaySpots(*a_cell.lo, std::span(&a_cell.info, 1), a_cell.layout);
+		p.items = home::MakeSample(Catalog(a_cell), *_categorySet, kind, _samplePattern);
+		const auto spots = home::DisplaySpots(*a_cell.lo, std::span(&a_cell.info, 1), a_cell.layout, &ArmorSets(a_cell));
 		p.result = core::PreviewWhereItemsGo(a_cell.layout, *_categorySet, p.items, spots);
 		for (std::size_t i = 0; i < a_cell.info.refs.size(); ++i) {
 			const auto& r = a_cell.info.refs[i];

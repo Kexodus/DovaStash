@@ -4,6 +4,7 @@
 #include <charconv>
 
 #include "Util.h"
+#include "data/Assets.h"
 #include "dova/core/FormRef.h"
 
 namespace fs = std::filesystem;
@@ -87,9 +88,26 @@ namespace dova::editor
 		return out;
 	}
 
-	std::unique_ptr<esp::LoadOrder> Workspace::OpenPlugin(std::string_view a_plugin, std::vector<std::string>& a_errors) const
+	std::shared_ptr<esp::ScriptLibrary> Workspace::Scripts() const
+	{
+		std::scoped_lock lock(_scriptsMutex);
+		if (!_scripts) {
+			auto assets = std::make_shared<Assets>(_files.Roots(), Assets::ArchiveList(*this));
+			_scripts = std::make_shared<esp::ScriptLibrary>([assets](std::string_view a_path) { return assets->Read(a_path); });
+		}
+		return _scripts;
+	}
+
+	std::unique_ptr<esp::LoadOrder> Workspace::NewLoadOrder() const
 	{
 		auto lo = std::make_unique<esp::LoadOrder>(_files, _language);
+		lo->SetScripts(Scripts());
+		return lo;
+	}
+
+	std::unique_ptr<esp::LoadOrder> Workspace::OpenPlugin(std::string_view a_plugin, std::vector<std::string>& a_errors) const
+	{
+		auto lo = NewLoadOrder();
 		if (!lo->AddWithMasters(a_plugin, a_errors)) {
 			return nullptr;
 		}
@@ -118,7 +136,7 @@ namespace dova::editor
 
 	std::unique_ptr<esp::LoadOrder> Workspace::OpenLoadOrder(std::vector<std::string>& a_errors, const std::function<void(std::size_t, std::size_t)>& a_progress) const
 	{
-		auto       lo = std::make_unique<esp::LoadOrder>(_files, _language);
+		auto       lo = NewLoadOrder();
 		const auto plugins = ActivePlugins();
 		for (std::size_t i = 0; i < plugins.size(); ++i) {
 			if (a_progress) {

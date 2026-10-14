@@ -19,14 +19,14 @@ window.FIGS = {
     ]
   },
   mods: {
-    src: "homes-by-mod.png", crop: [0, 0, 680, 226],
-    caption: "Homes by mod: type a name or Nexus id, pick the mod, then the home.",
+    src: "homes-by-mod.png", crop: [0, 0, 600, 272],
+    caption: "Homes by mod: every home of your load order under its mod. A name or Nexus id finds it.",
     callouts: [
       { box: [50, 8, 147, 32], c: "r" },
-      { box: [8, 117, 349, 140], c: "tr" },
-      { box: [8, 193, 349, 213], c: "bl" },
-      { box: [508, 118, 664, 141], c: "tr" },
-      { box: [358, 193, 668, 213], c: "br" }
+      { box: [8, 118, 118, 140], c: "r" },
+      { box: [8, 145, 569, 167], c: "tr" },
+      { box: [8, 215, 569, 234], c: "tr" },
+      { box: [8, 236, 569, 255], c: "br" }
     ]
   },
   view3dBar: {
@@ -129,7 +129,8 @@ window.FIGS = {
       { box: [200, 410, 400, 800], c: "tl" },
       { box: [1261, 489, 1460, 549], c: "tr" },
       { box: [1261, 580, 1380, 602], c: "r" },
-      { box: [1261, 680, 1568, 748], c: "br" }
+      { box: [1261, 682, 1568, 724], c: "tr" },
+      { box: [1261, 731, 1568, 794], c: "br" }
     ]
   },
   rack: {
@@ -167,7 +168,7 @@ window.FIGS = {
     callouts: [
       { box: [556, 124, 960, 142], c: "tr" },
       { box: [556, 146, 1440, 163], c: "tr" },
-      { box: [1500, 330, 1555, 418], c: "tl" }
+      { box: [1500, 313, 1555, 401], c: "tl" }
     ]
   },
   preview: {
@@ -185,12 +186,12 @@ window.FIGS = {
   },
   fill3d: {
     src: "preview-3d-fill.jpg", crop: [0, 238, 1584, 673],
-    caption: "Colours by fill in 3D. The master is selected; the green boxes around it get a few items each.",
+    caption: "Colours by fill in 3D. The master, a barrel by the door, is selected; the green box beside it gets a few items.",
     callouts: [
       { box: [413, 240, 868, 261], c: "r" },
-      { box: [495, 286, 640, 330], c: "tr" },
-      { box: [1261, 530, 1568, 590], c: "tr" },
-      { box: [1261, 602, 1568, 642], c: "br" }
+      { box: [276, 548, 700, 900], c: "tl" },
+      { box: [1261, 496, 1568, 556], c: "tr" },
+      { box: [1261, 568, 1568, 608], c: "br" }
     ]
   },
   planFill: {

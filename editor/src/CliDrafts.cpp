@@ -72,7 +72,7 @@ namespace dova::editor
 			if (!a_args.baseGame) {
 				return a_ws.OpenLoadOrder(a_errors);
 			}
-			auto lo = std::make_unique<esp::LoadOrder>(a_ws.Files(), a_ws.Language());
+			auto lo = a_ws.NewLoadOrder();
 			for (const char* p : { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" }) {
 				lo->AddWithMasters(p, a_errors);
 			}
@@ -297,7 +297,10 @@ namespace dova::editor
 			}
 		}
 		const auto items = home::MakeSample(catalog, *categories.set, kind, pattern);
-		const auto spots = home::DisplaySpots(*lo, cells, layout);
+		const auto setsStart = Clock::now();
+		const auto sets = home::BuildArmorSetIndex(*lo, catalog);
+		const auto setsMs = Ms(setsStart);
+		const auto spots = home::DisplaySpots(*lo, cells, layout, &sets);
 		const auto result = core::PreviewWhereItemsGo(layout, *categories.set, items, spots);
 
 		std::map<core::FormRef, std::string> labels;
@@ -317,6 +320,7 @@ namespace dova::editor
 		}
 		Out(std::format("{} {} \"{}\": {} ({} ms; {} items in the load order, {} non-playable or nameless left out, catalog {} ms)\n", lo->Format(*key), cells.front().editorId,
 			cells.front().name, what, Ms(start), catalog.items.size(), catalog.skipped, catMs));
+		Out(std::format("Armor sets: {} from {} pieces ({} ms)\n", sets.sets.size(), sets.pieces.size(), setsMs));
 		Out(std::format("Sample: {}{}: {} stacks, {} items\n\n", home::SampleName(kind), pattern.empty() ? "" : " " + pattern, items.size(), copies));
 		for (const auto& c : result.byContainer) {
 			std::vector<std::string> per;

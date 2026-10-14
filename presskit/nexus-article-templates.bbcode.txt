@@ -141,7 +141,7 @@ For a home from a mod, add its plugin before the command: [font=Courier New]pyth
 [*]Put the file in [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/<YourName>/[/font].
 [*]Start the game. Templates are read at startup.
 [*]Load a save where you haven't set this home up yet. Your own setup (the home's layout file in [font=Courier New]Layouts/[/font], or its backup copy in Documents) always comes first, so no template is offered over it.
-[*]Enter the home. You should see "setup available". Press [b]K[/b] at any container to enable it.
+[*]Enter the home. You should see "is set up" (or "setup available" with [font=Courier New]bAutoEnableTemplates=false[/font]: then press [b]K[/b] at any container to enable it).
 [*]If nothing shows up, open [b]Dova Stash > Templates[/b] and [b]Diagnostics[/b] in the Menu Framework, or check [font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log[/font]. Every problem with a template is listed there, with the file and the entry it is in.
 [/list]
 

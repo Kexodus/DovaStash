@@ -1,9 +1,9 @@
 #pragma once
 
-// The editor window (docs/EDITOR.md §3): mods of the MO2 profile -> a mod's plugins and the player homes
-// found in them -> a cell: its 3D view and floor plan (select mode on both, one selection), containers,
-// displays, doors to other cells, and the template being made. Parsing runs on a worker thread; the UI only
-// reads finished results. The 3D view loads its meshes and textures on its own threads (render::Scene).
+// The editor window (docs/EDITOR.md §3): the player homes of the load order under the mod that adds each
+// (or any mod -> the cells with containers in its plugins) -> a cell: its 3D view and floor plan (select mode
+// on both, one selection), containers, displays, doors to other cells, and the template being made. Parsing
+// runs on a worker thread; the UI only reads finished results. The 3D view loads its meshes and textures on its own threads (render::Scene).
 
 #include <atomic>
 #include <future>
@@ -21,6 +21,7 @@
 #include "dova/core/Layout.h"
 #include "dova/core/Preview.h"
 #include "esp/Items.h"
+#include "home/ArmorSets.h"
 #include "home/Cell.h"
 #include "home/DovaData.h"
 #include "home/Drafts.h"
@@ -74,7 +75,7 @@ namespace dova::editor::ui
 		enum class Mode
 		{
 			Welcome,  // start page: setup, homes found, big actions, to-do list
-			Browse,   // mods -> homes -> cell
+			Browse,   // homes by mod (or any mod -> its cells) -> cell
 			Drafts    // every home with its draft
 		};
 
@@ -98,6 +99,13 @@ namespace dova::editor::ui
 			std::vector<DraftEntry>           entries;  // parallel to homes
 			std::vector<std::string>          errors;
 			long long                         ms{ 0 };
+		};
+
+		// The homes of HomesData under the mod that provides the plugin defining each one.
+		struct HomeModGroup
+		{
+			int              mod{ -1 };  // index into Mods(); -1 the game's Data folder, -2 a plugin no mod provides
+			std::vector<int> homes;      // indices into HomesData::homes
 		};
 
 		struct Progress
@@ -169,6 +177,9 @@ namespace dova::editor::ui
 		void StartScene();
 
 		void DrawTopBar();
+		void DrawLists();     // the left column: the "By mod" and "Any cell" tabs
+		void DrawHomeMods();  // every home of the load order, under its mod
+		void GroupHomes();    // _homeGroups from _homes
 		void DrawMods();
 		void DrawHomes();
 		void DrawCell();
@@ -190,6 +201,8 @@ namespace dova::editor::ui
 		void SaveTemplate(OpenCell& a_cell, bool a_overwrite);
 		[[nodiscard]] std::filesystem::path TemplatePath(const OpenCell& a_cell) const;
 		bool CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title = true);
+		// A mannequin's armor set: Auto or one of the load order's sets (searchable), as the in-game picker.
+		bool ArmorSetEditor(OpenCell& a_cell, std::optional<core::FormRef>& a_set);
 
 		WorkspaceOptions           _options;
 		std::unique_ptr<Workspace> _ws;
@@ -205,7 +218,11 @@ namespace dova::editor::ui
 		int  _selectedMod{ -2 };  // -2 none, -1 game Data folder, else index into Mods()
 		bool _exteriors{ false };
 		bool _likelyOnly{ true };
-		bool _listsHidden{ false };  // the cell takes the whole window (set when a cell opens)
+		bool _listsHidden{ false };  // the cell takes the whole window (set when a home opens from outside the lists: drafts, a template file, --cell)
+		char _homeFilter[128]{};
+		std::vector<HomeModGroup> _homeGroups;
+		int  _listTab{ 0 };          // 0 "By mod", 1 "Any cell"
+		int  _requestListTab{ -1 };  // tab to switch to on the next frame
 
 		std::optional<std::string> _pendingCell;    // --cell: opened when the scan finds it
 		std::optional<std::string> _pendingSelect;  // --select: selected when the cell opens
@@ -297,6 +314,11 @@ namespace dova::editor::ui
 		std::optional<PreviewState>       _preview;
 		std::shared_ptr<esp::LoadOrder>   _catalogLo;
 		std::shared_ptr<esp::ItemCatalog> _catalog;
+		std::shared_ptr<esp::LoadOrder>   _armorSetsLo;
+		std::shared_ptr<home::ArmorSetIndex> _armorSets;
+		std::string                       _armorSetFilter;
+		const esp::ItemCatalog&           Catalog(OpenCell& a_cell);       // the cell's load order's items (built once)
+		const home::ArmorSetIndex&        ArmorSets(OpenCell& a_cell);     // its armor sets (built once)
 		int                               _sampleKind{ 0 };
 		std::string                       _samplePattern{ "alchemy.*" };
 		Colours                           _colours{ Colours::None };

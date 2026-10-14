@@ -176,6 +176,42 @@ namespace dova::game
 			return std::nullopt;
 		}
 
+		bool HandlesEvent(const ScriptPtr& a_script, std::string_view a_event);
+
+		// The Creation Club's display plaques (defaultDisplayUniqueItemScript, defaultDisplayItemInListScript) and
+		// copies of them keep no placed flag: their DisplayItem drops the player's copy and moves it onto the marker
+		// linked with the script's LinkedMarkerKeyword; an item counts as shown while a copy of it lies within 32
+		// units of that marker (the script's own FindClosestReference... check). Null when the script is not one.
+		constexpr float kDisplayMarkerRadius = 32.0f;
+
+		RE::TESObjectREFR* DisplayMarker(RE::TESObjectREFR* a_ref, const ScriptPtr& a_script, const std::vector<Var>& a_vars)
+		{
+			auto* form = FormOf(FindVar(a_vars, "LinkedMarkerKeyword"));
+			auto* keyword = form ? form->As<RE::BGSKeyword>() : nullptr;
+			if (!keyword || !HandlesEvent(a_script, "DisplayItem")) {
+				return nullptr;
+			}
+			return a_ref->GetLinkedRef(keyword);
+		}
+
+		bool ShownAt(RE::TESObjectREFR* a_marker, const std::vector<RE::TESBoundObject*>& a_items)
+		{
+			auto* cell = a_marker ? a_marker->GetParentCell() : nullptr;
+			if (!cell) {
+				return false;
+			}
+			bool shown = false;
+			cell->ForEachReferenceInRange(a_marker->GetPosition(), kDisplayMarkerRadius, [&](RE::TESObjectREFR* a_candidate) {
+				if (a_candidate && a_candidate != a_marker && !a_candidate->IsDeleted() && !a_candidate->IsDisabled() &&
+					std::ranges::find(a_items, a_candidate->GetBaseObject()) != a_items.end()) {
+					shown = true;
+					return RE::BSContainer::ForEachResult::kStop;
+				}
+				return RE::BSContainer::ForEachResult::kContinue;
+			});
+			return shown;
+		}
+
 		bool HandlesEvent(const ScriptPtr& a_script, std::string_view a_event)
 		{
 			for (auto* type = a_script ? a_script->GetTypeInfo() : nullptr; type; type = type->GetParent()) {
@@ -380,6 +416,10 @@ namespace dova::game
 			if (const auto placed = PlacedFlag(vars)) {
 				return FoundDisplay{ a_ref->GetFormID(), core::DisplayKind::Item, core::RackType::Any, 0, std::move(items), placed, name };
 			}
+			if (auto* marker = DisplayMarker(a_ref, script, vars)) {
+				const bool shown = ShownAt(marker, items);
+				return FoundDisplay{ a_ref->GetFormID(), core::DisplayKind::Item, core::RackType::Any, 0, std::move(items), shown, name };
+			}
 		}
 		return std::nullopt;
 	}
@@ -529,6 +569,49 @@ namespace dova::game
 		default:
 			return std::nullopt;
 		}
+	}
+
+	RE::TESObjectREFR* DisplayInView(RE::TESObjectCELL* a_cell, float a_reach)
+	{
+		auto* camera = RE::PlayerCamera::GetSingleton();
+		auto* root = camera ? camera->cameraRoot.get() : nullptr;
+		if (!a_cell || !root) {
+			return nullptr;
+		}
+		// The camera node looks along its local +Y.
+		const auto& m = root->world.rotate;
+		RE::NiPoint3 forward{ m.entry[0][1], m.entry[1][1], m.entry[2][1] };
+		if (forward.Unitize() <= 0.0f) {
+			return nullptr;
+		}
+		const auto eye = root->world.translate;
+		// Reach counts from the player, so a third-person camera behind them reaches as far as the first-person one.
+		float reach = a_reach;
+		if (auto* player = RE::PlayerCharacter::GetSingleton()) {
+			reach += eye.GetDistance(player->GetPosition() + RE::NiPoint3{ 0.0f, 0.0f, 100.0f });
+		}
+		RE::TESObjectREFR* best = nullptr;
+		float              bestAlong = reach;
+		for (const auto& d : FindDisplays(a_cell)) {
+			auto* ref = RE::TESForm::LookupByID<RE::TESObjectREFR>(d.ref);
+			auto* node = ref ? ref->Get3D() : nullptr;
+			if (!node) {
+				continue;
+			}
+			// The line of sight passes through its bounds (a little inside them), nearer than anything chosen so far.
+			const auto  to = node->worldBound.center - eye;
+			const float along = to.Dot(forward);
+			if (along <= 0.0f || along >= bestAlong) {
+				continue;
+			}
+			const auto off = to - forward * along;
+			if (off.Length() > node->worldBound.radius * 0.8f) {
+				continue;
+			}
+			best = ref;
+			bestAlong = along;
+		}
+		return best;
 	}
 
 	std::vector<FoundDisplay> FindDisplays(RE::TESObjectCELL* a_cell)

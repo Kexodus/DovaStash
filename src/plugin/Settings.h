@@ -43,8 +43,8 @@ namespace dova
 
 		struct Templates
 		{
-			// DESIGN §4.1: auto-enable a matching template on first entry (off by default).
-			bool autoEnable{ false };
+			// DESIGN §4.1: auto-enable a matching template on first entry (on by default).
+			bool autoEnable{ true };
 
 			bool operator==(const Templates&) const = default;
 		};

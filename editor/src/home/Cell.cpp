@@ -6,6 +6,7 @@
 
 #include "Util.h"
 #include "dova/core/Template.h"
+#include "esp/Pex.h"
 #include "esp/Vmad.h"
 
 namespace dova::editor::home
@@ -447,10 +448,15 @@ namespace dova::editor::home
 				}
 			} else if (r.baseType == kCONT && findScript("PlayerBookShelfContainerScript")) {
 				r.display = core::DisplayKind::Bookshelf;
-			} else if (r.baseType == MakeSig("ACTI") || r.baseType == kCONT || r.baseType == MakeSig("MSTT") || r.baseType == MakeSig("STAT")) {
+			} else if (auto* pex = a_lo.Scripts();
+					   pex && (r.baseType == MakeSig("ACTI") || r.baseType == kCONT || r.baseType == MakeSig("MSTT") || r.baseType == MakeSig("STAT"))) {
+				// As the game sees it (src/plugin/Game/Displays.cpp InspectDisplay): a script pointing at items is a
+				// plaque only when it keeps a "placed" flag or shows the item on a linked marker (the Creation Club's
+				// display scripts), a case only when it takes items in (OnItemAdded). Any other script that names an
+				// item (a dining table that sets out a meal) is no display.
 				for (const auto& s : scripts) {
 					auto items = DisplayItems(a_lo, s);
-					if (!items.empty()) {
+					if (!items.empty() && (r.baseType == kCONT ? pex->Handles(s.name, "OnItemAdded") : pex->HasPlacedFlag(s.name) || pex->IsMarkerDisplay(s.name))) {
 						r.display = r.baseType == kCONT ? core::DisplayKind::Case : core::DisplayKind::Item;
 						r.displayItems = std::move(items);
 						break;

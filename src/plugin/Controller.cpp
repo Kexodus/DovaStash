@@ -22,6 +22,34 @@ namespace dova
 {
 	namespace
 	{
+		// How far in front of the player a display looked at counts when the crosshair names nothing (~3.5 m;
+		// the game's own activation reach is about 2.5 m).
+		constexpr float kDisplayReach = 250.0f;
+
+		// A display's name for menus and notices: its own, else what it is ("Mannequin": Whitepeak Tower's and
+		// many home mods' mannequins have no name, and the form id means nothing to a player).
+		std::string DisplayName(RE::TESObjectREFR* a_ref, core::DisplayKind a_kind)
+		{
+			const char* full = a_ref ? a_ref->GetDisplayFullName() : nullptr;
+			const auto* base = a_ref ? a_ref->GetBaseObject() : nullptr;
+			const char* baseName = base ? base->GetName() : nullptr;
+			if ((full && *full) || (baseName && *baseName)) {
+				return game::RefName(a_ref);
+			}
+			switch (a_kind) {
+			case core::DisplayKind::Mannequin:
+				return "Mannequin";
+			case core::DisplayKind::Rack:
+				return "Weapon rack";
+			case core::DisplayKind::Bookshelf:
+				return "Bookshelf";
+			case core::DisplayKind::Case:
+				return "Display case";
+			default:
+				return "Display";
+			}
+		}
+
 		home::HomeRegistry& Registry()
 		{
 			return home::HomeRegistry::Get();
@@ -298,6 +326,16 @@ namespace dova
 		}
 
 		logger::debug("Hotkey in {} (layout: {}), target {}", home->name, home->layout ? "yes" : "no", target ? game::Describe(target) : "none"s);
+		if (!target && cell) {
+			// Nothing in the crosshair: an unnamed mannequin shows no prompt, so the crosshair never names it. The
+			// display the player looks at, within reach, gets its menu instead of the master's.
+			if (auto* seen = game::DisplayInView(cell, kDisplayReach)) {
+				logger::debug("Hotkey: looking at {}", game::Describe(seen));
+				if (OpenDisplayMenu(*home, seen)) {
+					return;
+				}
+			}
+		}
 		if (target) {
 			const auto ref = game::ToFormRef(target);
 			if (home->layout && ref && home->layout->IsMaster(*ref)) {
@@ -463,7 +501,7 @@ namespace dova
 		ui::DisplayMenu menu;
 		menu.cellId = a_home.cellId;
 		menu.ref = *display;
-		menu.name = game::RefName(ref);
+		menu.name = DisplayName(ref, found->kind);
 		menu.kind = found->kind;
 		menu.used = binding && !binding->ignored;
 		menu.full = game::DisplayFullFor(*found, binding);  // a mannequin with a chosen set: while it can take more
@@ -509,7 +547,8 @@ namespace dova
 				if (RecordDisplayItems(*home->layout)) {
 					SaveLayout(*home);
 				}
-				Notify(std::format("Dova Stash: {} setup enabled (by {})", name, author));
+				// First visit: the player did nothing yet, so say what to do (the hotkey anywhere opens the master menu).
+				Notify(std::format("Dova Stash: {} is set up. Press {} anywhere here to put your loot away.", name, HotkeyName()));
 			}
 			return;
 		}
@@ -1134,7 +1173,8 @@ namespace dova
 			return;
 		}
 		auto*      ref = game::LookupRef(a_display);
-		const auto name = game::RefName(ref);
+		const auto found = ref ? game::InspectDisplay(ref) : std::nullopt;
+		const auto name = found ? DisplayName(ref, found->kind) : game::RefName(ref);
 		auto&      displays = home->layout->displays;
 		const auto it = std::ranges::find(displays, a_display, &core::DisplayBinding::ref);
 		if (a_used) {

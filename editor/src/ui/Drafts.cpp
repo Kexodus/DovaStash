@@ -177,6 +177,7 @@ namespace dova::editor::ui
 			data->ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 			return [this, data, a_drafts]() {
 				_homes = data;
+				GroupHomes();
 				_draftSel = _homes->homes.empty() ? -1 : 0;
 				if (_pendingHomeSelect) {
 					for (std::size_t i = 0; i < _homes->homes.size(); ++i) {
@@ -276,6 +277,7 @@ namespace dova::editor::ui
 				_pendingLayoutDirty = false;
 				_cellDraft = -1;
 				_mode = Mode::Browse;
+				_listsHidden = true;
 				OpenCellAsync(lo, k, false);
 			};
 		});
@@ -291,6 +293,7 @@ namespace dova::editor::ui
 		_pendingLayoutDirty = true;
 		_cellDraft = a_index;
 		_mode = Mode::Browse;
+		_listsHidden = true;
 		_history.clear();
 		OpenCellAsync(_homes->lo, _homes->homes[static_cast<std::size_t>(a_index)].cell, false);
 	}
@@ -415,7 +418,7 @@ namespace dova::editor::ui
 		// 3. Actions
 		ImGui::Dummy(ImVec2(0, ImGui::GetFontSize() * 0.4f));
 		const float bw = (width - ImGui::GetStyle().ItemSpacing.x * 2.0f) / 3.0f;
-		if (BigAction("Open a home", "Pick the home's mod from your mod list, then the home: its 3D view, plan, containers and template.", bw, _ws != nullptr)) {
+		if (BigAction("Open a home", "Every home of your load order under the mod that adds it: its 3D view, plan, containers and template.", bw, _ws != nullptr)) {
 			_mode = Mode::Browse;
 		}
 		ImGui::SameLine();

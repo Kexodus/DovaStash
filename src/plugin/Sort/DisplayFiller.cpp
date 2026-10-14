@@ -377,6 +377,16 @@ namespace dova::display
 					++_skipped;
 					return NextPlaque(a_index + 1);
 				}
+				// A plaque made for several items (a form list: claws, gems) shows the first of them the player
+				// carries, which may not be the one brought for it.
+				for (auto* other : s.display.items) {
+					if (other != s.stack.object && game::LiveCount(player, other) > 0) {
+						logger::info("Display skipped: you carry {} too, which {} could take instead of {}; place it yourself", game::Describe(other),
+							game::Describe(plaque), s.item);
+						++_skipped;
+						return NextPlaque(a_index + 1);
+					}
+				}
 				if (source != player) {
 					game::ItemMover::SuppressScope suppress;
 					const auto                     before = game::LiveCount(player, s.stack.object);

@@ -16,8 +16,9 @@ mode, multi-select and undo (§3.6, §3.7)** · Code: `editor/` · Executable: `
 1. **Anyone can make a template.** Today a template means either setting the home up in game and saving it
    (DESIGN §6.5), or `esm_dump.py` dumps plus hand-written JSON (tools/README.md). The editor replaces the
    second path with clicking, and polishes what the first one produced.
-2. **Starts from the mod list.** The author picks a mod the way they know it, by its name or Nexus mod id in
-   MO2, not by plugin file or form id. The editor finds the home's cells in that mod's plugins.
+2. **Starts from the homes, by mod.** The author finds a home the way they know it, by its mod's name or Nexus
+   mod id in MO2, not by plugin file or form id. The editor finds every home of the load order and lists each
+   under the mod that adds it.
 3. **Sees the home.** A plan of the cell (M1) and later a 3D view (M2), where *select mode* turns the mouse
    cursor into a picker for containers, racks, mannequins, plaques and workbenches.
 4. **All of Dova Stash in one program.** Everything a template expresses (§3), with the same validation the
@@ -38,27 +39,32 @@ Creation Kit or xEdit, running Papyrus.
 ```
 +-------------------------------------------------------------------------------------------------+
 | MO2 instance [E:\modding\Kexodus Skyrim      ] [Browse] [Open]   Profile [CS Test v]             |
-+----------------------+---------------------------+----------------------------------------------+
-| 1. Home mod          | 2. Player homes           | 3. Cell: Whitepeak Tower                      |
-| [filter: 92177     ] | Whitepeak Tower.esp       | [Floor plan][Containers][Displays][Doors]... |
-|  Whitepeak Tower ... |  > Whitepeak Tower  8  89 | [x] Select mode  Height [-391 .. 2019]       |
-|  92177  WT.esp       |    White Tower Cave  ...  |  +-------------------------------+ +-------+ |
-|                      | [ ] Exterior cells too    |  |   plan: footprints, markers   | |details| |
-|                      | [x] Likely homes only     |  |   click = select              | | role  | |
-|                      |                           |  +-------------------------------+ +-------+ |
-+----------------------+---------------------------+----------------------------------------------+
++--------------------------------------------------+----------------------------------------------+
+| 1. Player homes                                  | 2. Cell: Whitepeak Tower                      |
+| [By mod] [Any cell]                              | [Floor plan][Containers][Displays][Doors]... |
+| [filter: 92177                                 ] | [x] Select mode  Height [-391 .. 2019]       |
+| Home                    Storage         Template |  +-------------------------------+ +-------+ |
+| v Whitepeak Tower ... (Nexus 92177)              |  |   plan: footprints, markers   | |details| |
+|     Whitepeak Tower     89 chests 170   none     |  |   click = select              | | role  | |
+|                                                  |  +-------------------------------+ +-------+ |
++--------------------------------------------------+----------------------------------------------+
 | Problems: 0 errors, 2 warnings                         [Validate] [Save template...]              |
 +-------------------------------------------------------------------------------------------------+
 ```
 
 1. **Open the setup.** Launched from MO2 the editor finds its instance and profile by itself (§4.2);
    otherwise the author points it at the instance folder once (remembered later).
-2. **Pick the home mod.** The mod list shows MO2's names, priorities, Nexus mod ids and each mod's plugins.
-   A filter takes a name or a Nexus id (`92177` finds Whitepeak Tower). *(Game Data folder)* holds the base
-   game, the DLCs and Creation Club.
-3. **Find the home.** The mod's plugins are loaded with their masters and every cell they define or edit is
-   scored (§3.2). Likely homes are listed first with their evidence (player-house location, player owned,
-   never resets, containers, displays). Unticking *Likely homes only* shows every cell with containers.
+2. **Find the home.** *By mod* lists every player home of the active load order (the same scan as *Draft all
+   homes*, §3.4, read once and shared) under the mod whose plugin defines its cell: the enabled mod with the
+   highest priority that has the plugin, as MO2 resolves it, in MO2's order; *(Game Data folder)* holds the base
+   game, the DLCs and Creation Club. Each home shows its storage and whether a template exists. A filter takes
+   part of a home or mod name, a plugin, or a Nexus id (`92177` finds Whitepeak Tower). *Rescan* (F5) reads the
+   load order again after a change in MO2.
+3. **Or any cell of a mod.** For a home the scan misses (owned by a faction, an exterior), *Any cell* keeps the
+   mod list (MO2's names, priorities, Nexus mod ids, plugins): the mod's plugins are loaded with their masters
+   and every cell they define or edit is scored (§3.2). Likely homes are listed first with their evidence
+   (player-house location, player owned, never resets, containers, displays). Unticking *Likely homes only*
+   shows every cell with containers.
 4. **Open its cells.** The home's interior opens on the plan. The Doors tab lists where its load doors lead:
    the home's other interiors (a cellar, a cave) and the exterior cells outside (resolved through the
    worldspace grid, e.g. *Tamriel (-9, -2) WhitepeakTowerExterior01*). Each opens with one click and can
@@ -95,7 +101,7 @@ worth sharing: open the saved setup, rename the labels, add notes, drop the lear
 | `cells` (multi-cell homes, DESIGN §6.7, `core::HomeCells`) | Cells joined from the Doors tab or the home list, with `label` and `note` |
 | `master` | *Make master* on a container; the draft suggests one with its reason (§3.4: the largest usable chest near the entrance) |
 | `containers[]`: `label`, `note`, `categories`, `forms`, `ignored` | Details pane: label (default: the game name), note, category picker (tree from the loaded `Categories/*.json`, wildcards `weapons.*`), fixed item bindings (item search over the load order), *Ignore* with a reason note |
-| `displays[]`: `kind`, `label`, `note`, `categories`, `items`, `set`, `ignored` | Details pane on a rack, mannequin, plaque, case or bookshelf: *Use this display*, categories (weapon categories for racks, armor for mannequins, books for bookshelves), `items` prefilled from the plaque's script, `set` from the armor-set index (`core::BuildArmorSets` over the load order's ARMO, as the in-game *Armor sets* page) |
+| `displays[]`: `kind`, `label`, `note`, `categories`, `items`, `set`, `ignored` | Details pane on a rack, mannequin, plaque, case or bookshelf: *Use this display*, categories (weapon categories for racks, armor for mannequins, books for bookshelves), `items` prefilled from the plaque's script, `set` picked from the armor-set index (`home/ArmorSets.*`: `core::BuildArmorSets` over the load order's ARMO built as the DLL's `game::ArmorIndex`, enchanted copies left out, tempering recipes as families; *Auto* or a set, searchable by set, plugin or piece; with a set chosen the mannequin's categories are hidden, as the set decides) |
 | `keep` (`inherit`, `always`, `never`, `quotas`) | Keep rules tab, the same vocabulary as the panel's keep-rule editor |
 | Unknown keys, unparsed entries | Kept untouched (core preserves them) |
 | `learned`, `basedOn` (player layouts only) | Shown when a layout is opened; *Keep learned items as fixed bindings* on export (`core::ExportAsTemplate`) |
@@ -115,10 +121,16 @@ scored; a cell is a **likely home** when its location has `LocTypePlayerHouse`, 
 (`Player` or `PlayerFaction`), or it has mannequins and nothing in it respawns (homes owned by a faction,
 such as Severin Manor, DESIGN §16). The score ranks them: player house +4, player owned +3, never resets +1,
 usable containers +1/+2, displays +1, mannequins without respawning containers +2. Containers, displays and
-fronts (activators that open a hidden chest) are found as `esm_dump.py cell` finds them, so the counts
-match (verified: Whitepeak Tower 89 containers, 77 racks, 6 mannequins, 50 plaques; Breezehome 24/3
-respawning/9 racks; all 9 vanilla, Hearthfire and Dragonborn homes found in their plugins; Gallows Hall in
-`Update.esm` and both Myrwatch cells in the CC ESL with the cell refs of the shipped templates).
+fronts (activators that open a hidden chest) are found as `esm_dump.py cell` finds them (verified: Whitepeak
+Tower 89 containers, 77 racks, 6 mannequins, 50 plaques; Breezehome 24/3 respawning/9 racks; all 9 vanilla,
+Hearthfire and Dragonborn homes found in their plugins; Gallows Hall in `Update.esm` and both Myrwatch cells in
+the CC ESL with the cell refs of the shipped templates), except that plaques and cases are checked as the DLL
+checks them (DESIGN §8.4): the editor reads the compiled script (`scripts\<name>.pex`, loose files over
+archives, `esp/Pex.*`) and keeps a plaque only when its script (or one it extends) has a "placed" flag and a
+case only when it handles `OnItemAdded`; the Creation Club's display plaques (`defaultDisplayUniqueItemScript`,
+`defaultDisplayItemInListScript`: no flag, a `LinkedMarkerKeyword` and `DisplayItem`) count too. A script that
+merely names an item (Wind Path's dining table setting out a meal, a grill, an ore vein, a planter) is no display.
+`esm_dump.py` cannot read scripts and still lists every script that points at items.
 
 ### 3.3 Multi-cell homes
 
@@ -160,24 +172,35 @@ classified by the real category engine through `esp::ReadItem`) and furniture, w
 - **Ignored** containers, first matching `ignore` rule, with the note the template writes: respawns, goes away with a
   house upgrade (unless it diverts its items, `BYOHDivertItemScript`), owned by someone else (`XOWN` on the reference),
   scripted bookshelves, display cases.
+- **Names come first.** A container's **display name** is what the home's author wrote for players. When it has a word
+  beyond the generic ones (`genericWords`: "large", "wooden", "upper"..., plus the master's chest and furniture words) it
+  is **specific** ("Dragonpriest Masks", "Food & Drinks", "Arrows & Bolts"): only that name counts, never the EditorID,
+  and the container gets **only what its name says** (stations and items nearby add to those categories, never others;
+  a specific name the rules cannot read gets nothing, so the author decides). A generic or missing name ("Chest",
+  "Barrel") lets the EditorID speak too, at `editorIdFactor` (0.8: "EditorID BarrelIngredientCommon01 says ingredients").
 - **Master**: among usable containers (not ignored, present from the start, no script beyond `harmlessScripts`,
-  nobody's, in the main cell when it has one): size against the largest (weight 2), a chest-like name (+1, a sack's or
-  satchel's -1), closeness to a load door (+1 within 1500 units, the front door counts more), closeness to the middle
-  (+0.5), and -1.5 when its name says what it holds ("Soul Gems", "Firewood"). The reason is shown ("Chest: the largest
-  of 12 usable containers (64 x 30 x 41 units), named like a chest, 3.0 m from the door to Whiterun; ...") with the
-  runners-up.
+  nobody's, in the main cell when it has one): a chest-like name (+1.5; a sack's, barrel's, drawer's or strong box's
+  -1), its size up to a small chest's (`fullSize` 100000 cubic units, +1: a huge shelf or urn does not win on volume),
+  closeness to a load door (+1 within 1500 units, the front door counts more), closeness to the middle (+0.5), and -3
+  when its name says what it holds (a specific name, or a name rule that is sure of it): such a container is only the
+  master when every usable one is named. The reason is shown ("Chest: named like a chest, 96 x 49 x 49 units, 5.5 m from
+  the door to Windhelm; usable (one of 69): ...") with the runners-up.
 - **Categories per container**, each with a confidence and the reason: its **name** (`names` rules: "Alchemy Satchel",
-  "FoodBarrel01", "Weapon Chest"; EditorIDs are split into words, plurals match; a container named exactly like a
-  **category** of the loaded set or like an **item** of the load order gets that category), **stations** near it
-  (forge and smelter: ores and ingots; tanning rack: hides; alchemy lab: ingredients, potions, poisons; enchanter: soul
-  gems; cooking pot and oven: food; bookshelves: books; weapon racks and mannequins: weapons and armor; weaker with
-  distance, another floor counts double), and **items placed on or next to it** (by their category; clutter says
-  nothing). Evidence for the same category adds up. Each category goes to **one** container: one named for exactly that
-  category first, then the strongest; it is accepted at 50%, the others keep it as a rejected alternative ("Potion
-  Basket has it with 93%"). A **fill** pass then gives each usual group nobody took (weapons, armor, clothes, jewelry,
-  alchemy, food, books, soul gems and scrolls, ammunition, crafting materials, building materials, clutter, keys) to
-  the free container with the strongest weaker hint (a dresser for clothes, an end table for books), so a draft covers
-  a home the way the shipped templates do; groups nothing hints at stay with the master.
+  "Weapon Chest", "Cooking Ingredients" is food; EditorIDs are split into words, plurals match; a container named
+  exactly like a **category** of the loaded set gets it, and one named like an **item** of the load order gets the
+  item's category as a weak claim: "Garlic Basket"), **stations** near it (forge and smelter: ores and ingots; tanning
+  rack: hides; alchemy lab: ingredients, potions, poisons; enchanter: soul gems; cooking pot and oven: food;
+  bookshelves: books; 2.5 to 6 m, weaker with distance, another floor counts double; weapon racks and mannequins are
+  hints only), and **items placed on or next to it** (by their category, a hint of at most 45%; clutter, weapons,
+  armor and ammunition lying about are decoration and say nothing). Evidence for the same category adds up. Each
+  category goes to **one** container: one named for exactly that category first, then one whose display name says it
+  as part of a group ("Alchemy Satchel" before a barrel whose EditorID says "Ingredient"), then the strongest; it is
+  accepted at 50%, the others keep it as a rejected alternative ("Potion Basket has it with 93%"). A **fill** pass then
+  gives each usual group nobody took (weapons, armor, clothes, jewelry, alchemy, food, books, soul gems and scrolls,
+  ammunition, crafting materials, building materials, clutter, keys) to the free container with the strongest weaker
+  hint (a dresser for clothes, an end table for books, a safe for jewelry and gems), at least `fillAt` (30%) and never
+  on loose items alone; the container takes the group's categories it has evidence of its own for (a shield hanging
+  next to a cabinet does not send it heavy armor). Groups nothing hints at stay with the master.
 - **Displays**: every rack, mannequin, plaque and case is listed (plaques and cases with the items their script is
   made for, shield and dagger racks with their category).
 - The draft is validated with core (`ValidateTemplate`, `ValidateLayoutCategories`), shown under *Checks*.
@@ -192,14 +215,16 @@ drafts...* saves the opened drafts of homes without a template after one confirm
 Headless: `--draft-all [--only <text>] [--compare] [--save-to <folder>] [--base-game]` (§5.6).
 
 **Accuracy** (`--draft-all --compare --base-game`: the game's own plugins, the homes as the shipped templates were
-written for them; 17 shipped templates). Masters: 10 of 17 the same. Of 245 template containers with categories, 23
-get the same set and 16 an overlapping one; 251 of 255 ignored containers agree. Per category (which container it ends
-up in, the planner's rule), 84 of 629 agree (13%): the shipped templates spread every category over generic furniture
-(Breezehome's dressers, end tables and sacks) by the author's taste, where names and stations say little; Breezehome
-itself: master, dining room cupboard (food) and bedroom night table (jewelry, gems) the same, alchemy went to the chest
-next to the bookshelf rather than the one by the alchemy lab. Homes whose containers are **named** for their contents
-(most modded homes: "Soul Gems", "Ingots", "Potion Crate") come out nearly complete. The numbers are a starting
-point for tuning `DraftRules.json`.
+written for them; 17 shipped templates). Masters: 11 of 17 the same. Of 245 template containers with categories, 20
+get the same set and 11 an overlapping one. Per category (which container it ends up in, the planner's rule), 79 of
+629 agree (13%): the shipped templates spread every category over generic furniture (Breezehome's dressers, end tables
+and sacks) by the author's taste, where names and stations say little, and the draft leaves to the master what it has
+no real evidence for rather than guess. Ignored containers: 55 of 255 agree, because the scripted bookshelves the
+shipped templates list as ignored containers are read as bookshelf displays now. Homes whose containers are **named**
+for their contents (most modded homes: "Soul Gems", "Ingots", "Potion Crate") come out nearly complete. Over the 125
+homes of the test profile the review lists about half as many suggestions as before the name-first rules, and no
+container gets armor or weapons from decoration or a mannequin across the room. The numbers are a starting point for
+tuning `DraftRules.json`.
 
 ### 3.5 Where items go (built)
 
@@ -219,7 +244,7 @@ predicted items in the details pane. Headless: `--preview <cell> [--sample haul|
 
 Without `--mod`/`--cell` the editor opens on a **start page**: the setup (the instance is found from MO2, else the one
 remembered, else asked once with a folder box), "N player homes found, M have templates" (a progress bar while the
-load order is read), three big actions (*Open a home*: the mod list; *Draft all homes*; *Open a template...*: a shipped
+load order is read), three big actions (*Open a home*: the homes by mod; *Draft all homes*; *Open a template...*: a shipped
 or downloaded template or a layout saved in game, opened on its home in the role editor), and **your homes in
 progress**: each home's stage, *drafted* (a draft was opened) -> *reviewed* (a suggestion accepted or rejected, or the
 template edited) -> *validated* (reviewed and no problems) -> *saved*, with where it was saved. The stages, the
@@ -257,7 +282,9 @@ editor/src/
   esp/LoadOrder.*     form keys, record index, localized strings, cell directory, cell references, LAND
   esp/Bsa.*           BSA v104/v105 reader (hashed file table; strings, meshes, textures; LZ4 frames / zlib)
   esp/Vmad.*          Papyrus script properties (rack types, plaque items)
+  esp/Pex.*           compiled Papyrus scripts: variables, events, parent (plaques and cases as the DLL sees them)
   esp/Items.*         every item record as core::ItemInfo (the DLL's ItemAdapter, read from the plugins)
+  home/ArmorSets.*    the load order's armor sets (mannequin set picker, chosen sets in the preview)
   home/Cell.*         cell facts, placed references (+ model paths, keywords, owner), terrain, displays, doors, home finder
   home/Drafts.*       every home of the load order (grouped by doors), draft objects, drafts (core::SuggestDraft), comparison
   home/DovaData.*     the player's categories, templates (with their status) and draft rules
@@ -322,8 +349,8 @@ plugins back to mods and Nexus ids.
 USSEP), and a toggle *Home plugin + masters only* for the home as its mod ships it (deterministic, fast:
 Whitepeak Tower with its 5 masters in under 0.1 s; all of `Skyrim.esm`'s cells in 0.3 s). The whole-load-order
 loader exists (`Workspace::OpenLoadOrder`: 302 plugins, every interior cell read in about a second) and is what the
-start page, the drafts view and `--draft-all`/`--preview` use; the mod list still opens a home plugin with its masters
-(`Workspace::OpenPlugin`). Left for M1: the toggle in the mod list and a mark on references a later plugin edits.
+start page, the drafts view, the *By mod* home list and `--draft-all`/`--preview` use; the *Any cell* mod list still
+opens a home plugin with its masters (`Workspace::OpenPlugin`). Left for M1: a mark on references a later plugin edits.
 
 Archives (M2, implemented in `data/Assets`): the base game archives from `Skyrim.ini`'s `sResourceArchiveList`
 and `sResourceArchiveList2` (the profile's own INI when it has one, else Documents, else the default list),
@@ -493,7 +520,7 @@ the user's own game and mod files at run time and never ships or extracts Bethes
 |---|---|---|
 | **M0** (done) | Scaffold: MO2 instance and mods with Nexus ids, plugin reader, home finder, cell facts, displays, door links, 2D plan with select mode, tables, draft template, headless commands, preset `editor` | done |
 | **M1** (partly built) | The template editor on the plan: roles in the details pane (master, categories with the category tree, label, note, ignored, fixed items; displays with categories, items, armor set), open existing templates and layouts, keep rules tab, validation panel (core + ported `check`), save into the "Dova Stash Templates" mod with backup and version, multi-cell homes from the door graph as one file per home, automatic floors, undo/redo, whole-load-order loader as the default with the *home plugin + masters only* toggle, golden tests | 3-4 weeks |
-| **M1.5** (built) | What goes where: `ItemInfo` from item records, category engine and planner preview per container (§3.5); bulk drafts with smart suggestions (§3.4); start page, paint mode, multi-select, undo (§3.6, §3.7). Left: armor-set index for mannequins in the preview (a chosen `set`), tuning the draft rules against more homes | done |
+| **M1.5** (built) | What goes where: `ItemInfo` from item records, category engine and planner preview per container (§3.5); bulk drafts with smart suggestions (§3.4); start page, paint mode, multi-select, undo (§3.6, §3.7). Left: tuning the draft rules against more homes | done |
 | **M2** (first slice built) | 3D view: archives + loose files, NIF meshes, DDS textures, D3D11 renderer, free-fly and orbit camera, ray picking, selection shared with the plan, terrain and surroundings for exteriors. Built: all of it (own readers instead of nifly/DirectXTex, §4.5), plus the role editor and saving from M1. Left: instancing (not needed so far), normal maps / specular, LOD meshes for far exteriors, water planes, alternate textures (MODS), heads for mannequins, joining a door's cell to the home (`cells`) from the 3D view | 1-2 weeks left |
 | **M3** (optional) | Live link with the running game (crosshair pick, send template to game); MO2 right-click tool plugin | 1-2 weeks |
 
@@ -513,8 +540,8 @@ Taken with the user after M0; the sections above are written to match.
 
 State against these: the 3D view (decision 1) is built (§4.5); saving goes into the "Dova Stash Templates" mod
 (decision 3: created with a `meta.ini` when missing, an existing file backed up and its version raised); the
-whole-load-order loader (decision 4) is built and used by the start page and the drafts view (§3.4); the mod list
-still loads the home plugin with its masters, and its toggle is M1 work. A home over several cells (decision 5) is saved as one file with `cells` (§3.3).
+whole-load-order loader (decision 4) is built and used by the start page, the drafts view (§3.4) and the homes by
+mod; the *Any cell* mod list still loads the home plugin with its masters. A home over several cells (decision 5) is saved as one file with `cells` (§3.3).
 
 ---
 
@@ -558,7 +585,7 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
 | 3D view, plan | Ctrl + click / left drag (select mode) | add to or remove from the selection / box select (Ctrl: add); Esc clears |
 | 3D view, plan | P / C / V | paint mode on or off / colours by category / colours by fill (the preview) |
 | Tables | click / Ctrl + click / double click | select / add to the selection / select and look at it in the 3D view |
-| Cell header | *< Hide lists*, *< Back*, *Undo*, *Redo* | give the cell the whole window / return to the cell opened before / undo, redo |
+| Cell header | *< Hide lists*, *< Back*, *Undo*, *Redo* | give the cell the whole window (the lists stay put while you pick mods and homes; a home opened from the drafts view, a template file or `--cell` starts without them) / return to the cell opened before / undo, redo |
 | Anywhere in a home | Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) / Ctrl+S | undo / redo / save the template (the Template tab shows the result and asks before overwriting) |
 | Where items go | R | run the preview again (it re-runs by itself when the template changes) |
 | Everywhere | Ctrl+D / Ctrl+O | the drafts view / open a template file |

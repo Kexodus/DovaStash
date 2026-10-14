@@ -268,6 +268,135 @@ TEST_CASE("Draft: a container named after a category or an item gets it, and is 
 	CHECK_FALSE(Find(plan, 4, "misc.dwemer"));
 }
 
+TEST_CASE("Draft master: a name that says what it holds is no master, whatever its EditorID or size", "[draft]")
+{
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00001401", "DruidStorageChest01", "Dragonpriest Masks", { 100, 0, 0 }, { 80, 40, 60 }),  // by the door, "chest" in the EditorID
+		Container("Skyrim.esm|0x00001402", "ShelfFoodChest", "Food & Drinks", { 400, 0, 0 }, { 556, 95, 95 }),            // huge
+		Container("Skyrim.esm|0x00001403", "Urn01", "Urn", { 150, 0, 0 }, { 67, 67, 85 }),
+		Container("Skyrim.esm|0x00001404", "PlayerHouseChest", "Chest", { 900, 0, 0 }, { 64, 33, 33 }),                  // small, far
+	};
+	DraftObject door = Thing(DraftObject::Kind::Door, "HouseDoor", "Door", { 0, 0, 0 });
+	door.exteriorDoor = true;
+	objects.push_back(door);
+	DraftOptions options;
+	options.categoryNames = { { "alchemy.food", "Food & drink" } };
+	const auto plan = SuggestDraft(objects, DefaultDraftRules(), options);
+	REQUIRE(plan.master);
+	CHECK(*plan.master == 3);
+	CHECK_THAT(plan.masterReason, Catch::Matchers::ContainsSubstring("named like a chest"));
+	// The masks have a name the rules cannot read: nothing is guessed for them, not even from what stands nearby.
+	CHECK(plan.Find(0)->suggestions.empty());
+	CHECK(Find(plan, 1, "alchemy.food")->accepted);
+
+	// Only named containers usable: the master is one of them, and the reason says so.
+	std::vector<DraftObject> named{ objects[0], objects[1], door };
+	const auto onlyNamed = SuggestDraft(named, DefaultDraftRules(), options);
+	REQUIRE(onlyNamed.master);
+	CHECK_THAT(onlyNamed.masterReason, Catch::Matchers::ContainsSubstring("every usable container's does"));
+}
+
+TEST_CASE("Draft: decoration and a mannequin across the room give no container armor", "[draft]")
+{
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00001501", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 150, 80, 80 }),
+		Container("Skyrim.esm|0x00001502", "Cabinet01", "Cabinet", { 1000, 0, 0 }),   // shields hang next to it
+		Container("Skyrim.esm|0x00001503", "Cupboard01", "Cupboard", { 2000, 0, 0 }),  // a mannequin 3 m away
+		Container("Skyrim.esm|0x00001504", "Wardrobe01", "Wardrobe", { 3000, 0, 0 }),  // weapons lying on it
+	};
+	for (int i = 0; i < 3; ++i) {
+		auto shield = Thing(DraftObject::Kind::Item, "ArmorIronShield", "Iron Shield", { 1000.0f + static_cast<float>(i) * 20.0f, 30, 60 });
+		shield.categories = { "armor.shields" };
+		objects.push_back(shield);
+		auto sword = Thing(DraftObject::Kind::Item, "IronSword", "Iron Sword", { 3000.0f + static_cast<float>(i) * 20.0f, 0, 40 });
+		sword.categories = { "weapons.swords" };
+		objects.push_back(sword);
+	}
+	objects.push_back(Thing(DraftObject::Kind::Display, "PlayerHouseMannequin", "Mannequin", { 2210, 0, 0 }, { "display:mannequin" }));
+	const auto plan = SuggestDraft(objects, DefaultDraftRules());
+	for (const std::size_t c : { 1u, 2u, 3u }) {
+		for (const auto& s : plan.Find(c)->suggestions) {
+			INFO(s.pattern << ": " << s.reason);
+			CHECK_FALSE((s.accepted && (s.pattern.starts_with("armor.") ? s.pattern != "armor.clothing" : s.pattern.starts_with("weapons."))));
+		}
+	}
+	CHECK(Find(plan, 3, "armor.clothing")->accepted);  // the wardrobe's own job
+}
+
+TEST_CASE("Draft fill gives a group's categories on their own evidence only", "[draft]")
+{
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00001601", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 150, 80, 80 }),
+		Container("Skyrim.esm|0x00001602", "CrateIngots", "Ingots", { 1000, 0, 0 }),
+		Container("Skyrim.esm|0x00001603", "Barrel01", "Smithing Gear", { 1100, 0, 0 }),  // ores by name: taken by "Ingots"
+	};
+	objects.push_back(Thing(DraftObject::Kind::Other, "Forge", "Blacksmith Forge", { 1050, 60, 0 }, { "CraftingSmithingForge" }));
+	DraftOptions options;
+	options.categoryNames = { { "misc.ores_ingots", "Ores & ingots" }, { "misc.animal_parts", "Animal parts" } };
+	const auto plan = SuggestDraft(objects, DefaultDraftRules(), options);
+	CHECK(Find(plan, 1, "misc.ores_ingots")->accepted);
+	CHECK_FALSE(Find(plan, 2, "misc.ores_ingots")->accepted);
+	CHECK_FALSE(Find(plan, 2, "misc.animal_parts"));  // "crafting materials" is not given on the ores evidence
+}
+
+TEST_CASE("Draft: a container named for its contents hears nothing about other categories", "[draft]")
+{
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00001701", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 150, 80, 80 }),
+		Container("Skyrim.esm|0x00001702", "Crate01", "Arrows & Bolts", { 1000, 0, 0 }),
+	};
+	objects.push_back(Thing(DraftObject::Kind::Other, "CraftingCookpot", "Cooking Pot", { 1060, 0, 0 }, { "CraftingCookpot" }));
+	objects.push_back(Thing(DraftObject::Kind::Other, "AlchemyLab", "Alchemy Lab", { 1000, 80, 0 }, { "WICraftingAlchemy" }));
+	const auto plan = SuggestDraft(objects, DefaultDraftRules());
+	const auto& s = plan.Find(1)->suggestions;
+	REQUIRE(s.size() == 1);
+	CHECK(s.front().pattern == "ammo.*");
+	CHECK(s.front().accepted);
+}
+
+TEST_CASE("Draft: the display name outranks a hint, a group outranks an EditorID", "[draft]")
+{
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00001801", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 150, 80, 80 }),
+		Container("Skyrim.esm|0x00001802", "Satchel01", "Satchel", { 1000, 0, 0 }),                         // a hint, by the lab
+		Container("Skyrim.esm|0x00001803", "Basket01", "Ingredient Basket", { 3000, 0, 0 }),                // named for them, far away
+		Container("Skyrim.esm|0x00001804", "BarrelIngredientCommon01", "Barrel", { 1050, 50, 0 }),         // the EditorID says so, by the lab
+		Container("Skyrim.esm|0x00001805", "Basket01", "Cooking Ingredients", { 5000, 0, 0 }),             // food, not alchemy
+	};
+	objects.push_back(Thing(DraftObject::Kind::Other, "AlchemyLab", "Alchemy Lab", { 1020, 20, 0 }, { "WICraftingAlchemy" }));
+	const auto plan = SuggestDraft(objects, DefaultDraftRules());
+	CHECK(Find(plan, 2, "alchemy.ingredients")->accepted);
+	CHECK_FALSE(Find(plan, 1, "alchemy.ingredients")->accepted);
+	const auto* barrel = Find(plan, 3, "alchemy.ingredients");
+	REQUIRE(barrel);
+	CHECK_FALSE(barrel->accepted);
+	CHECK_THAT(barrel->reason, Catch::Matchers::ContainsSubstring("EditorID BarrelIngredientCommon01"));
+	CHECK_FALSE(Find(plan, 4, "alchemy.ingredients"));
+	CHECK(Find(plan, 4, "alchemy.food")->accepted);
+}
+
+TEST_CASE("Draft: a generic name is no item's name", "[draft]")
+{
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00001901", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 150, 80, 80 }),
+		Container("Skyrim.esm|0x00001902", "Crate01", "Storage", { 500, 0, 0 }),
+		Container("Skyrim.esm|0x00001903", "Basket01", "Garlic Basket", { 900, 0, 0 }),
+	};
+	DraftOptions options;
+	options.itemCategoryByName = [](std::string_view a_name) -> std::optional<std::string> {
+		if (IEquals(a_name, "Storage")) {
+			return "books.other";  // some mod's book
+		}
+		return IEquals(a_name, "garlic") ? std::optional<std::string>("alchemy.ingredients") : std::nullopt;
+	};
+	const auto plan = SuggestDraft(objects, DefaultDraftRules(), options);
+	CHECK_FALSE(Find(plan, 1, "books.other"));
+	const auto* garlic = Find(plan, 2, "alchemy.ingredients");
+	REQUIRE(garlic);
+	CHECK(garlic->accepted);
+	CHECK_THAT(garlic->reason, Catch::Matchers::ContainsSubstring("named after the item \"garlic\""));
+}
+
 TEST_CASE("DraftCategoryNames lists leaves by id and groups as wildcards", "[draft]")
 {
 	const auto categories = CompileCategories(kStandardCategories);

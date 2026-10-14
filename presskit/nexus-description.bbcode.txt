@@ -60,7 +60,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-03-templates.png[/img][/center]
 
-Homes with a template need no setup. Set [font=Courier New]bAutoEnableTemplates=true[/font] and they turn on as soon as you walk in.
+Homes with a template need no setup: they turn on as soon as you walk in. Set [font=Courier New]bAutoEnableTemplates=false[/font] to be asked first.
 
 [list]
 [*][b]Vanilla and DLC:[/b] Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall, Severin Manor, and Lakeview Manor, Heljarchen Hall and Windstad Manor with their cellars.

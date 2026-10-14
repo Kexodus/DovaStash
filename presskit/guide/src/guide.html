@@ -55,7 +55,7 @@
     <p class="lede">Dova Stash sorts your loot into the containers of a player home. A <b>template</b> tells it which container takes what in one particular home. The editor makes templates for you, outside the game.</p>
 
     <div class="how">
-      <div class="step"><div class="ic" data-icon="any_home" data-px="76"></div><h3>Open a home</h3><p>Pick it from your mod list or from every home in your load order.</p></div>
+      <div class="step"><div class="ic" data-icon="any_home" data-px="76"></div><h3>Open a home</h3><p>Every home of your load order, under the mod that adds it.</p></div>
       <div class="arrow"><svg width="54" height="12" viewBox="0 0 54 12"><path d="M0 6 H52 M46 1 L52 6 L46 11"/></svg></div>
       <div class="step"><div class="ic" data-icon="chest" data-px="76"></div><h3>Set up the chests</h3><p>Click it in 3D or on the plan: master, categories, or ignored.</p></div>
       <div class="arrow"><svg width="54" height="12" viewBox="0 0 54 12"><path d="M0 6 H52 M46 1 L52 6 L46 11"/></svg></div>
@@ -132,7 +132,7 @@
     <ol class="legend">
       <li><b>Your setup.</b> The MO2 instance, profile and Data folder in use. Change them in the bar at the top (<span class="ui">Browse&hellip;</span>, <span class="ui">Profile</span>).</li>
       <li><b>Player homes.</b> Every home in your active load order, and how many already have a template.</li>
-      <li><b>Three ways in.</b> <span class="ui">Open a home</span> from your mod list, <span class="ui">Draft all homes</span> at once, or <span class="ui">Open a template&hellip;</span> you already have.</li>
+      <li><b>Three ways in.</b> <span class="ui">Open a home</span> under its mod, <span class="ui">Draft all homes</span> at once, or <span class="ui">Open a template&hellip;</span> you already have.</li>
       <li><b>Your homes in progress.</b> Each home you touched, with its stage. Click one to carry on.</li>
     </ol>
 
@@ -154,18 +154,19 @@
 <section class="page">
   <div class="body">
     <header class="chapter-head" data-no="04" data-title="Opening a home" data-sub="Homes by mod, the 3D view, moving around"></header>
-    <p class="lede">You know a home by its mod. <span class="ui">Open a home</span> takes you to your mod list, where a name or a Nexus id finds it.</p>
+    <p class="lede">You know a home by its mod. <span class="ui">Open a home</span> lists every home of your load order under the mod that adds it; a name or a Nexus id finds it.</p>
     <figure data-fig="mods"></figure>
     <ol class="legend">
       <li><b>Homes by mod</b> tab.</li>
-      <li><b>Filter.</b> Part of the name, or the Nexus id (<code>92177</code> is Whitepeak Tower).</li>
-      <li><b>The mod</b> with its Nexus id and plugins.</li>
-      <li><b>Likely homes only.</b> Untick to see every cell with containers.</li>
-      <li><b>The home</b> with its score and storage. Click it to open it.</li>
+      <li><b>By mod</b> lists the homes; <b>Any cell</b> is for a home that is not listed.</li>
+      <li><b>Filter.</b> Part of the home or mod name, or the Nexus id (<code>92177</code> is Whitepeak Tower).</li>
+      <li><b>The mod</b> with its Nexus id. Point at it to see its plugins.</li>
+      <li><b>The home</b> with its storage and template. Click it to open it.</li>
     </ol>
     <h2>How the editor finds homes</h2>
-    <p>It reads every cell the mod adds or changes and ranks it: a player-house location, owned by the player, never resets, has containers and displays. Base-game homes and the DLC homes sit under <span class="ui">(Game Data folder)</span>.</p>
-    <p>Once a home opens, the lists fold away so the cell gets the whole window. <span class="ui">Mods and homes</span>, at the top left of the cell, brings them back.</p>
+    <p>It reads every cell of your load order once and keeps the homes: a player-house location, owned by the player, or mannequins and nothing that respawns. Each sits under the mod whose plugin adds it; base-game and DLC homes sit under <span class="ui">(Game Data folder)</span>. <span class="ui">Rescan</span> (<kbd>F5</kbd>) reads it again after you change mods in MO2.</p>
+    <p>A home owned by a faction, or an exterior, is not listed. In <span class="ui">Any cell</span>, pick its mod: every cell of its plugins with containers is ranked, likely homes first. Untick <span class="ui">Likely homes only</span> to see them all.</p>
+    <p>The list stays beside the cell while you go from one home to the next. <span class="ui">Hide lists</span>, at the top left of the cell, gives the cell the whole window; <span class="ui">Homes</span> brings it back. A home opened from <span class="ui">Draft all homes</span> or a template file starts with the list folded away.</p>
 
     <h2>Moving around in 3D</h2>
     <table class="t keys">
@@ -338,7 +339,8 @@
       <li><b>Rack triggers</b>, drawn as blue see-through boxes so you can click them.</li>
       <li><b>Display: mannequin</b> and the script that makes it one.</li>
       <li><b>Use this display</b>: Dova Stash fills it. Untick to leave it alone.</li>
-      <li><b>Categories</b>. Empty: it wears your most complete armor set.</li>
+      <li><b>Armor set</b>: <i>Auto</i> wears your most complete set; pick one (type to search every set of your load order) and it wears only that set, filling up as you get its pieces.</li>
+      <li><b>Categories</b>, for <i>Auto</i> only. Empty: any set.</li>
     </ol>
     <div class="cols wide-right">
       <figure data-fig="rack"></figure>
@@ -393,15 +395,15 @@
     <div class="cols">
       <div>
         <h3>The name</h3>
-        <p>A container called <i>Soul Gems</i>, <i>Ingots</i> or <i>Potion Basket</i> takes those. Homes with named containers come out nearly complete.</p>
+        <p>A container called <i>Soul Gems</i>, <i>Ingots</i> or <i>Potion Basket</i> takes those, and only those. Homes with named containers come out nearly complete. A name the editor cannot read, such as <i>Dragonpriest Masks</i>, gets nothing: you decide.</p>
         <h3>What is near it</h3>
-        <p>A chest by the forge gets ores and ingots; one by the alchemy lab, ingredients and potions. Items placed on or next to it count too.</p>
+        <p>A chest by the forge gets ores and ingots; one by the alchemy lab, ingredients and potions. Items placed on it add to that; decoration, like a shield on the wall, says nothing.</p>
       </div>
       <div>
         <h3>The master</h3>
-        <p>The largest usable chest near the front door, named like a chest. Containers that respawn, are owned, or are scripted are never chosen.</p>
+        <p>A chest near the front door, never one named for what it holds. Containers that respawn, are owned, or are scripted are never chosen.</p>
         <h3>The rest</h3>
-        <p>Common groups nobody took (clothes, books, food&hellip;) go to the free container with the best hint, such as a dresser for clothes.</p>
+        <p>Common groups nobody took (clothes, books, food&hellip;) go to the free container with the best hint, such as a dresser for clothes or a safe for jewelry.</p>
       </div>
     </div>
 
@@ -543,7 +545,7 @@
     <div class="faq">
       <div><h3>It says it cannot find my MO2 instance.</h3><p>Type the MO2 folder in the top bar and press <span class="ui">Open</span>, or use <span class="ui">Browse&hellip;</span>. Or add <code>--mo2 "&lt;MO2 folder&gt;"</code> to the executable's arguments.</p></div>
       <div><h3>The wrong profile is loaded.</h3><p>Pick another in the <span class="ui">Profile</span> list at the top. The editor reads that profile's mod list and load order.</p></div>
-      <div><h3>My home is not in the list.</h3><p>Untick <span class="ui">Likely homes only</span>, or tick <span class="ui">Exterior cells too</span>. Check the mod is enabled in the profile.</p></div>
+      <div><h3>My home is not in the list.</h3><p>Check the mod is enabled in the profile, then <span class="ui">Rescan</span>. Still missing: in <span class="ui">Any cell</span>, pick its mod and untick <span class="ui">Likely homes only</span>, or tick <span class="ui">Exterior cells too</span>.</p></div>
       <div><h3>I cannot click a chest.</h3><p>It may be hidden or behind a wall. Select it in the <span class="ui">Containers</span> tab, or turn off the <span class="ui">Structure</span> layer. Make sure <span class="ui">Select mode</span> is on.</p></div>
       <div><h3>Some surfaces are a gray checker.</h3><p>The editor could not find that texture. It does not affect the template.</p></div>
       <div><h3>Make master is grayed out.</h3><p>That container respawns. Its contents can vanish, so it can never be the master; ignore it.</p></div>

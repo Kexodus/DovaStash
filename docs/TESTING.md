@@ -14,7 +14,9 @@ QuickLoot IE, SKSE Menu Framework, KID.
    - `SKSE/Plugins/DovaStash.ini`
    - `SKSE/Plugins/DovaStash/Categories/00_Default.json`
    - `SKSE/Plugins/DovaStash/Templates/...`
-2. Set `iLogLevel = 1` (debug) in `DovaStash.ini` to log one line per moved stack.
+2. Set `iLogLevel = 1` (debug) in `DovaStash.ini` to log one line per moved stack, and
+   `bAutoEnableTemplates = false` (on by default) so the template notice and *Use template* can be tested;
+   §3.6 step 4 turns it back on.
 3. Open the log while you play:
    `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log`.
 4. Player layouts are written to `Data/SKSE/Plugins/DovaStash/Layouts/`. Under MO2 they appear in
@@ -291,8 +293,9 @@ where you put things by hand*, live).
    layout is written first.
    Category bindings come from the template; learned destinations, keep rules, ignored containers,
    explicit forms and containers you added yourself (now without categories) are kept.
-4. Set `bAutoEnableTemplates = true`, start a new session and enter Honeyside (`coc RiftenHoneyside`).
-   HUD: *Honeyside setup enabled (by ...)*.
+4. Set `bAutoEnableTemplates = true` (the default), start a new session and enter Honeyside (`coc RiftenHoneyside`).
+   HUD: *Dova Stash: Honeyside is set up. Press K anywhere here to put your loot away.* Press K without
+   aiming at anything: the master menu opens; Deposit puts the loot away.
 5. **Save as template (hotkey).** In Breezehome with a setup of your own (master, a few containers with
    categories, one ignored container, a rack with categories, a mannequin with an armor set, a keep
    rule, some learned items): master menu → **Save as template...**. The text box shows *Breezehome*;
@@ -369,10 +372,11 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    gets anything.
 3. Take the gear back out (Retrieve), look at an empty weapon rack, press the hotkey. **Expected:** a menu
    with *Use this rack*. Choose it. **Expected:** HUD *Weapon Rack is used now*; nothing goes on the rack yet.
-4. Press the hotkey at it again: *Categories... (any weapon)*, *Fill now*, *Stop using this rack*. Open
+4. Its menu opens again by itself: *Categories... (any weapon)*, *Fill now*, *Stop using this rack*. Open
    *Categories...*, tick *Bows*, go back: the entry reads *Categories... (Bows)*.
 5. Use a second rack without categories, a dagger display, the middle of a coat-of-arms rack, a mannequin
-   (aim at the mannequin; set its categories to *Light Armor*) and, in Whitepeak, a glass display case (aim
+   (aim at the mannequin: Whitepeak's have no name and no prompt, the hotkey still opens *Mannequin* with
+   *Use this mannequin*, then *Categories...* and *Armor set... (Auto)*; set its categories to *Light Armor*) and, in Whitepeak, a glass display case (aim
    inside it, at *Weapon Rack*), Konahrik's and the Elder Scroll's plaques. Then Deposit. **Expected:**
    - the elven bow on the bow rack (not the more valuable sword), the daedric sword or battleaxe on the
      second rack, the glass dagger on the dagger display, a weapon lying in the glass case,

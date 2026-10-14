@@ -58,7 +58,7 @@ $lv  = @('--cell', 'HearthFires.esm|0x00002FEC')                             # L
 & $exe @mo2 @ald --tab 3d --paint alchemy.potions --colours category --select 'Eli_Druid Home.esp|0x00000A94' --screenshot paint.png
 & $exe @mo2 @ald --tab 3d --select 'Eli_Druid Home.esp|0x00000B57' --multi 'Eli_Druid Home.esp|0x00000ABA' --multi 'Eli_Druid Home.esp|0x00000BEA' --screenshot multi-select.png
 & $exe @mo2 @ald --tab preview --screenshot preview.png
-& $exe @mo2 @ald --tab 3d --colours fill --select 'Eli_Druid Home.esp|0x00000AF6' --screenshot preview-3d-fill.png
+& $exe @mo2 @ald --tab 3d --colours fill --select 'Eli_Druid Home.esp|0x00000E68' --screenshot preview-3d-fill.png
 & $exe @mo2 @ald --tab 3d --colours category --select 'Eli_Druid Home.esp|0x00000B1B' --screenshot colours-category.png
 & $exe @mo2 --drafts --only Aldamar --screenshot drafts.png
 & $exe @mo2 --drafts --only Lakeview --screenshot drafts-multicell.png

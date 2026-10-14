@@ -9,21 +9,28 @@
 // - Ignored containers, with a note: the first `ignore` rule that applies (respawns, goes away with a house
 //   upgrade, owned by someone else, a scripted bookshelf...). They are never the master and get nothing.
 // - The master: the usable container (not ignored, no script beyond the harmless ones, present from the
-//   start) with the best score: its size against the largest one, a chest-like name, how close it is to the
-//   home's entrance and to the middle of the containers. The reason names what decided it.
+//   start) with the best score: a chest-like name, its size (up to a usual chest's: bigger is not better),
+//   how close it is to the home's entrance and to the middle of the containers. A container whose name says
+//   what it holds ("Soul Gems", "Dragonpriest Masks") is only the master when nothing else is usable. The
+//   reason names what decided it.
 // - Categories per container, each with a confidence (0..1) and a reason a person can check:
-//     names    the container's own name and EditorID ("Alchemy Satchel", "FoodBarrel01", "Weapon Chest");
+//     names    the container's display name ("Alchemy Satchel", "Weapon Chest"); its EditorID ("FoodBarrel01")
+//              only when the display name is generic ("Barrel", "Chest"), at `editorIdFactor`;
 //     stations crafting stations and displays near it (forge -> ores and ingots, alchemy lab -> ingredients
 //              and potions, enchanter -> soul gems, cooking pot -> food, bookshelves -> books), weaker with
 //              distance and across floors;
-//     nearby   loose items placed on or next to it, by the categories the caller classified them into.
+//     nearby   loose items placed on or next to it, by the categories the caller classified them into (a hint).
+//   A container named for its contents (its display name has a word that is not generic, or a name rule says
+//   so outright) gets only what its name says: stations and nearby items add to those categories, never others.
 //   Evidence for the same category on the same container adds up (1 - product of (1 - c)).
-//   Each category goes to one container: the one with the highest confidence (ties: the nearer station,
-//   then the earlier container). It is accepted when its confidence reaches `acceptAt`; the others keep it
-//   as a rejected alternative, so the author sees why.
+//   Each category goes to one container: one named for exactly that category first, then one whose display
+//   name says it as part of a group ("Alchemy Satchel" before a barrel whose EditorID says "Ingredient"), then
+//   the highest confidence (ties: the nearer station, then the earlier container). It is accepted when its confidence
+//   reaches `acceptAt`; the others keep it as a rejected alternative, so the author sees why.
 //   Then the fill pass: each group of `fill` (weapons, armor, clothes, alchemy...) that no container was given
 //   goes to the free container with the strongest weaker evidence for it (a dresser for clothes, an end table
-//   for books), greedily, strongest first; groups nothing hints at stay with the master.
+//   for books), greedily, strongest first; the container takes the group's categories it has evidence for
+//   itself. Groups nothing hints at stay with the master.
 //
 // Text matching: a container's text is its EditorID split at case changes, digits and punctuation, plus its
 // name split at spaces and punctuation, lower-cased ("PlayerHouseChestAlchemy01" -> player house chest
@@ -32,7 +39,8 @@
 // case-insensitively and whole.
 //
 // Rules file (JSON, comments allowed): { "$schema": "dovastash-draftrules-1", "acceptAt", "ignore": [...],
-// "harmlessScripts": [...], "master": {...}, "names": [...], "stations": [...], "nearby": {...} }; see
+// "harmlessScripts": [...], "genericWords": [...], "editorIdFactor", "master": {...}, "names": [...],
+// "stations": [...], "nearby": {...}, "fill": [...] }; see
 // DefaultDraftRulesText() for every field. Unknown keys are warnings, malformed rules errors (skipped).
 
 #include <array>
@@ -129,30 +137,36 @@ namespace dova::core
 	{
 		float                         acceptAt{ 0.5f };
 		float                         keepAt{ 0.25f };   // weaker suggestions are not listed at all
+		float                         fillAt{ 0.3f };    // the fill pass gives nothing on weaker evidence
 		std::size_t                   maxPerContainer{ 6 };  // listed suggestions per container (accepted ones always)
 		float                         categoryNameConfidence{ 0.85f };  // named after a category of the set
 		float                         itemNameConfidence{ 0.6f };       // named after an item
-		float                         masterNamedPenalty{ 1.5f };  // a container whose name says what it holds is no master
+		float                         editorIdFactor{ 0.8f };           // a name rule matched only by the EditorID counts this much
+		std::vector<std::string>      genericWords;  // words that say nothing about the contents ("large", "wooden"); see SuggestDraft
+		float                         masterNamedPenalty{ 3.0f };  // a container whose name says what it holds is no master
 		std::vector<DraftIgnoreRule>  ignore;
 		std::vector<std::string>      harmlessScripts;  // scripts that do not stop a container from being the master
 		std::vector<std::vector<std::string>> masterWords;  // chest-like names
 		std::vector<std::vector<std::string>> masterAvoid;  // small or odd ones: sacks, satchels, urns
-		float                         masterSizeWeight{ 2.0f };
-		float                         masterWordWeight{ 1.0f };
+		float                         masterSizeWeight{ 1.0f };
+		float                         masterFullSize{ 100000.0f };  // cubic units at which size stops counting (about a small chest)
+		float                         masterWordWeight{ 1.5f };
+		float                         masterAvoidWeight{ 1.0f };
 		float                         masterEntranceWeight{ 1.0f };
 		float                         masterCentralWeight{ 0.5f };
 		float                         masterEntranceRange{ 1500.0f };
 		std::vector<DraftNameRule>    names;
 		std::vector<DraftStationRule> stations;
 		float                         nearbyRadius{ 96.0f };
-		float                         nearbyConfidence{ 0.35f };   // one item
-		float                         nearbyPerItem{ 0.1f };       // each further item
-		float                         nearbyMax{ 0.75f };
+		float                         nearbyConfidence{ 0.25f };   // one item
+		float                         nearbyPerItem{ 0.05f };      // each further item
+		float                         nearbyMax{ 0.45f };
 		std::vector<std::string>      nearbySkip;    // category patterns that say nothing (clutter)
 		std::vector<std::string>      nearbyGroups;  // top-level ids suggested as "<id>.*" ("weapons" -> "weapons.*")
 
 		// Groups of categories a home usually has a place for. A group nobody was given goes to the free container
-		// (no accepted category yet) with the strongest evidence for it, even below `acceptAt`, but at least `keepAt`.
+		// (no accepted category yet) with the strongest evidence for it, even below `acceptAt`, but at least `fillAt`;
+		// it takes the group's categories it has evidence of its own for, never the others on that evidence.
 		struct FillGroup
 		{
 			std::string              label;
