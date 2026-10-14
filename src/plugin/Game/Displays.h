@@ -100,6 +100,9 @@ namespace dova::game
 		std::vector<RE::TESBoundObject*> refuses;
 	};
 	[[nodiscard]] RackFit RackFitOf(const FoundDisplay& a_rack);
+	// What the display holds, for its category picker and lint (core::DisplayFit): its kind and, for a rack, its
+	// type and whether its trigger has a crossbow node (RackFitOf; needs the trigger's 3D).
+	[[nodiscard]] core::DisplayFit FitOf(const FoundDisplay& a_display);
 
 	// The node of the rack's trigger that WeaponRackActivateSCRIPT moves `a_item` to, once its 3D is
 	// loaded. `a_pivot` is core::RackPivot's choice, which is what the vanilla script does. The Unofficial

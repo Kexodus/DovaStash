@@ -185,6 +185,7 @@ namespace dova::ui::panel
 		if (_rescan.exchange(false) || cells != _scannedCells) {
 			_scannedCells = cells;
 			_found.clear();
+			_fits.clear();
 			for (const auto id : cells) {
 				for (auto& d : game::FindDisplays(RE::TESForm::LookupByID<RE::TESObjectCELL>(id))) {
 					_found.push_back(std::move(d));
@@ -204,6 +205,15 @@ namespace dova::ui::panel
 			row.refText = a_ref.ToString();
 			row.kind = a_found ? std::optional(a_found->kind) : a_binding ? a_binding->kind : std::nullopt;
 			row.kindName = row.kind ? KindName(*row.kind) : std::string{};
+			if (a_found) {
+				auto it = _fits.find(a_found->ref);
+				if (it == _fits.end()) {
+					it = _fits.emplace(a_found->ref, game::FitOf(*a_found)).first;
+				}
+				row.fit = it->second;
+			} else if (row.kind) {
+				row.fit = core::DisplayFit{ *row.kind, std::nullopt, true };  // not loaded here: what any display of its kind holds
+			}
 			row.loaded = a_found.has_value();
 			row.here = row.loaded && a_object && a_object->GetParentCell() == here;
 			row.available = row.loaded && game::DisplayAvailable(*a_found);
@@ -378,14 +388,19 @@ namespace dova::ui::panel
 		for (auto& [kind, info] : kinds) {
 			info.name = KindName(kind);
 			info.plural = KindPlural(kind);
+			snap->kinds.push_back(std::move(info));
+		}
+		for (const auto& row : snap->rows) {
+			if (!row.fit || snap->choices.contains(*row.fit)) {
+				continue;
+			}
 			std::vector<DisplayChoice> choices;
-			for (const auto& p : DisplayCategoryChoices(kind)) {
+			for (const auto& p : DisplayCategoryChoices(*row.fit)) {
 				choices.push_back(DisplayChoice{ p, PatternLabel(p) });
 			}
 			if (!choices.empty()) {
-				snap->choices.emplace(kind, std::move(choices));
+				snap->choices.emplace(*row.fit, std::move(choices));
 			}
-			snap->kinds.push_back(std::move(info));
 		}
 		publish();
 	}

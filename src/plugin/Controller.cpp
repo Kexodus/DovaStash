@@ -503,6 +503,7 @@ namespace dova
 		menu.ref = *display;
 		menu.name = DisplayName(ref, found->kind);
 		menu.kind = found->kind;
+		menu.fit = game::FitOf(*found);
 		menu.used = binding && !binding->ignored;
 		menu.full = game::DisplayFullFor(*found, binding);  // a mannequin with a chosen set: while it can take more
 		if (binding) {

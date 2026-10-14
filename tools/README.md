@@ -132,7 +132,8 @@ format.) To write one from scratch:
      from `requires`. Display items and sets from plugins that are not loaded are listed in
      `optionalPlugins` instead (they are optional); from a loaded plugin they must exist.
    - It warns about bookshelves bound as storage, containers that disappear on upgrade, and a master that starts
-     disabled, and about display fields the display's kind doesn't use (`set` on a rack or bookshelf;
+     disabled, about a display's categories it can't hold (`displays[0]: Soul gems can't go on a weapon rack`,
+     the rule of DESIGN §8.4 *Categories on displays*), and about display fields the display's kind doesn't use (`set` on a rack or bookshelf;
      `categories`, `only` or, in a template, `items` on a plaque or case), a bookshelf's `items` that are not
      books, `only` without `items` or next to `set`, and a display that is also the master or a container in
      use.

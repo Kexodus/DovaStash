@@ -15,9 +15,11 @@
 #include <Windows.h>
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui_stdlib.h>
 
 #include "Util.h"
+#include "dova/core/DisplayCategories.h"
 #include "dova/core/Template.h"
 #include "dova/core/Version.h"
 #include "home/DovaData.h"
@@ -46,6 +48,23 @@ namespace dova::editor::ui
 		_draftRulesSource = std::move(rules.source);
 	}
 
+	namespace
+	{
+		// What a display holds, as the editor reads it: its kind and rack type. Whether a rack's trigger has a
+		// crossbow node is not read (it needs the trigger's mesh), so crossbows count as possible.
+		std::optional<core::DisplayFit> FitOf(const home::PlacedRef& a_ref)
+		{
+			if (!a_ref.display) {
+				return std::nullopt;
+			}
+			core::DisplayFit fit{ *a_ref.display, std::nullopt, true };
+			if (*a_ref.display == core::DisplayKind::Rack) {
+				fit.rack = a_ref.rackType;
+			}
+			return fit;
+		}
+	}
+
 	void EditorApp::Revalidate(OpenCell& a_cell)
 	{
 		LoadCategories();
@@ -54,6 +73,15 @@ namespace dova::editor::ui
 		core::ValidateTemplate(a_cell.layout, "template", diags);
 		if (_categorySet) {
 			core::ValidateLayoutCategories(a_cell.layout, *_categorySet, "template", diags);
+			const auto fitOf = [&](const core::DisplayBinding& a_d) -> std::optional<core::DisplayFit> {
+				for (const auto& r : a_cell.info.refs) {
+					if (r.display && a_cell.lo->ToFormRef(r.key) == a_d.ref) {
+						return FitOf(r);
+					}
+				}
+				return std::nullopt;
+			};
+			core::ValidateDisplayCategories(a_cell.layout, *_categorySet, fitOf, "template", diags);
 		}
 		a_cell.diagnostics.clear();
 		for (const auto& d : diags.Items()) {
@@ -72,7 +100,7 @@ namespace dova::editor::ui
 		return static_cast<int>(a_cell.diagnostics.size()) - ErrorCount(a_cell);
 	}
 
-	bool EditorApp::CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title)
+	bool EditorApp::CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title, const core::DisplayFit* a_fit)
 	{
 		bool changed = false;
 		ImGui::PushID(a_id);
@@ -87,16 +115,23 @@ namespace dova::editor::ui
 				w::FlowNext(w::ChipWidth(a_patterns[i].c_str(), true), rightX);
 			}
 			const bool known = cat || a_patterns[i].ends_with("*");
-			if (w::ChipClose(a_patterns[i].c_str(), known ? w::Kind::Accent : w::Kind::Error)) {
+			// A display's category it can't take: kept, but nothing of it goes up (core::ValidateDisplayCategories).
+			const bool unfit = a_fit && _categorySet && core::PatternFitsDisplay(*_categorySet, a_patterns[i], *a_fit) == false;
+			if (w::ChipClose(a_patterns[i].c_str(), !known ? w::Kind::Error : unfit ? w::Kind::Warn : w::Kind::Accent)) {
 				a_patterns.erase(a_patterns.begin() + static_cast<std::ptrdiff_t>(i));
 				changed = true;
 				ImGui::PopID();
 				break;
 			}
-			w::Tip(cat ? cat->name.c_str() : (a_patterns[i].ends_with("*") ? "A group and everything below it" : "Unknown category"));
+			w::Tip(unfit ? core::UnfitCategoryMessage(*_categorySet, a_patterns[i], *a_fit).c_str() :
+			       cat   ? cat->name.c_str() :
+			               (a_patterns[i].ends_with("*") ? "A group and everything below it" : "Unknown category"));
 			ImGui::PopID();
 		}
 		ImGui::SetNextItemWidth(-FLT_MIN);
+		if (std::exchange(_openCategoryPicker, false)) {
+			ImGui::OpenPopup(ImHashStr("##ComboPopup", 0, ImGui::GetID("##add")));  // --popover categories
+		}
 		if (ImGui::BeginCombo("##add", "+ add", ImGuiComboFlags_HeightLarge)) {
 			static std::string filter;
 			if (ImGui::IsWindowAppearing()) {
@@ -113,12 +148,17 @@ namespace dova::editor::ui
 			if (_categories.empty()) {
 				w::Muted("No Categories/*.json in Data/SKSE/Plugins/DovaStash");
 			}
+			bool offered = false;
 			for (const auto& c : _categories) {
 				if (!filter.empty() && !IContains(c.id, filter) && !IContains(c.name, filter)) {
 					continue;
 				}
 				const bool group = c.match.Empty();
 				const auto pattern = group ? c.id + ".*" : c.id;
+				if (a_fit && _categorySet && core::PatternFitsDisplay(*_categorySet, pattern, *a_fit) != true) {
+					continue;  // what this display can't hold (a weapon rack: no soul gems)
+				}
+				offered = true;
 				const bool present = std::ranges::find(a_patterns, pattern) != a_patterns.end();
 				const auto label = std::format("{}{}  {}", std::string(static_cast<std::size_t>(core::CategoryDepth(c.id) - 1) * 2, ' '), pattern, c.name);
 				ImGui::BeginDisabled(present);
@@ -127,6 +167,9 @@ namespace dova::editor::ui
 					changed = true;
 				}
 				ImGui::EndDisabled();
+			}
+			if (a_fit && !offered && filter.empty() && !_categories.empty()) {
+				w::Muted("No category this display can hold");
 			}
 			ImGui::EndCombo();
 		}
@@ -342,7 +385,8 @@ namespace dova::editor::ui
 					changed |= ArmorSetEditor(a_cell, d->set);
 				}
 				if (takesCategories && !d->ignored) {
-					changed |= CategoryEditor("dcats", d->categories);
+					const auto fit = FitOf(r);
+					changed |= CategoryEditor("dcats", d->categories, true, fit ? &*fit : nullptr);
 					if (d->categories.empty()) {
 						w::Muted(*r.display == core::DisplayKind::Rack      ? "Empty: any weapon that fits" :
 						         *r.display == core::DisplayKind::Bookshelf ? "Empty: the books most worth showing" :

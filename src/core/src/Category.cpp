@@ -538,6 +538,7 @@ namespace dova::core
 				set._info.push_back(Category{ def.id, def.name.empty() ? def.id : def.name, def.priority, CategoryDepth(def.id), idx, def.source, def.icon });
 				compiled.emplace_back();
 			}
+			set._info[idx].match = def.match;
 
 			auto& c = compiled[idx];
 			c = Compiled{};

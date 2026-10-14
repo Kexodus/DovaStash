@@ -768,9 +768,10 @@ player takes things down as usual.
 aims the hotkey at a rack, a mannequin (or the activator in front of it), an item plaque, a display case or a
 bookshelf (or a book on it), or at a weapon sitting on a rack, and gets a small menu (`ui::DisplayMenu`):
 *Use this rack* (*... bookshelf*) adds the entry (nothing goes up until Deposit or Sort all). Once used:
-*Categories...* picks what a rack, mannequin or bookshelf takes, like a container's categories (racks are
-offered All Weapons, each weapon category and Shields; mannequins the armor categories; bookshelves All
-Books and each book category); *Armor set... (Auto)* for a mannequin (see *Mannequins* below); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
+*Categories...* picks what a rack, mannequin or bookshelf takes, like a container's categories, offering only
+the categories it can hold (*Categories on displays* below: a rack for any weapon All Weapons and each weapon
+category, a shield rack the shields, a dagger display the daggers; mannequins the armor they wear; bookshelves
+All Books and each book category); *Armor set... (Auto)* for a mannequin (see *Mannequins* below); *Fill now* while it is not full (`sort::FillDisplay`: what Deposit would move
 plus what is stored; it also retries a display that failed earlier in the session, see *Filling*; a case is
 full once it holds every item it is made for, a bookshelf once its script has no room left); *Stop using this rack* marks the entry ignored (it stays, so re-applying a template
 does not turn it back on). Templates list the displays that should look hand-placed from the start. A
@@ -793,6 +794,38 @@ only a rack's own bookkeeping is written, see the table), in any home, with or w
 Furniture and harvestables (chopping blocks list firewood and axes) are never displays. A container the
 layout uses for storage is not a case or a bookshelf (templates keep bookshelves in `containers` as `ignored`, so
 they are never storage, and may list them in `displays` too). `esm_dump.py cell` lists the displays it can see in the plugin files.
+
+**Categories on displays** (`core/DisplayCategories.h`, unit-tested; the one rule behind every picker, the
+editor's Checks, the plugin's log and `esm_dump.py check`). A category can go on a display when it can match at
+least one item the display holds:
+
+| Display | Holds |
+|---|---|
+| rack, `RackType` 1 (any weapon) or 5 (large display case) | weapons; crossbows only where the trigger has `CrossbowPivot01` |
+| rack, `RackType` 2 | shields |
+| rack, `RackType` 3 / `Patch14COARacks` | weapons but daggers, bows and crossbows |
+| rack, `RackType` 4 | daggers |
+| mannequin | the armor it wears: no shields, rings or necklaces (circlets yes) |
+| bookshelf | books |
+| item plaque, display case | nothing: they are made for their own items |
+
+What a category can match comes from its `match`, not its id, so user and OCF categories work too: its
+`formTypes` (absent: any type), narrowed by the predicates only some types have (`weaponTypes`: weapons,
+`armorTypes`: armor, `bookTeaches`: books; `alchemy`, `soulGem`, `ammo`: nothing a display holds). Weapons by
+`weaponTypes` (and `keywordsAny` / `keywordsAll` made of `WeapType*` keywords). Armor: shields are heavy or light
+armor (so *Heavy armor* fits a shield rack: heavy shields); a keyword with "shield" in its name marks a shield;
+the slot keywords of the game and OCF (`ArmorHelmet`, `ArmorJewelry`, `ClothingRing`, `OCF_HandTypeRing`...) mark
+pieces that are no shield, and rings and necklaces are no mannequin's. A predicate core can't see through
+(`forms`, `plugins`, other keywords) does not narrow: when in doubt, it fits. A pattern (`weapons.*`, `*`) fits
+when one of the categories it matches does. Pickers (`core::DisplayCategoryChoices`: per top-level group
+`<root>.*`, then each category below it) offer only what fits: the hotkey's and the panel's know the rack's type
+and its crossbow node (`game::FitOf`); the editor knows the rack type, and offers crossbows on any weapon rack.
+A category that does not fit and is already in a layout or template (written by hand, or by an older version) is
+kept in the file and ignored: the display only ever takes what it holds (`RackTakes`, `MannequinTakes`,
+`BookshelfTakes`), so nothing of it goes up, and a display all of whose categories are such takes nothing. The
+editor's Checks warn (`display Skyrim.esm|0x00102D37 (Weapon Plaque): Soul gems can't go on a weapon rack;
+nothing goes on it`, `core::ValidateDisplayCategories`), and the plugin logs it once per session and display on
+arrival (`Displays: Weapon Plaque [...]: Soul gems can't go on a weapon rack; ignored`).
 
 **Layouts and templates** (`displays`, §6.3) list the displays in use, by `ref`. `categories` (patterns, as
 for containers) limits what a rack, mannequin or bookshelf takes; without it, anything that fits (a bookshelf:
@@ -859,7 +892,8 @@ order (one line per entry, fields lined up, like containers):
 - **Lint** (`core::ValidateDisplays`, run by `ValidateTemplate` and mirrored by `esm_dump.py check`, warnings
   only): `set` on a rack, plaque, case or bookshelf; `categories` or `only` on a plaque or case; `only` without
   `items`, or next to `set` (the set decides); a display that is also the master or a container in use (it is
-  storage, never filled as a display). `esm_dump.py check` also warns about a bookshelf's `items` that are not
+  storage, never filled as a display). With the categories loaded, `ValidateDisplayCategories` (and `check`)
+  also warn about a category the display can't take (*Categories on displays*). `esm_dump.py check` also warns about a bookshelf's `items` that are not
   books, and about a bookshelf bound as storage.
 - Existing layouts and templates load and behave exactly as before (all fields optional; `only` is new and
   only written when set; `tests/ShippedTemplateTests.cpp` pins the shipped templates).

@@ -24,6 +24,7 @@
 
 #include "Workspace.h"
 #include "dova/core/Category.h"
+#include "dova/core/DisplayCategories.h"
 #include "dova/core/Layout.h"
 #include "dova/core/Preview.h"
 #include "dova/core/Template.h"
@@ -64,7 +65,7 @@ namespace dova::editor::ui
 		std::vector<std::string>   multi;       // more references to select (multi-select)
 		std::optional<std::string> inspector;   // selection, template, draft or checks: the inspector's panel
 		bool                       palette{ false };  // open the command palette (Ctrl+K)
-		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat, savedrafts (a dialog)
+		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat, savedrafts (a dialog), categories (the selection's category picker)
 		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
 		std::optional<std::string> theme;     // a colour theme for this run (ui/Themes.h); the remembered one stays
 		std::optional<std::string> layers;    // Layers popover toggles for this run: "effects,-structure" (names, - turns off)
@@ -318,7 +319,9 @@ namespace dova::editor::ui
 		void MakeMaster(OpenCell& a_cell, int a_index);  // the old master becomes a plain container
 		void DrawTemplate(OpenCell& a_cell);  // the inspector's Template panel
 		bool DrawKeepRules(core::Layout& a_layout);
-		bool CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title = true);
+		// `a_fit`: a display's categories: the picker offers only what it can take (core::DisplayCategoryChoices's
+		// rule), and a chosen one it can't take shows as a warning.
+		bool CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title = true, const core::DisplayFit* a_fit = nullptr);
 		// A mannequin's armor set: Auto or one of the load order's sets (searchable), as the in-game picker.
 		bool ArmorSetEditor(OpenCell& a_cell, std::optional<core::FormRef>& a_set);
 		[[nodiscard]] int ErrorCount(const OpenCell& a_cell) const;
@@ -359,6 +362,7 @@ namespace dova::editor::ui
 		std::optional<Panel>       _pendingPanel;   // --inspector: shown once the home is open
 		bool                       _pendingDrafts{ false };  // --drafts: the bulk draft once the homes are known
 		std::optional<std::string> _pendingPopover;
+		bool                       _openCategoryPicker{ false };  // --popover categories: the selection's category picker opens once
 		std::optional<std::pair<int, int>> _windowSize;
 		bool                       _windowApplied{ false };
 

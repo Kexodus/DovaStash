@@ -123,6 +123,7 @@ namespace dova::editor::home
 	// The container a category goes to under a layout (most specific pattern, first on a tie), else the master.
 	[[nodiscard]] std::optional<core::FormRef> CategoryDestination(const core::Layout& a_layout, std::string_view a_category);
 
-	// `requires` refreshed, then core::ValidateTemplate and (with categories) ValidateLayoutCategories.
+	// `requires` refreshed, then core::ValidateTemplate and (with categories) ValidateLayoutCategories and
+	// ValidateDisplayCategories (by each display entry's `kind`).
 	[[nodiscard]] std::vector<std::string> ValidateDraft(core::Layout& a_layout, const core::CategorySet* a_categories);
 }

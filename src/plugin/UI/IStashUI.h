@@ -17,6 +17,7 @@ namespace dova::ui
 		core::FormRef            ref;   // rack activator, plaque, mannequin actor or case
 		std::string              name;  // "Weapon Rack"
 		core::DisplayKind        kind{ core::DisplayKind::Rack };
+		core::DisplayFit         fit;  // what it holds (kind, rack type, crossbow node): its category picker
 		bool                     used{ false };  // the layout uses it (Deposit and Sort all fill it)
 		bool                     full{ false };  // it holds something now
 		std::vector<std::string> categories;     // racks, mannequins, bookshelves: what they take (empty: anything that fits)

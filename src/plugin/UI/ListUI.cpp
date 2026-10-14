@@ -361,7 +361,7 @@ namespace dova::ui
 
 	void ListUI::OpenDisplayMenu(const DisplayMenu& a_menu)
 	{
-		const auto openCategories = [this, cellId = a_menu.cellId, ref = a_menu.ref, kind = a_menu.kind, name = a_menu.name]() { OpenDisplayCategories(cellId, ref, kind, name); };
+		const auto openCategories = [this, cellId = a_menu.cellId, ref = a_menu.ref, fit = a_menu.fit, name = a_menu.name]() { OpenDisplayCategories(cellId, ref, fit, name); };
 		std::vector<Item> list;
 		for (auto& o : DisplayMenuOptions(a_menu, openCategories)) {
 			list.push_back({ std::move(o.text), std::move(o.action), std::move(o.icon) });
@@ -386,12 +386,12 @@ namespace dova::ui
 		}
 	}
 
-	void ListUI::OpenDisplayCategories(RE::FormID a_cellId, const core::FormRef& a_display, core::DisplayKind a_kind, const std::string& a_name)
+	void ListUI::OpenDisplayCategories(RE::FormID a_cellId, const core::FormRef& a_display, const core::DisplayFit& a_fit, const std::string& a_name)
 	{
-		const auto list = Rebuildable([a_cellId, a_display, a_kind, a_name]() {
+		const auto list = Rebuildable([a_cellId, a_display, a_fit, a_name]() {
 			const auto        patterns = DisplayCategories(a_cellId, a_display);
 			std::vector<Item> items;
-			for (const auto& choice : DisplayCategoryChoices(a_kind)) {
+			for (const auto& choice : DisplayCategoryChoices(a_fit)) {
 				items.push_back({ DisplayCategoryEntry(patterns, choice),
 					[a_cellId, a_display, choice]() { Controller::Get().ToggleDisplayCategory(a_cellId, a_display, choice); }, icons::ForPattern(choice), true });
 			}

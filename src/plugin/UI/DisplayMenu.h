@@ -20,10 +20,11 @@ namespace dova::ui
 	// empty (a mannequin with a chosen set: while it can take more of it), "Stop using this rack".
 	[[nodiscard]] std::vector<DisplayOption> DisplayMenuOptions(const DisplayMenu& a_menu, std::function<void()> a_openCategories);
 
-	// What a display's category picker offers, as patterns: racks "weapons.*", every weapon category and
-	// the shield categories; mannequins "armor.*" and every armor category except shields; bookshelves
-	// "books.*" and every book category. Empty for plaques and cases (made for their own items).
-	[[nodiscard]] std::vector<std::string> DisplayCategoryChoices(core::DisplayKind a_kind);
+	// What a display's category picker offers, as patterns: the loaded categories it can take
+	// (core::DisplayCategoryChoices: a rack for any weapon "weapons.*" and each weapon category, a shield rack the
+	// shields, a dagger rack the daggers; mannequins the armor they wear; bookshelves the books). Empty for plaques
+	// and cases (made for their own items).
+	[[nodiscard]] std::vector<std::string> DisplayCategoryChoices(const core::DisplayFit& a_fit);
 	// The display's patterns in the current layout (empty if it has none or is not listed).
 	[[nodiscard]] std::vector<std::string> DisplayCategories(RE::FormID a_cellId, const core::FormRef& a_display);
 	// One picker line: "[x] Bows" (chosen), "[+] Bows" (covered by a wider choice), "[ ] Bows".

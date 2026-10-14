@@ -725,6 +725,8 @@ namespace dova::editor::ui
 			const auto id = *std::exchange(_pendingPopover, std::nullopt);  // --popover
 			if (id == "savedrafts") {
 				_confirmSaveAll = true;  // the *Save N drafts...* dialog (with --drafts: once the bulk draft is done)
+			} else if (id == "categories") {
+				_openCategoryPicker = true;  // the selection's "+ add" category picker (a combo, not a popover)
 			} else {
 				w::OpenPopover(id.c_str());
 			}

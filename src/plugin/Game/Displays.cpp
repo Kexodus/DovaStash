@@ -1001,6 +1001,16 @@ namespace dova::game
 		return out;
 	}
 
+	core::DisplayFit FitOf(const FoundDisplay& a_display)
+	{
+		core::DisplayFit fit{ a_display.kind, std::nullopt, false };
+		if (a_display.kind == core::DisplayKind::Rack) {
+			fit.rack = a_display.rack;
+			fit.crossbows = RackFitOf(a_display).crossbows;
+		}
+		return fit;
+	}
+
 	RackPlacement RackNode(const FoundDisplay& a_rack, RE::TESObjectREFR* a_item, std::string_view a_pivot)
 	{
 		RackPlacement out{ std::string(a_pivot), {} };

@@ -45,7 +45,7 @@ namespace dova::ui
 
 	private:
 		void OpenAssignGroups(RE::FormID a_cellId, const core::FormRef& a_container);
-		void OpenDisplayCategories(RE::FormID a_cellId, const core::FormRef& a_display, core::DisplayKind a_kind, const std::string& a_name);
+		void OpenDisplayCategories(RE::FormID a_cellId, const core::FormRef& a_display, const core::DisplayFit& a_fit, const std::string& a_name);
 		void OpenAssignGroup(RE::FormID a_cellId, const core::FormRef& a_container, const std::string& a_root);
 		void OpenRetrieve(RE::FormID a_cellId);
 		void OpenRetrieveGroup(RE::FormID a_cellId, const std::string& a_root);

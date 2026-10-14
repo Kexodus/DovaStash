@@ -374,7 +374,7 @@ namespace dova::ui::panel
 		// The category picker of a used rack or mannequin: the hotkey picker's choices, as checkboxes.
 		void RenderCategories(const DisplaysSnapshot& a_snap, const DisplayRow& a_row)
 		{
-			const auto it = a_row.kind ? a_snap.choices.find(*a_row.kind) : a_snap.choices.end();
+			const auto it = a_row.fit ? a_snap.choices.find(*a_row.fit) : a_snap.choices.end();
 			if (it == a_snap.choices.end()) {
 				return;
 			}

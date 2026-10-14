@@ -32,6 +32,33 @@ namespace dova::home
 				}
 			}
 		}
+
+		// The categories a used display can't take (core::ValidateDisplayCategories): kept in the layout, never put
+		// up; logged once per session per display and category.
+		void ReportUnfitCategories(const core::Layout& a_layout)
+		{
+			const auto& categories = Store::Get().Categories();
+			for (const auto& b : a_layout.displays) {
+				if (b.ignored || b.categories.empty()) {
+					continue;
+				}
+				auto*      ref = game::LookupRef(b.ref);
+				const auto found = ref ? game::InspectDisplay(ref) : std::nullopt;
+				if (!found || found->kind == core::DisplayKind::Item || found->kind == core::DisplayKind::Case) {
+					continue;  // not loaded or not recognised; plaques and cases: the template lint's
+				}
+				// Whether a rack has a crossbow node needs its trigger's 3D, which may not be loaded yet: not judged here.
+				auto fit = game::FitOf(*found);
+				fit.crossbows = true;
+				const auto unfit = core::UnfitDisplayCategories(categories, b.categories, fit);
+				for (const auto& p : unfit) {
+					if (log::FirstTime("display-category:" + b.ref.ToString() + ":" + p)) {
+						logger::warn("Displays: {}: {}; ignored{}", game::Describe(ref), core::UnfitCategoryMessage(categories, p, fit),
+							unfit.size() == b.categories.size() ? " (nothing goes on it)" : "");
+					}
+				}
+			}
+		}
 	}
 
 	bool RecordDisplayItems(core::Layout& a_layout, bool a_log)
@@ -73,6 +100,9 @@ namespace dova::home
 		}
 		if (tmpl && a_log) {
 			ReportMissingTemplateItems(a_layout, *tmpl);
+		}
+		if (a_log) {
+			ReportUnfitCategories(a_layout);
 		}
 		return changed;
 	}
