@@ -101,6 +101,13 @@ namespace dova::core
 						a_diags.Error(a_source, where + ": expected a non-negative integer");
 						ok = false;
 					}
+				} else if (key == "restock") {
+					if (value.is_boolean()) {
+						rule.restock = value.get<bool>();
+					} else {
+						a_diags.Warn(a_source, where + ": expected true or false (kept, restock off)");
+						rule.extra[key] = value;
+					}
 				} else {
 					rule.extra[key] = value;
 				}
@@ -136,6 +143,9 @@ namespace dova::core
 				out["forms"] = std::move(forms);
 			}
 			out["quota"] = a_rule.quota;
+			if (a_rule.restock) {
+				out["restock"] = true;
+			}
 			AppendExtra(out, a_rule.extra);
 			return out;
 		}

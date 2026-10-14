@@ -14,7 +14,8 @@ namespace dova::sort
 		Deposit,     // player -> destinations (keep rules)
 		Distribute,  // master -> destinations
 		SortAll,     // every managed container -> its destination
-		Retrieve     // destinations -> player, by category pattern
+		Retrieve,    // destinations -> player, by category pattern
+		Restock      // destinations -> player, up to the restocking keep quotas (DESIGN §8.7)
 	};
 
 	[[nodiscard]] std::string_view OpName(Op a_op) noexcept;
@@ -26,8 +27,13 @@ namespace dova::sort
 		std::string message;          // one HUD line
 	};
 
-	// `a_pattern` is used by Retrieve only. The home must be the player's current cell.
+	// `a_pattern` is used by Retrieve only. The home must be the player's current cell. Deposit restocks
+	// afterwards, in the same pass, when [Sorting] bRestockAfterDeposit is on and a quota rule restocks; what
+	// goes on display is never restocked.
 	[[nodiscard]] Result Run(home::Home& a_home, Op a_op, std::string_view a_pattern = {});
+
+	// A keep quota in force in this home restocks (the hotkey menus then offer Restock).
+	[[nodiscard]] bool Restocks(const home::Home& a_home);
 
 	// Fills one display the layout uses (DisplayFiller; "Fill now" in its menu): from what Deposit would
 	// move off the player and what the managed containers hold. `message` says why nothing

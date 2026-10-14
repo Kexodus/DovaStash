@@ -583,6 +583,46 @@ master and a chest. `iLogLevel = 0`.
    or the forge's list misses recipes for materials that came (then the menu built its list before the pull:
    send the log).
 
+### 3.8a Restock (DESIGN §8.7)
+
+Breezehome (or any home) with a master and a satchel bound to *Alchemy* and a quiver chest bound to *Ammo*.
+`iLogLevel = 0`. Start with no keep quota of your own.
+
+1. **Nothing for people who did not ask.** Master menu (hotkey at nothing): there is **no** *Restock* entry
+   (lists and message boxes). Panel → This home → Actions: *Restock* is greyed out; its tooltip says to tick
+   Restock on a quota. Deposit behaves exactly as before (no *restocked* in the HUD line).
+2. Stock the home: `player.additem 0003EADE 20` (Potion of Minor Healing), a few better healing potions
+   (`help "Potion of Healing" 4` gives an ID), `player.additem 0001397F 120` (Steel Arrow),
+   `player.additem 0001397D 30` (Iron Arrow). Deposit: everything goes into the satchel and the quiver chest.
+3. Panel → Keep rules → *Add quota*: Potions, 10, and another: Arrows, 50. **Expected:** the new rows have
+   *Restock* ticked; Save. `Layouts/<cell>.json` has `"restock": true` on both rules.
+4. Master menu → **Restock** (now listed right after Deposit). **Expected:** HUD *Dova Stash: restocked 60
+   items*; you carry 10 potions, the most valuable first (the better healing potions before minor ones), and
+   50 arrows: the 30 iron arrows are worth less than steel, so 50 steel arrows come (value order), taken from the
+   quiver chest. Log: `Restock: quota alchemy.potions 10 (layout): carried 0, taking 10` and one
+   `Restock: <item> x<n> from <container>` line per stack at debug.
+5. Restock again. **Expected:** *Dova Stash: nothing to restock*; nothing moves.
+6. Drink 3 potions and fire a few arrows (or `player.removeitem 0001397F 12`). **Deposit.** **Expected:** one HUD
+   line *Dova Stash: deposited ... , restocked 15* (3 potions + 12 arrows), or *Dova Stash: restocked 15 items*
+   when there was nothing else to deposit. You carry exactly 10 potions and 50 arrows again; nothing restocked
+   went back into a container (log: the potions and arrows are `kept by quota ...`).
+7. Carry more than the quota (`player.additem 0001397F 30`) and Deposit: the 30 extra steel arrows go to the
+   quiver chest (the quota keeps 50 on you); nothing is restocked.
+8. Settings → turn off *Restock after Deposit* (`[Sorting] bRestockAfterDeposit`). Drop to 5 potions and
+   Deposit: nothing comes back. Master menu → Restock still works. Turn it on again.
+9. Untick *Restock* on the Arrows quota, Save; the JSON loses `"restock"` on that rule. Restock tops potions only.
+10. Global quota on one item (lockpicks have no category of their own, so edit the file): in
+   `Data/SKSE/Plugins/DovaStash/Settings.json` add to `keep` `"quotas": [{"forms": ["Skyrim.esm|0x0000000A"],
+   "quota": 5, "restock": true}]`, restart, store 20 lockpicks in a container, carry 2. **Expected:** Restock
+   brings 3 (the default *always keep lockpicks* does not block it); Deposit leaves all 5 on you. The panel's
+   global keep rules show the quota with Restock ticked.
+11. Ignored containers and displays: put potions in an ignored barrel and on nothing else; Restock takes none
+   (*nothing to restock* if storage has no other potions). Quest items in storage never come.
+12. Multi-cell home (§3.9): from the grounds, Restock takes only from containers reachable there, as Retrieve does.
+13. **Fail if** you ever end up with more than a quota's number because of Restock, an item disappears (check
+   the `Inventory:` journal), something comes from an ignored container, a display or outside the home, or a
+   Deposit right after a Restock moves restocked items back.
+
 ### 3.9 Homes that span several cells (DESIGN §6.7)
 
 Lakeview Manor with the main hall built and its smithing area outside (anvil, smelter, tanning rack, grindstone,

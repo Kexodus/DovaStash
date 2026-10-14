@@ -21,6 +21,9 @@ No ESP is needed.
   more. Works in any home.
 - **Dresses your mannequins:** each wears your best matching armor set, or one you pick from a searchable
   index of every set in your load order, modded sets included.
+- **Restocks you:** mark a keep quota *Restock* ("10 health potions", "50 steel arrows") and every Deposit
+  tops you back up to it from the home's containers, the most valuable copies first and never more; *Restock*
+  is in the hotkey menu too.
 - **Materials at the workbench:** at a home's forge, smelter, tanning rack, cooking pot, alchemy lab or
   enchanter, the materials stored in the home come to you, and what you don't use goes back afterwards.
   Never what you just crafted; modded recipes and materials work too.

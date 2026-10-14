@@ -52,6 +52,9 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kSortHeader = "Sort";
 	inline constexpr auto             kDeposit = "Deposit";
 	inline constexpr auto             kDepositTip = "Move eligible items from your inventory into their containers (keep rules apply).";
+	inline constexpr auto             kRestock = "Restock";
+	inline constexpr auto             kRestockTip = "Take from the containers what you are short of for every keep quota marked Restock (Keep rules), up to the quota and never more: the most valuable copies first.";
+	inline constexpr auto             kRestockNoneTip = "No keep quota is marked Restock. Tick Restock on a quota under Keep rules (here, or for every home in Settings).";
 	inline constexpr auto             kSortAll = "Sort all";
 	inline constexpr auto             kSortAllTip = "Move every item in the master and in containers with category bindings to the container it belongs in. Containers without categories (e.g. added by Learn) are never emptied.";
 	inline constexpr auto             kRefreshCounts = "Refresh counts";
@@ -149,7 +152,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kStaleNotLoaded = "not loaded (plugin missing?)";
 
 	// Keep tab
-	inline constexpr auto kKeepIntro = "Keep rules decide what Deposit leaves in your inventory. Quest items and non-playable items are always kept.";
+	inline constexpr auto kKeepIntro = "Keep rules decide what Deposit leaves in your inventory. Quest items and non-playable items are always kept. A quota marked Restock also tops you up to its number from the containers.";
 	inline constexpr auto kKeepNoBlock = "This home uses the global defaults only. Saving creates keep rules for this home.";
 	inline constexpr auto kKeepInherit = "Also apply the global defaults (inherit)";
 	inline constexpr auto kKeepAlways = "Always keep";
@@ -158,6 +161,9 @@ namespace dova::ui::panel::text
 	inline constexpr auto kKeepAddHint = "equipped / favorited / quest / Plugin.esm|0x00000F / category";
 	inline constexpr auto kKeepPickCategory = "Category...";
 	inline constexpr auto kColQuota = "Quota";
+	inline constexpr auto kColRestock = "Restock";
+	inline constexpr auto kRestockColTip = "Restock: the home's containers also top you up to this many (the Restock action, and after Deposit when that setting is on). Off: the quota only limits what Deposit leaves on you.";
+	inline constexpr auto kRestockMark = " (restock)";
 	inline constexpr auto kColOther = "Other selectors";
 	inline constexpr auto kAddQuota = "Add quota";
 	inline constexpr auto kQuotaNeedsCategory = "Pick a category for every quota (rules without any selector are dropped).";

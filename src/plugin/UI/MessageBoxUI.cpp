@@ -142,6 +142,9 @@ namespace dova::ui
 
 		std::vector<Option> options;
 		options.push_back({ "Deposit", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Deposit); } });
+		if (sort::Restocks(a_home)) {
+			options.push_back({ "Restock", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Restock); } });
+		}
 		options.push_back({ "Sort all", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::SortAll); } });
 		options.push_back({ "Retrieve...", [this, cellId]() { OpenRetrieveMenu(cellId); } });
 		options.push_back({ "Browse containers...", [this, cellId]() { OpenBrowseMenu(cellId); } });

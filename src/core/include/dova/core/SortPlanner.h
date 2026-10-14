@@ -29,6 +29,13 @@
 //               containers and containers not in the layout are neither sources nor targets.
 // - Retrieve:   items in managed containers whose primary category matches the pattern -> player.
 //               "*" retrieves everything, including homeless items.
+// - Restock:    managed containers -> player, up to each restocking quota (KeepRules.h, DESIGN §8.7): for
+//               every rule with `restock` (evaluation order) that the player carries fewer than N of, the
+//               stored stacks that belong to it are taken until the player has N, never more. Which ones:
+//               the most valuable first (the copies Deposit keeps), plain copies before customized ones,
+//               then from the container the item belongs in (its destination), then container order (the
+//               input order: master, then the layout's containers), then form, the larger stack, stackId.
+//               A stack may be taken in part. Same never-moved items and managed/available rule as Retrieve.
 // Moves never have from == to. Output order follows input order (containers, then stacks).
 
 #include <cstdint>
@@ -128,6 +135,15 @@ namespace dova::core
 
 	[[nodiscard]] std::string_view DestinationReasonName(Destination::Reason a_reason) noexcept;
 
+	// What Restock did for one restocking rule (for logs).
+	struct RestockLine
+	{
+		std::string  label;  // KeepRules::RestockGoal::label
+		std::int32_t quota{ 0 };
+		std::int32_t have{ 0 };   // before
+		std::int32_t taken{ 0 };  // planned from storage (have + taken < quota: storage ran short)
+	};
+
 	// Returns false for containers that cannot be used right now. Empty = everything is available.
 	using ContainerAvailability = std::function<bool(const FormRef&)>;
 
@@ -146,6 +162,9 @@ namespace dova::core
 			std::vector<StackDecision>* a_explain = nullptr) const;
 		[[nodiscard]] std::vector<Move> SortAll(std::span<const ContainerContents> a_containers) const;
 		[[nodiscard]] std::vector<Move> Retrieve(std::span<const ContainerContents> a_containers, std::string_view a_pattern) const;
+		// `a_inventory` is the player's; `a_explain`, when given, receives one line per restocking rule.
+		[[nodiscard]] std::vector<Move> Restock(std::span<const ItemInfo> a_inventory, std::span<const ContainerContents> a_containers,
+			const KeepRules& a_keep, std::vector<RestockLine>* a_explain = nullptr) const;
 
 		// Master, or a non-ignored container of the layout (availability not considered).
 		[[nodiscard]] bool IsManaged(const FormRef& a_container) const;

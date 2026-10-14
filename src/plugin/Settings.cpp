@@ -64,6 +64,7 @@ namespace dova
 				DOVA_INT("Sorting", "iSuggestCategoryAfter", sorting.suggestCategoryAfter),
 				DOVA_INT("Sorting", "iLearnUndoSeconds", sorting.learnUndoSeconds),
 				DOVA_BOOL("Sorting", "bFillDisplays", sorting.fillDisplays),
+				DOVA_BOOL("Sorting", "bRestockAfterDeposit", sorting.restockAfterDeposit),
 				DOVA_BOOL("Sorting", "bCraftingSupply", sorting.craftingSupply),
 				DOVA_BOOL("Sorting", "bCraftingSupplyGear", sorting.craftingSupplyGear),
 				DOVA_INT("UI", "iMode", ui.mode),

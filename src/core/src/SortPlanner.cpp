@@ -293,6 +293,88 @@ namespace dova::core
 		return moves;
 	}
 
+	std::vector<Move> SortPlanner::Restock(std::span<const ItemInfo> a_inventory, std::span<const ContainerContents> a_containers,
+		const KeepRules& a_keep, std::vector<RestockLine>* a_explain) const
+	{
+		std::vector<Move> moves;
+		if (a_explain) {
+			a_explain->clear();
+		}
+		const auto goals = a_keep.RestockGoals(a_inventory, _categories);
+		if (goals.empty()) {
+			return moves;
+		}
+
+		// Every stored stack that belongs to a restocking rule.
+		struct Candidate
+		{
+			std::size_t      container{ 0 };  // index into a_containers
+			const ItemInfo*  item{ nullptr };
+			bool             home{ false };   // it sits in its own destination
+			KeepRules::RuleId rule;
+		};
+		std::vector<Candidate> candidates;
+		for (std::size_t c = 0; c < a_containers.size(); ++c) {
+			const auto& contents = a_containers[c];
+			if (!IsManaged(contents.ref) || !IsAvailable(contents.ref)) {
+				continue;
+			}
+			for (const auto& item : contents.items) {
+				if (!CanMove(item)) {
+					continue;
+				}
+				if (const auto rule = a_keep.RestockRuleFor(item, _categories)) {
+					const auto dest = ResolveDestination(item);
+					candidates.push_back(Candidate{ c, &item, dest && dest->container == contents.ref, *rule });
+				}
+			}
+		}
+		std::ranges::stable_sort(candidates, [](const Candidate& a_lhs, const Candidate& a_rhs) {
+			const auto& l = *a_lhs.item;
+			const auto& r = *a_rhs.item;
+			if (l.value != r.value) {
+				return l.value > r.value;
+			}
+			if (l.customized != r.customized) {
+				return !l.customized;
+			}
+			if (a_lhs.home != a_rhs.home) {
+				return a_lhs.home;
+			}
+			if (a_lhs.container != a_rhs.container) {
+				return a_lhs.container < a_rhs.container;
+			}
+			if (l.form != r.form) {
+				return l.form < r.form;
+			}
+			if (l.count != r.count) {
+				return l.count > r.count;
+			}
+			return l.stackId < r.stackId;
+		});
+
+		for (const auto& goal : goals) {
+			std::int32_t missing = goal.Missing();
+			std::int32_t taken = 0;
+			for (const auto& cand : candidates) {
+				if (missing <= 0) {
+					break;
+				}
+				if (cand.rule != goal.rule) {
+					continue;
+				}
+				const auto n = std::min(missing, cand.item->count);
+				moves.push_back(Move{ cand.item->stackId, cand.item->form, n, ContainerRef(a_containers[cand.container].ref), ContainerRef::Player() });
+				missing -= n;
+				taken += n;
+			}
+			if (a_explain) {
+				a_explain->push_back(RestockLine{ goal.label, goal.quota, goal.have, taken });
+			}
+		}
+		return moves;
+	}
+
 	LearnResult Learn(Layout& a_layout, const FormRef& a_form, const FormRef& a_container, LearnUndo* a_undo)
 	{
 		if (a_layout.IsMaster(a_container)) {

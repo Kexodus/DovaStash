@@ -17,6 +17,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*][b]Learns as you go.[/b] Put an item into a container by hand once and that container becomes its home. Enchanted variants count as the item they are made from. Changed your mind? Press [b]K[/b] within a few seconds to undo. After three items of one kind, Dova Stash asks once: "Send all Books to End Table?"
 [*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin, bookshelf or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor, a shelf for skill books. Your best weapons go up on the racks, your books on the shelves (as many as each holds, never more), and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down. The Menu Framework's [b]Displays[/b] page lists every display in the home and can use all the racks at once.
 [*][b]Dresses your mannequins.[/b] Each one wears your best matching armor set, or the set you pick from a searchable list of every set in your load order, modded sets included.
+[*][b]Restocks you.[/b] Always carry 10 health potions, 50 steel arrows, 5 lockpicks: mark a keep quota [b]Restock[/b] and every Deposit tops you back up to it from the home's containers, the best copies first and never more. [b]Restock[/b] is in the hotkey menu too.
 [*][b]Materials at the workbench.[/b] At a home's forge, smelter, tanning rack, cooking pot, alchemy lab or enchanter, the materials stored in the home come to you, and what you don't use goes back when you're done. What you just made stays with you. Modded recipes and materials work too.
 [*][b]Homes over several areas.[/b] Add the cellar or the grounds outside to a home: walk out of it and press [b]K[/b]. The forge outside then brings what is stored inside, and Deposit works in every area. Your existing setups don't change.
 [*][b]22 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and Creation Club homes. Save your own from the hotkey menu, learned items included, to share or to restore after a reset.
@@ -47,6 +48,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [*]Come home, press [b]K[/b] and choose [b]Deposit[/b]. Everything you aren't keeping goes to its container. Items with no destination yet wait in the master.
 [*]Drop things into the master and they leave it for their containers right away, or when you close it.
 [*][b]Retrieve...[/b] at the master brings a category back out, or everything.
+[*]Quotas marked [b]Restock[/b] refill your potions and arrows on every Deposit; [b]Restock[/b] at the master does it on its own.
 [*][b]Sort all[/b] re-sorts the master and every container after you change what goes where.
 [/list]
 
@@ -97,7 +99,7 @@ Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right
 [list]
 [*]Hotkeys, keyboard and gamepad
 [*]What the hotkey opens: UIExtensions lists, message boxes or the panel
-[*]Sort on arrival, sort when the master closes, learning (undo time, when to suggest a category), filling displays
+[*]Sort on arrival, sort when the master closes, learning (undo time, when to suggest a category), filling displays, restock after Deposit
 [*]Enable templates automatically
 [*]QuickLoot IE: item tags and category icons
 [*]Activate prompt and floating icons
@@ -106,7 +108,7 @@ Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right
 [/list]
 [*][b]This home:[/b] actions, switching between the home's templates, containers and their categories, learned items, this home's keep rules, saving the home as a template, and restoring a saved copy of its setup.
 [/list]
-[b]Keep rules[/b] decide what Deposit leaves in your inventory: equipped, favorited and quest items, gold, lockpicks and torches by default.
+[b]Keep rules[/b] decide what Deposit leaves in your inventory: equipped, favorited and quest items, gold, lockpicks and torches by default. A quota ("keep up to 10 potions") with [b]Restock[/b] ticked also brings you up to that many from the home.
 
 No Menu Framework? Every option is in [font=Courier New]Data/SKSE/Plugins/DovaStash.ini[/font], with comments.
 

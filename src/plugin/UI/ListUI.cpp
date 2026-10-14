@@ -272,6 +272,9 @@ namespace dova::ui
 
 		std::vector<Item> items;
 		items.push_back({ "Deposit", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Deposit); } });
+		if (sort::Restocks(a_home)) {
+			items.push_back({ "Restock", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Restock); } });
+		}
 		items.push_back({ "Sort all", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::SortAll); } });
 		items.push_back({ "Retrieve...", [this, cellId]() { OpenRetrieve(cellId); } });
 		items.push_back({ "Browse containers...", [this, cellId]() { OpenBrowse(cellId); } });

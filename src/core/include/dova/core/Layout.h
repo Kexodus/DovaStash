@@ -33,7 +33,8 @@
 // - keep: both spellings from the spec are accepted for quota rules — "quotas" (§8.3) and "rules"
 //   (§6.3). The key used on load is remembered and re-used on save. `inherit` defaults to TRUE when a
 //   layout has a keep block but omits it: a layout adding one quota should not silently drop the global
-//   gold/lockpick/torch keeps. Write `"inherit": false` to replace the globals.
+//   gold/lockpick/torch keeps. Write `"inherit": false` to replace the globals. A quota rule's `restock`
+//   (bool) is written after `quota`, only when true; a value of another type is a warning and kept verbatim.
 
 #include <cstdint>
 #include <filesystem>
@@ -77,12 +78,15 @@ namespace dova::core
 	};
 
 	// "keep up to `quota` items matching all given selectors". At least one selector is required.
+	// `restock` ("restock": true; optional, off when absent): Restock also tops the player up to `quota`
+	// from the home's containers (DESIGN §8.7). Written only when on, so files without it read as before.
 	struct QuotaRule
 	{
 		std::optional<std::string>              category;     // category pattern (wildcards allowed)
 		std::optional<std::vector<std::string>> keywordsAny;  // keyword EditorIDs
 		std::optional<std::vector<FormRef>>     forms;        // explicit base forms
 		std::int32_t                            quota{ 0 };
+		bool                                    restock{ false };
 		nlohmann::json                          extra = nlohmann::json::object();  // unknown keys, preserved
 	};
 
