@@ -737,19 +737,18 @@ namespace dova
 		if (a_serial != _suggestionSerial || !_suggestion) {
 			return;
 		}
-		static int retries = 0;  // main thread only
-		auto*      ui = RE::UI::GetSingleton();
+		auto* ui = RE::UI::GetSingleton();
 		if (!ui || ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) || ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME) || ui->GameIsPaused()) {
 			// A menu is up: try again in a second, for up to a minute, then let the next learn bring it back.
-			if (++retries > 60) {
-				retries = 0;
+			if (++_suggestionRetries > 60) {
+				_suggestionRetries = 0;
 				logger::debug("Learn: suggestion put off (menus stayed open); asked again after the next learn");
 				return;
 			}
 			Later(std::chrono::seconds(1), [this, a_serial]() { AskSuggestion(a_serial); });
 			return;
 		}
-		retries = 0;
+		_suggestionRetries = 0;
 		const auto pending = std::exchange(_suggestion, std::nullopt);
 		auto*      home = Registry().CurrentIf(pending->cellId);
 		if (!home || !home->layout) {
@@ -894,6 +893,24 @@ namespace dova
 		Registry().Flush();
 	}
 
+	void Controller::OnPreLoadGame()
+	{
+		// Learned destinations waiting for the container to close (MarkDirty) belong to the layout file, not
+		// to the save: write them before the state below is dropped.
+		Registry().Flush();
+		// Bumping the serials makes every Later callback already in flight a no-op in the new save.
+		++_loadSerial;
+		++_arrivalSerial;
+		++_learnSerial;
+		++_suggestionSerial;
+		_arrivalDeferredCell = 0;
+		_learnBatch.clear();
+		_openContainer = 0;
+		_undo.reset();
+		_suggestion.reset();
+		_suggestionRetries = 0;
+	}
+
 	// --- actions -------------------------------------------------------------------------------------
 
 	void Controller::RunWhenContainerMenuClosed(std::function<void()> a_fn, int a_retries)
@@ -909,9 +926,15 @@ namespace dova
 			return;
 		}
 		// The SKSE task queue drains until empty, so re-queueing directly would spin within one frame.
-		std::thread([this, fn = std::move(a_fn), a_retries]() mutable {
+		// A game load meanwhile (OnPreLoadGame) ends the chain: the operation belonged to the old save.
+		const auto load = _loadSerial;
+		std::thread([this, fn = std::move(a_fn), a_retries, load]() mutable {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-			SKSE::GetTaskInterface()->AddTask([this, fn = std::move(fn), a_retries]() mutable {
+			SKSE::GetTaskInterface()->AddTask([this, fn = std::move(fn), a_retries, load]() mutable {
+				if (load != _loadSerial) {
+					logger::debug("Operation dropped: a game was loaded while a ContainerMenu was open");
+					return;
+				}
 				RunWhenContainerMenuClosed(std::move(fn), a_retries - 1);
 			});
 		}).detach();

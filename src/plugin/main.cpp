@@ -15,6 +15,7 @@
 #include "Log.h"
 #include "Settings.h"
 #include "Sort/CraftingSupply.h"
+#include "Sort/DisplayFiller.h"
 #include "UI/MenuFramework.h"
 #include "UI/Overlay.h"
 #include "UI/UIExtensions.h"
@@ -73,12 +74,16 @@ namespace
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
 			dova::sort::crafting::Reset("loading a game");
+			dova::display::Reset("loading a game");
 			dova::home::HomeRegistry::Get().ForgetVisits();
+			dova::Controller::Get().OnPreLoadGame();
 			break;
 		case SKSE::MessagingInterface::kNewGame:
 			logger::info("kNewGame");
 			dova::sort::crafting::Reset("new game");
+			dova::display::Reset("new game");
 			dova::home::HomeRegistry::Get().ForgetVisits();
+			dova::Controller::Get().OnPreLoadGame();
 			dova::events::RegisterPlayerSinks();
 			break;
 		case SKSE::MessagingInterface::kPostLoadGame:

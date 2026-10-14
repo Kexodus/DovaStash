@@ -36,6 +36,11 @@ namespace dova
 		// `a_byHand`: the player took it through a loot menu (QuickLoot IE), which is never a script.
 		void OnItemReturned(RE::FormID a_container, RE::FormID a_baseObject, bool a_byHand = false);
 		void OnSaveGame();
+		// kPreLoadGame / kNewGame (messaging thread, like OnSaveGame): forget everything that belongs
+		// to the save being left — the open container, learn/undo/suggestion state and arrivals waiting
+		// to be sorted. Pending Later callbacks are invalidated by bumping their serials, so a sort or
+		// a category question scheduled in the old save can never fire in the new one.
+		void OnPreLoadGame();
 
 		// --- actions (main thread; all validate a_cellId against the current cell) --------------------
 		void RunOperation(RE::FormID a_cellId, sort::Op a_op, std::string a_pattern = {});
@@ -187,6 +192,9 @@ namespace dova
 		void EnsureUI();
 
 		ui::StashUIs _ui;
+		// Bumped by OnPreLoadGame: a RunWhenContainerMenuClosed retry chain started in the save being left
+		// (Distribute on master close, Browse, Fill now) stops instead of running in the next one.
+		std::uint64_t _loadSerial{ 0 };
 		std::uint64_t _arrivalSerial{ 0 };
 		RE::FormID    _arrivalDeferredCell{ 0 };  // arrivals waiting for a paused master menu to close
 		std::uint64_t _learnSerial{ 0 };
@@ -212,5 +220,6 @@ namespace dova
 		};
 		std::optional<PendingSuggestion> _suggestion;
 		std::uint64_t                    _suggestionSerial{ 0 };
+		int                              _suggestionRetries{ 0 };  // AskSuggestion attempts for the pending question
 	};
 }

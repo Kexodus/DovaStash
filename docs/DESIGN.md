@@ -168,6 +168,11 @@ live `Home`/`Layout` or settings:
   from SKSE tasks (Controller, `HomeRegistry`, the panel's snapshot builder), never from the UI
   thread: saving a template rescans the list (`Store::ReloadTemplates`, which replaces it) and
   re-resolves the current home in the same task (§6.5).
+- Loading a game or starting a new one (kPreLoadGame / kNewGame, `main.cpp`) resets every per-session
+  state that belongs to the old game: `Controller::OnPreLoadGame` (the open container, deferred arrivals,
+  the undo/suggestion window, pending `Later` callbacks and *wait for the container menu to close* chains,
+  after flushing dirty learned destinations to the layout file), `crafting::Reset` (§8.5) and
+  `display::Reset` (§8.4).
 
 ---
 
@@ -206,6 +211,14 @@ runtime via `TESDataHandler::LookupForm(localID, plugin)`.
   memory at runtime.
 - An unresolvable reference (plugin removed) is logged and **skipped, never deleted**. User data
   survives a temporarily disabled mod.
+- Plugin names are **UTF-8** in every file Dova Stash reads or writes (and in layout file names). The
+  engine hands them over in the ANSI code page (Skyrim is not a Unicode application); `game::FormUtil`
+  converts them once when the file tables are built, so a `Château.esp` round-trips instead of turning
+  into `���.esp`.
+- A second `containers` or `displays` entry for the same `ref` is a warning: the first entry is the
+  binding everywhere (menus, prompts, the planner), the duplicate is kept verbatim and never used. A
+  `name`, `author`, `version` or `priority` of the wrong type is an error kept verbatim as well: it is
+  written back unchanged until the field gets a real value.
 
 ### 6.2 Layout resolution (per cell)
 
@@ -308,7 +321,8 @@ lost `Layouts/` folder, or to share it. Every UI offers it, and all of them go t
 What is written:
 - `Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json` (under MO2: the overwrite folder). The file
   name keeps ASCII letters, digits, space, `-`, `_` and `.`; anything else becomes `_`
-  (`core::TemplateFileStem`).
+  (`core::TemplateFileStem`). A Windows device name before the first `.` (`con`, `con.txt`, `com1`) gets
+  a `_` too, since Windows reserves it with any extension.
 - `core::ExportAsTemplate` copies the layout and drops `basedOn`. Everything a template can hold is kept:
   master, containers (categories, explicit `forms`, label, note, ignored, unknown keys), displays (kind,
   label, note, categories, items, `only`, `set`, ignored), keep rules, the top-level note, unknown keys and
@@ -326,7 +340,8 @@ What is written:
   pairs are always dropped.
 - `requires` gets every plugin the template references (`core::ReferencedPlugins`: cell, master,
   containers and their forms, learned items kept as forms included, displays, keep forms; not the displays'
-  items or sets, which are soft references, §8.4), so it passes the same lint as shipped templates (`ValidateTemplate`, plus the category
+  items or sets, which are soft references, §8.4), so it passes the same lint as shipped templates (`ValidateTemplate`,
+  which checks the same list, a container's explicit `forms` and the keep forms included, plus the category
   check); warnings are shown in the panel and counted on the HUD.
 - `cell` is the home being edited; `author` defaults to the player character's name (else "Player");
   `version` defaults to 1.0.0.
@@ -810,7 +825,9 @@ order (one line per entry, fields lined up, like containers):
   the cell, mannequin outfits, case contents, the books on bookshelves) are not put up again.
 - Items an item plaque or a case is made for are reserved for it: racks, mannequins and bookshelves never take
   them (a dragon priest mask waits for its plaque). So are the `items` of a rack, mannequin or bookshelf with
-  `only` (`DisplaySpot::only`): it takes nothing else, and no other display takes them.
+  `only` (`DisplaySpot::only`): it takes nothing else, and no other display takes them. *Fill now* on one
+  display plans it among the others (`DisplaySpot::reserveOnly`): what the plaques, cases and pinned displays
+  are made for stays reserved for them, and the display gets the best of the rest, as in a full Deposit.
 - A rack, mannequin or bookshelf with categories only takes items whose categories (every category the item matches,
   `CategorySet::MatchAll`, as containers use) match one of its patterns.
 - Item plaques swap the item for a model and recreate it when it is taken back, so they only get copies
@@ -859,7 +876,7 @@ mannequin* is all it takes; more control is one menu entry away, and the full li
   shows the sets the player owns (below); the panel's *Armor sets* page shows every set in the load order.
   A rack or mannequin pinned with `only` whose items are all missing stays empty (it waits, as above).
 - *A chosen set* (`set`): *Armor set... (Auto)* in the display menu lists `Auto` and the sets the player
-  has (carried, stored in the home, or on this mannequin), most complete first: `[x] Ebony (4/4)` (slot
+  has (carried, not worn or favorited; stored in the home; or on this mannequin), most complete first: `[x] Ebony (4/4)` (slot
   groups had / slot groups of the set). Choosing one writes its id; `Auto` removes it. The mannequin then
   takes only pieces of that set (enchanted copies count as the armor they are made from), before the
   mannequins on Auto, and only on slots it leaves free: it fills up as the pieces arrive (*Fill now* stays
@@ -882,7 +899,8 @@ trigger did not disable it) gets nothing: the weapon goes into the player's inve
 and Deposit and Sort all leave the rack alone for the session. A plaque that hands an item back (it was full)
 is activated once more; one that takes nothing within 3 s gets its item back where it came from and Deposit
 and Sort all leave it alone for the session. *Fill now* on such a display tries again. In a home that spans several cells (§6.7) only the displays in the player's cell are filled (stock may still come from the reachable containers of its other cells). Filling stops if the player leaves the cell (a weapon dropped for a rack and not up yet goes into
-the player's inventory). The player gets one line at the end (`put 12 items on display`); the log has
+the player's inventory) and when a game is loaded (`display::Reset` at kPreLoadGame / kNewGame: the running
+fill belongs to the old game and touches nothing more; what is up stays as the loaded game has it). The player gets one line at the end (`put 12 items on display`); the log has
 a summary at info (`Displays in Whitepeak Tower: 77 rack (77 empty), 6 mannequin (6 empty), 50 item (50
 empty); 41 items to put up`), the plan and each placement at debug.
 

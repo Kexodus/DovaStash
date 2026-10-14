@@ -33,6 +33,8 @@
 //   for it like a plaque's: no other rack or mannequin takes them. Such a mannequin is filled like one with
 //   a chosen set made of its items (unless it has a chosen set, which decides). With none of its items
 //   here (or in the load order) it gets nothing: it waits for them, as a chosen set does.
+// - A spot with `reserveOnly` (the other displays while "Fill now" plans one) takes nothing, but what it
+//   is made for and its `only` items stay kept for it, so filling one display never robs another.
 // - Bookshelves (PlayerBookShelfContainerScript and home mods' copies) take books only, never more than the
 //   room their script leaves (BookshelfRoom), and only books worth showing: never an Elder Scroll, never a
 //   copy with extra data of its own (the script shows a plain copy and destroys the stored one when the book
@@ -105,6 +107,8 @@ namespace dova::core
 		bool                     only{ false };  // Rack/Mannequin/Bookshelf: takes nothing but its `items` (the layout's "only"),
 		                                         // which are kept for it; with no `items` left it gets nothing
 		std::int32_t             room{ 0 };  // Bookshelf: how many more books it takes (BookshelfRoom)
+		bool                     reserveOnly{ false };  // Takes nothing this time, but what it is made for (Item/Case) and its "only"
+		                                                // items stay kept for it: "Fill now" plans one display among the others
 	};
 
 	// A stack that may go on display: `available` copies of `item`, held by `from`.

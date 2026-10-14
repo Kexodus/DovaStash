@@ -115,9 +115,28 @@ namespace dova::core
 		}
 		for (const auto& c : a_template.containers) {
 			check(c.ref, "container");
+			for (const auto& f : c.forms) {
+				check(f, "container forms");  // hard references, as ReferencedPlugins counts them (DESIGN §6.5)
+			}
 		}
 		for (const auto& d : a_template.displays) {
 			check(d.ref, "display");  // its items and set are soft references: never needed in requires (TemplateDisplays.h)
+		}
+		if (a_template.keep) {
+			for (const auto* list : { &a_template.keep->always, &a_template.keep->never }) {
+				for (const auto& entry : *list) {
+					if (const auto sel = KeepSelector::Parse(entry); sel.kind == KeepSelector::Kind::Form) {
+						check(sel.form, "keep");
+					}
+				}
+			}
+			for (const auto& q : a_template.keep->quotas) {
+				if (q.forms) {
+					for (const auto& f : *q.forms) {
+						check(f, "keep quota forms");
+					}
+				}
+			}
 		}
 		ValidateDisplays(a_template, a_source, a_diags);
 	}
@@ -475,8 +494,11 @@ namespace dova::core
 		}
 		static constexpr std::string_view kReserved[]{ "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
 			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
-		if (std::ranges::any_of(kReserved, [&](std::string_view a_reserved) { return IEquals(a_reserved, out); })) {
-			out += '_';
+		// Windows reserves these names with any extension too ("CON.txt" is the console): the part before the
+		// first '.' decides, and the '_' goes right after it.
+		const auto name = std::string_view(out).substr(0, out.find('.'));
+		if (std::ranges::any_of(kReserved, [&](std::string_view a_reserved) { return IEquals(a_reserved, name); })) {
+			out.insert(name.size(), 1, '_');
 		}
 		return out.empty() ? std::string("Template") : out;
 	}

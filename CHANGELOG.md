@@ -21,6 +21,18 @@
 
 ### Fixed
 
+- Plugins with non-ASCII names (`Château.esp`, `风舞.esp`) keep their names in setups and templates. Before, every form of such a plugin was written as `���.esp|0x...`, so the setup silently did nothing for those containers after the next load (nothing was lost; the entries were kept).
+- Deposit put an item away, then took it for a plaque, rack, mannequin or bookshelf in the same run; from then on it treated that item as one "a script hands back" and never put it away again that session. Taking it for a display no longer counts.
+- Loading another save mid-session: the Controller forgot nothing of the old game (a container that was open, a deferred sort-on-arrival, the undo window, a "wait until the container menu closes" step), so an action of the old save could run in the new one. A fill still placing items on displays could also keep going with the old game's references. Both are dropped on load and new game; learned destinations not yet written are saved first.
+- Fill now on one display took what another display is made for (a plaque's dragon claw, a rack kept for Dawnbreaker). It now plans that display among the others, as Deposit does.
+- Armor set... at a mannequin listed sets you were wearing or had favorited as "had" (Ebony (4/4)) although worn and favorited gear never goes up; it counts carried pieces only.
+- Unnamed mannequins got a blank name in the set picker's title, the HUD lines and a layout entry written from the panel; they are called "Mannequin".
+- A hotkey list could stay open but invisible (input locked until Esc) when an entry that keeps the list open was chosen within the first half second, while the list was still being centred.
+- A container or item name ending in `;` dropped its row from the hotkey lists.
+- Hand-edited setups and templates: a second entry for the same container or display is kept but never used (the first one wins everywhere; before, the two could both apply and contradict each other); a wrongly typed `name`, `author`, `version` or `priority` is kept as written instead of being replaced by a default on the next save; a template named `con.txt` or another Windows device name gets a `_` so the file can be written; the template check also lists the plugins of a container's fixed items and of keep rules under `requires`.
+- A category pack with a `priority` outside the 32-bit range ranked below the defaults instead of above them.
+- At the workbench, copies you crafted while only stolen or souled copies of that material were brought stayed with you together with those copies; the crafted copies now count against the plain stack and the brought copies go back.
+- `fRadius` and `fIconSize` set to `nan` or `inf` in the INI fall back to the defaults.
 - Mannequins without a name (Whitepeak Tower's, many home mods') can be set up: aiming at one and pressing K opens its menu, with its armor set and categories (it opened the master's menu, as the game shows no prompt for them). "Use this rack/mannequin" goes straight on to its options instead of needing another press.
 - With "Enable a home's template automatically on first visit" on, the notice on entering a home says what to do: "Dova Stash: Breezehome is set up. Press K anywhere here to put your loot away." (it used to say only that the setup was enabled).
 - Taking a just-deposited item back out through QuickLoot IE's loot menu no longer marks it as "comes back when stored" (an item that would never be moved again that session): only a script handing it back counts, as with the normal container menu.

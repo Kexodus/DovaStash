@@ -114,6 +114,13 @@ namespace dova
 		}
 		v.sorting.suggestCategoryAfter = std::clamp(v.sorting.suggestCategoryAfter, 0, 20);  // same ranges as the settings page
 		v.sorting.learnUndoSeconds = std::clamp(v.sorting.learnUndoSeconds, 0, 30);
+		// "nan"/"inf" in the INI parse as floats that std::clamp passes through: back to the defaults.
+		if (!std::isfinite(v.overlay.radius)) {
+			v.overlay.radius = def.overlay.radius;
+		}
+		if (!std::isfinite(v.overlay.iconSize)) {
+			v.overlay.iconSize = def.overlay.iconSize;
+		}
 		v.overlay.radius = std::clamp(v.overlay.radius, 100.0f, 5000.0f);  // same ranges as the settings page
 		v.overlay.maxIcons = std::clamp(v.overlay.maxIcons, 1, 32);
 		v.overlay.iconSize = std::clamp(v.overlay.iconSize, 8.0f, 128.0f);

@@ -38,7 +38,10 @@ namespace dova::core
 				return std::nullopt;
 			}
 			const auto v = a_value.get<std::int64_t>();
-			return static_cast<std::int32_t>(std::clamp<std::int64_t>(v, INT32_MIN, INT32_MAX));
+			if (v < INT32_MIN || v > INT32_MAX) {
+			return std::nullopt;
+			}
+			return static_cast<std::int32_t>(v);
 		}
 
 		void ValidateKeepList(const std::vector<std::string>& a_list, const std::string& a_source, const std::string& a_where, Diagnostics& a_diags)
@@ -559,7 +562,11 @@ namespace dova::core
 						continue;
 					}
 					if (layout.FindContainer(c->ref)) {
-						a_diags.Warn(source, "containers[" + std::to_string(i) + "]: duplicate ref " + c->ref.ToString() + "; the first entry is used");
+						// The first entry is the binding (FindContainer, the planner's availability check); a second one
+						// is kept verbatim and never used, so the two cannot disagree on ignored / categories.
+						a_diags.Warn(source, "containers[" + std::to_string(i) + "]: duplicate ref " + c->ref.ToString() + "; the first entry is used (this one is kept verbatim, ignored)");
+						layout.unparsedContainers.push_back(value[i]);
+						continue;
 					}
 					layout.containers.push_back(std::move(*c));
 				}
@@ -575,7 +582,9 @@ namespace dova::core
 						continue;
 					}
 					if (layout.FindDisplay(d->ref)) {
-						a_diags.Warn(source, "displays[" + std::to_string(i) + "]: duplicate ref " + d->ref.ToString() + "; the first entry is used");
+						a_diags.Warn(source, "displays[" + std::to_string(i) + "]: duplicate ref " + d->ref.ToString() + "; the first entry is used (this one is kept verbatim, ignored)");
+						layout.unparsedDisplays.push_back(value[i]);
+						continue;
 					}
 					layout.displays.push_back(std::move(*d));
 				}
@@ -669,13 +678,24 @@ namespace dova::core
 	{
 		ojson out = ojson::object();
 		out["$schema"] = kLayoutSchema;
-		out["name"] = a_layout.name;
+		// A scalar of the wrong type was kept verbatim in `extra` (ParseLayout): while the field is still at its
+		// default it is written back as it was (AppendExtra, at the end), not replaced by the empty default.
+		const auto verbatim = [&](const char* a_key) { return a_layout.extra.is_object() && a_layout.extra.contains(a_key); };
+		if (!a_layout.name.empty() || !verbatim("name")) {
+			out["name"] = a_layout.name;
+		}
 		if (!a_layout.note.empty()) {
 			out["note"] = a_layout.note;
 		}
-		out["author"] = a_layout.author;
-		out["version"] = a_layout.version;
-		out["priority"] = a_layout.priority;
+		if (!a_layout.author.empty() || !verbatim("author")) {
+			out["author"] = a_layout.author;
+		}
+		if (!a_layout.version.empty() || !verbatim("version")) {
+			out["version"] = a_layout.version;
+		}
+		if (a_layout.priority != 0 || !verbatim("priority")) {
+			out["priority"] = a_layout.priority;
+		}
 		if (!a_layout.requiredPlugins.empty()) {
 			out["requires"] = a_layout.requiredPlugins;
 		}

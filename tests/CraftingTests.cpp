@@ -309,6 +309,25 @@ TEST_CASE("PlanReturn never returns what was just crafted", "[crafting]")
 		const auto plan = PlanReturn(OneLedger(kStrips, 4, 1), Counts{ { StackKey{ kStrips, "" }, 9 } }, { { kStrips, 4 } });
 		CHECK(plan.returned == 4);  // 1 own + 4 crafted stay
 	}
+	SECTION("crafted copies count against the plain stack even when only keyed copies were brought")
+	{
+		// Brought 3 stolen ingots (no plain ones); smelted 2 plain ingots from ore. The crafted ones are the plain
+		// ones: all 3 stolen go back.
+		Ledger l;
+		l.pulled.push_back(Pulled{ kIronIngot, "owner=1", kChest, 3 });
+		l.before[StackKey{ kIronIngot, "owner=1" }] = 0;
+		const auto plan = PlanReturn(l, Counts{ { StackKey{ kIronIngot, "" }, 2 }, { StackKey{ kIronIngot, "owner=1" }, 3 } }, { { kIronIngot, 2 } });
+		CHECK(plan.returned == 3);
+		REQUIRE(plan.back.size() == 1);
+		CHECK(plan.back[0].key == "owner=1");
+		CHECK(plan.back[0].count == 3);
+		REQUIRE(plan.lines.size() == 2);
+		CHECK(plan.lines[0].stack.key.empty());
+		CHECK(plan.lines[0].crafted == 2);
+		CHECK(plan.lines[0].back == 0);
+		CHECK(plan.lines[1].crafted == 0);
+		CHECK(plan.lines[1].back == 3);
+	}
 	SECTION("crafted copies are counted against the plain stack first, then keyed ones")
 	{
 		Ledger l;

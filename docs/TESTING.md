@@ -413,6 +413,10 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    no *Fill now*, and leaving the cell and coming back keeps the weapon on the rack (no activate prompt).
    *Fill now* on a display case that holds everything it is made for is not offered either; on one that
    still lacks items you don't have it says *nothing you have or store fits <case>*.
+   With a dragon claw (or another plaque item) in your inventory and an empty plain rack in use, *Fill now*
+   on that rack never puts the claw up: it waits for its plaque, as in a Deposit. Deposit, then take the
+   weapon off the rack and Deposit again: it goes up again (the log never says it "came back ... it stays
+   where it is from now on" for an item a display took).
 7. Look at the weapon on the rack, press the hotkey. **Expected:** the rack's menu (*Stop using this rack*).
    Choose it: the weapon stays; after you take it down, Deposit stores it instead.
 8. Temper a second Konahrik copy (`player.additem 00061CD6 1`, grindstone) and empty its plaque: Deposit puts

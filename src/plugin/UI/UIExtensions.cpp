@@ -107,10 +107,13 @@ namespace dova::ui::uiext
 
 		std::string Sanitize(std::string_view a_text)
 		{
-			// Entries are encoded as "name;;parent;;id;;callback;;children".
+			// Entries are encoded as "name;;parent;;id;;callback;;children" and split on ";;".
 			std::string out{ a_text };
 			for (std::size_t pos; (pos = out.find(";;")) != std::string::npos;) {
 				out.replace(pos, 2, "; ");
+			}
+			if (out.ends_with(';')) {
+				out += ' ';  // "name;" + ";;" would split as "name" / ";parent"
 			}
 			return out;
 		}
@@ -858,13 +861,41 @@ namespace dova::ui::uiext
 			}
 			AddEntries(movie.get(), a_entries);
 			logger::debug("UIExtensions: list instance {} refilled in place ({} -> {} entries)", a_instance, before, a_entries.size());
+			// Not while Fill's own Center still has the menu hidden (alpha 0): that chain re-measures the
+			// refilled list and shows it; a second chain started now would end by "restoring" alpha 0.
 			RE::GFxValue              root;
 			RE::GFxValue::DisplayInfo info;
-			if (Settings::GetSingleton().GetUI().centerMenus && movie->GetVariable(&root, "_root") && root.IsDisplayObject() && root.GetDisplayInfo(&info)) {
+			if (Settings::GetSingleton().GetUI().centerMenus && movie->GetVariable(&root, "_root") && root.IsDisplayObject() && root.GetDisplayInfo(&info) &&
+				info.GetAlpha() > 0.0) {
 				Center(Kind::List, a_instance, 0, std::nullopt, info.GetAlpha());
 			} else if (!Decorate(movie.get())) {
 				EnsureDecorPoll(a_instance);
 			}
+		}
+
+		// A menu that loaded can still vanish without a select/close event (the game loads or reloads
+		// on death and the CustomMenu is destroyed with its events unsent). Without this, `g_pending`
+		// would stay open forever and every later list or text entry would be refused. Poll once a
+		// second while this instance is pending; only after the menu has been gone for three checks
+		// in a row (so a result or close already queued on the task queue wins) cancel it, through
+		// the task queue like every other completion.
+		void WatchLoaded(std::uint64_t a_instance, int a_missing)
+		{
+			if (!IsCurrent(a_instance)) {
+				return;  // completed, or a newer menu: nothing to watch
+			}
+			auto*     ui = RE::UI::GetSingleton();
+			const int missing = ui && ui->IsMenuOpen(kCustomMenu) ? 0 : a_missing + 1;
+			if (missing >= 3) {
+				logger::warn("UIExtensions: menu instance {} vanished without a result; treating it as cancelled", a_instance);
+				if (auto* tasks = SKSE::GetTaskInterface()) {
+					tasks->AddTask([a_instance]() { Complete(a_instance, -1); });
+				}
+				return;
+			}
+			Later(std::chrono::seconds(1), [a_instance, missing]() {
+				SKSE::GetTaskInterface()->AddUITask([a_instance, missing]() { WatchLoaded(a_instance, missing); });
+			});
 		}
 
 		void Fill(Kind a_kind, std::uint64_t a_instance)
@@ -888,6 +919,7 @@ namespace dova::ui::uiext
 				logger::warn("UIExtensions: {} loaded but CustomMenu has no movie", ContractOf(a_kind).swf);
 				return;
 			}
+			WatchLoaded(a_instance, 0);
 			const auto alpha = HideForCentring(movie.get());
 			if (a_kind == Kind::Text) {
 				// UITextEntryMenu.psc OnLoadMenu: setTextEntryMenuText(initial text).

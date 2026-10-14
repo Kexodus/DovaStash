@@ -352,6 +352,56 @@ TEST_CASE("Items going on display are taken out of the deposit", "[display]")
 	CHECK(moves[0].count == 2);
 }
 
+TEST_CASE("Planning one display (Fill now) leaves what the other displays are made for", "[display]")
+{
+	auto mask = Armor(Sk(0x31), kHead, 3000);
+	const std::vector<DisplayStock> stocks{
+		OnPlayer(Valued(Weapon(Sk(0x30), WeaponType::OneHandSword), 2000)),  // 0 the plaque's sword
+		OnPlayer(Valued(Weapon(Sk(0x32), WeaponType::OneHandSword), 900)),   // 1 pinned to the "only" rack
+		OnPlayer(Valued(Weapon(Sk(0x33), WeaponType::OneHandSword), 10)),    // 2 free
+		OnPlayer(Valued(Weapon(Sk(0x34), WeaponType::OneHandMace), 500)),    // 3 the case's mace
+		OnPlayer(mask),                                                      // 4 for the mannequin
+	};
+	auto plaque = Spot(0xB1, DisplayKind::Item, { Sk(0x30) });
+	plaque.reserveOnly = true;
+	auto pinned = Rack(0xA2);
+	pinned.items = { Sk(0x32) };
+	pinned.only = true;
+	pinned.reserveOnly = true;
+	auto c = Spot(0xD1, DisplayKind::Case, { Sk(0x34) });
+	c.reserveOnly = true;
+	auto mannequin = Spot(0xC1, DisplayKind::Mannequin);
+	mannequin.reserveOnly = true;
+	auto chosen = Spot(0xC2, DisplayKind::Mannequin);
+	chosen.chosen = true;
+	chosen.set = { Sk(0x31) };
+	chosen.reserveOnly = true;
+	auto shelf = Spot(0xE1, DisplayKind::Bookshelf);
+	shelf.room = 5;
+	shelf.reserveOnly = true;
+	const std::vector<DisplaySpot> spots{ plaque, pinned, c, mannequin, chosen, shelf, Rack(0xA1) };
+
+	// Only the rack planned on its own gets something, and not the sword kept for the plaque, the one pinned
+	// to the other rack, or the case's mace.
+	const auto plan = PlanDisplays(spots, stocks, {});
+	REQUIRE(plan.size() == 1);
+	CHECK(plan[0] == DisplayAssignment{ 6, 2, 1 });
+
+	// The same spots planned together: the plaque, the pinned rack and the case take their own.
+	auto all = spots;
+	for (auto& s : all) {
+		s.reserveOnly = false;
+	}
+	const auto full = PlanDisplays(all, stocks, {});
+	const auto has = [&](std::size_t a_spot, std::size_t a_stock) {
+		return std::ranges::find(full, DisplayAssignment{ a_spot, a_stock, 1 }) != full.end();
+	};
+	CHECK(has(0, 0));
+	CHECK(has(1, 1));
+	CHECK(has(2, 3));
+	CHECK(has(6, 2));
+}
+
 TEST_CASE("Layouts keep display entries through a round trip", "[display][layout]")
 {
 	constexpr std::string_view kText = R"({

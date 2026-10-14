@@ -59,6 +59,10 @@ namespace dova::game
 		// there moments ago: from now on it stays where it is (Returns). Any thread.
 		static bool NoteReturned(RE::FormID a_object, RE::FormID a_container);
 		[[nodiscard]] static bool Returns(RE::FormID a_object);
+		// A move made outside Execute (the display fill taking an item back out of a container): forgets the
+		// store it undoes, so the container-changed event it causes is not taken for a script handing the
+		// item back (NoteReturned). Call before the RemoveItem. Any thread.
+		static void NoteTaken(RE::FormID a_object, RE::FormID a_from);
 
 	private:
 		static void BeginSuppress() noexcept;

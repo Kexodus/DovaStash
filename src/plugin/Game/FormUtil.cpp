@@ -4,12 +4,35 @@ namespace dova::game
 {
 	namespace
 	{
+		// The engine's file names are in the ANSI code page (Skyrim is a non-Unicode application); FormRefs,
+		// JSON files and our file names are UTF-8.
+		std::string AnsiToUtf8(std::string_view a_text)
+		{
+			if (std::ranges::all_of(a_text, [](char c) { return static_cast<unsigned char>(c) < 0x80; })) {
+				return std::string(a_text);
+			}
+			const int wide = MultiByteToWideChar(CP_ACP, 0, a_text.data(), static_cast<int>(a_text.size()), nullptr, 0);
+			if (wide <= 0) {
+				return std::string(a_text);
+			}
+			std::wstring w(static_cast<std::size_t>(wide), L'\0');
+			MultiByteToWideChar(CP_ACP, 0, a_text.data(), static_cast<int>(a_text.size()), w.data(), wide);
+			const int narrow = WideCharToMultiByte(CP_UTF8, 0, w.data(), wide, nullptr, 0, nullptr, nullptr);
+			if (narrow <= 0) {
+				return std::string(a_text);
+			}
+			std::string out(static_cast<std::size_t>(narrow), '\0');
+			WideCharToMultiByte(CP_UTF8, 0, w.data(), wide, out.data(), narrow, nullptr, nullptr);
+			return out;
+		}
+
 		struct FileTables
 		{
 			std::array<const RE::TESFile*, 256>                  full{};
 			std::vector<const RE::TESFile*>                      light;   // index = smallFileCompileIndex
-			std::unordered_map<std::string, const RE::TESFile*> byName;  // lower-cased file name
-			std::vector<std::string>                             names;
+			std::unordered_map<std::string, const RE::TESFile*> byName;  // lower-cased UTF-8 file name
+			std::vector<std::string>                             names;   // UTF-8
+			std::unordered_map<const RE::TESFile*, std::string>  utf8;    // file -> UTF-8 name
 			bool                                                 ready{ false };
 		};
 
@@ -25,8 +48,10 @@ namespace dova::game
 			if (name.empty()) {
 				return;
 			}
-			a_tables.byName.emplace(core::ToLower(name), a_file);
-			a_tables.names.emplace_back(name);
+			auto utf8 = AnsiToUtf8(name);
+			a_tables.byName.emplace(core::ToLower(utf8), a_file);
+			a_tables.names.emplace_back(utf8);
+			a_tables.utf8.emplace(a_file, std::move(utf8));
 		}
 
 		bool IsLightLoaded(const RE::TESFile* a_file) noexcept
@@ -116,7 +141,8 @@ namespace dova::game
 			}
 			local = a_form->GetLocalFormID() & core::FormRef::kMaxLocalId;
 		}
-		return core::FormRef{ std::string(file->GetFilename()), local };
+		const auto it = t.utf8.find(file);
+		return core::FormRef{ it != t.utf8.end() ? it->second : AnsiToUtf8(file->GetFilename()), local };
 	}
 
 	std::optional<RE::FormID> FormIdOf(const core::FormRef& a_ref)

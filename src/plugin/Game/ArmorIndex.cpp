@@ -132,7 +132,8 @@ namespace dova::game
 				return;
 			}
 			for (const auto& item : SnapshotInventory(a_ref, stacks)) {
-				if (item.type == core::ItemType::Armor && item.count > 0 && core::SortPlanner::CanMove(item)) {
+				// Worn and favorited pieces never leave the player (keep rules), so a set made of them could not fill.
+				if (item.type == core::ItemType::Armor && item.count > 0 && core::SortPlanner::CanMove(item) && !item.equipped && !item.favorited) {
 					if (auto form = IndexedForm(a_index, item.form)) {
 						out.insert(std::move(*form));
 					}

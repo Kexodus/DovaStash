@@ -328,6 +328,26 @@ TEST_CASE("Ordering: priority, then specificity, then definition order", "[categ
 	CHECK_FALSE(set.AnyMatches("armor.*"));
 }
 
+TEST_CASE("Priorities outside the 32-bit range are clamped, never wrapped", "[categories]")
+{
+	Diagnostics diags;
+	const auto  defs = ParseCategoryText(R"({
+		"$schema": "dovastash-categories-1",
+		"categories": [
+			{ "id": "huge",     "priority": 18446744073709551615, "match": { "formTypes": ["MISC"] } },
+			{ "id": "big",      "priority": 9223372036854775807,  "match": { "formTypes": ["MISC"] } },
+			{ "id": "tiny",     "priority": -9223372036854775808, "match": { "formTypes": ["MISC"] } },
+			{ "id": "fraction", "priority": 1.5,                  "match": { "formTypes": ["MISC"] } }
+		]
+	})",
+		"prio.json", diags);
+	REQUIRE(defs.size() == 3);
+	CHECK(defs[0].priority == INT32_MAX);  // a uint64 above INT64_MAX must not wrap to -1
+	CHECK(defs[1].priority == INT32_MAX);
+	CHECK(defs[2].priority == INT32_MIN);
+	CHECK(HasMessage(diags, Diagnostic::Severity::Error, "priority: expected an integer"));
+}
+
 TEST_CASE("Later files override categories by id, in place", "[categories]")
 {
 	Diagnostics diags;

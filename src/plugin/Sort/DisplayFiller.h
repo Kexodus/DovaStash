@@ -58,6 +58,10 @@ namespace dova::display
 	// True while a Fill is still placing items.
 	[[nodiscard]] bool Busy() noexcept;
 
+	// kPreLoadGame / kNewGame (main.cpp): a Fill still running belongs to the old game; it stops touching
+	// anything (its handles, refs and stacks are gone) and the busy flag is cleared. Any thread.
+	void Reset(std::string_view a_why);
+
 	// Finds the displays the layout uses (its `displays` entries that are not ignored) and plans what of
 	// `a_stocks` goes on them; `a_only`: that one display (tried even if it failed earlier this session).
 	// Empty plan when the setting is off, no display is used, nothing fits, or a Fill is running.

@@ -215,6 +215,17 @@ namespace dova::game
 		a_info.weight = a_object->GetWeight();
 		a_info.value = a_object->GetGoldValue();
 
+		// Classification state is derived from this object only: a reused ItemInfo must not keep the
+		// previous object's kinds or its base enchantment (an unenchanted item after an enchanted one
+		// would otherwise match "enchanted": true).
+		a_info.weaponType.reset();
+		a_info.armorType.reset();
+		a_info.bookTeaches.reset();
+		a_info.alchemyKind.reset();
+		a_info.soulGemState.reset();
+		a_info.ammoKind.reset();
+		a_info.enchanted = false;
+
 		a_info.keywords.clear();
 		if (const auto* kwForm = a_object->As<RE::BGSKeywordForm>()) {
 			for (const auto* kw : kwForm->GetKeywords()) {

@@ -19,6 +19,10 @@
 //   verbatim (sorted) so newer files survive a round-trip through an older DLL.
 // - Never lose user data: a container entry or learned pair with a malformed form reference is
 //   reported as an error but kept verbatim (`unparsedContainers` / `unparsedLearned`) and written back.
+//   A second container or display entry for the same ref is a warning: the first entry is the binding,
+//   the duplicate is kept verbatim the same way (never used, so it cannot contradict the first). A
+//   name/author/version/priority of the wrong type is kept verbatim in `extra` and written back as long
+//   as the field itself is still at its default.
 // - `learned` is written sorted by FormRef (plugin case-insensitive, then id) for stable diffs.
 // - Per-item explicit bindings (DESIGN §7 step 1) live in each container entry as
 //   `"forms": ["Plugin.esp|0x..."]`.

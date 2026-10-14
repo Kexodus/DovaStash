@@ -30,6 +30,14 @@ namespace dova::home
 			}
 		}
 
+		// Layout file name for a cell as a path element: FormRef plugin names are UTF-8 (FormUtil), so the
+		// name must not go through the narrow (ANSI) path constructor.
+		std::filesystem::path LayoutFile(const core::FormRef& a_cell)
+		{
+			const auto name = core::LayoutFileName(a_cell);
+			return std::filesystem::path(std::u8string(name.begin(), name.end()));
+		}
+
 		std::vector<core::FormRef> ResolveFormList(const core::FormRef& a_ref)
 		{
 			std::vector<core::FormRef> out;
@@ -210,7 +218,7 @@ namespace dova::home
 
 	std::filesystem::path Store::LayoutPath(const core::FormRef& a_cell) const
 	{
-		return Root() / "Layouts" / core::LayoutFileName(a_cell);
+		return Root() / "Layouts" / LayoutFile(a_cell);
 	}
 
 	std::optional<core::Layout> Store::LoadPlayerLayout(const core::FormRef& a_cell, bool& a_broken) const
@@ -542,7 +550,7 @@ namespace dova::home
 		if (!dir) {
 			return;
 		}
-		auto path = *dir / core::LayoutFileName(a_cell);
+		auto path = *dir / LayoutFile(a_cell);
 		auto copy = a_layout;
 		copy.cell = a_cell;
 
@@ -611,7 +619,7 @@ namespace dova::home
 	std::optional<Store::HomeBackup> Store::LatestHomeBackup(const core::FormRef& a_cell) const
 	{
 		const auto& dir = BackupDir();
-		return dir ? DescribeBackup(*dir / core::LayoutFileName(a_cell), false) : std::nullopt;
+		return dir ? DescribeBackup(*dir / LayoutFile(a_cell), false) : std::nullopt;
 	}
 
 	std::vector<Store::HomeBackup> Store::HomeBackups(const core::FormRef& a_cell) const
@@ -621,7 +629,7 @@ namespace dova::home
 		if (!dir) {
 			return out;
 		}
-		const auto latest = *dir / core::LayoutFileName(a_cell);
+		const auto latest = *dir / LayoutFile(a_cell);
 		if (auto backup = DescribeBackup(latest, false)) {
 			out.push_back(std::move(*backup));
 		}

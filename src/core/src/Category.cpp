@@ -261,7 +261,9 @@ namespace dova::core
 						a_ctx.Warn(where + ".name: expected a string (ignored)");
 					}
 				} else if (key == "priority") {
-					if (value.is_number_integer()) {
+					if (value.is_number_unsigned() && value.get<std::uint64_t>() > static_cast<std::uint64_t>(INT32_MAX)) {
+						def.priority = INT32_MAX;  // get<int64_t>() would wrap a value above INT64_MAX to a negative priority
+					} else if (value.is_number_integer()) {
 						const auto p = value.get<std::int64_t>();
 						def.priority = static_cast<std::int32_t>(std::clamp<std::int64_t>(p, INT32_MIN, INT32_MAX));
 					} else {
