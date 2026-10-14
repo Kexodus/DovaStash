@@ -244,6 +244,7 @@ namespace dova::editor::ui
 		void PickTheme(const std::string& a_name);  // TitleBar.cpp: a colour theme, remembered and applied next frame
 		void ExportTheme();                         // TitleBar.cpp: the theme in effect into a file under Themes (ui/Themes.h)
 		float _uiSizeDrag{ 100.0f };         // the Setup slider while it is dragged (percent)
+		bool  _uiSizeHeld{ false };          // the Setup slider was held last frame (its value is not resynced)
 		void DrawSetupConfirm();  // TitleBar.cpp
 		void DrawHelpPopups();    // TitleBar.cpp: Shortcuts..., About
 		void ApplySetup(std::optional<std::filesystem::path> a_mo2, std::optional<std::string> a_profile);
