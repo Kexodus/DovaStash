@@ -7,7 +7,7 @@ multi-cell homes, checking and saving, troubleshooting, and a one-page controls 
 
 It uses the press kit's look (`../src/`): black, white and grays only, Cinzel titles, Jost text, the emblem as the
 chapter bullet and in the running head, the line icons, and the in-game examples' callouts (corner brackets and
-numbered badges) over the screenshots. The screenshots are the only colour.
+numbered badges) over the screenshots. The window follows the same brand (black, white and neutral grays), so the only colour in the guide is the homes themselves and the data colours in the editor's views.
 
 | Path | What |
 |---|---|
