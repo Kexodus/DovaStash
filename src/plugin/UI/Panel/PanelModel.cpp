@@ -527,6 +527,7 @@ namespace dova::ui::panel
 		global->categoryDiagnostics = Dedupe(store.CategoryDiagnostics().Items());
 		global->templateDiagnostics = Dedupe(store.TemplateDiagnostics().Items());
 		global->settingsDiagnostics = Dedupe(store.SettingsDiagnostics().Items());
+		global->selfSortingDiagnostics = Dedupe(store.SelfSortingDiagnostics().Items());
 
 		const auto& loaded = game::LoadedPlugins();
 		for (const auto& t : store.Templates()) {
@@ -545,6 +546,7 @@ namespace dova::ui::panel
 			}
 			info.required = t.layout.requiredPlugins;
 			info.missing = core::MissingRequirements(t.layout, loaded);
+			info.conflicting = core::LoadedConflicts(t.layout, loaded);
 			for (const auto& d : global->templateDiagnostics) {
 				if (d.source == t.source) {
 					info.diagnostics.push_back(d.ToString());

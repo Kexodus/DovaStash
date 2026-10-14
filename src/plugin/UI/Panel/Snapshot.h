@@ -182,6 +182,7 @@ namespace dova::ui::panel
 		std::string              cellName;
 		std::vector<std::string> required;  // JSON "requires"
 		std::vector<std::string> missing;
+		std::vector<std::string> conflicting;  // JSON "conflicts" that are loaded: not offered
 		std::vector<std::string> diagnostics;
 	};
 
@@ -199,6 +200,7 @@ namespace dova::ui::panel
 		std::vector<core::Diagnostic> categoryDiagnostics;
 		std::vector<core::Diagnostic> templateDiagnostics;
 		std::vector<core::Diagnostic> settingsDiagnostics;
+		std::vector<core::Diagnostic> selfSortingDiagnostics;
 
 		std::string version;
 		std::string runtime;

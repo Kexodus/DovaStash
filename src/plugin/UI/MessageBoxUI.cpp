@@ -116,6 +116,9 @@ namespace dova::ui
 				body = std::format("Dova Stash: set up {}?", a_home.name);
 			}
 			body += std::format("\nTemplate available: {} (by {})", best->layout.name, best->layout.author);
+			if (const auto* fit = home::HomeRegistry::Get().BestTemplateFit(a_home); fit && !fit->fits) {
+				body += ", may not fit this home";  // the auto-enable guard (DESIGN §9.1)
+			}
 			options.push_back({ std::format("Use template \"{}\"", best->layout.name), [cellId]() { Controller::Get().UseTemplate(cellId); } });
 		}
 		if (const auto offer = home::HomeRegistry::Get().OfferArea()) {

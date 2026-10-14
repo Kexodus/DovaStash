@@ -38,6 +38,8 @@ FormUtil: <n> full + <m> light plugins loaded
 Categories: 37 loaded (0 errors, 0 warnings)
 Templates: 22 loaded (0 errors, <w> warnings)
 Keep defaults: built-in (no Data/SKSE/Plugins/DovaStash/Settings.json)
+Homes that sort themselves: 14 listed, <k> apply in this game (0 errors, 0 warnings)
+  Clockwork (Clockwork.esp): its cells are left alone          (one line per entry whose plugin is loaded)
 Home backup: copies go to C:/Users/<you>/Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups
 UI: native message boxes                      (with SKSE Menu Framework: "SKSE Menu Framework: stash window and
                                               "Dova Stash" section registered" + "UI: SKSE Menu Framework panel")
@@ -357,6 +359,54 @@ to `DovaStash.log`; MO2 never puts it in `overwrite`.
 7. **No Documents access** (make `Backups` read-only): saving still works; the log warns once
    (*Home backup: could not write ...*), then only at debug.
 8. Panel: see 5.2 step 11.
+
+### 3.6b Other home mods: homes that sort themselves, rebuilt homes (DESIGN §9.1)
+
+Use a throwaway save. The `Default` profile has Clockwork, Legacy of the Dragonborn, Mirele Bismath Reborn and
+Wynter's Breezehome Redux; `Dova Stash Testing` adds LUFTSHIP K747, Skyfall Estate and Riverside Lodge.
+
+1. **Startup.** The log lists *Homes that sort themselves: 14 listed, k apply in this game* and one line per
+   home whose plugin is loaded (Clockwork, Legacy of the Dragonborn, Mirele Bismath Reborn: *its cells are left
+   alone*). No `[error]` line.
+2. **Left alone.** Enter Mirele Bismath (and Clockwork's castle, the Safehouse) and press K at a container and
+   at nothing. HUD: *not a player home (Mirele Bismath Reborn.esp sorts items itself)*; no menu, no template
+   notice, no layout file written. Same message as before for Clockwork and Legacy of the Dragonborn.
+3. **Conflicts (Wynter's Breezehome Redux enabled).** New session, `coc WhiterunBreezehome` with no Breezehome
+   layout file. Log: *template Templates/Vanilla/Breezehome.json not offered: WynterBreezehomeRedux.esp rebuilds
+   this home (conflicts)*, then *no layout*. No HUD notice; K at a container offers *Make ... the master
+   container* but no *Use template*. Panel → Dova Stash → Templates: Breezehome reads *conflicts:
+   WynterBreezehomeRedux.esp* (tooltip *Not offered: a mod that rebuilds this home is loaded.*). Disable
+   Wynter's: the template is offered again (§1.1).
+4. **The auto-enable guard (Wynter's still enabled).** Copy `Templates/Vanilla/Breezehome.json` to
+   `Templates/User/Breezehome test.json` and delete its `"conflicts"` line. With `bAutoEnableTemplates = true`,
+   start a new session and enter Breezehome (no layout file). **Expected** (if Wynter's took out most vanilla
+   containers): no setup is enabled; HUD *Dova Stash: Breezehome setup may not fit this home. Press K at any
+   container to enable.*; log, once: *Breezehome: template Templates/User/Breezehome test.json may not fit this
+   home (another mod may have rebuilt it): x of y references there (... disabled or deleted, ... missing ...);
+   offered, not enabled automatically*. K at a container: *Use template "Breezehome" (may not fit)* (message
+   boxes: *Template available: ..., may not fit this home*). Choosing it still works and reports the
+   unavailable containers (*N containers unavailable for now*). Nothing is moved or deleted. Note the counts
+   in the log either way: if Wynter's keeps 60% or more of them, the template is enabled and the log line is the
+   debug *... fits: ...*. Delete the test file afterwards.
+5. **Hearthfire is not "rebuilt".** New game (or a save that never visited it), buy Lakeview Manor, build only
+   the small house, `bAutoEnableTemplates = true`, enter. **Expected:** the template is enabled as before
+   (*Lakeview Manor is set up...*); debug log *template ... fits: n of n references there (... not built yet
+   ...)*. The cellar likewise once built.
+6. **A cells entry and a containers entry of your own.** Add
+   `Data/SKSE/Plugins/DovaStash/SelfSorting/50_Test.json` (MO2: a new mod or `overwrite`):
+   `{"$schema": "dovastash-selfsorting-1", "homes": [{"plugin": "Skyrim.esm", "cells": ["ccEEJSSE001-Hstead.esm|0x0000087F"]},
+   {"plugin": "Skyrim.esm", "containers": ["Skyrim.esm|0x000CB437"]}]}`. Restart. Log: two more entries
+   (*1 cell(s) left alone, 0 container(s) not used* and the reverse). Tundra Homestead (Creation Club) is left
+   alone (*Skyrim.esm sorts items itself*; stands in for Tundra Homestead - LotD Storage). In Breezehome (no
+   Wynter's) K at the loft cupboard by the weapon plaque: *can't use Cupboard (Skyrim.esm sorts this container
+   itself)*; with the Breezehome template enabled, Deposit sends weapons to the master instead, and the panel's
+   Containers tab shows the cupboard grey with that reason; the layout keeps its entry. Delete the file and
+   restart: all as before.
+7. **Broken files.** Put `{` in `SelfSorting/50_Test.json`: log *[error] Homes that sort themselves: ...
+   50_Test.json ...*, the panel's Diagnostics page lists it under *Homes that sort themselves (SelfSorting)*,
+   and the shipped entries still apply. Rename `00_Default.json` away as well: *[warning] Homes that sort
+   themselves: no list loaded; leaving Clockwork and Legacy of the Dragonborn alone*, and step 2 still holds
+   for those two. Put the files back.
 
 ### 3.7 Displays (DESIGN §8.4)
 

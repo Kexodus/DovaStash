@@ -249,7 +249,10 @@ namespace dova::ui
 		}
 		if (const auto* best = a_home.BestTemplate()) {
 			const auto author = best->layout.author.empty() ? "unknown"s : best->layout.author;
-			items.push_back({ std::format("Use template \"{}\" (by {})", best->layout.name, author), [cellId]() { Controller::Get().UseTemplate(cellId); } });
+			const auto* fit = home::HomeRegistry::Get().BestTemplateFit(a_home);  // the auto-enable guard (DESIGN §9.1)
+			const bool  mayNotFit = fit && !fit->fits;
+			items.push_back({ std::format("Use template \"{}\" ({})", best->layout.name, mayNotFit ? "may not fit"s : "by " + author),
+				[cellId]() { Controller::Get().UseTemplate(cellId); } });
 		}
 		if (const auto offer = home::HomeRegistry::Get().OfferArea()) {
 			// Multi-cell homes (DESIGN §6.7): this cell joins the home the player just came from, named first.

@@ -4,6 +4,7 @@
 
 #include "dova/core/ArmorSets.h"
 #include "dova/core/Category.h"
+#include "dova/core/Compatibility.h"
 #include "dova/core/Diagnostics.h"
 #include "dova/core/Display.h"
 #include "dova/core/DisplayCategories.h"

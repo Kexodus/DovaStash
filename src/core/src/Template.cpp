@@ -17,6 +17,16 @@ namespace dova::core
 			return std::ranges::any_of(a_loaded, [&](const std::string& p) { return IEquals(p, a_plugin); });
 		}
 
+		// "Name.esp" / ".esm" / ".esl": a file name, no path or form id.
+		bool IsPluginFileName(std::string_view a_name)
+		{
+			if (a_name.size() <= 4 || a_name.find_first_of("|/\\") != std::string_view::npos) {
+				return false;
+			}
+			const auto ext = a_name.substr(a_name.size() - 4);
+			return IEquals(ext, ".esp") || IEquals(ext, ".esm") || IEquals(ext, ".esl");
+		}
+
 		// True if a ranks before b.
 		bool RanksBefore(const TemplateCandidate& a_lhs, const TemplateCandidate& a_rhs)
 		{
@@ -149,6 +159,15 @@ namespace dova::core
 				}
 			}
 		}
+		for (const auto& c : a_template.conflictPlugins) {
+			if (!IsPluginFileName(c)) {
+				a_diags.Warn(source, "conflicts: \"" + c + "\" is not a plugin file name (.esp, .esm or .esl)");
+			} else if (PluginLoaded(c, a_template.requiredPlugins)) {
+				a_diags.Warn(source, "conflicts: " + c + " is also in \"requires\"; the template is never offered");
+			} else if (a_template.cell && IEquals(a_template.cell->plugin, c)) {
+				a_diags.Warn(source, "conflicts: " + c + " is the plugin of the template's own cell; the template is never offered");
+			}
+		}
 		ValidateDisplays(a_template, a_source, a_diags);
 	}
 
@@ -192,6 +211,17 @@ namespace dova::core
 		return missing;
 	}
 
+	std::vector<std::string> LoadedConflicts(const Layout& a_layout, std::span<const std::string> a_loadedPlugins)
+	{
+		std::vector<std::string> loaded;
+		for (const auto& c : a_layout.conflictPlugins) {
+			if (PluginLoaded(c, a_loadedPlugins) && !PluginLoaded(c, loaded)) {
+				loaded.push_back(c);
+			}
+		}
+		return loaded;
+	}
+
 	LayoutResolution ResolveLayout(const Layout* a_playerLayout, std::span<const TemplateCandidate> a_templates, const FormRef& a_cell,
 		std::span<const std::string> a_loadedPlugins)
 	{
@@ -203,8 +233,9 @@ namespace dova::core
 				continue;
 			}
 			auto missing = MissingRequirements(t.layout, a_loadedPlugins);
-			if (!missing.empty()) {
-				res.rejected.push_back({ i, std::move(missing) });
+			auto conflicting = LoadedConflicts(t.layout, a_loadedPlugins);
+			if (!missing.empty() || !conflicting.empty()) {
+				res.rejected.push_back({ i, std::move(missing), std::move(conflicting) });
 				continue;
 			}
 			eligible.push_back(i);
@@ -247,6 +278,7 @@ namespace dova::core
 		}
 		auto again = ApplyTemplate(*a_basedOn, &a_layout);
 		again.cell = a_layout.cell;
+		again.conflictPlugins = a_layout.conflictPlugins;  // only decides where a template is offered, never a setup
 		if (a_afterApply) {
 			a_afterApply(again);
 		}

@@ -91,6 +91,8 @@ Stash Organizer (FNV/TTW, by Eddoursul) is the model. Its v2 is per-cell; v3 is 
    Auto-enable on first entry is a config option (`bAutoEnableTemplates`), on by default. With it off,
    nothing is applied and the notification offers the template instead:
    *"Dova Stash: Breezehome setup available (by &lt;author&gt;). Press [Hotkey] at any container to enable."*
+   A template that does not fit the home as it is (another mod rebuilt it, §9.1) is never enabled on its own:
+   *"Dova Stash: Breezehome setup may not fit this home. Press [Hotkey] at any container to enable."*
 3. Player presses the hotkey: **Deposit** runs and loot flows into the right containers.
 
 ### 4.2 Manual setup (no template)
@@ -187,6 +189,8 @@ All data paths are under `Data/SKSE/Plugins/DovaStash/`.
 Categories/
   00_Default.json             shipped category definitions
   50_<anything>.json          add-on packs (e.g. a Survival Mode or Requiem pack); loaded in name order
+SelfSorting/
+  00_Default.json             shipped list of homes that sort themselves (§9.1); add-ons/patches: any other name
 Templates/                    community/shipped layouts — read-only from the mod's perspective
   Vanilla/Breezehome.json
   <AnyAuthor>/<AnyName>.json  file names are free-form; identity is inside the file
@@ -240,8 +244,12 @@ On entering an eligible cell:
      the others, then the newest `version`, then the file path (`core::CompareTemplateRank`, the one
      ranking: the hotkey's *Use template*, the setup prompt, the first-visit notice, auto-enable and the
      panel all take `LayoutResolution::chosen` and its `alternatives`; the editor's template list sorts
-     with it too). The UI lists the alternatives. A template is offered when its `cell` matches and every
-     plugin in `requires` is loaded; player exports follow the same rules.
+     with it too). The UI lists the alternatives. A template is offered when its `cell` matches, every
+     plugin in `requires` is loaded and none in `conflicts` is (`conflicts` names the mods that rebuild the
+     home, so its references no longer fit: the shipped Breezehome lists `WynterBreezehomeRedux.esp`; the log
+     says *template … not offered: … rebuilds this home (conflicts)*, the panel's Templates tab
+     *conflicts: …*); player exports follow the same rules. Before a template is enabled on its own, the
+     auto-enable guard (§9.1) checks that it fits the home as it is.
 3. Applying a template **copies** it into `Layouts/`, with a `"basedOn"` back-reference. Later edits
    never touch the template, and updating a template pack never clobbers player tweaks. A
    "Re-apply template" action exists (the hotkey menu says *Re-apply* for the template the layout's
@@ -271,6 +279,7 @@ On entering an eligible cell:
   "version": "1.0.0",
   "priority": 0,
   "requires": ["Skyrim.esm"],          // all must be loaded for the template to be offered
+  "conflicts": ["WynterBreezehomeRedux.esp"],  // optional: not offered while any of these is loaded (mods that rebuild the home)
   "cell": "Skyrim.esm|0x000165A7",     // illustrative IDs; real ones come from xEdit or esm_dump.py
   "master": "Skyrim.esm|0x000AAAAA",   // a container reference (REFR), not the base CONT
   "containers": [
@@ -299,6 +308,11 @@ On entering an eligible cell:
   "basedOn": "Templates/Vanilla/Breezehome.json@1.0.0"
 }
 ```
+
+`conflicts` (optional, templates) lists plugin files that rebuild the home: the template is not offered while
+any of them is loaded (§6.2). It is the negative of `requires`; an older DLL keeps it as an unknown key and
+offers the template as before. A player layout carries it from its template like `requires`, and it never
+counts as a change of the player's own (switching templates, §6.2).
 
 `label` is the name the player sees for a container (the panel, menus); `note` (top level, containers,
 displays) is free text for people reading the file. Dova Stash never acts on a note; the panel shows a
@@ -1174,9 +1188,9 @@ taking 7`) and one per stack taken.
 
 A cell can host a Dova Stash layout when **all** of the following hold:
 
-- It does not come from a home mod that sorts and displays items itself (`game::SortsItself`:
-  `Clockwork.esp`, `LegacyoftheDragonborn.esm`). Dova Stash leaves those homes alone entirely, so the two
-  systems never move the same items.
+- It is not a home that sorts and displays items itself (`game::SortsItself`, the list in §9.1: Clockwork,
+  Legacy of the Dragonborn, ...). Dova Stash leaves those homes alone entirely, so the two systems never move
+  the same items. The rejection says *&lt;plugin&gt; sorts items itself*.
 - It is an interior cell, or an exterior cell that is player-owned.
 - It is player-owned (`TESObjectCELL::GetOwner()` is the player or the player faction), **or** unowned, **or**
   the cell's **own** location has the `LocTypePlayerHouse` keyword. That keyword covers most vanilla, CC,
@@ -1195,9 +1209,75 @@ another cell that is not loaded also need a persistent reference, §6.7):
 - Reject owned containers whose owner is not the player.
 - Skip disabled references (for example, unbuilt Hearthfire furniture). They become valid automatically
   once built.
+- Reject containers another mod sorts itself (a §9.1 entry's `containers`): *&lt;plugin&gt; sorts this
+  container itself*. Like any container that fails these checks, a bound one stays in the layout and is
+  simply not used while that mod is loaded.
 
 Templates bypass none of these checks. A template binding to a now-respawning container (because of a
 mod conflict) is disabled with a warning.
+
+### 9.1 Other home mods: homes that sort themselves, rebuilt homes
+
+**Homes that sort themselves.** Some home mods sort, display or craft from storage with their own scripts.
+Two systems moving the same items undo each other (their sorting chest pushes items out, our Sort all pulls
+them back), so Dova Stash leaves those homes alone. The list is data, not code: every `*.json` directly in
+`SelfSorting/` is read at `kDataLoaded`, in file-name order like `Categories/` (`core::LoadSelfSortingDirectory`),
+so a patch or a player adds a home by dropping a file next to `00_Default.json`, without a new DLL. Only the
+entries whose plugin is loaded apply (`core::SelfSortingHomes`); the log lists them at startup.
+
+```jsonc
+{
+  "$schema": "dovastash-selfsorting-1",
+  "note": "...",                                          // optional, for people reading the file
+  "homes": [
+    {"plugin": "Clockwork.esp", "name": "Clockwork", "note": "..."},                    // every cell of the plugin
+    {"plugin": "LSESD_TundraHomestead.esp",                                              // these cells, whoever owns them
+     "cells": ["ccEEJSSE001-Hstead.esm|0x0000087F", "ccEEJSSE001-Hstead.esm|0x00000B06"]},
+    {"plugin": "Carpenter Chests.esp", "containers": ["HearthFires.esm|0x00003055"]}     // only these containers
+  ]
+}
+```
+
+- `plugin` (required): the entry applies while this plugin is loaded.
+- Neither `cells` nor `containers`: every cell that comes from `plugin` itself is left alone (§9's first rule).
+- `cells`: those cells are left alone, from whichever plugin. A patch that turns a Creation Club home into
+  Legacy of the Dragonborn storage does not own the cell, so the check is "this plugin is loaded → these cells".
+- `containers`: those containers are never used (§9's container rule) and the home stays usable. An entry is a
+  reference, or a base container: then every reference of it (Carpenter Storage Chests sorts the Hearthfire
+  building-supply chests, `BYOHHouseCraftingChest`). With `cells` as well, both apply.
+- `name`, `note`: for the log and for people reading the file (the shipped entries say how the plugin name was
+  verified).
+- A malformed entry is an error and skipped (a narrowed entry whose references are all bad never widens to the
+  whole plugin); errors show in the log and the panel's Diagnostics page. If no list loads at all, Clockwork
+  and Legacy of the Dragonborn are still left alone (built in, with a warning).
+
+The shipped list (`SelfSorting/00_Default.json`): Clockwork, Legacy of the Dragonborn, Mirele Bismath Reborn,
+LUFTSHIP K747 (`DA_Skyship.esp`), Skyfall Estate, Riverside Lodge (plugin names checked in an MO2 install),
+The Hoarder's Chest - Rebuilt, The Dovah Den (four plugin variants), Tundra Homestead - LotD Storage (the Tundra
+Homestead cells), Player houses overhaul (`PlayerHouse.esp`: the five city homes) and Carpenter Storage Chests
+for Hearthfire (the building-supply chests only) (names from the mods' Nexus file lists or pages). There is no
+opt-in: a player who wants Dova Stash in such a home removes the entry.
+
+**Rebuilt homes.** A mod that rebuilds a home (Wynter's Breezehome Redux, Player houses overhaul) takes out or
+replaces the references a template for that home names. Two guards keep a template from being enabled there:
+
+- `conflicts` in the template (§6.2, §6.3): it is not offered at all while one of those plugins is loaded. The
+  shipped Breezehome lists `WynterBreezehomeRedux.esp` (its auto-sort strongroom is an optional install, so the
+  home is not on the list above) and the five city homes `PlayerHouse.esp`.
+- The auto-enable guard, for the mods nobody listed: before a template is enabled on its own (the first visit
+  with `bAutoEnableTemplates`), the plugin looks up every reference it names (master, containers, ignored ones
+  included, displays: `core::TemplateFitRefs`) in the attached cell (`home::CheckTemplateFit`) and core judges
+  the share that is there (`core::JudgeTemplateFit`). Deleted, or taken out by xEdit's *undelete and disable*
+  (enable parent the player, opposite; or moved below z -29000) counts as **disabled**; not found, a container
+  entry that is no container any more, or found in a cell the template does not name counts as **missing**;
+  disabled any other way counts as there, **not built yet** (Hearthfire furniture and cellars start disabled
+  until built, many without an enable parent); a reference in another of the template's cells that is not
+  loaded is not counted. Under **60%** there (`kTemplateFitPercent`), the template is offered instead: the
+  first-visit notice says *"&lt;name&gt; setup may not fit this home. Press [Hotkey] at any container to
+  enable."*, the setup prompt says *may not fit*, and the counts are logged once per session (info when it does
+  not fit, debug when it does). The player can still use it from the setup prompt. The guard waits for the cell
+  to be attached (an interior cell comes back with `TESCellFullyLoadedEvent`). Nothing is moved or deleted
+  either way. The shipped templates are all 100% there in an unmodded game.
 
 ---
 

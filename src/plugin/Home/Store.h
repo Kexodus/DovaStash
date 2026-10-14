@@ -4,6 +4,7 @@
 //
 //   Data/SKSE/Plugins/DovaStash/Categories/*.json   merged in file-name order
 //   Data/SKSE/Plugins/DovaStash/Templates/**.json   community / shipped templates (read-only)
+//   Data/SKSE/Plugins/DovaStash/SelfSorting/*.json  homes that sort themselves (DESIGN §9.1), file-name order
 //   Data/SKSE/Plugins/DovaStash/Layouts/<cell>.json player layouts (written by us)
 //   Data/SKSE/Plugins/DovaStash/Settings.json       optional: { "keep": { ...global keep defaults... } }
 //
@@ -35,6 +36,9 @@ namespace dova::home
 		[[nodiscard]] const core::CategorySet&                 Categories() const noexcept { return _categories; }
 		[[nodiscard]] std::span<const core::TemplateCandidate> Templates() const noexcept { return _templates; }
 		[[nodiscard]] const core::KeepConfig&                  GlobalKeep() const noexcept { return _globalKeep; }
+		// Homes that sort themselves (DESIGN §9.1): the entries whose plugin is loaded. Never changes after Load(),
+		// so any thread may read it.
+		[[nodiscard]] const core::SelfSortingHomes& SelfSorting() const noexcept { return _selfSorting; }
 		// Writes the "keep" block of Settings.json (other keys in the file are kept) and makes it current.
 		bool SaveGlobalKeep(core::KeepConfig a_keep);
 
@@ -42,6 +46,7 @@ namespace dova::home
 		[[nodiscard]] const core::Diagnostics& CategoryDiagnostics() const noexcept { return _categoryDiags; }
 		[[nodiscard]] const core::Diagnostics& TemplateDiagnostics() const noexcept { return _templateDiags; }
 		[[nodiscard]] const core::Diagnostics& SettingsDiagnostics() const noexcept { return _settingsDiags; }
+		[[nodiscard]] const core::Diagnostics& SelfSortingDiagnostics() const noexcept { return _selfSortingDiags; }
 
 		static constexpr std::size_t kMaxBackups = 5;  // timestamped backups kept per layout file
 
@@ -106,6 +111,7 @@ namespace dova::home
 		void LoadCategories();
 		void LoadTemplates();
 		void LoadGlobalKeep();
+		void LoadSelfSorting();
 		// Queues the latest copy of a saved layout (SavePlayerLayout).
 		void BackupHome(const core::FormRef& a_cell, const core::Layout& a_layout) const;
 		// Load(): copies every layout file that has no copy outside Data yet (setups made before this
@@ -123,5 +129,7 @@ namespace dova::home
 		core::Diagnostics                    _categoryDiags;
 		core::Diagnostics                    _templateDiags;
 		core::Diagnostics                    _settingsDiags;
+		core::SelfSortingHomes               _selfSorting;
+		core::Diagnostics                    _selfSortingDiags;
 	};
 }

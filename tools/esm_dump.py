@@ -1237,8 +1237,14 @@ ENUMS = {
 MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms", "formLists", "plugins",
               "weaponTypes", "armorTypes", "bookTeaches", "alchemy", "soulGem", "enchanted", "ammo"}
 CELLS_KEYS = {"cell", "label", "note"}
-LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "cell", "cells", "master", "containers", "displays",
-               "keep", "learned", "declined", "basedOn"}
+LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "conflicts", "cell", "cells", "master", "containers",
+               "displays", "keep", "learned", "declined", "basedOn"}
+SELF_SORTING_KEYS = {"plugin", "name", "note", "cells", "containers"}
+PLUGIN_EXTS = (".esp", ".esm", ".esl")
+
+
+def _is_plugin_name(s):
+    return isinstance(s, str) and len(s) > 4 and s.lower().endswith(PLUGIN_EXTS) and not any(c in s for c in "|/\\")
 CONTAINER_KEYS = {"ref", "label", "note", "categories", "ignored", "forms"}
 DISPLAY_KEYS = {"ref", "kind", "label", "note", "categories", "items", "only", "set", "ignored"}
 DISPLAY_KINDS = {"rack", "mannequin", "item", "case", "bookshelf"}
@@ -1312,6 +1318,44 @@ def check_categories(lo, doc, errors, warnings):
     return ids
 
 
+def check_self_sorting(lo, doc, errors, warnings):
+    """Homes that sort themselves (SelfSorting/*.json, DESIGN 9.1). Cells are checked against the load order when
+    their plugin is loaded; containers (references or base containers) only for their syntax."""
+    homes = doc.get("homes")
+    if not isinstance(homes, list):
+        errors.append("'homes' must be a list")
+        return {}
+    for k in doc:
+        if k not in ("$schema", "homes", "note"):
+            warnings.append(f"unknown top-level key {k!r}")
+    loaded = {p.name.lower() for p in lo.plugins}
+    for i, h in enumerate(homes):
+        where = f"homes[{i}]"
+        if not isinstance(h, dict):
+            errors.append(f"{where}: expected an object")
+            continue
+        if not _is_plugin_name(h.get("plugin")):
+            errors.append(f"{where}: 'plugin' must be a plugin file name (.esp, .esm or .esl)")
+            continue
+        where = f"{where} ({h['plugin']})"
+        for k in h:
+            if k not in SELF_SORTING_KEYS:
+                warnings.append(f"{where}: unknown key {k!r}")
+        for k in ("name", "note"):
+            if k in h and not isinstance(h[k], str):
+                errors.append(f"{where}: {k!r} must be a string")
+        for k in ("cells", "containers"):
+            for j, s in enumerate(_as_list(h.get(k, []))):
+                key = _check_ref_syntax(s, f"{where}.{k}[{j}]", errors)
+                if not key or key[0].lower() not in loaded:
+                    continue
+                if k == "cells" and lo.cell_record(key)[0] is None:
+                    errors.append(f"{where}.cells[{j}]: {s} is not a cell")
+        if ("cells" in h or "containers" in h) and not _as_list(h.get("cells", [])) and not _as_list(h.get("containers", [])):
+            errors.append(f"{where}: empty 'cells' and 'containers' (the DLL skips the entry)")
+    return {"homes": len(homes)}
+
+
 def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
     for k in doc:
         if k not in LAYOUT_KEYS:
@@ -1324,6 +1368,21 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
             warnings.append(f"{k!r} belongs in player Layouts only, not in shipped templates")
     requires = [r.lower() for r in doc.get("requires", [])]
     loaded = {p.name.lower() for p in lo.plugins}
+    # 'conflicts' (DESIGN 6.2): plugins that rebuild the home; the template is not offered while one is loaded.
+    conflicts = doc.get("conflicts", [])
+    if not isinstance(conflicts, list) or not all(isinstance(c, str) for c in conflicts):
+        errors.append("'conflicts' must be a list of plugin file names")
+        conflicts = []
+    cell_plugin = str(doc.get("cell", "")).split("|", 1)[0].strip().lower()
+    for c in conflicts:
+        if not _is_plugin_name(c):
+            warnings.append(f"conflicts: {c!r} is not a plugin file name (.esp, .esm or .esl)")
+        elif c.lower() in requires:
+            warnings.append(f"conflicts: {c} is also in 'requires'; the template is never offered")
+        elif c.lower() == cell_plugin:
+            warnings.append(f"conflicts: {c} is the plugin of the template's own cell; the template is never offered")
+        elif c.lower() in loaded:
+            warnings.append(f"conflicts: {c} is in the load order, so this template is not offered in it")
     missing_plugins = [r for r in doc.get("requires", []) if r.lower() not in loaded]
     if missing_plugins:
         warnings.append(f"required plugins not in the load order, refs not verified: {missing_plugins}")
@@ -1596,6 +1655,8 @@ def cmd_check(lo, args):
                 info["categories"] = len(ids)
             elif schema == "dovastash-layout-1":
                 info = check_layout(lo, doc, errors, warnings, cats, cat_defs)
+            elif schema == "dovastash-selfsorting-1":
+                info = check_self_sorting(lo, doc, errors, warnings)
             else:
                 errors.append(f"unknown $schema {schema!r}")
         ok = ok and not errors

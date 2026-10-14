@@ -84,8 +84,42 @@ namespace dova::home
 		LoadCategories();
 		LoadTemplates();
 		LoadGlobalKeep();
+		LoadSelfSorting();
 		BackupExistingLayouts();
 		LoadHomeCellIndex();
+	}
+
+	void Store::LoadSelfSorting()
+	{
+		core::Diagnostics                  diags;
+		std::vector<core::SelfSortingHome> entries;
+		try {
+			entries = core::LoadSelfSortingDirectory(Root() / "SelfSorting", diags);
+		} catch (const std::exception& e) {
+			logger::error("Homes that sort themselves: failed to load: {}", e.what());
+			entries.clear();
+		}
+		if (entries.empty()) {
+			// The shipped list is missing or unreadable: never let Dova Stash and these two sort the same items.
+			logger::warn("Homes that sort themselves: no list loaded; leaving Clockwork and Legacy of the Dragonborn alone");
+			for (const auto* plugin : { "Clockwork.esp", "LegacyoftheDragonborn.esm" }) {
+				core::SelfSortingHome home;
+				home.plugin = plugin;
+				home.source = "(built in)";
+				entries.push_back(std::move(home));
+			}
+		}
+		LogDiagnostics(diags, "Homes that sort themselves");
+		const auto listed = entries.size();
+		_selfSorting = core::SelfSortingHomes(std::move(entries), game::LoadedPlugins());
+		logger::info("Homes that sort themselves: {} listed, {} apply in this game ({} errors, {} warnings)", listed, _selfSorting.Entries().size(),
+			diags.ErrorCount(), diags.WarningCount());
+		for (const auto& e : _selfSorting.Entries()) {
+			logger::info("  {} ({}): {}", e.name.empty() ? e.plugin : e.name, e.plugin,
+				e.WholePlugin() ? "its cells are left alone"s :
+				                  std::format("{} cell(s) left alone, {} container(s) not used", e.cells.size(), e.containers.size()));
+		}
+		_selfSortingDiags = std::move(diags);
 	}
 
 	void Store::LoadCategories()

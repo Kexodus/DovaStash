@@ -151,6 +151,7 @@ worth sharing: open the saved setup, rename the labels, add notes, drop the lear
 |---|---|
 | `name`, `author`, `version`, `priority`, `note` | Template panel; version raised automatically on overwrite |
 | `requires` | Computed (`core::ReferencedPlugins`), never typed |
+| `conflicts` (mods that rebuild the home, DESIGN §6.2) | Template panel, *Conflicts*: plugin file names, comma-separated, under *Requires*; kept as they are otherwise |
 | `cell` | The home's main cell (found in steps 2-3) |
 | `cells` (multi-cell homes, DESIGN §6.7, `core::HomeCells`) | Cells joined from the drawer's Doors tab or the Selection panel (*Add this cell to the home*), listed in the Template panel with `label`; a home of the rail opens with the cells its draft found |
 | `master` | *Make master* on a container; the draft suggests one with its reason (§3.4: the largest usable chest near the entrance) |

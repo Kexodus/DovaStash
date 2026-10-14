@@ -537,12 +537,29 @@ namespace dova
 			return;
 		}
 		const auto* best = home->BestTemplate();
-		if (!best || !Registry().MarkNotified(home->cellId)) {
+		if (!best) {
+			return;
+		}
+		// The auto-enable guard (DESIGN §9.1) looks at the template's references, so it waits for them: an interior
+		// cell that is not attached yet comes back here with TESCellFullyLoadedEvent.
+		const auto* fit = Registry().BestTemplateFit(*home);
+		if (!fit && !home->extra) {
+			auto* cell = game::Player() ? game::Player()->GetParentCell() : nullptr;
+			if (cell && cell->IsInteriorCell() && !cell->IsAttached()) {
+				return;
+			}
+		}
+		if (!Registry().MarkNotified(home->cellId)) {
 			return;
 		}
 		const auto name = best->layout.name;
 		const auto author = best->layout.author.empty() ? "unknown"s : best->layout.author;
 
+		if (fit && !fit->fits) {
+			// Another mod seems to have rebuilt the home: offer the template, never enable it on its own.
+			Notify(std::format("Dova Stash: {} setup may not fit this home. Press {} at any container to enable.", name, HotkeyName()));
+			return;
+		}
 		if (Settings::GetSingleton().GetTemplates().autoEnable) {
 			if (Registry().ApplyBestTemplate(*home)) {
 				if (RecordDisplayItems(*home->layout)) {
