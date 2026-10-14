@@ -353,6 +353,7 @@ namespace dova::editor::ui
 		// Workspace layout
 		Panel     _panel{ Panel::Selection };
 		DrawerTab _drawerTab{ DrawerTab::Containers };
+		double    _drawerFoldAt{ -1.0 };  // a click on the open tab folds the drawer then, unless a double click (Drawer.cpp)
 		bool      _showStart{ false };  // the emblem: the start panel over an open home
 		bool      _paletteOpen{ false };
 		bool      _paletteFocus{ false };

@@ -33,7 +33,17 @@ namespace dova::editor::ui
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			ImGui::GetWindowDrawList()->AddLine(p, ImVec2(p.x + W, p.y), t.line);
 		}
-		// The tab row: a tab opens the drawer on it, the active one closes it.
+		// The tab row: a tab opens the drawer on it, the active one folds it. That fold waits out the double-click
+		// time: folding at once would move the tab row down, and a double click (on any tab) keeps the drawer open.
+		const ImGuiIO& io = ImGui::GetIO();
+		if (_drawerFoldAt >= 0.0) {
+			if (io.MouseClicked[ImGuiMouseButton_Left] && io.MouseClickedCount[ImGuiMouseButton_Left] >= 2) {
+				_drawerFoldAt = -1.0;
+			} else if (ImGui::GetTime() >= _drawerFoldAt) {
+				_drawerFoldAt = -1.0;
+				_state.ui.drawerOpen = false;
+			}
+		}
 		int containers = 0, displays = 0;
 		for (const auto& r : c.info.refs) {
 			containers += r.IsContainer() && !r.display ? 1 : 0;
@@ -48,11 +58,16 @@ namespace dova::editor::ui
 			}
 			const bool active = static_cast<int>(_drawerTab) == i;
 			if (w::TabButton(labels[i], active && open, counts[i])) {
-				if (active && open) {
-					_state.ui.drawerOpen = false;
-				} else {
+				const bool second = io.MouseReleased[ImGuiMouseButton_Left] && io.MouseClickedLastCount[ImGuiMouseButton_Left] >= 2;
+				if (!(active && open)) {
 					_drawerTab = static_cast<DrawerTab>(i);
 					_state.ui.drawerOpen = true;
+					if (!open) {
+						w::LayoutClicked();  // the tab row moves up
+					}
+					_drawerFoldAt = -1.0;
+				} else if (!second && _drawerFoldAt < 0.0) {
+					_drawerFoldAt = io.MouseClickedTime[ImGuiMouseButton_Left] + static_cast<double>(io.MouseDoubleClickTime);
 				}
 			}
 		}
@@ -65,6 +80,8 @@ namespace dova::editor::ui
 		ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), W - b - t.pad));
 		if (w::IconButton("toggle", open ? w::Icon::ChevronDown : w::Icon::ChevronUp, open ? "Hide the drawer" : "Show the drawer", "Ctrl+2")) {
 			_state.ui.drawerOpen = !open;
+			_drawerFoldAt = -1.0;
+			w::LayoutClicked();  // the chevron moves with the tab row
 		}
 		if (open) {
 			w::BeginPadded("drawerbody", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar);

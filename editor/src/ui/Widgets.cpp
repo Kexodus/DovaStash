@@ -359,6 +359,8 @@ namespace dova::editor::ui::w
 		};
 		std::vector<RailState> g_rails;
 		int                    g_overlayDepth = 0;
+		double                 g_layoutClickUntil = -1.0;  // LayoutClicked: a double click's second click is taken until then
+		bool                   g_layoutClickHeld = false;   // that second click is down: its release is taken too
 	}
 
 	// ---- Text ----
@@ -1292,6 +1294,7 @@ namespace dova::editor::ui::w
 			}
 			if (clicked) {
 				a_open = true;
+				LayoutClicked();
 			}
 			TipShortcut("Show", nullptr);
 			ImGui::EndChild();
@@ -1424,6 +1427,7 @@ namespace dova::editor::ui::w
 		ImGui::EndChild();
 		if (clicked) {
 			*rail.open = false;
+			LayoutClicked();
 		}
 		ImGui::EndChild();  // the rail
 	}
@@ -1867,6 +1871,36 @@ namespace dova::editor::ui::w
 			a_size = std::clamp(a_size - ImGui::GetIO().MouseDelta.y, a_min, a_max);
 		}
 		return active;
+	}
+
+	void LayoutClicked()
+	{
+		const ImGuiIO& io = ImGui::GetIO();
+		g_layoutClickUntil = io.MouseClickedTime[ImGuiMouseButton_Left] + static_cast<double>(io.MouseDoubleClickTime);
+	}
+
+	void ClaimLayoutDoubleClick()
+	{
+		const ImGuiIO& io = ImGui::GetIO();
+		const ImGuiID  owner = ImGui::GetID("##layoutclick");
+		if (g_layoutClickHeld) {
+			// The release too: the views take a release over them as a click (View3D, Plan), wherever it was pressed.
+			if (io.MouseReleased[ImGuiMouseButton_Left]) {
+				ImGui::SetKeyOwner(ImGuiKey_MouseLeft, owner, ImGuiInputFlags_LockThisFrame);
+			}
+			g_layoutClickHeld = io.MouseDown[ImGuiMouseButton_Left];
+			return;
+		}
+		if (g_layoutClickUntil < 0.0) {
+			return;
+		}
+		if (io.MouseClicked[ImGuiMouseButton_Left] && io.MouseClickedCount[ImGuiMouseButton_Left] == 2) {
+			ImGui::SetKeyOwner(ImGuiKey_MouseLeft, owner, ImGuiInputFlags_LockUntilRelease);  // no item sees the press
+			g_layoutClickUntil = -1.0;
+			g_layoutClickHeld = true;
+		} else if (ImGui::GetTime() > g_layoutClickUntil) {
+			g_layoutClickUntil = -1.0;
+		}
 	}
 
 	float ChipWidth(const char* a_text, bool a_close)

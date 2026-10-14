@@ -697,6 +697,7 @@ namespace dova::editor::ui
 			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus |
 				ImGuiWindowFlags_NoScrollWithMouse);
 		ImGui::PopStyleVar();
+		w::ClaimLayoutDoubleClick();  // before any item: a double click on a panel toggle stays on the toggle
 		HandleShortcuts();
 
 		const ImVec2 o = ImGui::GetCursorScreenPos();

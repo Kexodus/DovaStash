@@ -286,6 +286,12 @@ namespace dova::editor::ui::w
 	void EndPadded();
 	// A horizontal drag handle across the window at the cursor (the drawer's top edge): dragging up grows `a_size`.
 	bool SplitterTop(const char* a_id, float& a_size, float a_min, float a_max);
+	// A click that opens or folds a panel moves what is under the cursor, so the second click of a double click
+	// would land on whatever took the panel's place (a table row, the view). Call LayoutClicked() after such a click
+	// (BeginRail/EndRail do for theirs) and ClaimLayoutDoubleClick() once per frame before any item: it takes that
+	// second click, press and release, from every item.
+	void LayoutClicked();
+	void ClaimLayoutDoubleClick();
 	// Chip flow: the width a chip takes, and SameLine() when the next item of `a_width` still fits before
 	// `a_rightX` (the row's right edge in screen space, taken before the first item).
 	[[nodiscard]] float ChipWidth(const char* a_text, bool a_close = false);
