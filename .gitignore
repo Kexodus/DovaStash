@@ -7,8 +7,9 @@ CMakeUserPresets.json
 *.user
 __pycache__/
 
-# Claude Code (an editor agent keeps a worktree in .claude/worktrees/)
-.claude/
+# Claude Code: agents keep worktrees in .claude/worktrees/; only the project skills are shared
+.claude/*
+!.claude/skills/
 
 # Windows shell cache files that git add -A once picked up
 %SystemDrive%/
