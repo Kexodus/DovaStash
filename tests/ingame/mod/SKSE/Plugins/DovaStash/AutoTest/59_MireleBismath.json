@@ -1,0 +1,21 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Mirele Bismath Reborn (Mirele Bismath Reborn.esp: sorts items itself, left alone; no template)",
+  "home": "Mirele Bismath Reborn.esp|0x00000E42",
+  "coc": "RMPwizardislandmain",
+  "tests": [
+    {
+      "id": "3.6b.2", "title": "Left alone: not a player home, no template notice, no layout file, no auto-enable",
+      "steps": [
+        {"do": "enter"},
+        {"do": "hotkey"},
+        {"check": "notify", "regex": "Dova Stash: not a player home \\(Mirele Bismath Reborn\\.esp sorts items itself\\)"},
+        {"check": "notify", "absent": true, "contains": "setup available"},
+        {"check": "log", "absent": true, "contains": "template available"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "home", "is": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

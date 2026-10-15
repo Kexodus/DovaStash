@@ -1,0 +1,19 @@
+# Extra home mods enabled in the "Dova Stash AutoTest" profile (tests/ingame/install.ps1 -Profile).
+# One per line: "<MO2 mod folder>|<plugin>[,<plugin>]". Masters must be the base game and DLCs only.
+# Homes from the player's "07.6 PLAYER HOMES" MO2 group; plans for them: tests/ingame/mod/.../AutoTest/4N_*.json, 5N_*.json.
+# Wynter's Breezehome Redux is NOT here: it rebuilds Breezehome (the shipped template lists it in "conflicts"), so it
+# runs from its own list: install.ps1 -Profile -ExtraMods tests/ingame/profile/extra-mods-wynter.txt
+Antennaria|Antennaria.esp
+Bal Ruhn SE|mtBalRuhn.esp
+Black Fur Refuge - Solstheim Northern Cabin Player Home|solstheimretreat.esp
+Ebongrove - Recall and Teleport SE|Undriel_Ebongrove.esp
+Hydda - Witch hut player home|Eli_WitchyHaus.esp
+Mirele Bismath Reborn|Mirele Bismath Reborn.esp
+NIFLHOLM - Hall Under the Mountain|Niflholm.esp
+Pinegrove Lodge - Family house|Eli_Pinegrove Lodge.esp
+Sicarius' Refuge SSE - A Hitman's Hideout - Assassin Home|Eli_Sicarius' Refuge.esp
+Tel Jerdein - Telvanni Sorcerer Tower|rmp_telvannihearthfires.esp
+Unique Vampire Dens SSE|gonkishvampdens.esp
+White Lighthouse|WhiteLighthouseSE.esp
+Winter Cove|Winter Cove.esp
+Wuth Rein - An ancient nordic hideout|WuthRein.esp

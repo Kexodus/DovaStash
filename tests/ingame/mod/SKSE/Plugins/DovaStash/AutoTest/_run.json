@@ -1,10 +1,20 @@
 {
   "$schema": "dovastash-autotest-run-1",
   "startDelay": 5,
-  "timeoutMinutes": 20,
+  "timeoutMinutes": 60,
   "quit": true,
   "messageBoxes": [
-    {"contains": "MCM-Unlocked.dll", "button": 0},
-    {"contains": "Enable Survival Mode?", "button": 1}
+    {
+      "contains": "MCM-Unlocked.dll",
+      "button": 0
+    },
+    {
+      "contains": "Enable Survival Mode?",
+      "button": 1
+    },
+    {
+      "contains": "Do you want to create this item?",
+      "button": 0
+    }
   ]
 }

@@ -1,0 +1,482 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Arch-Mage's Quarters (Winterhold, no template)",
+  "home": "Skyrim.esm|0x000CAB92",
+  "coc": "WinterholdCollegeArchMageQuarters",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Before ownCell the cell is not a player home (owned by the Arch-Mage faction)",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "ownCell joins the owning faction; accepted; no shipped template, so no offer and no first-visit notice",
+      "steps": [
+        {
+          "do": "ownCell"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Arch-Mage's Quarters",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template available",
+          "absent": true
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "setup available",
+          "absent": true
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "title": "Make a master",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "makeMaster",
+          "ref": "Skyrim.esm|0x00077D7E"
+        },
+        {
+          "check": "notify",
+          "contains": "is now the master container"
+        },
+        {
+          "check": "log",
+          "contains": "Saved layout"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x00077D7E"
+        },
+        {
+          "check": "home",
+          "layout": true
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "title": "Deposit with no bindings: everything goes to the master",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "arch"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "arch",
+          "eq": 4
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "arch",
+          "eq": 2
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "arch",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "arch"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "title": "Bind containers to categories",
+      "steps": [
+        {
+          "do": "bind",
+          "ref": "Skyrim.esm|0x000776D0",
+          "category": "armor.clothing"
+        },
+        {
+          "do": "bind",
+          "ref": "Skyrim.esm|0x000776B8",
+          "category": "books.*"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x000776D0",
+            "categories": [
+              "armor.clothing"
+            ]
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x000776B8",
+            "categories": [
+              "books.*"
+            ]
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.2",
+      "title": "Distribute on master close: the book leaves, the ingots stay (no container for them)",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "dist"
+        },
+        {
+          "do": "openContainer",
+          "ref": "Skyrim.esm|0x00077D7E"
+        },
+        {
+          "do": "store",
+          "to": "master",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: sorted \\d+ items? into \\d+ containers?",
+          "within": 5
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000776B8",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "from": "dist",
+          "ge": 1,
+          "within": 5
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "dist",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "dist"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.3",
+      "title": "Learn: an item put into an unbound container by hand (the safe)",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000C8868",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "learn"
+        },
+        {
+          "do": "openContainer",
+          "ref": "Skyrim.esm|0x00077CEB"
+        },
+        {
+          "do": "store",
+          "to": "Skyrim.esm|0x00077CEB",
+          "item": "Skyrim.esm|0x000C8868",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "check": "log",
+          "regex": "Learn: Dwemer Gyro .* -> .*: recorded"
+        },
+        {
+          "check": "notify",
+          "regex": "Dwemer Gyro now goes to .* \\(K: undo\\)"
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x000C8868",
+          "eq": "Skyrim.esm|0x00077CEB",
+          "within": 5
+        },
+        {
+          "do": "wait",
+          "seconds": 6
+        },
+        {
+          "do": "store",
+          "to": "master",
+          "item": "Skyrim.esm|0x000C8868",
+          "count": 1
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x00077CEB",
+          "item": "Skyrim.esm|0x000C8868",
+          "from": "learn",
+          "eq": 2,
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.4",
+      "title": "Retrieve by category: ingots from the master, books from the bound chest",
+      "steps": [
+        {
+          "do": "snapshot",
+          "name": "retrieve"
+        },
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "misc.ores_ingots"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: retrieved \\d+ items? from \\d+ containers?"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "ge": 4
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "eq": 0
+        },
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "books.*"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "ge": 1
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000776B8",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "retrieve"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-archmage",
+      "title": "A home over several cells: the way out of the quarters, Deposit from there, remove it",
+      "steps": [
+        {
+          "do": "exitDoor",
+          "ref": "Skyrim.esm|0x00109685"
+        },
+        {
+          "do": "addArea",
+          "label": "College Hall"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: College Hall is now part of Arch-Mage's Quarters"
+        },
+        {
+          "check": "log",
+          "regex": "Add area: .* is now part of Arch-Mage's Quarters"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "label": "College Hall"
+          }
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "log",
+          "contains": "Deposit in Arch-Mage's Quarters"
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "contains": "is no longer part of Arch-Mage's Quarters"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "absent": true
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-archmage",
+      "title": "Reset: the setup is backed up and the home is no longer set up",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "snapshot",
+          "name": "reset"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Arch-Mage's Quarters reset (setup backed up)"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Skyrim\\.esm_000CAB92\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "check": "home",
+          "layout": false
+        },
+        {
+          "check": "conserved",
+          "snapshot": "reset"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

@@ -159,7 +159,11 @@ namespace dova::core
 						continue;
 					}
 					const int score = CategoryPatternSpecificity(pattern);
-					if (score > bestScore && IsAvailable(c.ref)) {
+					// Equal patterns: list order, except that a sell chest wins over a storage container (the
+					// junk category it binds on creation would otherwise never reach it in a template home, §8.8).
+					const bool wins = score > bestScore ||
+					                  (score == bestScore && best && _layout.IsSellChest(c.ref) && !_layout.IsSellChest(best->ref));
+					if (wins && IsAvailable(c.ref)) {
 						best = &c;
 						bestScore = score;
 					}

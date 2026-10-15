@@ -1,0 +1,187 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Honeyside (Riften, vanilla + Hearthfire)",
+  "home": "Skyrim.esm|0x00016BDD",
+  "coc": "RiftenHoneyside",
+  "tests": [
+    {
+      "id": "1.1", "title": "Template offered on the first visit; the decorations are bought",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "name": "Honeyside", "layout": false},
+        {"check": "log", "since": "plan", "contains": "Cell Honeyside (Skyrim.esm|0x00016BDD): template available"},
+        {"check": "log", "since": "plan", "contains": "template: Honeyside v1.0.0 by Dova Stash"},
+        {"check": "notify", "since": "plan", "contains": "Dova Stash: Honeyside setup available (by Dova Stash)"},
+        {"do": "buyHome"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "1.2", "title": "No second notification in the same session",
+      "steps": [
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"do": "enter"},
+        {"check": "notify", "since": "plan", "contains": "Honeyside setup available", "count": 1, "within": 0},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.1", "title": "Make a master",
+      "steps": [
+        {"do": "enter"},
+        {"do": "clearInventory"},
+        {"do": "buyHome"},
+        {"do": "makeMaster", "ref": "Skyrim.esm|0x000D721E"},
+        {"check": "notify", "contains": "is now the master container"},
+        {"check": "log", "contains": "Saved layout"},
+        {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000D721E"},
+        {"check": "home", "layout": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.1", "title": "Bind containers to categories",
+      "steps": [
+        {"do": "buyHome"},
+        {"do": "bind", "ref": "Skyrim.esm|0x000D9251", "category": "weapons.*"},
+        {"do": "bind", "ref": "Skyrim.esm|0x000D7227", "category": "alchemy.food"},
+        {"do": "bind", "ref": "Skyrim.esm|0x000D9278", "category": "armor.clothing"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000D9251", "categories": ["weapons.*"]}},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000D7227", "categories": ["alchemy.food"]}},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000D9278", "categories": ["armor.clothing"]}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.2", "title": "Distribute on master close: weapons and food leave, homeless potions stay",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00064B41", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "distribute"},
+        {"do": "openContainer", "ref": "Skyrim.esm|0x000D721E"},
+        {"do": "store", "to": "master", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "store", "to": "master", "item": "Skyrim.esm|0x00064B41", "count": 2},
+        {"do": "store", "to": "master", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "notify", "regex": "Dova Stash: sorted \\d+ items? into 2 containers", "within": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000D9251", "item": "Skyrim.esm|0x00012EB7", "from": "distribute", "eq": 2, "within": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000D7227", "item": "Skyrim.esm|0x00064B41", "from": "distribute", "eq": 2, "within": 5},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0003EADD", "from": "distribute", "eq": 2},
+        {"check": "conserved", "snapshot": "distribute"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.2a", "title": "Sort on arrival: an item put into the master by hand moves on by itself",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 1},
+        {"do": "snapshot", "name": "arrival"},
+        {"do": "store", "to": "master", "item": "Skyrim.esm|0x00012EB7", "count": 1},
+        {"check": "log", "contains": "Sort on arrival in Honeyside", "within": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000D9251", "item": "Skyrim.esm|0x00012EB7", "from": "arrival", "eq": 1, "within": 5},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012EB7", "from": "arrival", "eq": 0, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3", "title": "Learn: an item put into an unbound container by hand (the unbuilt wardrobe in the HearthFires part)",
+      "steps": [
+        {"do": "buyHome"},
+        {"do": "require", "enabled": "HearthFires.esm|0x00004247", "why": "the unbound wardrobe is enabled by RiftenPlayerHouseDecorateChildRoom"},
+        {"do": "additem", "item": "Skyrim.esm|0x000C8868", "count": 2},
+        {"do": "snapshot", "name": "learn"},
+        {"do": "openContainer", "ref": "HearthFires.esm|0x00004247"},
+        {"do": "store", "to": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x000C8868", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: Dwemer Gyro .* -> .*: recorded"},
+        {"check": "notify", "regex": "Dwemer Gyro now goes to .* \\(K: undo\\)"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000C8868", "eq": "HearthFires.esm|0x00004247", "within": 5},
+        {"do": "wait", "seconds": 6},
+        {"do": "store", "to": "master", "item": "Skyrim.esm|0x000C8868", "count": 1},
+        {"check": "count", "in": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x000C8868", "from": "learn", "eq": 2, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3a.1", "title": "Undo a learn with the hotkey within the undo window",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x000ED63F", "count": 1},
+        {"do": "openContainer", "ref": "HearthFires.esm|0x00004247"},
+        {"do": "store", "to": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x000ED63F", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "notify", "contains": "now goes to"},
+        {"do": "wait", "seconds": 0.5},
+        {"do": "hotkey"},
+        {"check": "notify", "regex": "Dova Stash: undone, .* is not learned"},
+        {"check": "log", "contains": "Learn: 1 learn(s) undone in Honeyside"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000ED63F", "absent": true, "within": 3},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000C8868", "eq": "HearthFires.esm|0x00004247"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3a.3", "title": "Item families: an enchanted iron sword is learned as Iron Sword",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0005B47E", "count": 1},
+        {"do": "openContainer", "ref": "HearthFires.esm|0x00004247"},
+        {"do": "store", "to": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x0005B47E", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: .*0x0005B47E.* -> .*: recorded \\(as Iron Sword"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x00012EB7", "eq": "HearthFires.esm|0x00004247", "within": 5},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x0005B47E", "absent": true},
+        {"do": "wait", "seconds": 6},
+        {"do": "op", "op": "SortAll"},
+        {"check": "count", "in": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x00012EB7", "ge": 1, "within": 5},
+        {"check": "count", "in": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x0005B47E", "eq": 1, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3a.4", "title": "Category suggestion after three learned books; Yes binds the category",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x000F456D", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x000F1AB3", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x000EF638", "count": 1},
+        {"do": "openContainer", "ref": "HearthFires.esm|0x00004247"},
+        {"do": "store", "to": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x000F456D"},
+        {"do": "store", "to": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x000F1AB3"},
+        {"do": "store", "to": "HearthFires.esm|0x00004247", "item": "Skyrim.esm|0x000EF638"},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: asking whether all (books\\.\\w+) go to .* \\(3 learned\\)", "within": 15},
+        {"check": "menu", "name": "MessageBoxMenu", "open": true, "within": 3},
+        {"do": "answerMessageBox", "button": 0},
+        {"check": "notify", "contains": "now takes Books"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "HearthFires.esm|0x00004247"}},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000F456D", "absent": true},
+        {"check": "log", "regex": "bound books\\.\\w+ from a suggestion \\(3 learned item\\(s\\) now covered by it dropped\\)"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9-honeyside", "title": "A home over several cells: the street outside, Deposit from there, remove it",
+      "steps": [
+        {"do": "exitDoor"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Street"},
+        {"check": "notify", "contains": "Dova Stash: Street is now part of Honeyside"},
+        {"check": "log", "regex": "Add area: .* is now part of Honeyside"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Street"}},
+        {"check": "home", "is": true, "name": "Honeyside"},
+        {"do": "additem", "item": "Skyrim.esm|0x00064B41", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Honeyside"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Honeyside"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"do": "enter"},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

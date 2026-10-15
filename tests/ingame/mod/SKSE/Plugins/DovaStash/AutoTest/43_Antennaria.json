@@ -1,0 +1,484 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Antennaria (a library cell next to the main hall)",
+  "home": "Antennaria.esp|0x00000D62",
+  "coc": "Antennaria",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Template offered on the first visit",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "ownCell"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Antennaria",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template available"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "setup available \\(by "
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/Antennaria.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "No second notification in the same session",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "setup available",
+          "count": 1,
+          "within": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6",
+      "title": "Use template: the AutoTest template is the one applied",
+      "steps": [
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/Antennaria.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/AutoTest/Antennaria.json@1.0.0",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Antennaria.esp|0x0000B018",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Antennaria.esp|0x0000A3A2"
+          },
+          "within": 5
+        },
+        {
+          "check": "notify",
+          "regex": "setup enabled",
+          "since": "action",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.4-Antennaria",
+      "title": "A respawning container in the main hall: accepted, the cell never resets",
+      "steps": [
+        {
+          "do": "bind",
+          "ref": "Antennaria.esp|0x0000752A",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "contains": "has the respawn flag; accepted because the cell never resets"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Antennaria.esp|0x0000752A",
+            "categories": [
+              "misc.clutter"
+            ]
+          },
+          "within": 5
+        },
+        {
+          "do": "unbind",
+          "ref": "Antennaria.esp|0x0000752A",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.2-Antennaria",
+      "title": "Inventory",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000800E4",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.3-Antennaria",
+      "title": "Deposit in the main hall: the matching chests, the master takes the rest",
+      "steps": [
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Antennaria.esp|0x00006F8A",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "inventory",
+          "ge": 4
+        },
+        {
+          "check": "count",
+          "in": "Antennaria.esp|0x0000BB2D",
+          "item": "Skyrim.esm|0x000800E4",
+          "from": "inventory",
+          "ge": 4
+        },
+        {
+          "check": "count",
+          "in": "Antennaria.esp|0x00007532",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "inventory",
+          "ge": 1
+        },
+        {
+          "check": "count",
+          "in": "Antennaria.esp|0x0000B018",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "inventory",
+          "ge": 2
+        },
+        {
+          "check": "conserved",
+          "snapshot": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-Antennaria",
+      "title": "Library (no containers): home with the home's name; Deposit there reaches nothing (the main hall's containers are not persistent)",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Antennaria.esp|0x0000A3A2"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Antennaria",
+          "layout": true
+        },
+        {
+          "do": "snapshot",
+          "name": "lib"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "lib",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "lib"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9b-Antennaria",
+      "title": "Remove the Library (nothing in it), then add it back from inside",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Antennaria.esp|0x00000D62"
+        },
+        {
+          "do": "removeArea",
+          "cell": "Antennaria.esp|0x0000A3A2"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "is no longer part of"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "absent": true,
+          "within": 5
+        },
+        {
+          "do": "enter",
+          "cell": "Antennaria.esp|0x0000A3A2"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Antennaria Library",
+          "layout": false
+        },
+        {
+          "do": "addArea",
+          "label": "Library"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Antennaria.esp|0x0000A3A2"
+          },
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9c-Antennaria",
+      "title": "Library is part of the home (log line names it)",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Antennaria.esp|0x0000A3A2"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Antennaria",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "\\(Antennaria\\.esp\\|0x0000A3A2\\): part of Antennaria"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.3-Antennaria",
+      "title": "Learn by hand in the Library",
+      "manual": "the Library has no container of its own: nothing to put an item into there (the main hall's chests are not reachable from it)"
+    },
+    {
+      "id": "3.9e-Antennaria",
+      "title": "A cell not in the template: added from outside, saved, re-applied, removed",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Antennaria.esp|0x00000D62"
+        },
+        {
+          "do": "exitDoor",
+          "ref": "Antennaria.esp|0x0000D1C5"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Outside"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Antennaria",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "regex": "Add area: .* named \"Outside\""
+        },
+        {
+          "do": "export",
+          "name": "AutoTest Antennaria"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Antennaria.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x000095CE",
+            "label": "Outside"
+          }
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Antennaria.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Antennaria.esp|0x0000A3A2",
+            "label": "Library"
+          }
+        },
+        {
+          "do": "useTemplate",
+          "source": "Templates/AutoTest/Antennaria.json"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x000095CE"
+          },
+          "within": 5
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "is no longer part of"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "lacks": {
+            "cell": "Skyrim.esm|0x000095CE"
+          },
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-Antennaria",
+      "title": "Reset removes the setup: the Library is its own home again",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Antennaria.esp|0x00000D62"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: .* reset \\(setup backed up\\)",
+          "within": 5
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Antennaria\\.esp_00000D62\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "do": "enter",
+          "cell": "Antennaria.esp|0x0000A3A2"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Antennaria Library",
+          "layout": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-Antennaria",
+      "title": "Bookshelves and racks of the main hall",
+      "manual": "display fills are checked by eye (36 displays)"
+    }
+  ],
+  "templates": [
+    "Antennaria.json"
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Lost Hall (AutoTest)",
+  "note": "AutoTest template: every cell of the home and its containers as the editor drafted them (cells of the home's own plugin only).",
+  "author": "Dova Stash AutoTest",
+  "version": "1.0.0",
+  "priority": 10,
+  "requires": [
+    "gonkishvampdens.esp"
+  ],
+  "cell": "gonkishvampdens.esp|0x000736AA",
+  "cells": [],
+  "master": "gonkishvampdens.esp|0x00082A50",
+  "containers": [
+    {
+      "ref": "gonkishvampdens.esp|0x000739DF",
+      "label": "End Table",
+      "categories": [
+        "books.*"
+      ]
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000739E0",
+      "label": "End Table"
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000739F2",
+      "label": "Wardrobe"
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000739F3",
+      "label": "Wardrobe"
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000739F4",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000739FE",
+      "label": "Wardrobe",
+      "categories": [
+        "armor.clothing"
+      ]
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x00082B6A",
+      "label": "Barrel",
+      "categories": [
+        "alchemy.food"
+      ]
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x00082B6B",
+      "label": "Barrel",
+      "categories": [
+        "alchemy.ingredients"
+      ]
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000BBABB",
+      "label": "Windhelm Den Fence Chest",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    }
+  ],
+  "displays": [
+    {
+      "ref": "gonkishvampdens.esp|0x000B930D",
+      "kind": "rack",
+      "label": "Right Weapon Rack"
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000B9316",
+      "kind": "rack",
+      "label": "Right Weapon Rack"
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000B9317",
+      "kind": "rack",
+      "label": "Left Weapon Rack"
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000B930E",
+      "kind": "rack",
+      "label": "Left Weapon Rack"
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000B930C",
+      "kind": "rack",
+      "label": "Shield Rack",
+      "categories": [
+        "armor.shields"
+      ]
+    },
+    {
+      "ref": "gonkishvampdens.esp|0x000B9315",
+      "kind": "rack",
+      "label": "Shield Rack",
+      "categories": [
+        "armor.shields"
+      ]
+    }
+  ]
+}

@@ -31,7 +31,8 @@ param(
 	[string]$Dll = '',
 	[int]$TimeoutMinutes = 25,
 	[switch]$Focus,
-	[string]$OutDir = ''
+	[string]$OutDir = '',
+	[string]$Only = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -68,7 +69,7 @@ if ($Build) {
 	} finally { Pop-Location }
 }
 
-& (Join-Path $repo 'tests\ingame\install.ps1') -Mo2 $Mo2 -Dll $Dll
+& (Join-Path $repo 'tests\ingame\install.ps1') -Mo2 $Mo2 -Dll $Dll -Only $Only
 
 # Which DovaStash.dll the profile loads: the highest-priority enabled mod that has one.
 $modlist = Get-Content (Join-Path $Mo2 "profiles\$ProfileName\modlist.txt") | Where-Object { $_ -like '+*' } | ForEach-Object { $_.Substring(1) }
@@ -84,7 +85,13 @@ $overwriteBefore = @{}
 Get-ChildItem $overwrite -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object { $overwriteBefore[$_.FullName] = $_.LastWriteTimeUtc }
 
 # A fresh results folder (the plugin also writes the run's home backups there).
-if (Test-Path $autoDir) { Remove-Item -Recurse -Force $autoDir }
+if (Test-Path $autoDir) {
+	# My Games may live in a OneDrive folder: with its cloud provider stopped, placeholder files cannot be removed.
+	try { Remove-Item -Recurse -Force $autoDir -ErrorAction Stop } catch {
+		Write-Warning "Could not clear $autoDir ($($_.Exception.Message)); removing the results file only"
+		Remove-Item -Force $results -ErrorAction SilentlyContinue
+	}
+}
 
 # MO2 remembers the last profile in ModOrganizer.ini: put the player's back afterwards.
 $selected = (Get-Content $mo2Ini | Where-Object { $_ -like 'selected_profile=*' } | Select-Object -First 1)

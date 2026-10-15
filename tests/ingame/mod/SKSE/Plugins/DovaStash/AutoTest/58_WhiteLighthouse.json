@@ -1,0 +1,108 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "White Lighthouse (WhiteLighthouseSE.esp, mod home owned by WLightHouseFaction; no template: makeMaster path)",
+  "home": "WhiteLighthouseSE.esp|0x00002479",
+  "coc": "WLighthouseInterior",
+  "tests": [
+    {
+      "id": "1.3-whitelighthouse", "title": "Not a home before the player is in the owning faction (the editor scan missed this home; the HUD names the faction by id, 1D02F86F)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "hotkey"},
+        {"check": "notify", "contains": "not a player home (owned by"},
+        {"check": "home", "is": false},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "1.3b-whitelighthouse", "title": "Buying the home: ownCell joins the player to the cell's owning faction, then the cell is a home",
+      "steps": [
+        {"do": "ownCell"},
+        {"do": "enter", "coc": "WhiterunOrigin"},
+        {"do": "enter"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.1-whitelighthouse", "title": "Make master: an unowned strongbox (the chest 0x0002761D belongs to the NPC Thorfinn and cannot be used)",
+      "steps": [
+        {"do": "clearInventory"},
+        {"do": "makeMaster", "ref": "WhiteLighthouseSE.esp|0x00026510"},
+        {"check": "notify", "contains": "is now the master container"},
+        {"check": "log", "contains": "Saved layout"},
+        {"check": "layout", "pointer": "/master", "eq": "WhiteLighthouseSE.esp|0x00026510"},
+        {"check": "home", "layout": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.3-whitelighthouse", "title": "Deposit with no bound containers: everything goes to the master",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 3},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0005ACE4", "from": "dep", "eq": 3},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "eq": 2},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.1-whitelighthouse-owned", "title": "A container owned by the NPC Thorfinn (merchant chest 0x00030E04, which also respawns) cannot be bound",
+      "steps": [
+        {"do": "bind", "ref": "WhiteLighthouseSE.esp|0x00030E04", "category": "misc.gems"},
+        {"check": "notify", "regex": "can't use .*owned by Thorfinn"},
+        {"check": "layout", "pointer": "/containers", "lacks": {"ref": "WhiteLighthouseSE.esp|0x00030E04", "categories": ["misc.gems"]}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.1-whitelighthouse", "title": "Bind an unowned strongbox to gems (no respawn)",
+      "steps": [
+        {"do": "bind", "ref": "WhiteLighthouseSE.esp|0x000275AB", "category": "misc.gems"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "WhiteLighthouseSE.esp|0x000275AB", "categories": ["misc.gems"]}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-whitelighthouse", "title": "Weapon rack in use takes a weapon on Deposit",
+      "steps": [
+        {"do": "displayUse", "ref": "WhiteLighthouseSE.esp|0x000286A6"},
+        {"do": "additem", "item": "Skyrim.esm|0x000139B9", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Display: Daedric Sword .* on .*\\(rack\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x000139B9", "eq": 0},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-whitelighthouse", "title": "Ignore a strongbox and stop ignoring it",
+      "steps": [
+        {"do": "ignore", "ref": "WhiteLighthouseSE.esp|0x000275AB"},
+        {"check": "notify", "contains": "is now ignored"},
+        {"do": "ignore", "ref": "WhiteLighthouseSE.esp|0x000275AB", "on": false},
+        {"check": "notify", "contains": "is managed again"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9-whitelighthouse", "title": "Home over several cells (the outside cell WLighthouseExterior02 is not owned by the player: addArea is not offered there)",
+      "manual": "needs the outside cell owned by the player (exterior owner check, DESIGN 3.9): the lighthouse's door leads to Skyrim.esm|0x0000B326, which has no owner: 'no area offered here' is the expected answer, check it in the game"
+    },
+    {
+      "id": "3.5-whitelighthouse-reset", "title": "Reset (last)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

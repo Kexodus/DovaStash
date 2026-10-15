@@ -1,0 +1,282 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Pinegrove Lodge (AutoTest)",
+  "author": "AutoTest",
+  "version": "1.0.0",
+  "priority": 10,
+  "note": "Test template for the AutoTest plan 51_PinegroveLodge (drafted from the Dova Stash Editor scan; ignored containers kept as the draft has them).",
+  "requires": [
+    "Eli_Pinegrove Lodge.esp"
+  ],
+  "cell": "Eli_Pinegrove Lodge.esp|0x0002933F",
+  "master": "Eli_Pinegrove Lodge.esp|0x001315AD",
+  "containers": [
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00042D8B",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00042D9E",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0005215D",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0006B692",
+      "label": "Dresser",
+      "categories": [
+        "armor.clothing"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0006B694",
+      "label": "Foot Locker"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0006B696",
+      "label": "Foot Locker"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000707D1",
+      "label": "Knapsack"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000707D2",
+      "label": "Knapsack"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0007FBB6",
+      "label": "Dresser"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0007FBB9",
+      "label": "Dresser"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0007FBC0",
+      "label": "Dresser"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0007FBC2",
+      "label": "Jewelry",
+      "categories": [
+        "armor.jewelry",
+        "misc.gems"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00084CDF",
+      "label": "Armour Stand",
+      "categories": [
+        "armor.heavy",
+        "armor.light"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00084CE4",
+      "label": "Armour Stand",
+      "categories": [
+        "armor.shields"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0008EF24",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0008EF3C",
+      "label": "Satchel"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0008EF3D",
+      "label": "Knapsack"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0009404B",
+      "label": "End Table"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0009404C",
+      "label": "End Table"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00094051",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0009407C",
+      "label": "Strong Box"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000991B7",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000B27C5",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000B27C6",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000B27E9",
+      "label": "Baking Crate"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000B27EA",
+      "label": "Vegetable Basket"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000C6C36",
+      "label": "Food Stores"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000C6C5C",
+      "label": "Meats",
+      "categories": [
+        "alchemy.food"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E020F",
+      "label": "Chest"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E026E",
+      "label": "Strong Box"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E0297",
+      "label": "Chest"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E54AB",
+      "label": "Ingredients"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E54AD",
+      "label": "Books & Scrolls",
+      "categories": [
+        "books.*"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E54B2",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E54B3",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E54B4",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E54B5",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E54B6",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E54B7",
+      "label": "Drawer",
+      "categories": [
+        "alchemy.poisons",
+        "alchemy.potions"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000EA607",
+      "label": "Ingredients",
+      "categories": [
+        "alchemy.ingredients"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000EA608",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000EA609",
+      "label": "Large Sack",
+      "categories": [
+        "misc.clutter"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000EA66C",
+      "label": "Small Urn"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000EA6DD",
+      "label": "Chest"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0013157D",
+      "label": "Soul Gems",
+      "categories": [
+        "soulgems.*"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00131595",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00131596",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00131599",
+      "label": "Scrolls Basket",
+      "categories": [
+        "scrolls"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x001315AE",
+      "label": "Chest"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x001315D3",
+      "label": "Weapon Barrel",
+      "categories": [
+        "weapons.*"
+      ]
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00136720",
+      "label": "Strong Box"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x00136735",
+      "label": "Dresser"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0013673C",
+      "label": "Chest"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0013674F",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0013676B",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0013676C",
+      "label": "Drawer"
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x0013B871",
+      "label": "Strong Box"
+    }
+  ]
+}

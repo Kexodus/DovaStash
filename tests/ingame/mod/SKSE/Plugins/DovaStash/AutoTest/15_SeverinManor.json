@@ -1,0 +1,566 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Severin Manor (Raven Rock, Dragonborn; owned by a faction)",
+  "home": "Dragonborn.esm|0x00017EBE",
+  "coc": "DLC2RRSeverinHouse",
+  "tests": [
+    {
+      "id": "1.9",
+      "title": "Before the purchase the cell is already accepted (faction-owned, LocTypePlayerHouse): template offered, home",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Severin Manor",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "Cell Severin Manor (Dragonborn.esm|0x00017EBE): template available"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.9-owned",
+      "title": "After the purchase (ownCell) the cell is accepted and the template is offered (no hotkey: its offer box would stay open)",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "ownCell"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Severin Manor",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "Cell Severin Manor (Dragonborn.esm|0x00017EBE): template available"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Severin Manor v1.0.0 by Dova Stash"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Severin Manor v1.0.0 by Dova Stash"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "No second notification in the same session",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "Severin Manor setup available",
+          "count": 1,
+          "within": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6",
+      "title": "Use template, Deposit spreads the loot, Retrieve by category",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Severin Manor setup enabled"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/Vanilla/SeverinManor.json@1.0.0"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Dragonborn.esm|0x00036EF2"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 5
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013911",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "spread"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036E95",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "spread",
+          "ge": 5
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x000359C0",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "spread",
+          "ge": 4
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036E03",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "spread",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036EF1",
+          "item": "Skyrim.esm|0x00013911",
+          "from": "spread",
+          "ge": 1
+        },
+        {
+          "check": "conserved",
+          "snapshot": "spread"
+        },
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "misc.ores_ingots"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: retrieved \\d+ items? from \\d+ containers?"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "ge": 5
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036E95",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "spread"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.8a",
+      "title": "Restock to a keep quota (Severin's potion sack)",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 4
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "do": "keep",
+          "keep": {
+            "quotas": [
+              {
+                "category": "alchemy.potions",
+                "quota": 3,
+                "restock": true
+              }
+            ]
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/keep/quotas",
+          "contains": {
+            "category": "alchemy.potions",
+            "quota": 3,
+            "restock": true
+          }
+        },
+        {
+          "do": "op",
+          "op": "Restock"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: restocked 3 items"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "ge": 2,
+          "le": 3
+        },
+        {
+          "do": "op",
+          "op": "Restock"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "contains": "Dova Stash: nothing to restock"
+        },
+        {
+          "do": "removeitem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "ge": 2,
+          "le": 3
+        },
+        {
+          "do": "keep",
+          "keep": null
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.10",
+      "title": "Sell chest: routing, quote, Sell now (confirmed), never sold, Buy back, changed meanwhile",
+      "steps": [
+        {
+          "do": "clearContainer",
+          "ref": "Dragonborn.esm|0x00036DB5"
+        },
+        {
+          "do": "unbind",
+          "ref": "Dragonborn.esm|0x00036EB9",
+          "category": "misc.clutter"
+        },
+        {
+          "do": "sellChest",
+          "ref": "Dragonborn.esm|0x00036DB5"
+        },
+        {
+          "check": "notify",
+          "contains": "is now the sell chest"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Dragonborn.esm|0x00036DB5",
+            "sell": true
+          }
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 5
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00098620",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0000000A",
+          "count": 10
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 5
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x00098620",
+          "eq": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 1,
+          "extra": {
+            "owner": "Skyrim.esm|0x00013BA1"
+          }
+        },
+        {
+          "do": "store",
+          "to": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 1
+        },
+        {
+          "do": "store",
+          "to": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x0000000A",
+          "count": 10
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x000319E3",
+          "filter": "stolen",
+          "eq": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "sale"
+        },
+        {
+          "do": "quote",
+          "chest": "Dragonborn.esm|0x00036DB5"
+        },
+        {
+          "check": "quote",
+          "eq": 7,
+          "minGold": 1,
+          "stays": "stolen"
+        },
+        {
+          "do": "sellConfirmed"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: sold 7 items for \\d+ gold"
+        },
+        {
+          "check": "log",
+          "contains": "Sell chest (sell now): sold 7 items"
+        },
+        {
+          "check": "gold",
+          "snapshot": "sale",
+          "plusQuote": true
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x00098620",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x0000000A",
+          "eq": 10
+        },
+        {
+          "do": "buyBack"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: bought back 7 items for \\d+ gold"
+        },
+        {
+          "check": "gold",
+          "snapshot": "sale"
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 6
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x00098620",
+          "eq": 2
+        },
+        {
+          "check": "conserved",
+          "snapshot": "sale"
+        },
+        {
+          "do": "quote",
+          "chest": "Dragonborn.esm|0x00036DB5"
+        },
+        {
+          "do": "additem",
+          "to": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 1
+        },
+        {
+          "do": "sellConfirmed"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: the sell chest changed; sell again"
+        },
+        {
+          "check": "count",
+          "in": "Dragonborn.esm|0x00036DB5",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 7
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-severin",
+      "title": "A home over several cells: the street outside, Deposit from there, remove it",
+      "steps": [
+        {
+          "do": "exitDoor"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Street"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Street is now part of Severin Manor"
+        },
+        {
+          "check": "log",
+          "regex": "Add area: .* is now part of Severin Manor"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "label": "Street"
+          }
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Severin Manor"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "log",
+          "contains": "Deposit in Severin Manor"
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "contains": "is no longer part of Severin Manor"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "absent": true
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

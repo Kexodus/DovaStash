@@ -1,0 +1,173 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Tundra Homestead (AutoTest)",
+  "note": "AutoTest: the Tundra Homestead with its cellar as one home (DESIGN 6.7).",
+  "author": "AutoTest",
+  "version": "1.0.0",
+  "priority": 10,
+  "requires": [
+    "Skyrim.esm",
+    "Update.esm",
+    "ccEEJSSE001-Hstead.esm"
+  ],
+  "cell": "ccEEJSSE001-Hstead.esm|0x0000087F",
+  "master": "ccEEJSSE001-Hstead.esm|0x00084A88",
+  "cells": [
+    {
+      "cell": "ccEEJSSE001-Hstead.esm|0x00000B06",
+      "label": "Cellar",
+      "note": "the cellar behind the load door"
+    }
+  ],
+  "containers": [
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000A65",
+      "label": "Ingredients cupboard (alchemy corner)",
+      "categories": [
+        "alchemy.ingredients"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x0000098D",
+      "label": "Apothecary's satchel (by the alchemy lab)",
+      "categories": [
+        "alchemy.potions",
+        "alchemy.poisons"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000908",
+      "label": "Alchemy corner cupboard",
+      "categories": [
+        "misc.animal_parts"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000A3C",
+      "label": "Shrine cupboard (by the enchanter)",
+      "categories": [
+        "soulgems.*"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000AAC",
+      "label": "Enchanter cupboard",
+      "categories": [
+        "keys"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000B04",
+      "label": "Safe",
+      "categories": [
+        "armor.jewelry",
+        "misc.gems"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000FEF",
+      "label": "Kitchen low cupboard",
+      "categories": [
+        "alchemy.food"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000FAF",
+      "label": "Bedroom dresser",
+      "categories": [
+        "armor.clothing"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000FBA",
+      "label": "Bedroom cupboard",
+      "categories": [
+        "armor.heavy",
+        "armor.light",
+        "armor.shields",
+        "weapons.*",
+        "ammo.*"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x0000098F",
+      "label": "Small chest (sitting room)",
+      "categories": [
+        "misc.ores_ingots",
+        "misc.hides_pelts"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000A1D",
+      "label": "Sitting room strong box",
+      "categories": [
+        "misc.dwemer",
+        "misc.tools",
+        "misc.building_materials"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x0000089B",
+      "label": "Hall bookshelf (AutoTest: reachable from the cellar)",
+      "categories": [
+        "books.*"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x000008BB",
+      "label": "Book Shelf",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x000008D5",
+      "label": "Book Shelf",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x000008F5",
+      "label": "Book Shelf",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000F87",
+      "label": "Cellar safe (by the mannequins)",
+      "categories": [
+        "weapons.*",
+        "ammo.*"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000D5C",
+      "label": "Cellar bookcase (by the armchair)",
+      "categories": [
+        "armor.heavy",
+        "armor.light",
+        "armor.shields"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000DBB",
+      "label": "Cellar bookcase (by the dragon claws)",
+      "categories": [
+        "misc.gems",
+        "armor.jewelry",
+        "misc.clutter"
+      ]
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x000009D1",
+      "label": "Book Shelf",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "ccEEJSSE001-Hstead.esm|0x00000C40",
+      "label": "Book Shelf",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    }
+  ]
+}

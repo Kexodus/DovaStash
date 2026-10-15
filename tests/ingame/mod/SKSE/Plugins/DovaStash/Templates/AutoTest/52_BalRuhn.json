@@ -1,0 +1,233 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Bal Ruhn (AutoTest)",
+  "author": "AutoTest",
+  "version": "1.0.0",
+  "priority": 10,
+  "note": "Test template for the AutoTest plan 52_BalRuhn (drafted from the Dova Stash Editor scan; ignored containers kept as the draft has them).",
+  "requires": [
+    "mtBalRuhn.esp"
+  ],
+  "cell": "mtBalRuhn.esp|0x00000D64",
+  "master": "mtBalRuhn.esp|0x000018DC",
+  "containers": [
+    {
+      "ref": "mtBalRuhn.esp|0x000018E9",
+      "label": "Wardrobe",
+      "categories": [
+        "armor.clothing"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00002401",
+      "label": "Chest"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00002403",
+      "label": "End Table"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00002ED6",
+      "label": "End Table"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00003F38",
+      "label": "Plates"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00003F3A",
+      "label": "Bowls"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00003F3F",
+      "label": "Sackd"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00003F5F",
+      "label": "Apothecary's Satchel",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00003F61",
+      "label": "Recipes",
+      "categories": [
+        "books.notes"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044CB",
+      "label": "Armor and Weapons",
+      "categories": [
+        "armor.heavy",
+        "armor.light",
+        "armor.shields",
+        "weapons.*"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044CC",
+      "label": "Barrel"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044CD",
+      "label": "Barrel"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044DD",
+      "label": "Sackd"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044DF",
+      "label": "Cutlery"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044E1",
+      "label": "Cups"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044E3",
+      "label": "Pots and Pans"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044E5",
+      "label": "Wall Safe",
+      "categories": [
+        "misc.gems"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044F2",
+      "label": "Bookshelf"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044F8",
+      "label": "Chest"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x000044FE",
+      "label": "Chest"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B2E0",
+      "label": "End Table"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B2E9",
+      "label": "Urn"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B2F0",
+      "label": "Apples"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B2F1",
+      "label": "Bread and Cheese"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B2F2",
+      "label": "Wine"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B2F3",
+      "label": "Mead Barrel",
+      "categories": [
+        "alchemy.food"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B308",
+      "label": "Vegetables"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B313",
+      "label": "Churn"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B317",
+      "label": "Soul Gems",
+      "categories": [
+        "soulgems.*"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B330",
+      "label": "Staves",
+      "categories": [
+        "weapons.staves"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B332",
+      "label": "Heartstones",
+      "categories": [
+        "armor.jewelry"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B333",
+      "label": "Urn",
+      "categories": [
+        "alchemy.ingredients"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B334",
+      "label": "Urn"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B336",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000B337",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000E208",
+      "label": "Imbuing Chamber",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000E20A",
+      "label": "Recipe Books",
+      "categories": [
+        "books.*"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000E215",
+      "label": "Smithing Supplies",
+      "categories": [
+        "misc.ores_ingots"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000E231",
+      "label": "Scrolls",
+      "categories": [
+        "scrolls"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x0000E249",
+      "label": "Potions & Poisons",
+      "categories": [
+        "alchemy.poisons",
+        "alchemy.potions"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00011116",
+      "label": "Sacks",
+      "categories": [
+        "misc.clutter"
+      ]
+    },
+    {
+      "ref": "mtBalRuhn.esp|0x00011119",
+      "label": "Sackd"
+    }
+  ]
+}

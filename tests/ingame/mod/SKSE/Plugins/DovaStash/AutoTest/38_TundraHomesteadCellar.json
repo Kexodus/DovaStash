@@ -1,0 +1,252 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Tundra Homestead with its cellar (multi-cell)",
+  "home": "ccEEJSSE001-Hstead.esm|0x0000087F",
+  "coc": "0EEJSSE001House",
+  "templates": [
+    "TundraHomesteadFull.json"
+  ],
+  "tests": [
+    {
+      "id": "3.9-tundra-a",
+      "title": "Use template: the AutoTest template (priority 10) is picked; its cells join the home",
+      "steps": [
+        {
+          "do": "reset"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tundra Homestead",
+          "layout": false
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/TundraHomesteadFull.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/AutoTest/TundraHomesteadFull.json@1.0.0"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "ccEEJSSE001-Hstead.esm|0x00000B06"
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccEEJSSE001-Hstead.esm|0x00084A88"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-b",
+      "title": "Deposit in the cellar: its own weapons and armor go to its own containers; the potion has no cellar container and stays (the hall's master is not loaded)",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "0EEJSSE001HouseBasement"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013911",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 3
+        },
+        {
+          "do": "snapshot",
+          "name": "cellar"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE001-Hstead.esm|0x00000F87",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "cellar",
+          "eq": 2
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE001-Hstead.esm|0x00000D5C",
+          "item": "Skyrim.esm|0x00013911",
+          "from": "cellar",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 3
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-c",
+      "title": "Deposit in the cellar reaches a persistent container of the hall (book to the hall bookshelf)",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "books"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE001-Hstead.esm|0x0000089B",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "from": "books",
+          "eq": 2,
+          "within": 5
+        },
+        {
+          "check": "conserved",
+          "snapshot": "books"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-d",
+      "title": "Deposit in the hall: a sword goes to the hall's own container; the cellar's are not touched",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "0EEJSSE001House"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "hall"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE001-Hstead.esm|0x00000FBA",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "hall",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE001-Hstead.esm|0x00000F87",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "hall",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-e",
+      "title": "exitDoor from the cellar back to the hall",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "0EEJSSE001HouseBasement"
+        },
+        {
+          "do": "exitDoor"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tundra Homestead"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-f",
+      "title": "Reset in the cellar removes the whole home's layout; the cellar is its own home again",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "0EEJSSE001HouseBasement"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "contains": "reset"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "home",
+          "layout": false
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/CreationClub/TundraHomesteadCellar.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-g",
+      "title": "A cell with a setup of its own is left out of the home",
+      "manual": "needs the cellar with its own layout file while the hall's layout lists it (the panel note: 'has a setup of its own')"
+    }
+  ]
+}

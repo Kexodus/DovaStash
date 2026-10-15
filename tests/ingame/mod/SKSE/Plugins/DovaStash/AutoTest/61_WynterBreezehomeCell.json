@@ -1,0 +1,104 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Wynter's Breezehome Redux - its own cell WynterBreezehomeRedux.esp|0x0081181E (118 containers; NEEDS THE WYNTER PROFILE, tests/ingame/profile/extra-mods-wynter.txt)",
+  "home": "WynterBreezehomeRedux.esp|0x0081181E",
+  "coc": "WyntersBreezehomeRedux",
+  "tests": [
+    {
+      "id": "1.1-wynter-cell", "title": "The cell is a home without a template (location LocTypePlayerHouse, no owner)",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.1-wynter-cell", "title": "Make master (a non-persistent chest: fine in one cell, see the report)",
+      "steps": [
+        {"do": "clearInventory"},
+        {"do": "makeMaster", "ref": "WynterBreezehomeRedux.esp|0x00811E7B"},
+        {"check": "notify", "contains": "is now the master container"},
+        {"check": "log", "contains": "Saved layout"},
+        {"check": "layout", "pointer": "/master", "eq": "WynterBreezehomeRedux.esp|0x00811E7B"},
+        {"check": "home", "layout": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.1-wynter-cell", "title": "Bind: two enabled chests to ingredients and potions, a weapon chest to weapons, and two refusals (disabled mount, disabled respawning barrel)",
+      "steps": [
+        {"do": "bind", "ref": "WynterBreezehomeRedux.esp|0x00811D61", "category": "alchemy.ingredients"},
+        {"do": "bind", "ref": "WynterBreezehomeRedux.esp|0x00811F57", "category": "alchemy.potions"},
+        {"do": "bind", "ref": "WynterBreezehomeRedux.esp|0x00811E9C", "category": "weapons.*"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "WynterBreezehomeRedux.esp|0x00811D61", "categories": ["alchemy.ingredients"]}},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "WynterBreezehomeRedux.esp|0x00811F57", "categories": ["alchemy.potions"]}},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "WynterBreezehomeRedux.esp|0x00811E9C", "categories": ["weapons.*"]}},
+        {"do": "bind", "ref": "WynterBreezehomeRedux.esp|0x00811B43", "category": "weapons.*"},
+        {"check": "log", "regex": "Weapon Mount Point \\(ref\\) \\[WynterBreezehomeRedux\\.esp\\|0x00811B43\\]: This container runs a script"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "WynterBreezehomeRedux.esp|0x00811B43", "categories": ["weapons.*"]}},
+        {"do": "bind", "ref": "WynterBreezehomeRedux.esp|0x00811F83", "category": "misc.clutter"},
+        {"check": "notify", "regex": "can't use this container \\(container is disabled"},
+        {"check": "layout", "pointer": "/containers", "lacks": {"ref": "WynterBreezehomeRedux.esp|0x00811F83", "categories": ["misc.clutter"]}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.3-wynter-cell", "title": "Deposit: ingots to the master, potions to the potion chest, swords to the weapon chest",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 3},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "WynterBreezehomeRedux.esp|0x00811F57", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
+        {"check": "count", "in": "WynterBreezehomeRedux.esp|0x00811E9C", "item": "Skyrim.esm|0x00012EB7", "from": "dep", "eq": 2},
+        {"check": "count", "in": "WynterBreezehomeRedux.esp|0x00811E7B", "item": "Skyrim.esm|0x0005ACE4", "from": "dep", "eq": 3},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.4-wynter-cell", "title": "Sort all and Retrieve by category (weapons)",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x000139B9", "count": 1},
+        {"do": "snapshot", "name": "sortall"},
+        {"do": "op", "op": "SortAll"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "WynterBreezehomeRedux.esp|0x00811E9C", "item": "Skyrim.esm|0x00012EB7", "ge": 2},
+        {"do": "op", "op": "Retrieve", "pattern": "weapons.*"},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "ge": 2},
+        {"check": "conserved", "snapshot": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3-wynter-cell", "title": "Learn an item put into an unbound chest, then undo with the hotkey",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "openContainer", "ref": "WynterBreezehomeRedux.esp|0x00811E32"},
+        {"do": "store", "to": "WynterBreezehomeRedux.esp|0x00811E32", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: Aevar Stone-Singer .* -> .*: recorded"},
+        {"do": "wait", "seconds": 0.5},
+        {"do": "hotkey"},
+        {"check": "notify", "regex": "Dova Stash: undone, .* is not learned"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x0001ACE6", "absent": true, "within": 3},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-wynter-cell", "title": "Reset (last): the setup file is backed up and removed",
+      "steps": [
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "files", "dir": "Layouts", "regex": "WynterBreezehomeRedux\\.esp_0081181E\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak", "ge": 1},
+        {"check": "home", "layout": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

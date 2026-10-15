@@ -422,3 +422,30 @@ TEST_CASE("Sell chest and templates", "[sell][template]")
 		CHECK(exported.IsSellChest(kSellChest));
 	}
 }
+
+TEST_CASE("Sell chest: wins the tie against a storage container bound to the same category", "[sell]")
+{
+	// Most templates bind misc.clutter somewhere; the sell chest made afterwards binds it too. List order would
+	// send every piece of clutter to the earlier storage container and the sell chest would stay empty.
+	Layout layout = SellLayout();
+	ContainerBinding clutter;
+	clutter.ref = Sk(0xA03);
+	clutter.label = "Guest room chest";
+	clutter.categories = { "misc.clutter" };
+	layout.containers.insert(layout.containers.begin(), clutter);  // before the sell chest in the list
+	const auto   categories = CompileCategories(kStandardCategories);
+	SortPlanner  planner(layout, categories);
+	const auto   tankard = MakeItem(Sk(0x319E3), ItemType::Misc);
+	const auto dest = planner.ResolveDestination(tankard);
+	REQUIRE(dest.has_value());
+	CHECK(dest->container == kSellChest);
+	CHECK(dest->reason == Destination::Reason::Category);
+
+	// A more specific pattern on the storage container still wins over the sell chest's broader one.
+	layout.containers.front().categories = { "misc.clutter" };
+	layout.containers.back().categories = { "misc.*" };
+	SortPlanner planner2(layout, categories);
+	const auto  dest2 = planner2.ResolveDestination(tankard);
+	REQUIRE(dest2.has_value());
+	CHECK(dest2->container == Sk(0xA03));
+}

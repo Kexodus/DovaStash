@@ -763,7 +763,10 @@ download that drops into the same `Categories/` folder, not in the main archive.
 - **Plain remainder:** the copies without extra data move with `RemoveItem` and no extra list, after the
   extra-data stacks. When an extra-data copy of the object stays in the source (worn, kept, tempered), the
   engine takes plain copies first, as the container menu does (ammo aside, above). Each such move is checked:
-  every extra-data stack of the source must still be there afterwards. If one left anyway, it is moved back and
+  every *distinct* extra-data stack of the source must still be there afterwards (`game::SpecialStacks`: a list
+  that only carries a count, a unique id or an owner is how the engine keeps plain items next to a container's
+  base-record stock, so its copies count as plain; 0.2.5 treated them as special and then refused every later move
+  of that item out of such a container for the session). If one left anyway, it is moved back and
   logged (a warning when every special copy is back where it was, an error when not), and that object's plain
   copies next to an extra-data copy stay where they are for the rest of the session; other objects are not
   affected.
@@ -1376,7 +1379,9 @@ QuickLoot's info bar text say *Sell: ...*; the panel's table tags it *[Sell]*.
 
 **What reaches it.** The category engine, as for any container: its categories, fixed items, and learned items
 (putting something in by hand teaches it, so one copy of a junk item sends every later copy there). Deposit and
-Sort all route to it. It is a **target only**: Sort all never empties it (`SortPlanner::IsSortSource`), Retrieve,
+Sort all route to it. When a storage container binds the same category with an equally specific pattern (most
+shipped templates bind `misc.clutter` somewhere), the sell chest wins the tie (`SortPlanner::ResolveDestination`):
+otherwise the junk category it gets on creation would never reach it. It is a **target only**: Sort all never empties it (`SortPlanner::IsSortSource`), Retrieve,
 the Retrieve counts, display filling and the workbench never take from it (`SortPlanner::Retrieve`,
 `SortEngine`'s `SnapshotManaged`, `crafting::SnapshotStored`). What the player put there stays until it is sold
 or taken out by hand. The category question after a few learns (§8.6) is never asked for it: a *Yes* there would
@@ -1816,7 +1821,7 @@ parsing, keep-rule math) is kept separate from CommonLib calls so it can be unit
 - **Patterns:** only `*` and a trailing `.*` are allowed. `a.*` matches `a` and its descendants. Items
   with no category are *not* caught by a `*` binding; they go to the master.
 - **Same category on several containers:** this acts as an ordered fallback chain. The most specific
-  pattern wins, then list order. Unavailable containers are skipped, for example unbuilt Hearthfire wings
+  pattern wins, then a sell chest over a storage container (§8.8), then list order. Unavailable containers are skipped, for example unbuilt Hearthfire wings
   (disabled refs).
 - **Explicit per-item bindings:** `"forms": [FormRef…]` on a container entry.
 - **Keep:** both `quotas` and `rules` are accepted. `inherit` defaults to true. Quotas keep the most

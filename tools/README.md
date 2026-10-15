@@ -37,7 +37,7 @@ string id.
 | Command | What it does |
 |---|---|
 | `cells <text> [--names]` | Find cells whose EditorID (or in-game name, with `--names`) contains `<text>` |
-| `cell <EDID or ref> [--with FURN,ACTI]` | Dump a cell's header and every **container** placed in it. `--with` also lists crafting stations, beds and racks, which helps you see which room a container is in |
+| `cell <EDID or ref> [--with FURN,ACTI]` | Dump a cell's header, every **container** placed in it, plus its `furniture` (crafting stations, with keywords) and `doors` (teleports). `--with` also lists crafting stations, beds and racks, which helps you see which room a container is in |
 | `ref "<Plugin\|0x...>"` | Describe one placed reference and the cell it lives in |
 | `keywords [--filter text] [--check A B ...]` | List keyword EditorIDs, or check that the given ones exist |
 | `keyword-usage KW ... [--types MISC,INGR]` | Count the items that carry each keyword, with a few sample items |
@@ -82,6 +82,15 @@ Each container entry:
   cells (DESIGN §6.7), a container is used from the home's other cells only when it is persistent; others
   only while the player is in their own cell. Good masters and supply chests for a forge outside are
   persistent.
+
+- `furniture` (`furnitureCount`): every placed FURN, whatever `--with` says. `keywords` are the base's keyword
+  EditorIDs, the way to find crafting stations (`CraftingSmithingForge` for a forge or anvil,
+  `CraftingTanningRack`, `CraftingCookpot`, `isAlchemy`). Same `ref`, `enableParent`, `startsDisabled`,
+  `persistent` and `position` as containers. Not bindable; the list is for choosing which room a station is in.
+- `doors` (`doorCount`): every placed DOOR with teleport data. `leadsTo.ref` is the destination door, and
+  `leadsTo.cell` is the cell it stands in: for an exterior, the grid square its position falls in (`worldspace`,
+  `grid`, and `editorId`/`name` when the cell has them). `persistentCell` appears only when the destination was
+  in the worldspace's persistent cell and the grid square differs. Use it to tell the cellar and the outside doors apart.
 
 Exterior cells also include the worldspace's persistent references that lie inside the cell's grid square,
 and the header has the cell's `grid` (its square in the worldspace).

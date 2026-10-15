@@ -568,6 +568,41 @@ class LoadOrder:
         cache[k] = list(win.values())
         return cache[k]
 
+    def ref_cells(self) -> dict[tuple[str, int], tuple[tuple[str, int], Record]]:
+        """Placed REFR -> (key of the cell whose children group holds it, the REFR record), winning records in
+        load order. Built once, on first use: it walks every cell and worldspace in the load order."""
+        if "_ref_cells" not in self.__dict__:
+            idx = {}
+            for pl in self.plugins:
+                for top in ("CELL", "WRLD"):
+                    if top not in pl.top:
+                        continue
+                    off, size = pl.top[top]
+                    cell = None
+                    for item in pl.walk(off + 24, off + size, descend=lambda l, gt: True):
+                        if item[0] == "GRUP" and item[4] == 6:
+                            cell = pl.resolve(struct.unpack("<I", item[3])[0])
+                        elif item[0] == "REC" and item[1].type == "REFR" and cell is not None:
+                            idx[kl(item[1].key)] = (cell, item[1])
+            self._ref_cells = idx
+        return self._ref_cells
+
+    def exterior_cells(self) -> dict[tuple, Record]:
+        """(worldspace key, grid x, grid y) -> the exterior CELL record of that grid square (winning records)."""
+        if "_ext_cells" not in self.__dict__:
+            idx = {}
+            for pl in self.plugins:
+                for rec, world in self.iter_cells(pl):
+                    if world is None:
+                        continue
+                    xclc = rec.get("XCLC")
+                    if not xclc or len(xclc) < 8:
+                        continue
+                    gx, gy = struct.unpack_from("<ii", xclc, 0)
+                    idx[(kl(world), gx, gy)] = rec
+            self._ext_cells = idx
+        return self._ext_cells
+
 
 # --------------------------------------------------------------------------------------------
 # Decoders
@@ -948,7 +983,86 @@ def cmd_cell(lo: LoadOrder, args):
         for d in displays:
             counts[d["kind"]] = counts.get(d["kind"], 0) + 1
         out["displayCounts"] = counts
+    furniture, doors = find_furniture_and_doors(lo, refs, args.include_deleted)
+    out["furniture"] = furniture
+    out["furnitureCount"] = len(furniture)
+    out["doors"] = doors
+    out["doorCount"] = len(doors)
     return out
+
+
+def _cell_info(lo: LoadOrder, cell_key, cache: dict) -> tuple[dict, tuple | None]:
+    """(summary of a cell, its worldspace key or None for an interior). Summary: cell, editorId, name,
+    worldspace and grid (exterior cells only)."""
+    if cell_key not in cache:
+        crec, world = lo.cell_record(cell_key)
+        grid = None
+        if crec is not None and world is not None:
+            xclc = crec.get("XCLC")
+            if xclc and len(xclc) >= 8:
+                grid = list(struct.unpack_from("<ii", xclc, 0))
+        cache[cell_key] = ({"cell": fmt_ref(cell_key), "editorId": crec.edid() if crec else None,
+                            "name": crec.plugin.lstring(crec.get("FULL")) if crec else None,
+                            "worldspace": fmt_ref(world) if world else None, "grid": grid}, world)
+    return cache[cell_key]
+
+
+def _leads_to(lo: LoadOrder, dest_key, group_cell, dest_rec, cache: dict) -> dict:
+    """Where a door leads. The destination ref sits in group_cell's children group, which for an exterior is
+    the worldspace's persistent cell; the real cell is the grid square its position falls in, so that is what
+    is reported (the persistent cell only as persistentCell, when they differ)."""
+    out = {"ref": fmt_ref(dest_key), "cell": None}
+    if group_cell is None:
+        return out
+    summary, world = _cell_info(lo, group_cell, cache)
+    out["cell"] = summary
+    pos = dest_rec.get("DATA") if dest_rec is not None else None
+    if world is not None and pos and len(pos) >= 8:
+        x, y = struct.unpack_from("<ff", pos, 0)
+        grid_rec = lo.exterior_cells().get((kl(world), math.floor(x / 4096.0), math.floor(y / 4096.0)))
+        if grid_rec is not None:
+            real, _w = _cell_info(lo, grid_rec.key, cache)
+            if real["cell"] != summary["cell"]:
+                out["cell"] = real
+                out["persistentCell"] = summary
+    return out
+
+
+def find_furniture_and_doors(lo: LoadOrder, refs: dict, include_deleted=False) -> tuple[list[dict], list[dict]]:
+    """Placed furniture (FURN bases, with the base's keywords: crafting stations, alchemy labs, racks) and doors
+    with teleport data (DOOR bases with XTEL). A door's leadsTo is its destination ref and the cell that holds it."""
+    furniture, doors = [], []
+    cells = {}
+    for rrec, _gtype in refs.values():
+        if rrec.flags & REC_FLAG_DELETED and not include_deleted:
+            continue
+        name = rrec.get("NAME")
+        if not name:
+            continue
+        base = lo.lookup(rrec.plugin.resolve(struct.unpack_from("<I", name)[0]), ["FURN", "DOOR"])
+        if base is None:
+            continue
+        if base.type == "FURN":
+            d = decode_ref(lo, rrec, ["FURN"], refs)
+            furniture.append({
+                "ref": fmt_ref(rrec.key), "baseEditorId": base.edid(),
+                "baseName": base.plugin.lstring(base.get("FULL")),
+                "keywords": keyword_edids(lo, base),
+                "enableParent": d["enableParent"], "startsDisabled": d["startsDisabled"],
+                "persistent": d["persistent"], "position": d.get("position")})
+        else:
+            xtel = rrec.get("XTEL")
+            if not xtel or len(xtel) < 4:
+                continue
+            dest = rrec.plugin.resolve(struct.unpack_from("<I", xtel, 0)[0])
+            group_cell, dest_rec = lo.ref_cells().get(kl(dest), (None, None))
+            doors.append({
+                "ref": fmt_ref(rrec.key), "baseEditorId": base.edid(),
+                "leadsTo": _leads_to(lo, dest, group_cell, dest_rec, cells),
+                "startsDisabled": _starts_disabled(rrec, refs)})
+    furniture.sort(key=lambda r: (r["baseEditorId"] or "", r["ref"]))
+    doors.sort(key=lambda r: r["ref"])
+    return furniture, doors
 
 
 DISPLAY_ITEM_TYPES = ["ARMO", "WEAP", "BOOK", "MISC", "ALCH", "INGR", "SLGM", "AMMO", "SCRL"]

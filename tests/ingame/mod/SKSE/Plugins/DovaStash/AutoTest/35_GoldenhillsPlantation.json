@@ -1,0 +1,313 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Goldenhills Plantation (Creation Club)",
+  "home": "Update.esm|0x000030EC",
+  "coc": "ccVSVSSE004FarmhouseInterior",
+  "tests": [
+    {
+      "id": "1.1-goldenhills",
+      "title": "Template offered and used",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Goldenhills Plantation",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Goldenhills Plantation v1.0.0 by Dova Stash"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccVSVSSE004-BeAFarmer.esl|0x000009F8"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccVSVSSE004-BeAFarmer.esl|0x000009C0",
+            "ignored": true
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.8a-goldenhills",
+      "title": "Restock to a keep quota, nothing more (the satchel is an upgrade: enabled first)",
+      "steps": [
+        {
+          "do": "enable",
+          "ref": "ccVSVSSE004-BeAFarmer.esl|0x00000932"
+        },
+        {
+          "do": "require",
+          "enabled": "ccVSVSSE004-BeAFarmer.esl|0x0000096A",
+          "why": "the laboratory satchel is an upgrade built by the marker"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 5
+        },
+        {
+          "do": "keep",
+          "keep": {
+            "quotas": [
+              {
+                "category": "alchemy.potions",
+                "quota": 3,
+                "restock": true
+              }
+            ]
+          }
+        },
+        {
+          "do": "snapshot",
+          "name": "restock"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 3
+        },
+        {
+          "check": "count",
+          "in": "ccVSVSSE004-BeAFarmer.esl|0x0000096A",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "restock",
+          "ge": 2
+        },
+        {
+          "do": "op",
+          "op": "Restock"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "contains": "nothing to restock"
+        },
+        {
+          "do": "removeitem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 3
+        },
+        {
+          "do": "op",
+          "op": "Restock"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "restocked 2 items?"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 2
+        },
+        {
+          "do": "keep",
+          "keep": null
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.8b-goldenhills",
+      "title": "Craft from storage at the cooking pot: counts include storage, a craft takes the shortfall",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00065C99",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00034CDF",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "precraft"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00034CDF",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "ccVSVSSE004-BeAFarmer.esl|0x0000096A",
+          "item": "Skyrim.esm|0x00034CDF",
+          "from": "precraft",
+          "eq": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "craft"
+        },
+        {
+          "do": "sit",
+          "keyword": "CraftingCookpot"
+        },
+        {
+          "check": "crafting",
+          "active": true,
+          "item": "Skyrim.esm|0x00034CDF",
+          "ge": 2
+        },
+        {
+          "check": "log",
+          "regex": "Crafting from storage at .* in Goldenhills Plantation: \\d+ materials"
+        },
+        {
+          "check": "hookedCount",
+          "item": "Skyrim.esm|0x00034CDF",
+          "ge": 2
+        },
+        {
+          "do": "consume",
+          "item": "Skyrim.esm|0x00034CDF",
+          "count": 1
+        },
+        {
+          "check": "count",
+          "in": "ccVSVSSE004-BeAFarmer.esl|0x0000096A",
+          "item": "Skyrim.esm|0x00034CDF",
+          "from": "precraft",
+          "eq": 1
+        },
+        {
+          "do": "craft",
+          "uses": "Skyrim.esm|0x00034CDF",
+          "product": "HearthFires.esm|0x0000353D"
+        },
+        {
+          "check": "count",
+          "in": "ccVSVSSE004-BeAFarmer.esl|0x0000096A",
+          "item": "Skyrim.esm|0x00034CDF",
+          "from": "precraft",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "item": "HearthFires.esm|0x0000353D",
+          "from": "craft",
+          "eq": 1
+        },
+        {
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
+        },
+        {
+          "check": "log",
+          "regex": "Crafting from storage \\(crafting menu closed\\): \\d+ materials taken from storage",
+          "within": 5
+        },
+        {
+          "check": "crafting",
+          "active": false,
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6-goldenhills-respawn",
+      "title": "Respawning barrels stay ignored through a re-apply",
+      "steps": [
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccVSVSSE004-BeAFarmer.esl|0x000009C2",
+            "ignored": true
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6.5-goldenhills",
+      "title": "Save as template keeps the master and the ignored barrels",
+      "steps": [
+        {
+          "do": "export",
+          "name": "AutoTest Goldenhills"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Goldenhills.json",
+          "pointer": "/cell",
+          "eq": "Update.esm|0x000030EC"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Goldenhills.json",
+          "pointer": "/master",
+          "eq": "ccVSVSSE004-BeAFarmer.esl|0x000009F8"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Goldenhills.json",
+          "pointer": "/learned",
+          "absent": true
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.8b-goldenhills-stations",
+      "title": "Other stations (forge, smelter, tanning rack) in this cell",
+      "manual": "needs the stations' refs of this cell (not in esm_dump's cell output); only the cooking pot is automated"
+    }
+  ]
+}

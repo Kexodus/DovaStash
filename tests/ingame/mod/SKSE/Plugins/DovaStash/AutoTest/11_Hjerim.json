@@ -1,0 +1,209 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Hjerim (Windhelm, vanilla + Hearthfire)",
+  "home": "Skyrim.esm|0x00016778",
+  "coc": "WindhelmHjerim",
+  "tests": [
+    {
+      "id": "1.1", "title": "Template offered on the first visit; the decorations are bought",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "name": "Hjerim", "layout": false},
+        {"check": "log", "since": "plan", "contains": "Cell Hjerim (Skyrim.esm|0x00016778): template available"},
+        {"check": "log", "since": "plan", "contains": "template: Hjerim v1.0.0 by Dova Stash"},
+        {"check": "notify", "since": "plan", "contains": "Dova Stash: Hjerim setup available (by Dova Stash)"},
+        {"do": "buyHome"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "1.2", "title": "No second notification in the same session",
+      "steps": [
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"do": "enter"},
+        {"check": "notify", "since": "plan", "contains": "Hjerim setup available", "count": 1, "within": 0},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.1", "title": "Make a master (the chest is enabled by its own marker, not by a decoration)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "clearInventory"},
+        {"do": "buyHome"},
+        {"do": "enable", "ref": "Skyrim.esm|0x000DF5AC"},
+        {"do": "require", "enabled": "Skyrim.esm|0x000DF5AC", "why": "the master chest starts disabled; its marker WindhelmHjerimPlayerChestEnable is not a decoration"},
+        {"do": "makeMaster", "ref": "Skyrim.esm|0x000DF5AC"},
+        {"check": "notify", "contains": "is now the master container"},
+        {"check": "log", "contains": "Saved layout"},
+        {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000DF5AC"},
+        {"check": "home", "layout": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.2", "title": "Special stacks (tempered, renamed, stolen, worn) survive Deposit",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00013989", "count": 1, "extra": {"health": 1.2}},
+        {"do": "additem", "item": "Skyrim.esm|0x00013982", "count": 1, "extra": {"name": "AutoTest Mace"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397E", "count": 1, "extra": {"owner": "Skyrim.esm|0x00013BA1"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397E", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 3},
+        {"do": "equip", "item": "Skyrim.esm|0x00012EB7"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 10},
+        {"do": "additem", "item": "Skyrim.esm|0x0000000A", "count": 3},
+        {"check": "count", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00013982", "filter": "renamed:AutoTest Mace", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "filter": "stolen", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "filter": "worn", "eq": 1},
+        {"do": "snapshot", "name": "inventory"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "notify", "regex": "Dova Stash: deposited \\d+ items? into \\d+ containers?"},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00013982", "filter": "renamed:AutoTest Mace", "eq": 1},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0001397E", "filter": "stolen", "eq": 1},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0001397E", "from": "inventory", "eq": 3},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012EB7", "from": "inventory", "eq": 2},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "filter": "worn", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "eq": 1},
+        {"check": "conserved", "snapshot": "inventory"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.4", "title": "Round trip (M1 exit criterion): Retrieve everything, Deposit, Retrieve again",
+      "steps": [
+        {"do": "op", "op": "Retrieve", "pattern": "*"},
+        {"check": "notify", "regex": "Dova Stash: retrieved \\d+ items? from \\d+ containers?"},
+        {"check": "count", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00013982", "filter": "renamed:AutoTest Mace", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "filter": "stolen", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "eq": 3},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"do": "op", "op": "Retrieve", "pattern": "*"},
+        {"check": "count", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00013982", "filter": "renamed:AutoTest Mace", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "filter": "stolen", "eq": 1},
+        {"check": "conserved", "snapshot": "inventory"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.6", "title": "Plain copies next to a worn copy",
+      "steps": [
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397E", "count": 3},
+        {"do": "equip", "item": "Skyrim.esm|0x0001397E"},
+        {"do": "snapshot", "name": "daggers"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "filter": "worn", "eq": 1},
+        {"check": "log", "regex": "Moved Iron Dagger \\[Skyrim\\.esm\\|0x0001397E\\] x2 \\(plain, beside a special copy\\)"},
+        {"check": "log", "absent": true, "contains": "took a tempered, enchanted, renamed or worn copy"},
+        {"check": "conserved", "snapshot": "daggers"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.6b", "title": "More arrows of the type you have equipped stay with you",
+      "steps": [
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397D", "count": 10},
+        {"do": "equip", "item": "Skyrim.esm|0x0001397D"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397D", "count": 20},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "eq": 30},
+        {"do": "snapshot", "name": "arrows"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "filter": "worn", "ge": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "eq": 30},
+        {"check": "log", "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ stays: kept by always equipped"},
+        {"check": "log", "absent": true, "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ -> "},
+        {"check": "conserved", "snapshot": "arrows"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.6", "title": "Use template, Deposit spreads the loot over the bound containers",
+      "steps": [
+        {"do": "reset"},
+        {"do": "buyHome"},
+        {"do": "enable", "ref": "Skyrim.esm|0x000DF5AC"},
+        {"do": "require", "enabled": "Skyrim.esm|0x000DF5AC", "why": "the template master starts disabled"},
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Hjerim setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/Vanilla/Hjerim.json@1.0.0"},
+        {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000DF5AC"},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 5},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 4},
+        {"do": "additem", "item": "Skyrim.esm|0x000139B9", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x00013911", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x00012E4D", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x00034CDF", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00064B41", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x0000000A", "count": 3},
+        {"do": "snapshot", "name": "spread"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "Skyrim.esm|0x000DF49D", "item": "Skyrim.esm|0x0005ACE4", "from": "spread", "ge": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000DF4C1", "item": "Skyrim.esm|0x0003EADD", "from": "spread", "ge": 4},
+        {"check": "count", "in": "Skyrim.esm|0x000DF4C1", "item": "Skyrim.esm|0x00034CDF", "from": "spread", "ge": 2},
+        {"check": "count", "in": "Skyrim.esm|0x000DF49B", "item": "Skyrim.esm|0x0001ACE6", "from": "spread", "ge": 1},
+        {"check": "count", "in": "Skyrim.esm|0x000DF61E", "item": "Skyrim.esm|0x000139B9", "from": "spread", "ge": 1},
+        {"check": "count", "in": "Skyrim.esm|0x000DF61B", "item": "Skyrim.esm|0x00013911", "from": "spread", "ge": 1},
+        {"check": "count", "in": "Skyrim.esm|0x000DF61B", "item": "Skyrim.esm|0x00012E4D", "from": "spread", "ge": 1},
+        {"check": "count", "in": "Skyrim.esm|0x000DF66C", "item": "Skyrim.esm|0x00064B41", "from": "spread", "ge": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0000000A", "ge": 3},
+        {"check": "conserved", "snapshot": "spread"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.4", "title": "Sort all and Retrieve by category",
+      "steps": [
+        {"do": "snapshot", "name": "sortall"},
+        {"do": "op", "op": "SortAll"},
+        {"check": "notify", "regex": "Dova Stash: re-sorted \\d+ items?"},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0005ACE4", "eq": 0},
+        {"check": "count", "in": "Skyrim.esm|0x000DF49D", "item": "Skyrim.esm|0x0005ACE4", "ge": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000DF61E", "item": "Skyrim.esm|0x00012EB7", "ge": 2},
+        {"do": "op", "op": "Retrieve", "pattern": "misc.ores_ingots"},
+        {"check": "notify", "regex": "Dova Stash: retrieved \\d+ items? from \\d+ containers?"},
+        {"check": "count", "item": "Skyrim.esm|0x0005ACE4", "ge": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000DF49D", "item": "Skyrim.esm|0x0005ACE4", "eq": 0},
+        {"do": "op", "op": "Retrieve", "pattern": "books.*"},
+        {"check": "count", "item": "Skyrim.esm|0x0001ACE6", "ge": 1},
+        {"check": "count", "in": "Skyrim.esm|0x000DF49B", "item": "Skyrim.esm|0x0001ACE6", "eq": 0},
+        {"check": "conserved", "snapshot": "sortall"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9-hjerim", "title": "A home over several cells: the street outside, Deposit from there, remove it",
+      "steps": [
+        {"do": "exitDoor"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Street"},
+        {"check": "notify", "contains": "Dova Stash: Street is now part of Hjerim"},
+        {"check": "log", "regex": "Add area: .* is now part of Hjerim"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Street"}},
+        {"check": "home", "is": true, "name": "Hjerim"},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Hjerim"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Hjerim"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"do": "enter"},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

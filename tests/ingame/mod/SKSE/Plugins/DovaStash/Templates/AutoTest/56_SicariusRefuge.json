@@ -1,0 +1,260 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Sicarius' Refuge (AutoTest)",
+  "author": "AutoTest",
+  "version": "1.0.0",
+  "priority": 10,
+  "note": "Test template for the AutoTest plan 56_SicariusRefuge (drafted from the Dova Stash Editor scan; ignored containers kept as the draft has them).",
+  "requires": [
+    "Eli_Sicarius' Refuge.esp"
+  ],
+  "cell": "Eli_Sicarius' Refuge.esp|0x0016D087",
+  "master": "Eli_Sicarius' Refuge.esp|0x0016D16A",
+  "containers": [
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x00011D3B",
+      "label": "Poisons",
+      "categories": [
+        "alchemy.poisons"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CCA5",
+      "label": "Arrows",
+      "categories": [
+        "ammo.*",
+        "ammo.arrows"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CCD1",
+      "label": "Drawers"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CCD3",
+      "label": "Wardrobe",
+      "categories": [
+        "armor.clothing"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CCD6",
+      "label": "Drawers"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CCD7",
+      "label": "Chest",
+      "categories": [
+        "books.*"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CD27",
+      "label": "Ingredients"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CD28",
+      "label": "Potions",
+      "categories": [
+        "alchemy.potions"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CD2A",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CD49",
+      "label": "Ingredients",
+      "categories": [
+        "alchemy.ingredients"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CD5D",
+      "label": "Ingredients"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CD6C",
+      "label": "Knapsack"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CD74",
+      "label": "Dresser"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CD97",
+      "label": "Soul Gem Chest"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CDA8",
+      "label": "Drawers"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CDE6",
+      "label": "Soul Gems",
+      "categories": [
+        "soulgems.*"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CE57",
+      "label": "Soul Gem Shards"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CE8F",
+      "label": "Weapon Barrel",
+      "categories": [
+        "weapons.*"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CE9A",
+      "label": "Tool Barrel",
+      "categories": [
+        "misc.tools"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CECB",
+      "label": "Footlocker"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CEDA",
+      "label": "Disenchantment Font"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CEF7",
+      "label": "Pelts & Hides"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CEF8",
+      "label": "Misc Supplies",
+      "categories": [
+        "misc.clutter"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CEF9",
+      "label": "Raw Materials"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CEFA",
+      "label": "Ingots",
+      "categories": [
+        "misc.ores_ingots"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CEFB",
+      "label": "Bones & Remains",
+      "categories": [
+        "misc.animal_parts"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CEFC",
+      "label": "Leathers & Linen",
+      "categories": [
+        "misc.hides_pelts"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CEFD",
+      "label": "Firewood",
+      "categories": [
+        "misc.building_materials"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CF0A",
+      "label": "Smithing Gear"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CF76",
+      "label": "Trash Bin (Respawns)"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016CF78",
+      "label": "Display Items"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D0E5",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D0EE",
+      "label": "Meats",
+      "categories": [
+        "alchemy.food"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D0F8",
+      "label": "Dresser"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D123",
+      "label": "Armour Storage",
+      "categories": [
+        "armor.heavy",
+        "armor.light",
+        "armor.shields"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D15E",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D1A6",
+      "label": "Strong Box",
+      "categories": [
+        "armor.jewelry",
+        "misc.gems"
+      ]
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D1A9",
+      "label": "Safe"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D23F",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D240",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D241",
+      "label": "Jar"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D243",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D270",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D28B",
+      "label": "Small Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D28C",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "Eli_Sicarius' Refuge.esp|0x0016D28E",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    }
+  ]
+}

@@ -1,0 +1,592 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Tel Jerdein (Telvanni Sorcerer Tower, three cells)",
+  "home": "rmp_telvannihearthfires.esp|0x00014D76",
+  "coc": "00RMP00TelvanniHearthfiresINT01",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Template offered on the first visit",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tel Jerdein - Bedroom",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template available"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "setup available \\(by "
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/TelJerdein.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "No second notification in the same session",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "setup available",
+          "count": 1,
+          "within": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6",
+      "title": "Use template: the AutoTest template is the one applied",
+      "steps": [
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/TelJerdein.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/AutoTest/TelJerdein.json@1.0.0",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "rmp_telvannihearthfires.esp|0x00084894",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "rmp_telvannihearthfires.esp|0x0000AABB"
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "rmp_telvannihearthfires.esp|0x0008EADA"
+          },
+          "within": 5
+        },
+        {
+          "check": "notify",
+          "regex": "setup enabled",
+          "since": "action",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.4-TelJerdein",
+      "title": "A respawning container in the Foyer: accepted, the cell never resets",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x0000AABB"
+        },
+        {
+          "do": "bind",
+          "ref": "rmp_telvannihearthfires.esp|0x0011CDE9",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "contains": "has the respawn flag; accepted because the cell never resets"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "rmp_telvannihearthfires.esp|0x0011CDE9",
+            "categories": [
+              "misc.clutter"
+            ]
+          },
+          "within": 5
+        },
+        {
+          "do": "unbind",
+          "ref": "rmp_telvannihearthfires.esp|0x0011CDE9",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.2-TelJerdein",
+      "title": "Inventory: items with no container in the Bedroom",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000800E4",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.3-TelJerdein",
+      "title": "Deposit in the Bedroom: nothing lost (the apron goes to a mannequin, which takes it out of its dresser)",
+      "steps": [
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: deposited \\d+ items?"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "inventory",
+          "ignore": [
+            "Skyrim.esm|0x0005B69F",
+            "Skyrim.esm|0x0005B6A1",
+            "Skyrim.esm|0x00080697"
+          ]
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-TelJerdein",
+      "title": "Foyer (another cell): home with the Bedroom's name, Deposit and Retrieve from there",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x0000AABB"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tel Jerdein - Bedroom",
+          "layout": true
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "foyer"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "rmp_telvannihearthfires.esp|0x000AD226",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "foyer",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "rmp_telvannihearthfires.esp|0x001781D7",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "foyer",
+          "ge": 1
+        },
+        {
+          "check": "conserved",
+          "snapshot": "foyer",
+          "ignore": [
+            "Skyrim.esm|0x000209A6",
+            "Skyrim.esm|0x00080697"
+          ]
+        },
+        {
+          "check": "noErrors"
+        },
+        {
+          "do": "snapshot",
+          "name": "back"
+        },
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "alchemy.potions"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "back",
+          "ge": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.3-TelJerdein",
+      "title": "Learn by hand in the Foyer: a dagger put into the Potions container",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x0000AABB"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "openContainer",
+          "ref": "rmp_telvannihearthfires.esp|0x000AD226"
+        },
+        {
+          "do": "store",
+          "to": "rmp_telvannihearthfires.esp|0x000AD226",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "now goes to",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x0001397E",
+          "eq": "rmp_telvannihearthfires.esp|0x000AD226",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.4-TelJerdein",
+      "title": "Sort all from the Foyer",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x0000AABB"
+        },
+        {
+          "do": "snapshot",
+          "name": "sortall"
+        },
+        {
+          "do": "op",
+          "op": "SortAll"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "re-sorted \\d+ items?"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "sortall",
+          "ignore": [
+            "Skyrim.esm|0x0001397E"
+          ]
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9c-TelJerdein",
+      "title": "Root Cellar is part of the home (log line names it)",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x0008EADA"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tel Jerdein - Bedroom",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "\\(rmp_telvannihearthfires\\.esp\\|0x0008EADA\\): part of Tel Jerdein - Bedroom"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9d-TelJerdein",
+      "title": "Root Cellar (another cell with a dresser for ores and hides): Deposit there",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x0008EADA"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tel Jerdein - Bedroom",
+          "layout": true
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000800E4",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "root"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "rmp_telvannihearthfires.esp|0x00121F43",
+          "item": "Skyrim.esm|0x000800E4",
+          "from": "root",
+          "ge": 2
+        },
+        {
+          "check": "conserved",
+          "snapshot": "root"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9e-TelJerdein",
+      "title": "A cell not in the template: added from the Bedroom's door, saved, re-applied, removed",
+      "steps": [
+        {
+          "do": "exitDoor",
+          "ref": "rmp_telvannihearthfires.esp|0x00014D77"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Outside"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tel Jerdein - Bedroom",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "regex": "Add area: .* named \"Outside\""
+        },
+        {
+          "do": "export",
+          "name": "AutoTest TelJerdein"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest TelJerdein.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x0000973D",
+            "label": "Outside"
+          }
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest TelJerdein.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "rmp_telvannihearthfires.esp|0x0000AABB",
+            "label": "Tel Jerdein - Foyer"
+          }
+        },
+        {
+          "do": "useTemplate",
+          "source": "Templates/AutoTest/TelJerdein.json"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x0000973D"
+          },
+          "within": 5
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "is no longer part of"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "lacks": {
+            "cell": "Skyrim.esm|0x0000973D"
+          },
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-TelJerdein",
+      "title": "Reset removes the setup: the Foyer is its own home again",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x00014D76"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: .* reset \\(setup backed up\\)",
+          "within": 5
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "rmp_telvannihearthfires\\.esp_00014D76\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x0000AABB"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tel Jerdein - Foyer",
+          "layout": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9f-TelJerdein",
+      "title": "Deposit reaches persistent containers of another cell",
+      "manual": "the template has no persistent container outside the Bedroom (Foyer and Root Cellar containers are not persistent): nothing to spread to; the non-persistent case is covered by 2.3"
+    },
+    {
+      "id": "3.7-TelJerdein",
+      "title": "Displays in the Foyer (18 racks, mannequins and jars) are not filled from the Bedroom",
+      "manual": "display fills are logged without their cell: needs a look at the Foyer's displays after a Deposit in the Bedroom"
+    }
+  ],
+  "templates": [
+    "TelJerdein.json"
+  ]
+}

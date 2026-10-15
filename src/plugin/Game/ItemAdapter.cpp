@@ -489,6 +489,31 @@ namespace dova::game
 		return result;
 	}
 
+	bool IsDistinctExtraList(RE::ExtraDataList* a_extra)
+	{
+		if (!a_extra) {
+			return false;
+		}
+		for (const auto& data : *a_extra) {
+			switch (data.GetType()) {
+			case RE::ExtraDataType::kCount:
+			case RE::ExtraDataType::kUniqueID:
+			case RE::ExtraDataType::kOwnership:
+				break;
+			default:
+				return true;
+			}
+		}
+		return false;
+	}
+
+	std::vector<RE::ExtraDataList*> SpecialStacks(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object)
+	{
+		auto out = ExtraStacks(a_ref, a_object);
+		std::erase_if(out, [](RE::ExtraDataList* x) { return !IsDistinctExtraList(x); });
+		return out;
+	}
+
 	std::vector<RE::ExtraDataList*> ExtraStacks(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object)
 	{
 		std::vector<RE::ExtraDataList*> out;

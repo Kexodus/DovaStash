@@ -1,0 +1,980 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Lakeview Manor (built, several cells)",
+  "home": "HearthFires.esm|0x00002FEC",
+  "coc": "BYOHHouse1Falkreath",
+  "templates": [
+    "LakeviewManor.json"
+  ],
+  "tests": [
+    {
+      "id": "3.9.1",
+      "title": "Built house: the AutoTest template is picked, /cells lists the cellar and the grounds",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "require",
+          "enabled": "HearthFires.esm|0x00005134",
+          "why": "the built house's main hall chests"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "home",
+          "is": true,
+          "layout": false
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/LakeviewManor.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "Dova Stash: .* setup enabled"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "template Templates/AutoTest/LakeviewManor.json"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "HearthFires.esm|0x00004849",
+            "label": "Cellar"
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009BF7",
+            "label": "Grounds"
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/AutoTest/LakeviewManor.json@1.0.0"
+        },
+        {
+          "check": "noErrors"
+        },
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1Exterior"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1FalkreathBasement"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "enter"
+        }
+      ]
+    },
+    {
+      "id": "3.9.2",
+      "title": "Main hall Deposit: ingots to the cellar's forge end table (another cell), building materials to the grounds chest",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 40
+        },
+        {
+          "do": "additem",
+          "item": "HearthFires.esm|0x0000300F",
+          "count": 12
+        },
+        {
+          "do": "additem",
+          "item": "HearthFires.esm|0x0000306C",
+          "count": 6
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000800E4",
+          "count": 10
+        },
+        {
+          "do": "snapshot",
+          "name": "main"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "Dova Stash: deposited \\d+ items? into \\d+ containers?"
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x0000BE66",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "main",
+          "ge": 40,
+          "within": 3
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x00003068",
+          "item": "HearthFires.esm|0x0000300F",
+          "from": "main",
+          "ge": 12,
+          "within": 3
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x00003068",
+          "item": "HearthFires.esm|0x0000306C",
+          "from": "main",
+          "ge": 6,
+          "within": 3
+        },
+        {
+          "check": "count",
+          "in": "player",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "main"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.3",
+      "title": "Outside: Deposit goes to the persistent chests inside; Retrieve by category brings the ingots back",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1Exterior"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "require",
+          "enabled": "HearthFires.esm|0x00003068",
+          "why": "the grounds chest comes with the built house"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "part of Lakeview Manor",
+          "within": 3
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 10
+        },
+        {
+          "do": "additem",
+          "item": "HearthFires.esm|0x0000300F",
+          "count": 6
+        },
+        {
+          "do": "snapshot",
+          "name": "out"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x0000BE66",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "out",
+          "ge": 10,
+          "within": 3
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x00003068",
+          "item": "HearthFires.esm|0x0000300F",
+          "from": "out",
+          "ge": 6,
+          "within": 3
+        },
+        {
+          "check": "conserved",
+          "snapshot": "out"
+        },
+        {
+          "do": "snapshot",
+          "name": "out2"
+        },
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "misc.ores_ingots"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "player",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "out2",
+          "ge": 10,
+          "within": 3
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.3b",
+      "title": "Outside: a container that is not persistent in another cell (the cellar's knapsack) stays untouched",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1FalkreathBasement"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "require",
+          "enabled": "HearthFires.esm|0x0000BE8A",
+          "why": "the cellar's knapsack comes with the built cellar"
+        },
+        {
+          "do": "bind",
+          "ref": "HearthFires.esm|0x0000BE88",
+          "category": "misc.ores_ingots"
+        },
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1Exterior"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 8
+        },
+        {
+          "do": "snapshot",
+          "name": "knap"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "unavailable: only reachable in"
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x0000BE66",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "knap",
+          "ge": 8,
+          "within": 3
+        },
+        {
+          "check": "conserved",
+          "snapshot": "knap"
+        },
+        {
+          "check": "noErrors"
+        },
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1FalkreathBasement"
+        },
+        {
+          "do": "unbind",
+          "ref": "HearthFires.esm|0x0000BE88",
+          "category": "misc.ores_ingots"
+        },
+        {
+          "do": "waitIdle"
+        }
+      ]
+    },
+    {
+      "id": "3.9.4",
+      "title": "Anvil in the main hall, iron ingots from the cellar's forge end table (another cell): craft an iron dagger",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "enable",
+          "ref": "HearthFires.esm|0x000051CB"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 40
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "do": "snapshot",
+          "name": "forge"
+        },
+        {
+          "do": "sit",
+          "ref": "HearthFires.esm|0x000051CB"
+        },
+        {
+          "check": "crafting",
+          "active": true,
+          "item": "Skyrim.esm|0x0005ACE4",
+          "ge": 1,
+          "within": 5
+        },
+        {
+          "check": "hookedCount",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "ge": 40,
+          "within": 3
+        },
+        {
+          "do": "craft",
+          "uses": "Skyrim.esm|0x0005ACE4",
+          "product": "Skyrim.esm|0x0001397E"
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "forge",
+          "ignore": [
+            "Skyrim.esm|0x0005ACE4",
+            "Skyrim.esm|0x000800E4",
+            "Skyrim.esm|0x0001397E"
+          ]
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.4-grounds",
+      "title": "Smelter outside: iron ore from the grounds goes to the cellar's stock, the smelter melts it into ingots",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1Exterior"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "require",
+          "enabled": "HearthFires.esm|0x00003068",
+          "why": "the grounds come with the built house"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00071CF3",
+          "count": 10
+        },
+        {
+          "do": "snapshot",
+          "name": "ore"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x0000BE66",
+          "item": "Skyrim.esm|0x00071CF3",
+          "from": "ore",
+          "ge": 10,
+          "within": 3
+        },
+        {
+          "do": "snapshot",
+          "name": "smelt"
+        },
+        {
+          "do": "sit",
+          "keyword": "CraftingSmelter"
+        },
+        {
+          "check": "crafting",
+          "active": true,
+          "within": 5
+        },
+        {
+          "check": "hookedCount",
+          "item": "Skyrim.esm|0x00071CF3",
+          "ge": 10,
+          "within": 3
+        },
+        {
+          "do": "craft",
+          "uses": "Skyrim.esm|0x00071CF3",
+          "product": "Skyrim.esm|0x0005ACE4"
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "smelt",
+          "ignore": [
+            "Skyrim.esm|0x00071CF3",
+            "Skyrim.esm|0x0005ACE4"
+          ]
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.4-cellar",
+      "title": "Tanning rack in the cellar: the menu opens with the home's storage, nothing is lost",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1FalkreathBasement"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "require",
+          "enabled": "HearthFires.esm|0x0000BE66",
+          "why": "the cellar's end table comes with the built cellar"
+        },
+        {
+          "do": "enable",
+          "ref": "HearthFires.esm|0x0000BE59"
+        },
+        {
+          "do": "snapshot",
+          "name": "tan"
+        },
+        {
+          "do": "sit",
+          "ref": "HearthFires.esm|0x0000BE59"
+        },
+        {
+          "check": "crafting",
+          "active": true,
+          "within": 5
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "tan"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.5",
+      "title": "The cellar is part of the home: no area offer there, a Deposit reaches the grounds chest",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1FalkreathBasement"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "part of Lakeview Manor",
+          "within": 3
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "HearthFires.esm|0x0000300F",
+          "count": 4
+        },
+        {
+          "do": "snapshot",
+          "name": "cellar"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x00003068",
+          "item": "HearthFires.esm|0x0000300F",
+          "from": "cellar",
+          "ge": 4,
+          "within": 3
+        },
+        {
+          "check": "conserved",
+          "snapshot": "cellar"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.6",
+      "title": "Cellar with its own setup (Cellar template enabled while the cellar is its own home)",
+      "manual": "needs a step that creates a layout for another cell than the plan's home; writeLayout and makeMaster act on the merged home"
+    },
+    {
+      "id": "3.9.7",
+      "title": "Add the second grounds cell by hand, rename it, Deposit from there, remove it with items still in its chest",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1Exterior02"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "require",
+          "enabled": "HearthFires.esm|0x0000CD26",
+          "why": "the second grounds chest comes with the built house"
+        },
+        {
+          "do": "addArea",
+          "label": "Garden"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009BD6",
+            "label": "Garden"
+          },
+          "within": 5
+        },
+        {
+          "do": "renameArea",
+          "label": "Herb garden"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009BD6",
+            "label": "Herb garden"
+          },
+          "within": 5
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 5
+        },
+        {
+          "do": "store",
+          "to": "HearthFires.esm|0x0000CD26",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 3
+        },
+        {
+          "do": "snapshot",
+          "name": "garden"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x0000BE66",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "garden",
+          "ge": 2,
+          "within": 3
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x0000CD26",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "garden",
+          "eq": 0
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "lacks": {
+            "cell": "Skyrim.esm|0x00009BD6"
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009BF7",
+            "label": "Grounds"
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "HearthFires.esm|0x00004849",
+            "label": "Cellar"
+          }
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "regex": "ItemMover: moved",
+          "absent": true
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x0000CD26",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "garden",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "HearthFires.esm|0x0000BE66",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "garden",
+          "ge": 2,
+          "within": 3
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.8",
+      "title": "Re-apply the template keeps the player's extra area; Save as template keeps cells",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1Exterior02"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "addArea",
+          "label": "Garden"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009BD6",
+            "label": "Garden"
+          },
+          "within": 5
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/LakeviewManor.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009BD6",
+            "label": "Garden"
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "HearthFires.esm|0x00004849",
+            "label": "Cellar"
+          }
+        },
+        {
+          "do": "export",
+          "name": "AutoTest Lakeview Built"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Lakeview Built.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "HearthFires.esm|0x00004849",
+            "label": "Cellar"
+          }
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Lakeview Built.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009BD6",
+            "label": "Garden"
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.10",
+      "title": "Display edge: a rack in the main hall is not filled from the grounds; a Deposit inside fills it",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "require",
+          "enabled": "HearthFires.esm|0x00008276",
+          "why": "the weapon rack comes with the built house"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "displayUse",
+          "ref": "HearthFires.esm|0x00008276"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1Exterior"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "Display: .* on .*\\(rack\\)",
+          "absent": true
+        },
+        {
+          "check": "count",
+          "in": "player",
+          "item": "Skyrim.esm|0x00012EB7",
+          "eq": 0
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "Display:",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9.9",
+      "title": "Reset in the main hall: the layout is gone, the grounds are not a home, the cellar is its own home again",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "home",
+          "is": true,
+          "layout": false
+        },
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1Exterior"
+        },
+        {
+          "check": "home",
+          "is": false,
+          "within": 3
+        },
+        {
+          "do": "enter",
+          "coc": "BYOHHouse1FalkreathBasement"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "layout": false,
+          "within": 3
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/Vanilla/LakeviewManorCellar.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

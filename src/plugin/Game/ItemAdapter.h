@@ -59,4 +59,13 @@ namespace dova::game
 	// Every extra-data stack (tempered, enchanted, renamed, worn...) of `a_object` in `a_ref` that still
 	// holds at least one item.
 	[[nodiscard]] std::vector<RE::ExtraDataList*> ExtraStacks(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object);
+
+	// An extra list that makes its copies different from plain ones (tempered, enchanted, renamed, poisoned,
+	// charged, a filled soul gem, worn, favorited, a quest alias, scripted...). A list that only carries a
+	// count, a unique id or an owner is how the engine keeps plain items next to a container's base-record
+	// stock: its copies are plain for every rule of ours.
+	[[nodiscard]] bool IsDistinctExtraList(RE::ExtraDataList* a_extra);
+
+	// ExtraStacks narrowed to the distinct ones: the copies a plain move must never take (ItemMover).
+	[[nodiscard]] std::vector<RE::ExtraDataList*> SpecialStacks(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object);
 }

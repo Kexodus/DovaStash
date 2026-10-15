@@ -4,6 +4,7 @@
 #include "Controller.h"
 #include "Events/EventSinks.h"
 #include "Game/FormUtil.h"
+#include "Game/ItemMover.h"
 #include "Home/HomeRegistry.h"
 #include "Home/Store.h"
 #include "Hooks/CraftingHooks.h"
@@ -244,18 +245,38 @@ namespace dova::autotest
 		}
 
 		// The player and every container of the player's cell.
+		// The player, every container of the player's cell and, in a home over several cells (DESIGN §6.7), the
+		// layout's containers in its other cells that are in memory (persistent ones): a Deposit from the grounds
+		// into the hall is a move, not a loss.
 		Snapshot TakeSnapshot()
 		{
 			Snapshot snap;
 			Collect(snap, "player", game::Player());
+			std::set<RE::TESObjectREFR*> seen;
 			if (auto* cell = PlayerCell()) {
 				cell->ForEachReference([&](RE::TESObjectREFR* a_ref) {
 					if (a_ref && game::IsContainerRef(a_ref) && !a_ref->IsDisabled()) {
 						const auto ref = game::ToFormRef(a_ref);
 						Collect(snap, ref ? ref->ToString() : game::Describe(a_ref), a_ref);
+						seen.insert(a_ref);
 					}
 					return RE::BSContainer::ForEachResult::kContinue;
 				});
+			}
+			if (auto* home = CurrentHome(); home && home->layout) {
+				auto add = [&](const core::FormRef& a_ref) {
+					auto* object = game::LookupRef(a_ref);
+					if (object && !seen.contains(object) && game::IsContainerRef(object) && !object->IsDisabled()) {
+						Collect(snap, a_ref.ToString(), object);
+						seen.insert(object);
+					}
+				};
+				if (home->layout->master) {
+					add(*home->layout->master);
+				}
+				for (const auto& c : home->layout->containers) {
+					add(c.ref);
+				}
 			}
 			return snap;
 		}
@@ -1074,7 +1095,10 @@ namespace dova::autotest
 				if (target != object && object->IsDisabled()) {
 					Console("enable", object);
 				}
-				return WaitFor(std::format("{} enabled", ref->ToString()), 5.0, [object]() { return !object->IsDisabled(); }, c, false);
+				// Enabled and, for something in the player's cell, with its 3D up: a station enabled a moment ago has none
+				// yet, and sitting at it opens no menu (Heljarchen's anvil in the first runs).
+				const bool here = object->GetParentCell() == PlayerCell();
+				return WaitFor(std::format("{} enabled", ref->ToString()), 5.0, [object, here]() { return !object->IsDisabled() && (!here || object->Is3DLoaded()); }, c, false);
 			}
 			if (a_kind == "enter") {
 				std::string target = s.value("coc", ""s);
@@ -1529,11 +1553,20 @@ namespace dova::autotest
 					AbortTest(c, a_kind, "item or container not found");
 					return std::nullopt;
 				}
-				if (store) {
-					player->RemoveItem(item, s.value("count", 1), RE::ITEM_REMOVE_REASON::kStoreInContainer, nullptr, other);
-				} else {
-					other->RemoveItem(item, s.value("count", 1), RE::ITEM_REMOVE_REASON::kRemove, nullptr, player);
+				// For a short grace after its own moves Dova Stash ignores container events (ItemMover::IsSuppressing,
+				// so scripts answering a move are not mistaken for the player). A player cannot store anything that
+				// fast; the harness can, right after a Distribute: wait it out, or the arrival goes unnoticed.
+				auto act = [item, other, player, store, count = s.value("count", 1)]() {
+					if (store) {
+						player->RemoveItem(item, count, RE::ITEM_REMOVE_REASON::kStoreInContainer, nullptr, other);
+					} else {
+						other->RemoveItem(item, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, player);
+					}
+				};
+				if (game::ItemMover::IsSuppressing()) {
+					return WaitFor("Dova Stash's own moves settled", 5.0, []() { return !game::ItemMover::IsSuppressing(); }, c, false, act);
 				}
+				act();
 				return std::nullopt;
 			}
 			if (a_kind == "acceptSuggestion" || a_kind == "declineSuggestion") {
@@ -1586,8 +1619,8 @@ namespace dova::autotest
 				}
 				logger::info("AutoTest: sitting down at {}", Name(station));
 				player->MoveTo(station);
-				station->ActivateRef(player, 0, nullptr, 0, false);
 				const auto menu = s.value("menu", std::string(RE::CraftingMenu::MENU_NAME));
+				const auto timeout = s.value("timeout", 20.0);
 				auto       opened = std::make_shared<std::optional<Clock::time_point>>();
 				auto       menuUp = [menu, opened]() {
                     auto* ui = RE::UI::GetSingleton();
@@ -1599,18 +1632,34 @@ namespace dova::autotest
                     }
                     return Clock::now() - **opened > 1s;
 				};
-				auto wait = WaitFor(std::format("{} open", menu), s.value("timeout", 20.0), menuUp, c);
-				wait.deadline = Clock::now() + 6s;
-				// Activating the station from the plugin may not seat the player: then the console does it.
-				wait.finish = [&c, menuUp, menu, stationId = station->GetFormID(), timeout = s.value("timeout", 20.0)](bool a_timedOut) {
-					if (!a_timedOut) {
-						return;
-					}
-					logger::info("AutoTest: the station did not open {} (open menus: {}); activating it with the console", menu, OpenMenus());
-					Console("activate player", RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId));
-					c.next = WaitFor(std::format("{} open", menu), timeout, menuUp, c);
-				};
-				return wait;
+				// Right after a MoveTo (or a coc a moment ago) the player has no 3D yet and the furniture does not seat
+				// them: the activation is accepted (the crafting hook fires) but no menu opens. Settle first.
+				const auto stationId = station->GetFormID();
+				const auto until = Clock::now() + 1500ms;
+				return WaitFor("settled at the station", 10.0, [until]() {
+					auto* p = game::Player();
+					return Clock::now() >= until && p && p->Is3DLoaded();
+				},
+					c, false, [&c, menu, menuUp, stationId, timeout]() {
+						auto* p = game::Player();
+						auto* st = RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId);
+						if (!p || !st) {
+							return;
+						}
+						st->ActivateRef(p, 0, nullptr, 0, false);
+						auto wait = WaitFor(std::format("{} open", menu), timeout, menuUp, c);
+						wait.deadline = Clock::now() + 6s;
+						// Activating the station from the plugin may not seat the player: then the console does it.
+						wait.finish = [&c, menuUp, menu, stationId, timeout](bool a_timedOut) {
+							if (!a_timedOut) {
+								return;
+							}
+							logger::info("AutoTest: the station did not open {} (open menus: {}); activating it with the console", menu, OpenMenus());
+							Console("activate player", RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId));
+							c.next = WaitFor(std::format("{} open", menu), timeout, menuUp, c);
+						};
+						c.next = std::move(wait);
+					});
 			}
 			if (a_kind == "consume") {
 				// What a crafting menu does with a material (kRemove, no target): through PlayerCharacter::RemoveItem,

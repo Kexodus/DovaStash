@@ -1,0 +1,244 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Nchuanthumz (Creation Club)",
+  "home": "ccAFDSSE001-DweSanctuary.esm|0x00000A5E",
+  "coc": "ccAFDSSE001Interior02Main",
+  "tests": [
+    {
+      "id": "1.1-nchuanthumz",
+      "title": "Template offered and used; the respawning jewelry box stays ignored",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Nchuanthumz",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Nchuanthumz v1.0.0 by Dova Stash"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccAFDSSE001-DweSanctuary.esm|0x00000DB9"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccAFDSSE001-DweSanctuary.esm|0x00000F38",
+            "ignored": true
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.1-nchuanthumz",
+      "title": "Unbuilt containers: a disabled master and disabled potion containers take nothing",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "unbuilt"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "ccAFDSSE001-DweSanctuary.esm|0x00000DB9",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "unbuilt",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 2
+        },
+        {
+          "check": "conserved",
+          "snapshot": "unbuilt"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.1b-nchuanthumz",
+      "title": "The master and the potion containers are built by their levers (enable markers)",
+      "steps": [
+        {
+          "do": "enable",
+          "ref": "ccAFDSSE001-DweSanctuary.esm|0x00048604"
+        },
+        {
+          "do": "enable",
+          "ref": "ccAFDSSE001-DweSanctuary.esm|0x00048605"
+        },
+        {
+          "do": "enable",
+          "ref": "ccAFDSSE001-DweSanctuary.esm|0x00048606"
+        },
+        {
+          "do": "require",
+          "enabled": "ccAFDSSE001-DweSanctuary.esm|0x00000DB9",
+          "why": "the bedroom lever enables the master"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "ccAFDSSE001-DweSanctuary.esm|0x00029FDB",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "unbuilt",
+          "ge": 2,
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "4.4-nchuanthumz",
+      "title": "A large inventory: one Deposit, timed",
+      "steps": [
+        {
+          "do": "additemMany",
+          "count": 200
+        },
+        {
+          "do": "snapshot",
+          "name": "big"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: deposited \\d+ items into \\d+ containers?"
+        },
+        {
+          "check": "log",
+          "regex": "Deposit took ([0-9.]+) ms",
+          "max": 500
+        },
+        {
+          "check": "conserved",
+          "snapshot": "big"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "4.1-nchuanthumz",
+      "title": "A broken layout file is never overwritten; Reset moves it aside",
+      "steps": [
+        {
+          "do": "writeLayout",
+          "text": "{bad"
+        },
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "log",
+          "contains": "could not be parsed; leaving it untouched"
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: this home's setup file is broken (see DovaStash.log)"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "layoutFile",
+          "exists": true,
+          "text": "{bad"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "home",
+          "layout": true
+        },
+        {
+          "check": "noErrors",
+          "except": [
+            "could not be parsed",
+            "invalid JSON"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3.5-nchuanthumz-reset",
+      "title": "Reset backs the setup up",
+      "steps": [
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "contains": "reset (setup backed up)"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

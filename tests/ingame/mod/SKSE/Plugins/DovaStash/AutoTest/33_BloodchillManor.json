@@ -1,0 +1,388 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Bloodchill Manor (Creation Club)",
+  "home": "Update.esm|0x00002FD1",
+  "coc": "ccEEJSSE005Interior01",
+  "tests": [
+    {
+      "id": "1.1-bloodchill",
+      "title": "Template offered on the first visit",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Bloodchill Cavern",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Bloodchill Manor v1.0.0 by Dova Stash"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccEEJSSE005-Cave.esm|0x00038832"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.2-bloodchill",
+      "title": "Sort on arrival: a sword stored in the master goes to the armory chest",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "arrival"
+        },
+        {
+          "do": "store",
+          "to": "master",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter",
+          "coc": "ccEEJSSE005Interior01"
+        },
+        {
+          "check": "log",
+          "regex": "Sort on arrival in Bloodchill",
+          "within": 5
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE005-Cave.esm|0x000758F3",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "arrival",
+          "ge": 1,
+          "within": 5
+        },
+        {
+          "check": "conserved",
+          "snapshot": "arrival"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.3-bloodchill",
+      "title": "Learn: a dagger put by hand into a bound chest teaches the container",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "openContainer",
+          "ref": "ccEEJSSE005-Cave.esm|0x00089E7E"
+        },
+        {
+          "do": "store",
+          "to": "ccEEJSSE005-Cave.esm|0x00089E7E",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "check": "log",
+          "regex": "Learn: .*0x0001397E.* -> .*: recorded",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x0001397E",
+          "eq": "ccEEJSSE005-Cave.esm|0x00089E7E",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.3a.1-bloodchill",
+      "title": "Undo a learn with the hotkey within the undo window",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "openContainer",
+          "ref": "ccEEJSSE005-Cave.esm|0x00089E7E"
+        },
+        {
+          "do": "store",
+          "to": "ccEEJSSE005-Cave.esm|0x00089E7E",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "do": "wait",
+          "seconds": 0.5
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: undone, .* is not learned"
+        },
+        {
+          "check": "log",
+          "contains": "Learn: 1 learn(s) undone in Bloodchill Cavern"
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x0001397E",
+          "absent": true,
+          "within": 3
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.3a.4-bloodchill",
+      "title": "Category suggestion after three learned books; Yes binds the category",
+      "steps": [
+        {
+          "do": "unbind",
+          "ref": "ccEEJSSE005-Cave.esm|0x0005C1A8",
+          "category": "books.skill"
+        },
+        {
+          "do": "unbind",
+          "ref": "ccEEJSSE005-Cave.esm|0x0005C1A8",
+          "category": "books.notes"
+        },
+        {
+          "do": "unbind",
+          "ref": "ccEEJSSE005-Cave.esm|0x0005C1A8",
+          "category": "books.other"
+        },
+        {
+          "do": "unbind",
+          "ref": "ccEEJSSE005-Cave.esm|0x00089F2E",
+          "category": "books.spelltomes"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000F456D",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000F1AB3",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000EF638",
+          "count": 1
+        },
+        {
+          "do": "openContainer",
+          "ref": "ccEEJSSE005-Cave.esm|0x00089F28"
+        },
+        {
+          "do": "store",
+          "to": "ccEEJSSE005-Cave.esm|0x00089F28",
+          "item": "Skyrim.esm|0x000F456D"
+        },
+        {
+          "do": "store",
+          "to": "ccEEJSSE005-Cave.esm|0x00089F28",
+          "item": "Skyrim.esm|0x000F1AB3"
+        },
+        {
+          "do": "store",
+          "to": "ccEEJSSE005-Cave.esm|0x00089F28",
+          "item": "Skyrim.esm|0x000EF638"
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "check": "log",
+          "regex": "Learn: asking whether all (books\\.\\w+) go to .* \\(3 learned\\)",
+          "within": 15
+        },
+        {
+          "check": "menu",
+          "name": "MessageBoxMenu",
+          "open": true,
+          "within": 3
+        },
+        {
+          "do": "answerMessageBox",
+          "button": 0
+        },
+        {
+          "check": "notify",
+          "regex": "now takes Books"
+        },
+        {
+          "check": "log",
+          "regex": "bound books\\.\\w+ from a suggestion",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-bloodchill-ignore",
+      "title": "Ignore: the chest by the dagger rack takes no leather",
+      "steps": [
+        {
+          "do": "ignore",
+          "ref": "ccEEJSSE005-Cave.esm|0x00089EFD"
+        },
+        {
+          "check": "notify",
+          "contains": "is now ignored"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000DB5D2",
+          "count": 5
+        },
+        {
+          "do": "snapshot",
+          "name": "leather"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE005-Cave.esm|0x00089EFD",
+          "item": "Skyrim.esm|0x000DB5D2",
+          "from": "leather",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE005-Cave.esm|0x00047BC2",
+          "item": "Skyrim.esm|0x000DB5D2",
+          "from": "leather",
+          "eq": 5
+        },
+        {
+          "do": "ignore",
+          "ref": "ccEEJSSE005-Cave.esm|0x00089EFD",
+          "on": false
+        },
+        {
+          "check": "notify",
+          "contains": "is managed again"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "leather"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-bloodchill-remove",
+      "title": "Remove a container: what is inside stays",
+      "steps": [
+        {
+          "do": "snapshot",
+          "name": "remove"
+        },
+        {
+          "do": "removeContainer",
+          "ref": "ccEEJSSE005-Cave.esm|0x0008F03A"
+        },
+        {
+          "check": "notify",
+          "contains": "removed (what's inside stays)"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "lacks": {
+            "ref": "ccEEJSSE005-Cave.esm|0x0008F03A"
+          }
+        },
+        {
+          "check": "conserved",
+          "snapshot": "remove"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-bloodchill-reset",
+      "title": "Reset backs the setup up",
+      "steps": [
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "contains": "reset (setup backed up)"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

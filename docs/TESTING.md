@@ -1241,7 +1241,10 @@ pwsh -File tests\ingame\install.ps1 -Profile      # MO2 profile "Dova Stash Auto
 The profile (`profiles\Dova Stash AutoTest`) has the base game, the DLCs and Creation Club as installed, the
 Unofficial Patches (USSEP, USCCCP), SKSE, Address Library, SKSE Menu Framework, UIExtensions, QuickLoot IE (with
 SkyUI, which its loot menu needs: without it QuickLoot IE stops the game at the main menu with a dialog), KID,
-Dova Stash and *Dova Stash AutoTest*; nothing else. Profile-local INIs (`tests/ingame/profile`): windowed 1280x720,
+Dova Stash and *Dova Stash AutoTest*, plus the home mods listed in `tests/ingame/profile/extra-mods.txt` (one
+`<MO2 mod folder>|<plugin.esp>` per line: the mod-added homes the plans in `4N_*`/`5N_*` test; `-ExtraMods <file>` names
+another list, e.g. `extra-mods-wynter.txt` for Wynter's Breezehome Redux, which rebuilds Breezehome and so gets a profile
+of its own); nothing else. Profile-local INIs (`tests/ingame/profile`): windowed 1280x720,
 low settings, no intro (`sIntroSequence=`), runs without focus (`bAlwaysActive=1`), no gamepad, no autosaves, sound
 off, Papyrus logging on (`bEnableLogging`, `bEnableTrace`). The *Dova Stash AutoTest* mod holds the plans
 (`SKSE/Plugins/DovaStash/AutoTest/*.json`) and a `DovaStash.ini` of its own (`iLogLevel = 0`,
@@ -1254,7 +1257,12 @@ off, Papyrus logging on (`bEnableLogging`, `bEnableTrace`). The *Dova Stash Auto
 pwsh -File tools\autotest\run.ps1                    # the Dova Stash mod's DLL
 pwsh -File tools\autotest\run.ps1 -Build             # build first (deploys as configured, docs/BUILDING.md)
 pwsh -File tools\autotest\run.ps1 -Dll build\plugin\src\plugin\Release\DovaStash.dll   # a DLL of your own
+pwsh -File toolsutotest
+un.ps1 -Only '^(2|3)\d_'                                     # only the plans whose file name matches
 ```
+
+`-Only <regex>` installs only the matching plans (and `_run.json`), so a run of many homes can be split to stay under
+the run timeout (`_run.json` `timeoutMinutes`, `-TimeoutMinutes`).
 
 It refuses to start while a Skyrim is running, and starts Steam first when it is not running (the game needs it;
 MO2 would otherwise ask). It launches
@@ -1304,12 +1312,22 @@ checks, and exits 1 when a test failed or the run did not finish.
   menu's own `ChooseItem` and `CraftButtonPress` callbacks (what its Scaleform calls when the player picks and
   crafts), so the menu checks its hooked
   counts, consumes through `PlayerCharacter::RemoveItem` and adds the result.
+- **Left-open menus.** A test that ends with a message box still open (Dova Stash's own hotkey menu in `iMode = 1`,
+  a template offer, a category question) fails with *left a message box open*: such a box blocks every container and
+  crafting menu of the tests and plans that follow, and `closeMenu` cannot close one (answer it with
+  `answerMessageBox`, or avoid the hotkey when a check on the log or the layout file does). `store`/`take` wait out the
+  short grace after Dova Stash's own moves (`ItemMover::IsSuppressing`), during which container events are ignored:
+  the harness is faster than a player there. `snapshot`/`conserved` count the home's containers in its other cells
+  too (DESIGN §6.7), not only the player's cell; containers that leave the layout (a removed area) leave the comparison.
 - **Report.** `SKSE/DovaStash/AutoTest/results.json` after every test, then `qqq`.
 
 ### 9.4 Plans
 
 `tests/ingame/mod/SKSE/Plugins/DovaStash/AutoTest/`: `_run.json` (start delay, run timeout, quit), then one file
-per home. A plan:
+per home. A plan may declare test templates (`"templates": ["LakeviewManor.json"]`, files under
+`tests/ingame/mod/SKSE/Plugins/DovaStash/Templates/AutoTest/`, typically `"priority": 10` so *Use template* picks them
+over the shipped one): the installer keeps only the templates the installed plans declare, so a plan that needs the
+shipped template alone (`20_LakeviewManor.json`, `30_TundraHomestead.json`) runs without them (`-Only`). A plan:
 
 ```json
 {
@@ -1369,6 +1387,17 @@ stored materials on the menu's thread, a consumption and a craft through the men
 shortfall from storage); 3.8a (Restock, Restock after Deposit); 3.9 (add,
 rename, Deposit from, remove an area); 3.10 (sell chest routing, quote, sale, never sold, buy back, changed
 meanwhile); 4.1, 4.4; a Creation Club home (Tundra Homestead).
+
+Plans per home (file-name prefix): `1N_` the vanilla and DLC city homes (Hjerim, Honeyside, Proudspire Manor, Vlindrel
+Hall, Severin Manor, the Arch-Mage's Quarters), `2N_` the Hearthfire homes built, each as one home over hall, cellar and
+grounds through a test template with `cells` (3.9 steps 1-11), `3N_` the Creation Club homes (Myrwatch and its gallery,
+Hendraheim's displays, Bloodchill's Learn paths, Shadowfoot's sell chest, Goldenhills' Restock and cooking pot,
+Nchuanthumz' lever-built containers and the robustness steps, Gallows Hall's template paths, Tundra Homestead with its
+cellar as one home, Dead Man's Dread without a template), `4N_` mod homes over several cells (Niflholm, Tel Jerdein,
+Antennaria, Winter Cove, Unique Vampire Dens), `5N_` single-cell mod homes (Pinegrove Lodge, Bal Ruhn, Wuth Rein,
+Ebongrove, Hydda, Sicarius' Refuge, Black Fur Refuge, White Lighthouse, Mirele Bismath Reborn as a self-sorting
+home) and `6N_` Wynter's Breezehome Redux (its own profile). The mod homes need `tests/ingame/profile/extra-mods.txt`
+(§9.1).
 
 Manual: everything you look at or click in a menu (the UIExtensions lists, message boxes, the Menu Framework
 panel 5.1-5.8, the activate prompt, QuickLoot IE, floating icons: sections 5-6), the hotkey with menus open (1.7,

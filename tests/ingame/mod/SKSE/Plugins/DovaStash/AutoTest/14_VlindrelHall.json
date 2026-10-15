@@ -1,0 +1,646 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Vlindrel Hall (Markarth, vanilla + Hearthfire)",
+  "home": "Skyrim.esm|0x00016DFA",
+  "coc": "MarkarthVlindrelHall",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Template offered on the first visit; the decorations are bought",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Vlindrel Hall",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "Cell Vlindrel Hall (Skyrim.esm|0x00016DFA): template available"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Vlindrel Hall v1.0.0 by Dova Stash"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "Dova Stash: Vlindrel Hall setup available (by Dova Stash)"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7",
+      "title": "Displays: a weapon rack in use takes a weapon on Deposit",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "do": "enable",
+          "ref": "Skyrim.esm|0x000E2DA6"
+        },
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x000E2DA6",
+          "why": "the mid weapon rack starts disabled (no enable parent)"
+        },
+        {
+          "do": "displayUse",
+          "ref": "Skyrim.esm|0x000E2DA6"
+        },
+        {
+          "check": "notify",
+          "contains": "is used now"
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "contains": {
+            "ref": "Skyrim.esm|0x000E2DA6"
+          }
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000139B9",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "regex": "Display: Daedric Sword .* on .*\\(rack\\)",
+          "within": 10
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x000139B9",
+          "eq": 0
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "regex": "did not take|had no 3D"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-fill",
+      "title": "Fill now puts a weapon on an empty used rack from storage",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "do": "enable",
+          "ref": "Skyrim.esm|0x000E2DAF"
+        },
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x000E2DAF",
+          "why": "a second mid rack, starts disabled"
+        },
+        {
+          "do": "displayUse",
+          "ref": "Skyrim.esm|0x000E2DAF"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013989",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "do": "fill",
+          "ref": "Skyrim.esm|0x000E2DAF"
+        },
+        {
+          "check": "log",
+          "regex": "Display: .*Sword .* on .*\\(rack\\)",
+          "within": 10
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-mannequin",
+      "title": "A mannequin in use takes armor on Deposit",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "do": "enable",
+          "ref": "Skyrim.esm|0x00102D4C"
+        },
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x00102D4C",
+          "why": "the Vlindrel mannequin starts disabled"
+        },
+        {
+          "do": "displayUse",
+          "ref": "Skyrim.esm|0x00102D4C"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012E4D",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013911",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "regex": "Display plan: .*\\(mannequin\\)",
+          "within": 10
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00012E4D",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.8b",
+      "title": "Craft from storage at the cooking pot: counts include storage, a craft takes the shortfall",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "do": "enable",
+          "ref": "Skyrim.esm|0x0010E388"
+        },
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x0010E388",
+          "why": "the cooking pot starts disabled (Bedroom decoration marker, not a container)"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00065C99",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00034CDF",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "precraft"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00034CDF",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000E15AD",
+          "item": "Skyrim.esm|0x00034CDF",
+          "from": "precraft",
+          "eq": 2
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000E157F",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "precraft",
+          "eq": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "craft"
+        },
+        {
+          "do": "sit",
+          "ref": "Skyrim.esm|0x0010E388"
+        },
+        {
+          "check": "crafting",
+          "active": true,
+          "item": "Skyrim.esm|0x00034CDF",
+          "ge": 2
+        },
+        {
+          "check": "log",
+          "regex": "Crafting from storage at .* in Vlindrel Hall: \\d+ materials"
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "since": "step",
+          "contains": "ItemMover: moved"
+        },
+        {
+          "check": "hookedCount",
+          "item": "Skyrim.esm|0x00034CDF",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00034CDF",
+          "eq": 0
+        },
+        {
+          "do": "consume",
+          "item": "Skyrim.esm|0x00034CDF",
+          "count": 1
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00034CDF",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000E15AD",
+          "item": "Skyrim.esm|0x00034CDF",
+          "from": "precraft",
+          "eq": 1
+        },
+        {
+          "check": "log",
+          "regex": "Crafting from storage: Salt Pile .* x1: carried 0, brought 1"
+        },
+        {
+          "do": "craft",
+          "uses": "Skyrim.esm|0x00034CDF",
+          "product": "HearthFires.esm|0x0000353D"
+        },
+        {
+          "check": "count",
+          "item": "HearthFires.esm|0x0000353D",
+          "from": "craft",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00064B41",
+          "eq": 0
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "regex": "Crafting from storage: Potato .* x1: carried 0, brought 1 from "
+        },
+        {
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
+        },
+        {
+          "check": "log",
+          "regex": "Crafting from storage \\(crafting menu closed\\): \\d+ materials taken from storage",
+          "within": 5
+        },
+        {
+          "check": "crafting",
+          "active": false,
+          "within": 5
+        },
+        {
+          "check": "conserved",
+          "snapshot": "craft",
+          "ignore": [
+            "Skyrim.esm|0x00034CDF",
+            "Skyrim.esm|0x00064B41",
+            "HearthFires.esm|0x0000353D"
+          ]
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.8b-alchemy",
+      "title": "Craft from storage at the alchemy lab (any station in the home's cell)",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "do": "enable",
+          "ref": "Skyrim.esm|0x000E15B3"
+        },
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x000E15B3",
+          "why": "the alchemy lab starts disabled (Alchemy decoration marker)"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00077E1C",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "alch"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000E15AD",
+          "item": "Skyrim.esm|0x00077E1C",
+          "from": "alch",
+          "eq": 2
+        },
+        {
+          "do": "sit",
+          "ref": "Skyrim.esm|0x000E15B3"
+        },
+        {
+          "check": "crafting",
+          "active": true,
+          "item": "Skyrim.esm|0x00077E1C",
+          "ge": 2
+        },
+        {
+          "check": "log",
+          "regex": "Crafting from storage at .* in Vlindrel Hall: \\d+ materials"
+        },
+        {
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
+        },
+        {
+          "check": "crafting",
+          "active": false,
+          "within": 5
+        },
+        {
+          "check": "conserved",
+          "snapshot": "alch"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.8a",
+      "title": "Restock to a keep quota, nothing more; Deposit restocks",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 4
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "do": "keep",
+          "keep": {
+            "quotas": [
+              {
+                "category": "alchemy.potions",
+                "quota": 3,
+                "restock": true
+              }
+            ]
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/keep/quotas",
+          "contains": {
+            "category": "alchemy.potions",
+            "quota": 3,
+            "restock": true
+          }
+        },
+        {
+          "do": "op",
+          "op": "Restock"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: restocked 3 items"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 3
+        },
+        {
+          "do": "op",
+          "op": "Restock"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "contains": "Dova Stash: nothing to restock"
+        },
+        {
+          "do": "removeitem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 3
+        },
+        {
+          "check": "notify",
+          "regex": "restocked 1(\\D|$)"
+        },
+        {
+          "do": "keep",
+          "keep": null
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-vlindrel",
+      "title": "A home over several cells: the street outside, Deposit from there, remove it",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "do": "exitDoor"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Street"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Street is now part of Vlindrel Hall"
+        },
+        {
+          "check": "log",
+          "regex": "Add area: .* is now part of Vlindrel Hall"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "label": "Street"
+          }
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Vlindrel Hall"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "log",
+          "contains": "Deposit in Vlindrel Hall"
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "contains": "is no longer part of Vlindrel Hall"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "absent": true
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.8",
+      "title": "Materials at the workbench: Move mode at the forge and the tanning rack",
+      "manual": "Vlindrel Hall has no smithing forge, smelter or tanning rack (esm_dump cell lists only the alchemy lab, enchanter and cooking pot); the Move mode needs one of them"
+    },
+    {
+      "id": "3.7-visual",
+      "title": "Display placement looks right (node, no floating or falling)",
+      "manual": "visual"
+    },
+    {
+      "id": "3.7-armorset",
+      "title": "Mannequin armor set: Auto, a chosen set, Armor sets page",
+      "manual": "needs a step that sets a mannequin's armor set (no 'armorSet' step in the harness)"
+    }
+  ]
+}

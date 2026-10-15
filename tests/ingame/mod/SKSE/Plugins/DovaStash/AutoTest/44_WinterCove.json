@@ -1,0 +1,563 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Winter Cove (storage cell, master in a non-persistent cell)",
+  "home": "Winter Cove.esp|0x00000D62",
+  "coc": "1xmWinterCoveInt",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Template offered on the first visit",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "ownCell"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Winter Cove",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template available"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "setup available \\(by "
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/WinterCove.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "No second notification in the same session",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "setup available",
+          "count": 1,
+          "within": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6",
+      "title": "Use template: the AutoTest template is the one applied",
+      "steps": [
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/WinterCove.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/AutoTest/WinterCove.json@1.0.0",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Winter Cove.esp|0x000216D8",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Winter Cove.esp|0x0000E30B"
+          },
+          "within": 5
+        },
+        {
+          "check": "notify",
+          "regex": "setup enabled",
+          "since": "action",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.1-WinterCove",
+      "title": "Bind a non-persistent chest of the main hall (it is not in the template)",
+      "steps": [
+        {
+          "do": "bind",
+          "ref": "Winter Cove.esp|0x0001F5FF",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Winter Cove.esp|0x0001F5FF",
+            "categories": [
+              "misc.clutter"
+            ]
+          },
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.3-WinterCove",
+      "title": "Deposit from the main hall reaches the persistent storage chests; the master (non-persistent, in the storage cell) and the main chest are left alone",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000800E4",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0000000A",
+          "count": 5
+        },
+        {
+          "do": "additem",
+          "item": "HearthFires.esm|0x0000306C",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "inventory"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x000216D5",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "inventory",
+          "ge": 4
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x000216D7",
+          "item": "Skyrim.esm|0x000800E4",
+          "from": "inventory",
+          "ge": 4
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x0000E328",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "inventory",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x0000E31B",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "inventory",
+          "ge": 1
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x0000E31C",
+          "item": "HearthFires.esm|0x0000306C",
+          "from": "inventory",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0000000A",
+          "from": "inventory",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x000216D8",
+          "item": "Skyrim.esm|0x0000000A",
+          "from": "inventory",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-WinterCove",
+      "title": "Storage cell (another cell): home with the home's name; Deposit there reaches the storage chests and the master (in this cell)",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Winter Cove.esp|0x0000E30B"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Winter Cove",
+          "layout": true
+        },
+        {
+          "do": "additem",
+          "item": "HearthFires.esm|0x0000306C",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "stor"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x0000E31C",
+          "item": "HearthFires.esm|0x0000306C",
+          "from": "stor",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0000000A",
+          "from": "stor",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "stor"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9b-WinterCove",
+      "title": "Retrieve by category from the storage cell",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Winter Cove.esp|0x0000E30B"
+        },
+        {
+          "do": "snapshot",
+          "name": "back"
+        },
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "alchemy.potions"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "back",
+          "ge": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.3-WinterCove",
+      "title": "Learn by hand in the storage cell: a dagger put into the Potions & Poisons chest",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Winter Cove.esp|0x0000E30B"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "openContainer",
+          "ref": "Winter Cove.esp|0x0000E328"
+        },
+        {
+          "do": "store",
+          "to": "Winter Cove.esp|0x0000E328",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "now goes to",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x0001397E",
+          "eq": "Winter Cove.esp|0x0000E328",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.4-WinterCove",
+      "title": "Sort all from the storage cell",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Winter Cove.esp|0x0000E30B"
+        },
+        {
+          "do": "snapshot",
+          "name": "sortall"
+        },
+        {
+          "do": "op",
+          "op": "SortAll"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "re-sorted \\d+ items?"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "sortall"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9c-WinterCove",
+      "title": "Storage cell is part of the home (log line names it)",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Winter Cove.esp|0x0000E30B"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Winter Cove",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "\\(Winter Cove\\.esp\\|0x0000E30B\\): part of Winter Cove"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9e-WinterCove",
+      "title": "A cell not in the template: added from the main hall's door, saved, re-applied, removed",
+      "steps": [
+        {
+          "do": "exitDoor",
+          "ref": "Winter Cove.esp|0x00005447"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Outside"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Winter Cove",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "regex": "Add area: .* named \"Outside\""
+        },
+        {
+          "do": "export",
+          "name": "AutoTest WinterCove"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest WinterCove.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009921",
+            "label": "Outside"
+          }
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest WinterCove.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Winter Cove.esp|0x0000E30B",
+            "label": "Winter Cove storage"
+          }
+        },
+        {
+          "do": "useTemplate",
+          "source": "Templates/AutoTest/WinterCove.json"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00009921"
+          },
+          "within": 5
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "is no longer part of"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "lacks": {
+            "cell": "Skyrim.esm|0x00009921"
+          },
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-WinterCove",
+      "title": "Reset removes the setup: the storage cell is its own home again",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Winter Cove.esp|0x00000D62"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: .* reset \\(setup backed up\\)",
+          "within": 5
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Winter Cove\\.esp_00000D62\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "do": "enter",
+          "cell": "Winter Cove.esp|0x0000E30B"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "layout": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-WinterCove",
+      "title": "Displays of the main hall (16)",
+      "manual": "display fills are checked by eye"
+    },
+    {
+      "id": "3.9g-WinterCove",
+      "title": "Main hall has no draft of its own",
+      "manual": "data gap, not a step gap: the editor scan drafted only the storage cell; the main hall's 13 non-persistent containers are not in the template (bound by hand in 3.1)"
+    }
+  ],
+  "templates": [
+    "WinterCove.json"
+  ]
+}

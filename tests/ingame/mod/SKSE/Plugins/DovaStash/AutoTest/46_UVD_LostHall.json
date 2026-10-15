@@ -1,0 +1,359 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Unique Vampire Dens: Lost Hall",
+  "home": "gonkishvampdens.esp|0x000736AA",
+  "coc": "GonkishWindhelmDen",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Template offered on the first visit",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "ownCell"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Lost Hall",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template available"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "setup available \\(by "
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/LostHall.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "No second notification in the same session",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "setup available",
+          "count": 1,
+          "within": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6",
+      "title": "Use template: the AutoTest template is the one applied",
+      "steps": [
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/LostHall.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/AutoTest/LostHall.json@1.0.0",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "gonkishvampdens.esp|0x00082A50",
+          "within": 5
+        },
+        {
+          "check": "notify",
+          "regex": "setup enabled",
+          "since": "action",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.4-LostHall",
+      "title": "A respawning container: accepted, the cell never resets",
+      "steps": [
+        {
+          "do": "bind",
+          "ref": "gonkishvampdens.esp|0x000BBABB",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "contains": "has the respawn flag; accepted because the cell never resets"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "gonkishvampdens.esp|0x000BBABB",
+            "categories": [
+              "misc.clutter"
+            ]
+          },
+          "within": 5
+        },
+        {
+          "do": "unbind",
+          "ref": "gonkishvampdens.esp|0x000BBABB",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.2-LostHall",
+      "title": "Inventory",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00034CDF",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.3-LostHall",
+      "title": "Deposit: barrel for food, barrel for ingredients, the table for books",
+      "steps": [
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "gonkishvampdens.esp|0x00082B6A",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "inventory",
+          "ge": 1
+        },
+        {
+          "check": "count",
+          "in": "gonkishvampdens.esp|0x00082B6B",
+          "item": "Skyrim.esm|0x00034CDF",
+          "from": "inventory",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "gonkishvampdens.esp|0x000739DF",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "from": "inventory",
+          "ge": 1
+        },
+        {
+          "check": "conserved",
+          "snapshot": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.4-LostHall",
+      "title": "Sort all",
+      "steps": [
+        {
+          "do": "snapshot",
+          "name": "sortall"
+        },
+        {
+          "do": "op",
+          "op": "SortAll"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "re-sorted \\d+ items?"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "sortall"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9e-LostHall",
+      "title": "A cell not in the template: the Windhelm door's cell added, saved, re-applied, removed",
+      "steps": [
+        {
+          "do": "exitDoor",
+          "ref": "gonkishvampdens.esp|0x000739CB"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Outside"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Lost Hall",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "regex": "Add area: .* named \"Outside\""
+        },
+        {
+          "do": "export",
+          "name": "AutoTest LostHall"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest LostHall.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00038385",
+            "label": "Outside"
+          }
+        },
+        {
+          "do": "useTemplate",
+          "source": "Templates/AutoTest/LostHall.json"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00038385"
+          },
+          "within": 5
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "is no longer part of"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "absent": true,
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-LostHall",
+      "title": "Reset removes the setup",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "gonkishvampdens.esp|0x000736AA"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: .* reset \\(setup backed up\\)",
+          "within": 5
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "gonkishvampdens\\.esp_000736AA\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "do": "enter",
+          "cell": "gonkishvampdens.esp|0x000736AA"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Lost Hall",
+          "layout": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-LostHall",
+      "title": "Displays (6)",
+      "manual": "display fills are checked by eye"
+    }
+  ],
+  "templates": [
+    "LostHall.json"
+  ]
+}

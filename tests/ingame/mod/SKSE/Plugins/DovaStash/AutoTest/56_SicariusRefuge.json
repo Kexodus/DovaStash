@@ -1,0 +1,129 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Sicarius' Refuge SSE - A Hitman's Hideout - Assassin Home (Eli_Sicarius' Refuge.esp, mod home; racks, a mannequin without a script, respawning sacks in a cell that never resets)",
+  "home": "Eli_Sicarius' Refuge.esp|0x0016D087",
+  "coc": "0Hideout",
+  "templates": ["56_SicariusRefuge.json"],
+  "tests": [
+    {
+      "id": "1.1-sicarius", "title": "Template offered on the first visit (no owner on the cell: accepted)",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "log", "since": "plan", "regex": "Cell .*\\(Eli_Sicarius' Refuge\\.esp\\|0x0016D087\\): template available"},
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Sicarius' Refuge \\(AutoTest\\) setup available"}
+      ]
+    },
+    {
+      "id": "3.6-sicarius", "title": "Use template, Deposit spreads arrows, ingots and books",
+      "steps": [
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Sicarius' Refuge (AutoTest) setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/56_SicariusRefuge.json@1.0.0"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_Sicarius' Refuge.esp|0x0016D16A"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397D", "count": 20},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 3},
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "Eli_Sicarius' Refuge.esp|0x0016CCA5", "item": "Skyrim.esm|0x0001397D", "from": "dep", "ge": 20},
+        {"check": "count", "in": "Eli_Sicarius' Refuge.esp|0x0016CEFA", "item": "Skyrim.esm|0x0005ACE4", "from": "dep", "ge": 3},
+        {"check": "count", "in": "Eli_Sicarius' Refuge.esp|0x0016CCD7", "item": "Skyrim.esm|0x0001ACE6", "from": "dep", "ge": 1},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.1-sicarius-respawn", "title": "A respawning sack binds in a cell that never resets (NoResetZone): accepted with a warning",
+      "steps": [
+        {"do": "bind", "ref": "Eli_Sicarius' Refuge.esp|0x0016D28B", "category": "misc.clutter"},
+        {"check": "log", "regex": "Small Sack .* has the respawn flag; accepted because the cell never resets"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Eli_Sicarius' Refuge.esp|0x0016D28B", "categories": ["misc.clutter"]}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-sicarius-rack", "title": "Weapon rack in use takes a weapon on Deposit",
+      "steps": [
+        {"do": "displayUse", "ref": "Eli_Sicarius' Refuge.esp|0x0016CD0A"},
+        {"do": "additem", "item": "Skyrim.esm|0x000139B9", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Display: Daedric Sword .* on .*\\(rack\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x000139B9", "eq": 0},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-sicarius-mannequin", "title": "Mannequin 0x0016CC2D in use takes armour on Deposit (EXPECTED TO FAIL: the mannequin runs no activator script, so Dova Stash does not count it as a display; the log checks document what happens)",
+      "steps": [
+        {"do": "displayUse", "ref": "Eli_Sicarius' Refuge.esp|0x0016CC2D"},
+        {"check": "log", "regex": "Display \\? \\[Eli_Sicarius' Refuge\\.esp\\|0x0016CC2D\\] in Sicarius' Refuge: used"},
+        {"do": "additem", "item": "Skyrim.esm|0x00013911", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Displays in Sicarius' Refuge: 1 rack \\(\\d+ empty\\); 0 items to put up"},
+        {"check": "log", "regex": "Display: Hide Armor .* on .*\\(mannequin\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x00013911", "eq": 0},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8a-sicarius", "title": "Restock to a keep quota",
+      "steps": [
+        {"do": "keep", "keep": {"quotas": [{"category": "alchemy.potions", "quota": 3, "restock": true}]}},
+        {"do": "op", "op": "Restock"},
+        {"check": "notify", "regex": "Dova Stash: (restocked \\d+ items?|nothing to restock)"},
+        {"do": "keep", "keep": null},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8b-sicarius", "title": "Craft from storage at the cooking pot 0x0016D0E2 (esm_dump furniture, CraftingCookpot)",
+      "steps": [
+        {"do": "sit", "ref": "Eli_Sicarius' Refuge.esp|0x0016D0E2", "keyword": "CraftingCookpot"},
+        {"check": "crafting", "active": true, "within": 5},
+        {"do": "closeMenu", "menu": "Crafting Menu"},
+        {"check": "crafting", "active": false, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9-sicarius", "title": "Add the grounds outside (load door 0x0016D09A to 0OldShack), Deposit from there, remove it",
+      "steps": [
+        {"do": "enter"},
+        {"do": "exitDoor", "ref": "Eli_Sicarius' Refuge.esp|0x0016D09A"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Grounds"},
+        {"check": "notify", "contains": "Grounds is now part of Sicarius' Refuge"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Grounds"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Sicarius' Refuge"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Sicarius' Refuge"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-sicarius", "title": "Ignore, make master and Reset (last)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "ignore", "ref": "Eli_Sicarius' Refuge.esp|0x0016CEF8"},
+        {"check": "notify", "contains": "is now ignored"},
+        {"do": "ignore", "ref": "Eli_Sicarius' Refuge.esp|0x0016CEF8", "on": false},
+        {"check": "notify", "contains": "is managed again"},
+        {"do": "makeMaster", "ref": "Eli_Sicarius' Refuge.esp|0x0016CEFA"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_Sicarius' Refuge.esp|0x0016CEFA"},
+        {"do": "makeMaster", "ref": "Eli_Sicarius' Refuge.esp|0x0016D16A"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_Sicarius' Refuge.esp|0x0016D16A"},
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

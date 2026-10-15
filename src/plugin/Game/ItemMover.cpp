@@ -74,7 +74,7 @@ namespace dova::game
 		{
 			std::int32_t back = 0;
 			const auto   reason = a_source->GetFormID() == kPlayerRefID ? RE::ITEM_REMOVE_REASON::kRemove : RE::ITEM_REMOVE_REASON::kStoreInContainer;
-			for (auto* x : ExtraStacks(a_target, a_object)) {
+			for (auto* x : SpecialStacks(a_target, a_object)) {
 				const auto it = std::ranges::find_if(a_targetBefore, [x](const auto& a_entry) { return a_entry.first == x; });
 				const auto extra = x->GetCount() - (it != a_targetBefore.end() ? it->second : 0);
 				if (extra > 0) {
@@ -202,7 +202,7 @@ namespace dova::game
 			ListCounts specialBefore;
 			ListCounts targetSpecialBefore;
 			if (!stack->extra) {
-				if (const auto special = ExtraStacks(source, stack->object); !special.empty()) {
+				if (const auto special = SpecialStacks(source, stack->object); !special.empty()) {
 					if (PlainUnsafe(stack->object->GetFormID())) {
 						logger::info("Move skipped: {} x{} left in {} because a tempered, enchanted, renamed or worn copy of it stays there",
 							Describe(stack->object), move.count, EndpointName(source));
@@ -210,7 +210,7 @@ namespace dova::game
 						continue;
 					}
 					specialBefore = Counts(special);
-					targetSpecialBefore = Counts(ExtraStacks(target, stack->object));
+					targetSpecialBefore = Counts(SpecialStacks(target, stack->object));
 				}
 			}
 

@@ -1,0 +1,127 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Hydda - Witch hut player home (Eli_WitchyHaus.esp, mod home; tests the template path, a load door, a cauldron-style cooking pot)",
+  "home": "Eli_WitchyHaus.esp|0x00005921",
+  "coc": "0Hut",
+  "templates": ["55_Hydda.json"],
+  "tests": [
+    {
+      "id": "1.1-hydda", "title": "Template offered on the first visit",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "log", "since": "plan", "regex": "Cell .*\\(Eli_WitchyHaus\\.esp\\|0x00005921\\): template available"},
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Hydda \\(AutoTest\\) setup available"}
+      ]
+    },
+    {
+      "id": "3.6-hydda", "title": "Use template, Deposit spreads potions, food and ingredients",
+      "steps": [
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Hydda (AutoTest) setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/55_Hydda.json@1.0.0"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_WitchyHaus.esp|0x00051C1D"},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00064B41", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x00034CDF", "count": 2},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "Eli_WitchyHaus.esp|0x00051BFA", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
+        {"check": "count", "in": "Eli_WitchyHaus.esp|0x00051C24", "item": "Skyrim.esm|0x00064B41", "from": "dep", "ge": 1},
+        {"check": "count", "in": "Eli_WitchyHaus.esp|0x00051B5E", "item": "Skyrim.esm|0x00034CDF", "from": "dep", "ge": 2},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-hydda", "title": "Bookshelf: use and Fill now puts a plain book up on the shelf container 0x0001EF2A",
+      "steps": [
+        {"do": "displayUse", "ref": "Eli_WitchyHaus.esp|0x0001EF2A"},
+        {"do": "additem", "item": "Skyrim.esm|0x000F456D", "count": 1},
+        {"do": "fill", "ref": "Eli_WitchyHaus.esp|0x0001EF2A"},
+        {"check": "log", "regex": "Display: The Great War .* on .*\\(bookshelf\\)", "within": 10},
+        {"check": "count", "in": "Eli_WitchyHaus.esp|0x0001EF2A", "item": "Skyrim.esm|0x000F456D", "ge": 1, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.4-hydda", "title": "Sort all and Retrieve by category (potions)",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "Eli_WitchyHaus.esp|0x00051BFA", "item": "Skyrim.esm|0x0003EADD", "ge": 2},
+        {"do": "op", "op": "SortAll"},
+        {"do": "waitIdle"},
+        {"do": "op", "op": "Retrieve", "pattern": "alchemy.potions"},
+        {"check": "count", "item": "Skyrim.esm|0x0003EADD", "ge": 2},
+        {"check": "conserved", "snapshot": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-hydda", "title": "Remove the key box from management (what's inside stays)",
+      "steps": [
+        {"do": "removeContainer", "ref": "Eli_WitchyHaus.esp|0x0004CA0C"},
+        {"check": "notify", "contains": "removed (what's inside stays)"},
+        {"check": "layout", "pointer": "/containers", "lacks": {"ref": "Eli_WitchyHaus.esp|0x0004CA0C"}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8a-hydda", "title": "Restock to a keep quota",
+      "steps": [
+        {"do": "keep", "keep": {"quotas": [{"category": "alchemy.potions", "quota": 3, "restock": true}]}},
+        {"do": "op", "op": "Restock"},
+        {"check": "notify", "regex": "Dova Stash: (restocked \\d+ items?|nothing to restock)"},
+        {"do": "keep", "keep": null},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8b-hydda", "title": "Craft from storage at the cooking pot 0x0001EEE5 (esm_dump furniture, CraftingCookpot)",
+      "steps": [
+        {"do": "sit", "ref": "Eli_WitchyHaus.esp|0x0001EEE5", "keyword": "CraftingCookpot"},
+        {"check": "crafting", "active": true, "within": 5},
+        {"do": "closeMenu", "menu": "Crafting Menu"},
+        {"check": "crafting", "active": false, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9-hydda", "title": "Add the clearing outside (load door 0x0000AA23 to 0HutExt), Deposit from there, remove it",
+      "steps": [
+        {"do": "enter"},
+        {"do": "exitDoor", "ref": "Eli_WitchyHaus.esp|0x0000AA23"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Clearing"},
+        {"check": "notify", "contains": "Dova Stash: Clearing is now part of Hydda"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Clearing"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Hydda"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Hydda"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-hydda-master", "title": "Make master and Reset (last)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "makeMaster", "ref": "Eli_WitchyHaus.esp|0x00051BFA"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_WitchyHaus.esp|0x00051BFA"},
+        {"do": "makeMaster", "ref": "Eli_WitchyHaus.esp|0x00051C1D"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_WitchyHaus.esp|0x00051C1D"},
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

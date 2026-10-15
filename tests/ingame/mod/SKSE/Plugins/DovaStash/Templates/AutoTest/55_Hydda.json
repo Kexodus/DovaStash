@@ -1,0 +1,209 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Hydda (AutoTest)",
+  "author": "AutoTest",
+  "version": "1.0.0",
+  "priority": 10,
+  "note": "Test template for the AutoTest plan 55_Hydda (drafted from the Dova Stash Editor scan; ignored containers kept as the draft has them).",
+  "requires": [
+    "Eli_WitchyHaus.esp"
+  ],
+  "cell": "Eli_WitchyHaus.esp|0x00005921",
+  "master": "Eli_WitchyHaus.esp|0x00051C1D",
+  "containers": [
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0001EF0A",
+      "label": "Dresser",
+      "categories": [
+        "armor.clothing"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0001EF13",
+      "label": "Dresser"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0001EF74",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0001EF75",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0001EF76",
+      "label": "Large Sack",
+      "categories": [
+        "misc.clutter"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0002E28A",
+      "label": "Urn"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0003D62D",
+      "label": "Top Shelf"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0003D62F",
+      "label": "Middle Shelf"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0003D633",
+      "label": "Bottom Shelf"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0003D649",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0004CA0C",
+      "label": "Key Box",
+      "categories": [
+        "keys"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0004CA3A",
+      "label": "Bookshelf"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0004CA3C",
+      "label": "Bookshelf"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051B5E",
+      "label": "Ingredients Basket",
+      "categories": [
+        "alchemy.ingredients"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051B64",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051B65",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051B66",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051B6C",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051B6F",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051B72",
+      "label": "Disenchanter"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051B73",
+      "label": "Ingredients Basket"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051BD9",
+      "label": "Poisons",
+      "categories": [
+        "alchemy.poisons"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051BDF",
+      "label": "Urn"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051BFA",
+      "label": "Potions",
+      "categories": [
+        "alchemy.potions"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C02",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C03",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C20",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C24",
+      "label": "Egg Basket",
+      "categories": [
+        "alchemy.food"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C2B",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C2C",
+      "label": "Sack"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C3D",
+      "label": "Ingredients Basket"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C54",
+      "label": "End Table"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C56",
+      "label": "End Table",
+      "categories": [
+        "books.*"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C62",
+      "label": "Soul Gems",
+      "categories": [
+        "soulgems.*"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00056D83",
+      "label": "Bookshelf"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00056D84",
+      "label": "Bookshelf"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00056D86",
+      "label": "Bookshelf"
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00056D8A",
+      "label": "Staves",
+      "categories": [
+        "weapons.staves"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0005BEAF",
+      "label": "Strongbox",
+      "categories": [
+        "armor.jewelry",
+        "misc.gems"
+      ]
+    },
+    {
+      "ref": "Eli_WitchyHaus.esp|0x0005BEB8",
+      "label": "Bookshelf"
+    }
+  ]
+}

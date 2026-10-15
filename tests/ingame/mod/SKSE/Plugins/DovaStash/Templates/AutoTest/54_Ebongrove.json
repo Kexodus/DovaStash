@@ -1,0 +1,187 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Ebongrove (AutoTest)",
+  "author": "AutoTest",
+  "version": "1.0.0",
+  "priority": 10,
+  "note": "Test template for the AutoTest plan 54_Ebongrove (drafted from the Dova Stash Editor scan; ignored containers kept as the draft has them).",
+  "requires": [
+    "Undriel_Ebongrove.esp"
+  ],
+  "cell": "Undriel_Ebongrove.esp|0x00026902",
+  "master": "Undriel_Ebongrove.esp|0x0009BB37",
+  "containers": [
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000876CE",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x00091906",
+      "label": "Crafting Supplies"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000A5D5B",
+      "label": "Misc"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000AFF98",
+      "label": "Scrolls",
+      "categories": [
+        "scrolls"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000B50D0",
+      "label": "Ingredients",
+      "categories": [
+        "alchemy.ingredients"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000BF35F",
+      "label": "Bookcase"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000C44B5",
+      "label": "Potions",
+      "categories": [
+        "alchemy.potions",
+        "alchemy.poisons"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000C95F9",
+      "label": "Jewelry",
+      "categories": [
+        "armor.jewelry",
+        "misc.gems"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000C9604",
+      "label": "Soul Gems",
+      "categories": [
+        "soulgems.*"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x000E7D3E",
+      "label": "Wardrobe",
+      "categories": [
+        "armor.clothing"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x00129BA4",
+      "label": "Crafting Supplies"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x00138ECB",
+      "label": "Strong Box"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0017AC76",
+      "label": "Vegetables"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0017AC77",
+      "label": "Meat",
+      "categories": [
+        "alchemy.food"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0017ACE8",
+      "label": "Armour",
+      "categories": [
+        "armor.heavy",
+        "armor.light",
+        "armor.shields"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0017ACF8",
+      "label": "Weapons",
+      "categories": [
+        "weapons.*"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0017FE16",
+      "label": "Sack"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0017FE17",
+      "label": "Sack"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0017FE18",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x00184F41",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x001C6E05",
+      "label": "Urn"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x001C6E06",
+      "label": "Urn"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0020DC8E",
+      "label": "Urn"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0020DC94",
+      "label": "Cupboard"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x00217EA9",
+      "label": "Barrel"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0023B6A1",
+      "label": "Chest"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x0023B6A6",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x00259D31",
+      "label": "Dresser"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x00259D57",
+      "label": "Pelts and Leather",
+      "categories": [
+        "misc.hides_pelts"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x002C4384",
+      "label": "Strong Box"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x002ECC3B",
+      "label": "Staffs",
+      "categories": [
+        "weapons.staves"
+      ]
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x002ECC88",
+      "label": "Urn"
+    },
+    {
+      "ref": "Undriel_Ebongrove.esp|0x002ECC98",
+      "label": "Misc",
+      "categories": [
+        "misc.clutter"
+      ]
+    }
+  ]
+}

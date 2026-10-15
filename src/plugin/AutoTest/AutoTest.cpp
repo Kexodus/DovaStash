@@ -250,6 +250,11 @@ namespace dova::autotest
 			}
 			auto& result = run.results.back();
 			result.seconds = std::chrono::duration<double>(Clock::now() - run.testStarted).count();
+			// A message box left open blocks every container and crafting menu of the tests that follow (and of the
+			// next plans): name the culprit here instead of letting the run cascade.
+			if (const auto box = MessageBoxText(); !box.empty()) {
+				run.ctx.Record(false, "left a message box open (it blocks every later menu)", box);
+			}
 			if (result.status.empty() && !run.ctx.skipReason.empty() && std::ranges::all_of(result.checks, [](const CheckRecord& c) { return c.ok; })) {
 				result.status = "skip";
 				result.note = run.ctx.skipReason;

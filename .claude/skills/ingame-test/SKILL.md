@@ -35,7 +35,12 @@ Only the coordinator deploys to `mods\Dova Stash`. The test DLL goes into the Au
 
 ```
 pwsh -NoProfile -File tools/autotest/run.ps1 -Dll <path>\DovaStash.dll        # ~5 min; run_in_background
+pwsh -NoProfile -File tools/autotest/run.ps1 -Dll <dll> -Only '^(21|22)_'      # a subset of the plans (file-name regex)
 ```
+
+Many plans exist (vanilla, Creation Club and mod homes): run the ones your change touches with `-Only`, the whole set
+in a few runs. Mod-added homes need their mods in the profile (`tests/ingame/profile/extra-mods.txt`,
+`install.ps1 -Profile`); the `60_`/`61_` Wynter plans need `install.ps1 -Profile -ExtraMods tests/ingame/profile/extra-mods-wynter.txt`.
 
 Read **only** the tail: one line per test plus `pass N, fail N, skip N, manual N` and the run folder
 (`build/autotest/<date-time>/`). Do not open `DovaStash.log` whole (300+ KB). Exit code 1 = a failure or no
@@ -77,6 +82,17 @@ results.
   already has a layout file is refused, so it never touches the user's setups.
 - **MO2 may drop the VFS** if `skse64_loader` exits early; the runner retries up to 3 times. A "no results file" with
   no game log usually means that or a DLL without the harness (the deployed one predates it).
+- **A message box left open kills the rest of the run.** The hotkey in `iMode = 1`, a template offer and the category
+  question are message boxes; `closeMenu` cannot close them and every later container/crafting menu stays shut. The
+  harness fails the test that leaves one open (*left a message box open*): answer it (`answerMessageBox`) or check the
+  log/layout instead of pressing the hotkey.
+- **Test templates are per plan.** A plan declares the test templates it needs (`"templates": ["X.json"]`, files in
+  `mod/.../Templates/AutoTest/`); the installer removes the others, so plans on the shipped template of the same cell
+  (20, 30) are not shadowed. Regenerating a plan must keep that key.
+- **`layout`/`layoutFile`/`backupFile` checks read the plan's home file**, whatever cell the player stands in: another
+  cell's own setup can only be proven through the log ("Applied template ... to <home>") or counts.
+- **`log` checks with `since: "action"`** miss lines the action itself logged; leave the scope off unless needed.
+- **Sawn Log is non-playable** (Hearthfire hides it); use nails or quarried stone as building materials.
 - **`CommonLib` wrappers aren't the hooked functions.** E.g. `InventoryChanges::GetItemCount` (15868) doesn't
   route through the hooked 15869; test through the real path (`hookedCount`, `craft`).
 

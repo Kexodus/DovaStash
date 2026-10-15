@@ -1,0 +1,149 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Bal Ruhn SE (mtBalRuhn.esp, mod home; tests the template path, respawning containers in a cell that never resets)",
+  "home": "mtBalRuhn.esp|0x00000D64",
+  "coc": "111gqapt",
+  "templates": ["52_BalRuhn.json"],
+  "tests": [
+    {
+      "id": "1.1-balruhn", "title": "Template offered on the first visit",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "log", "since": "plan", "regex": "Cell .*\\(mtBalRuhn\\.esp\\|0x00000D64\\): template available"},
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Bal Ruhn \\(AutoTest\\) setup available"}
+      ]
+    },
+    {
+      "id": "3.6-balruhn", "title": "Use template, Deposit spreads the loot",
+      "steps": [
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Bal Ruhn (AutoTest) setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/52_BalRuhn.json@1.0.0"},
+        {"check": "layout", "pointer": "/master", "eq": "mtBalRuhn.esp|0x000018DC"},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 3},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x0002E4E2", "count": 1},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "mtBalRuhn.esp|0x0000E215", "item": "Skyrim.esm|0x0005ACE4", "from": "dep", "ge": 3},
+        {"check": "count", "in": "mtBalRuhn.esp|0x0000E249", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
+        {"check": "count", "in": "mtBalRuhn.esp|0x0000B317", "item": "Skyrim.esm|0x0002E4E2", "from": "dep", "ge": 1},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.1-balruhn-respawn", "title": "A respawning container binds in a cell that never resets (NoResetZone): accepted with a warning (Apothecary's Satchel, Imbuing Chamber)",
+      "steps": [
+        {"do": "bind", "ref": "mtBalRuhn.esp|0x00003F5F", "category": "misc.clutter"},
+        {"check": "log", "regex": "has the respawn flag; accepted because the cell never resets"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "mtBalRuhn.esp|0x00003F5F", "categories": ["misc.clutter"]}},
+        {"do": "bind", "ref": "mtBalRuhn.esp|0x0000E208", "category": "misc.clutter"},
+        {"check": "log", "regex": "Imbuing Chamber .* has the respawn flag; accepted because the cell never resets"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "mtBalRuhn.esp|0x0000E208", "categories": ["misc.clutter"]}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3-balruhn", "title": "Learn an item put into an unbound chest, then undo with the hotkey",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "openContainer", "ref": "mtBalRuhn.esp|0x00002401"},
+        {"do": "store", "to": "mtBalRuhn.esp|0x00002401", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: Aevar Stone-Singer .* -> .*: recorded"},
+        {"check": "notify", "regex": "now goes to .* \\(K: undo\\)"},
+        {"do": "wait", "seconds": 0.5},
+        {"do": "hotkey"},
+        {"check": "notify", "regex": "Dova Stash: undone, .* is not learned"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x0001ACE6", "absent": true, "within": 3},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.4-balruhn", "title": "Sort all and Retrieve by category (weapons and armour chest)",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "snapshot", "name": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "mtBalRuhn.esp|0x000044CB", "item": "Skyrim.esm|0x00012EB7", "ge": 2},
+        {"do": "op", "op": "SortAll"},
+        {"do": "waitIdle"},
+        {"do": "op", "op": "Retrieve", "pattern": "weapons.*"},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "ge": 2},
+        {"check": "conserved", "snapshot": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-balruhn", "title": "Weapon rack in use takes a weapon on Deposit",
+      "steps": [
+        {"do": "displayUse", "ref": "mtBalRuhn.esp|0x00001E93"},
+        {"do": "additem", "item": "Skyrim.esm|0x000139B9", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Display: Daedric Sword .* on .*\\(rack\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x000139B9", "eq": 0},
+        {"check": "count", "in": "mtBalRuhn.esp|0x000044CB", "item": "Skyrim.esm|0x000139B9", "eq": 0},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8a-balruhn", "title": "Restock to a keep quota",
+      "steps": [
+        {"do": "keep", "keep": {"quotas": [{"category": "alchemy.potions", "quota": 2, "restock": true}]}},
+        {"do": "op", "op": "Restock"},
+        {"check": "notify", "regex": "Dova Stash: (restocked \\d+ items?|nothing to restock)"},
+        {"do": "keep", "keep": null},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8b-balruhn", "title": "Craft from storage at the cooking pot 0x0000B2E5 (esm_dump furniture, CraftingCookpot)",
+      "steps": [
+        {"do": "sit", "ref": "mtBalRuhn.esp|0x0000B2E5", "keyword": "CraftingCookpot"},
+        {"check": "crafting", "active": true, "within": 5},
+        {"do": "closeMenu", "menu": "Crafting Menu"},
+        {"check": "crafting", "active": false, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9-balruhn", "title": "Add the grounds outside (load door 0x00001310 to WindhelmOrigin), Deposit from there, remove it",
+      "steps": [
+        {"do": "enter"},
+        {"do": "exitDoor", "ref": "mtBalRuhn.esp|0x00001310"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Grounds"},
+        {"check": "notify", "contains": "Grounds is now part of Bal Ruhn"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Grounds"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Bal Ruhn"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Bal Ruhn"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-balruhn", "title": "Make master and Reset (last)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "makeMaster", "ref": "mtBalRuhn.esp|0x000044CB"},
+        {"check": "layout", "pointer": "/master", "eq": "mtBalRuhn.esp|0x000044CB"},
+        {"do": "makeMaster", "ref": "mtBalRuhn.esp|0x000018DC"},
+        {"check": "layout", "pointer": "/master", "eq": "mtBalRuhn.esp|0x000018DC"},
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

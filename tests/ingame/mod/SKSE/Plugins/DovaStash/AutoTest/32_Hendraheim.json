@@ -1,0 +1,319 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Hendraheim (Creation Club)",
+  "home": "Update.esm|0x00002FD9",
+  "coc": "ccEEJSSE004Interior01",
+  "tests": [
+    {
+      "id": "1.1-hendraheim",
+      "title": "Template offered and used",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Hendraheim",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Hendraheim v1.0.0 by Dova Stash"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/CreationClub/Hendraheim.json@1.0.0"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccEEJSSE004-Hall.esl|0x00000A81"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-hendraheim",
+      "title": "Displays: a plain rack in use takes a sword on Deposit",
+      "steps": [
+        {
+          "do": "require",
+          "enabled": "ccEEJSSE004-Hall.esl|0x00000E18",
+          "why": "Hendraheim's racks come with the decoration"
+        },
+        {
+          "do": "displayUse",
+          "ref": "ccEEJSSE004-Hall.esl|0x00000E18"
+        },
+        {
+          "check": "notify",
+          "contains": "is used now"
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "contains": {
+            "ref": "ccEEJSSE004-Hall.esl|0x00000E18"
+          }
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000139B9",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "regex": "Display: Daedric Sword .* on .*\\(rack\\)",
+          "within": 10
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x000139B9",
+          "eq": 0
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "regex": "did not take|had no 3D"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7a-hendraheim",
+      "title": "Displays: a shield rack and a dagger rack each take their own kind",
+      "steps": [
+        {
+          "do": "displayUse",
+          "ref": "ccEEJSSE004-Hall.esl|0x00000B09"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001396E",
+          "count": 1
+        },
+        {
+          "do": "displayUse",
+          "ref": "ccEEJSSE004-Hall.esl|0x00000B14"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000139A6",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "regex": "Display: Daedric Shield .* on .*\\(rack\\)",
+          "within": 10
+        },
+        {
+          "check": "log",
+          "regex": "Display: Glass Dagger .* on .*\\(rack\\)",
+          "within": 10
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x000139A6",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7b-hendraheim",
+      "title": "Displays: a mannequin in use wears hide armor (armor.light)",
+      "steps": [
+        {
+          "do": "displayUse",
+          "ref": "ccEEJSSE004-Hall.esl|0x00000B23"
+        },
+        {
+          "do": "displayCategory",
+          "ref": "ccEEJSSE004-Hall.esl|0x00000B23",
+          "category": "armor.light"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013911",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "regex": "Display: Hide Armor .* (mannequin|on )",
+          "within": 10
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00013911",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7c-hendraheim",
+      "title": "Displays: a plaque takes its own item and nothing else",
+      "steps": [
+        {
+          "do": "displayUse",
+          "ref": "ccEEJSSE004-Hall.esl|0x00000DA1"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000B634C",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "regex": "Display: Coral Dragon Claw",
+          "within": 10
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x000B634C",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7d-hendraheim",
+      "title": "Fill now on a rack in use puts a dagger up by hand",
+      "steps": [
+        {
+          "do": "displayUse",
+          "ref": "ccEEJSSE004-Hall.esl|0x00000E1B"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "fill",
+          "ref": "ccEEJSSE004-Hall.esl|0x00000E1B"
+        },
+        {
+          "check": "log",
+          "regex": "Display: Iron Dagger .* on .*\\(rack\\)",
+          "within": 10
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0001397E",
+          "eq": 0,
+          "within": 10
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7e-hendraheim",
+      "title": "Nothing is ever taken off a display (Retrieve all)",
+      "steps": [
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "*"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x000139B9",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x000B634C",
+          "eq": 0
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "regex": "took .* from (a )?display"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-hendraheim-visual",
+      "title": "Display placement looks right",
+      "manual": "visual: racks, mannequins and plaques (node, no floating or falling items)"
+    },
+    {
+      "id": "3.7-hendraheim-soulgems",
+      "title": "A soul gem on a weapon rack is ignored",
+      "manual": "needs a used rack with categories soulgems.* in the layout file: no step edits one container's categories (writeLayout replaces the whole file)"
+    },
+    {
+      "id": "3.5-hendraheim-reset",
+      "title": "Reset backs the setup up",
+      "steps": [
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "contains": "reset (setup backed up)"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

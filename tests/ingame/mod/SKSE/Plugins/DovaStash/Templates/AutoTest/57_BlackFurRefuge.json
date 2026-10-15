@@ -1,0 +1,192 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Black Fur Refuge (AutoTest)",
+  "author": "AutoTest",
+  "version": "1.0.0",
+  "priority": 10,
+  "note": "Test template for the AutoTest plan 57_BlackFurRefuge (drafted from the Dova Stash Editor scan; ignored containers kept as the draft has them).",
+  "requires": [
+    "solstheimretreat.esp"
+  ],
+  "cell": "solstheimretreat.esp|0x00005A00",
+  "master": "solstheimretreat.esp|0x0000ADFE",
+  "containers": [
+    {
+      "ref": "solstheimretreat.esp|0x00005A0B",
+      "label": "Large Sack"
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005A1A",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005A1D",
+      "label": "Barrel",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005A2B",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005A88",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005A99",
+      "label": "Large Sack",
+      "categories": [
+        "misc.clutter"
+      ]
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005B01",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005B0B",
+      "label": "Fish Barrel",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005B2F",
+      "label": "Dresser"
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005B39",
+      "label": "Chest"
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005B3B",
+      "label": "Chest",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005B3D",
+      "label": "Safe",
+      "categories": [
+        "armor.jewelry",
+        "misc.gems"
+      ]
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005B3E",
+      "label": "Strong Box",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00005B3F",
+      "label": "Wardrobe",
+      "categories": [
+        "armor.clothing"
+      ]
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0000ADE1",
+      "label": "Apothecary's Satchel",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0000ADE2",
+      "label": "Strong Box"
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0000ADE3",
+      "label": "Safe"
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0000FF35",
+      "label": "Small Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0000FF36",
+      "label": "Small Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0000FF37",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0000FF38",
+      "label": "Chest",
+      "categories": [
+        "alchemy.food"
+      ]
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0000FF39",
+      "label": "Strong Box",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00015062",
+      "label": "Barrel",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00015063",
+      "label": "Barrel",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00015092",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00015093",
+      "label": "Small Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x00015097",
+      "label": "Barrel",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0001A215",
+      "label": "Sack"
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0001A218",
+      "label": "Large Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0001A219",
+      "label": "Sack"
+    },
+    {
+      "ref": "solstheimretreat.esp|0x0001A21A",
+      "label": "Small Sack",
+      "ignored": true,
+      "note": "Respawns: what you store here can disappear."
+    }
+  ]
+}

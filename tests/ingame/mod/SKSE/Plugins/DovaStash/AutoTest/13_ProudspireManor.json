@@ -1,0 +1,613 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Proudspire Manor (Solitude, vanilla + Hearthfire)",
+  "home": "Skyrim.esm|0x00016A06",
+  "coc": "SolitudeProudspireManor",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Template offered on the first visit; the decorations are bought",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Proudspire Manor",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "Cell Proudspire Manor (Skyrim.esm|0x00016A06): template available"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Proudspire Manor v1.0.0 by Dova Stash"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "Dova Stash: Proudspire Manor setup available (by Dova Stash)"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "title": "Make a master",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "makeMaster",
+          "ref": "Skyrim.esm|0x0009DA07"
+        },
+        {
+          "check": "notify",
+          "contains": "is now the master container"
+        },
+        {
+          "check": "log",
+          "contains": "Saved layout"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x0009DA07"
+        },
+        {
+          "check": "home",
+          "layout": true
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5",
+      "title": "Ignore, Remove, Make master, Reset",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0002E4E2",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "manage"
+        },
+        {
+          "do": "ignore",
+          "ref": "Skyrim.esm|0x000E2627"
+        },
+        {
+          "check": "notify",
+          "contains": "is now ignored"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x000E2627",
+            "ignored": true
+          }
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000E2627",
+          "item": "Skyrim.esm|0x0002E4E2",
+          "from": "manage",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x0002E4E2",
+          "from": "manage",
+          "eq": 1
+        },
+        {
+          "do": "ignore",
+          "ref": "Skyrim.esm|0x000E2627",
+          "on": false
+        },
+        {
+          "check": "notify",
+          "contains": "is managed again"
+        },
+        {
+          "do": "bind",
+          "ref": "Skyrim.esm|0x000D8AAA",
+          "category": "alchemy.food"
+        },
+        {
+          "do": "removeContainer",
+          "ref": "Skyrim.esm|0x000D8AAA"
+        },
+        {
+          "check": "notify",
+          "contains": "removed (what's inside stays)"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "lacks": {
+            "ref": "Skyrim.esm|0x000D8AAA"
+          }
+        },
+        {
+          "do": "makeMaster",
+          "ref": "Skyrim.esm|0x000D89BF"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x000D89BF"
+        },
+        {
+          "do": "makeMaster",
+          "ref": "Skyrim.esm|0x0009DA07"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x0009DA07"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Proudspire Manor reset (setup backed up)"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Skyrim\\.esm_00016A06\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "check": "home",
+          "layout": false
+        },
+        {
+          "check": "conserved",
+          "snapshot": "manage"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6",
+      "title": "Use template, Deposit spreads the loot",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Proudspire Manor setup enabled"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/Vanilla/ProudspireManor.json@1.0.0"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x0009DA07"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 3
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "template"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000D8AC4",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "template",
+          "ge": 3
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000D8A1C",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "template",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000D8ABA",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "template",
+          "ge": 1
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000D89D5",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "from": "template",
+          "ge": 1
+        },
+        {
+          "check": "conserved",
+          "snapshot": "template"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6-reapply",
+      "title": "Re-apply the template keeps the player's ignored container and master",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "ignore",
+          "ref": "Skyrim.esm|0x000D8A55"
+        },
+        {
+          "check": "notify",
+          "contains": "is now ignored"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Skyrim\\.esm_00016A06\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x000D8A55",
+            "ignored": true
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x0009DA07"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6.5",
+      "title": "Save as template, offered at once, same name again (v1.0.1), round trip",
+      "steps": [
+        {
+          "do": "export",
+          "name": "AutoTest Proudspire"
+        },
+        {
+          "check": "log",
+          "contains": "Exported Proudspire Manor as template \"AutoTest Proudspire\" v1.0.0"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Proudspire.json",
+          "pointer": "/version",
+          "eq": "1.0.0"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Proudspire.json",
+          "pointer": "/cell",
+          "eq": "Skyrim.esm|0x00016A06"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Proudspire.json",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x0009DA07"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Proudspire.json",
+          "pointer": "/learned",
+          "absent": true
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Proudspire.json",
+          "pointer": "/basedOn",
+          "absent": true
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Proudspire.json",
+          "pointer": "/author"
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/User/AutoTest Proudspire.json"
+        },
+        {
+          "do": "export",
+          "name": "AutoTest Proudspire",
+          "expect": "exists"
+        },
+        {
+          "do": "export",
+          "name": "AutoTest Proudspire",
+          "overwrite": true
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Proudspire.json",
+          "pointer": "/version",
+          "eq": "1.0.1"
+        },
+        {
+          "check": "files",
+          "dir": "TemplatesUser",
+          "regex": "AutoTest Proudspire\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "do": "useTemplate",
+          "source": "Templates/User/AutoTest Proudspire.json"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/User/AutoTest Proudspire.json@1.0.1"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x000D8A55",
+            "ignored": true
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6a",
+      "title": "Setups backed up outside Data: copy written, restored after the layout is lost, broken copy refused",
+      "steps": [
+        {
+          "do": "useTemplate",
+          "source": "Templates/User/AutoTest Proudspire.json"
+        },
+        {
+          "check": "backupFile",
+          "pointer": "/basedOn",
+          "eq": "Templates/User/AutoTest Proudspire.json@1.0.1",
+          "within": 5
+        },
+        {
+          "check": "backupFile",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x0009DA07",
+          "within": 5
+        },
+        {
+          "do": "deleteLayout"
+        },
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "log",
+          "contains": "a backup of its layout can be restored"
+        },
+        {
+          "do": "restore"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Proudspire Manor restored"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x0009DA07"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/User/AutoTest Proudspire.json@1.0.1"
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "writeBackup",
+          "text": "{"
+        },
+        {
+          "do": "deleteLayout"
+        },
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "do": "restore"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: that saved setup is broken (see DovaStash.log)"
+        },
+        {
+          "check": "log",
+          "contains": "could not be parsed; it is not used"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "home",
+          "layout": true
+        },
+        {
+          "check": "noErrors",
+          "except": [
+            "could not be parsed",
+            "invalid JSON"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3.9-proudspire",
+      "title": "A home over several cells: the street outside, Deposit from there, remove it",
+      "steps": [
+        {
+          "do": "exitDoor"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Street"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Street is now part of Proudspire Manor"
+        },
+        {
+          "check": "log",
+          "regex": "Add area: .* is now part of Proudspire Manor"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "label": "Street"
+          }
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Proudspire Manor"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "log",
+          "contains": "Deposit in Proudspire Manor"
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "contains": "is no longer part of Proudspire Manor"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "absent": true
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

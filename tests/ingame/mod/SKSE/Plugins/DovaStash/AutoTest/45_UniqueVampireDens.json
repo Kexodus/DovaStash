@@ -1,0 +1,401 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Unique Vampire Dens: Secret Cellar",
+  "home": "gonkishvampdens.esp|0x00057CD7",
+  "coc": "GonkishSolitudeDen",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Template offered on the first visit",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "ownCell"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Secret Cellar",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template available"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "setup available \\(by "
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/SecretCellar.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "No second notification in the same session",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "setup available",
+          "count": 1,
+          "within": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6",
+      "title": "Use template: the AutoTest template is the one applied",
+      "steps": [
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/SecretCellar.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/AutoTest/SecretCellar.json@1.0.0",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "gonkishvampdens.esp|0x0005807B",
+          "within": 5
+        },
+        {
+          "check": "notify",
+          "regex": "setup enabled",
+          "since": "action",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.4-SecretCellar",
+      "title": "A respawning container: accepted, the cell never resets",
+      "steps": [
+        {
+          "do": "bind",
+          "ref": "gonkishvampdens.esp|0x000F98FA",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "contains": "has the respawn flag; accepted because the cell never resets"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "gonkishvampdens.esp|0x000F98FA",
+            "categories": [
+              "misc.clutter"
+            ]
+          },
+          "within": 5
+        },
+        {
+          "do": "unbind",
+          "ref": "gonkishvampdens.esp|0x000F98FA",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.2-SecretCellar",
+      "title": "Inventory",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "equip",
+          "item": "Skyrim.esm|0x00012EB7"
+        },
+        {
+          "do": "snapshot",
+          "name": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.3-SecretCellar",
+      "title": "Deposit: the potion chest, the barrel for food and the bookcase take their categories",
+      "steps": [
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "gonkishvampdens.esp|0x0005F8B8",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "inventory",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "gonkishvampdens.esp|0x00064897",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "inventory",
+          "ge": 1
+        },
+        {
+          "check": "count",
+          "in": "gonkishvampdens.esp|0x00058093",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "from": "inventory",
+          "ge": 1
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00012EB7",
+          "filter": "worn",
+          "eq": 1
+        },
+        {
+          "check": "conserved",
+          "snapshot": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9b-SecretCellar",
+      "title": "Retrieve by category from the potion chest",
+      "steps": [
+        {
+          "do": "snapshot",
+          "name": "back"
+        },
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "alchemy.potions"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "back",
+          "ge": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.4-SecretCellar",
+      "title": "Sort all",
+      "steps": [
+        {
+          "do": "snapshot",
+          "name": "sortall"
+        },
+        {
+          "do": "op",
+          "op": "SortAll"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "re-sorted \\d+ items?"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "sortall"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9e-SecretCellar",
+      "title": "A cell not in the template: the trapdoor's cell added, saved, re-applied, removed",
+      "steps": [
+        {
+          "do": "exitDoor",
+          "ref": "gonkishvampdens.esp|0x00195503"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Outside"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Secret Cellar",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "regex": "Add area: .* named \"Outside\""
+        },
+        {
+          "do": "export",
+          "name": "AutoTest SecretCellar"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest SecretCellar.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00037EE9",
+            "label": "Outside"
+          }
+        },
+        {
+          "do": "useTemplate",
+          "source": "Templates/AutoTest/SecretCellar.json"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00037EE9"
+          },
+          "within": 5
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "is no longer part of"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "absent": true,
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-SecretCellar",
+      "title": "Reset removes the setup",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "gonkishvampdens.esp|0x00057CD7"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: .* reset \\(setup backed up\\)",
+          "within": 5
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "gonkishvampdens\\.esp_00057CD7\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "do": "enter",
+          "cell": "gonkishvampdens.esp|0x00057CD7"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Secret Cellar",
+          "layout": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-SecretCellar",
+      "title": "Displays (20: bookshelves, cases, racks)",
+      "manual": "display fills are checked by eye"
+    }
+  ],
+  "templates": [
+    "SecretCellar.json"
+  ]
+}

@@ -1,0 +1,741 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Niflholm (Hall Under the Mountain, several cells)",
+  "home": "Niflholm.esp|0x00005913",
+  "coc": "NiflholmInteriorDeep",
+  "tests": [
+    {
+      "id": "1.1",
+      "title": "Template offered on the first visit",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "ownCell"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Niflholm Personal Chambers",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template available"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "setup available \\(by "
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/Niflholm.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "title": "No second notification in the same session",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "setup available",
+          "count": 1,
+          "within": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6",
+      "title": "Use template: the AutoTest template is the one applied",
+      "steps": [
+        {
+          "check": "bestTemplate",
+          "source": "Templates/AutoTest/Niflholm.json"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/AutoTest/Niflholm.json@1.0.0",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Niflholm.esp|0x000EE489",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Niflholm.esp|0x00001880"
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Niflholm.esp|0x00007A95"
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Niflholm.esp|0x000077D9"
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Niflholm.esp|0x000199A1"
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Niflholm.esp|0x001AA4CF"
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Niflholm.esp|0x0024829C"
+          },
+          "within": 5
+        },
+        {
+          "check": "notify",
+          "regex": "setup enabled",
+          "since": "action",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.4-Niflholm",
+      "title": "A respawning container in a cell that resets is refused",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00001880"
+        },
+        {
+          "do": "bind",
+          "ref": "Niflholm.esp|0x00001A0D",
+          "category": "misc.clutter"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "contains": "restocks itself"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "lacks": {
+            "ref": "Niflholm.esp|0x00001A0D",
+            "categories": [
+              "misc.clutter"
+            ]
+          },
+          "within": 3
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.2-Niflholm",
+      "title": "Inventory for the spread test (equipped sword stays)",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 4
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000800E4",
+          "count": 6
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000DB5D2",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "equip",
+          "item": "Skyrim.esm|0x00012EB7"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00012EB7",
+          "filter": "worn",
+          "eq": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "inventory"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.3-Niflholm",
+      "title": "Deposit in the main hall spreads to persistent containers of the other cells",
+      "steps": [
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: deposited \\d+ items? into \\d+ containers"
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x000B137C",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "from": "inventory",
+          "ge": 4
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x0004B943",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "inventory",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x000177F7",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "inventory",
+          "ge": 1
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x000B136B",
+          "item": "Skyrim.esm|0x000DB5D2",
+          "from": "inventory",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00012EB7",
+          "filter": "worn",
+          "eq": 1
+        },
+        {
+          "check": "conserved",
+          "snapshot": "inventory",
+          "ignore": [
+            "Skyrim.esm|0x0001ACD9"
+          ]
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-Niflholm",
+      "title": "Mage Hall (another cell): home with the home's name, Deposit reaches persistent containers, others left alone",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00007A95"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Niflholm Personal Chambers",
+          "layout": true
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000800E4",
+          "count": 3
+        },
+        {
+          "do": "snapshot",
+          "name": "mage"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x0004B943",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "mage",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x000B136B",
+          "item": "Skyrim.esm|0x000800E4",
+          "from": "mage",
+          "ge": 3
+        },
+        {
+          "check": "conserved",
+          "snapshot": "mage"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9b-Niflholm",
+      "title": "Retrieve by category from Mage Hall reaches the other cell's persistent container",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00007A95"
+        },
+        {
+          "do": "snapshot",
+          "name": "back"
+        },
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "misc.hides_pelts"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x000800E4",
+          "from": "back",
+          "ge": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9c-Niflholm",
+      "title": "Mage Hall is part of the home (log line names it)",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00007A95"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Niflholm Personal Chambers",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "\\(Niflholm\\.esp\\|0x00007A95\\): part of Niflholm Personal Chambers"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.3-Niflholm",
+      "title": "Learn by hand in another cell: a dagger put into the Potions container",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00007A95"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "openContainer",
+          "ref": "Niflholm.esp|0x0004B943"
+        },
+        {
+          "do": "store",
+          "to": "Niflholm.esp|0x0004B943",
+          "item": "Skyrim.esm|0x0001397E",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "now goes to",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x0001397E",
+          "eq": "Niflholm.esp|0x0004B943",
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.4-Niflholm",
+      "title": "Sort all from another cell",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00007A95"
+        },
+        {
+          "do": "snapshot",
+          "name": "sortall"
+        },
+        {
+          "do": "op",
+          "op": "SortAll"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "regex": "re-sorted \\d+ items?"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "sortall"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9d-Niflholm",
+      "title": "Hidden Cellar (a non-persistent cell of its own): Deposit there goes to its own containers",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x0024829C"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Niflholm Personal Chambers",
+          "layout": true
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00064B41",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "hidden"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x000177F7",
+          "item": "Skyrim.esm|0x00064B41",
+          "from": "hidden",
+          "ge": 1
+        },
+        {
+          "check": "conserved",
+          "snapshot": "hidden"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9e-Niflholm",
+      "title": "A cell not in the template: added from outside, saved in the template, re-applied, removed",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00001880"
+        },
+        {
+          "do": "exitDoor",
+          "ref": "Niflholm.esp|0x000C0804"
+        },
+        {
+          "check": "home",
+          "is": false
+        },
+        {
+          "do": "addArea",
+          "label": "Outside"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Niflholm Personal Chambers",
+          "layout": true
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "regex": "Add area: .* named \"Outside\""
+        },
+        {
+          "do": "export",
+          "name": "AutoTest Niflholm"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Niflholm.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00006ECD",
+            "label": "Outside"
+          }
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Niflholm.json",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Niflholm.esp|0x00001880",
+            "label": "Niflholm"
+          }
+        },
+        {
+          "do": "useTemplate",
+          "source": "Templates/AutoTest/Niflholm.json"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Skyrim.esm|0x00006ECD"
+          },
+          "within": 5
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "is no longer part of"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "lacks": {
+            "cell": "Skyrim.esm|0x00006ECD"
+          },
+          "within": 5
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9h-Niflholm",
+      "title": "Remove Mage Hall while its containers hold items: nothing moves, then add it back from inside",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00007A95"
+        },
+        {
+          "do": "snapshot",
+          "name": "magearea"
+        },
+        {
+          "do": "removeArea"
+        },
+        {
+          "check": "notify",
+          "since": "action",
+          "regex": "is no longer part of"
+        },
+        {
+          "check": "log",
+          "since": "action",
+          "absent": true,
+          "regex": "ItemMover: moved"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "lacks": {
+            "cell": "Niflholm.esp|0x00007A95"
+          },
+          "within": 5
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x0004B943",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "magearea",
+          "eq": 0
+        },
+        {
+          "do": "addArea",
+          "label": "Niflholm Mage Hall"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "Niflholm.esp|0x00007A95"
+          },
+          "within": 5
+        },
+        {
+          "check": "count",
+          "in": "Niflholm.esp|0x0004B943",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "magearea",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-Niflholm",
+      "title": "Reset removes the setup: each cell is its own home again",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00005913"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: .* reset \\(setup backed up\\)",
+          "within": 5
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Niflholm\\.esp_00005913\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "do": "enter",
+          "cell": "Niflholm.esp|0x00007A95"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Niflholm Mage Hall",
+          "layout": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-Niflholm",
+      "title": "Displays in another cell are not filled from the main hall",
+      "manual": "display fills are logged without their cell: needs a look at the racks and mannequins in Mage Hall after a Deposit in the main hall"
+    }
+  ],
+  "templates": [
+    "Niflholm.json"
+  ]
+}

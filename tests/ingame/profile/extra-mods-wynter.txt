@@ -1,0 +1,3 @@
+# Wynter's Breezehome Redux rebuilds Breezehome: run with its own profile (install.ps1 -Profile -ExtraMods <this file>),
+# then the Breezehome plan must see "template not offered: ... rebuilds this home (conflicts)".
+Wynter's Breezehome Redux|WynterBreezehomeRedux.esp

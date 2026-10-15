@@ -1,0 +1,301 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Shadowfoot Sanctum (Creation Club)",
+  "home": "Update.esm|0x00002F98",
+  "coc": "ccEEJSSE003Interior01",
+  "tests": [
+    {
+      "id": "1.1-shadowfoot",
+      "title": "Template offered and used",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Shadowfoot Sanctum",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Shadowfoot Sanctum v1.0.0 by Dova Stash"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/CreationClub/ShadowfootSanctum.json@1.0.0"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccEEJSSE003-Hollow.esl|0x00000EB7"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.10-shadowfoot-a",
+      "title": "Sell chest: made from a bedroom chest (taken out of the layout first)",
+      "steps": [
+        {
+          "do": "removeContainer",
+          "ref": "ccEEJSSE003-Hollow.esl|0x00000E20"
+        },
+        {
+          "do": "clearContainer",
+          "ref": "ccEEJSSE003-Hollow.esl|0x00000E20"
+        },
+        {
+          "do": "sellChest",
+          "ref": "ccEEJSSE003-Hollow.esl|0x00000E20"
+        },
+        {
+          "check": "notify",
+          "contains": "is now the sell chest"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccEEJSSE003-Hollow.esl|0x00000E20",
+            "sell": true
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.10-shadowfoot-route",
+      "title": "Sell chest: Deposit routes sellable items to it; never-sold items stay out",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 5
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00098620",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0000000A",
+          "count": 10
+        },
+        {
+          "do": "snapshot",
+          "name": "route"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 5
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x00098620",
+          "eq": 2
+        },
+        {
+          "check": "conserved",
+          "snapshot": "route",
+          "ignore": []
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.10-shadowfoot-stolen",
+      "title": "Sell chest: a stolen copy is kept (never sold)",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 1,
+          "extra": {
+            "owner": "Skyrim.esm|0x00013BA1"
+          }
+        },
+        {
+          "do": "store",
+          "to": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 1
+        },
+        {
+          "do": "store",
+          "to": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x0000000A",
+          "count": 10
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x000319E3",
+          "filter": "stolen",
+          "eq": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.10-shadowfoot-quote",
+      "title": "Sell chest: the quote is what the confirmation shows",
+      "steps": [
+        {
+          "do": "snapshot",
+          "name": "sale"
+        },
+        {
+          "do": "quote",
+          "chest": "ccEEJSSE003-Hollow.esl|0x00000E20"
+        },
+        {
+          "check": "quote",
+          "eq": 7,
+          "minGold": 1,
+          "stays": "stolen"
+        }
+      ]
+    },
+    {
+      "id": "3.10-shadowfoot-sell",
+      "title": "Sell now (confirmed): the quote is paid, the stolen copy stays",
+      "steps": [
+        {
+          "do": "sellConfirmed"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: sold 7 items for \\d+ gold"
+        },
+        {
+          "check": "log",
+          "contains": "Sell chest (sell now): sold 7 items"
+        },
+        {
+          "check": "gold",
+          "snapshot": "sale",
+          "plusQuote": true
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x00098620",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x0000000A",
+          "eq": 10
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.10-shadowfoot-buyback",
+      "title": "Buy back the sold items for their gold",
+      "steps": [
+        {
+          "do": "buyBack"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: bought back 7 items for \\d+ gold"
+        },
+        {
+          "check": "gold",
+          "snapshot": "sale"
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 6
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x00098620",
+          "eq": 2
+        },
+        {
+          "check": "conserved",
+          "snapshot": "sale"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.10-shadowfoot-changed",
+      "title": "Sell chest changed meanwhile: sell again, nothing sold blind",
+      "steps": [
+        {
+          "do": "quote",
+          "chest": "ccEEJSSE003-Hollow.esl|0x00000E20"
+        },
+        {
+          "do": "additem",
+          "to": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 1
+        },
+        {
+          "do": "sellConfirmed"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: the sell chest changed; sell again"
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE003-Hollow.esl|0x00000E20",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 7
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.10-shadowfoot-favorite",
+      "title": "Favorited items are not sold",
+      "manual": "needs a favorite toggle in the inventory menu (no step for it)"
+    }
+  ]
+}

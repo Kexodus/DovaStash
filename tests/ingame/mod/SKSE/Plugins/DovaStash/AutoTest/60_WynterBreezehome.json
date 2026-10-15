@@ -1,0 +1,62 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Wynter's Breezehome Redux - the vanilla Breezehome cell (WynterBreezehomeRedux.esp rebuilds it: NEEDS THE WYNTER PROFILE, tests/ingame/profile/extra-mods-wynter.txt)",
+  "home": "Skyrim.esm|0x000165A8",
+  "coc": "WhiterunBreezehome",
+  "tests": [
+    {
+      "id": "3.6b.3", "title": "The shipped Breezehome template is not offered: a mod that rebuilds this home is loaded",
+      "steps": [
+        {"do": "enter"},
+        {"check": "log", "since": "plan", "regex": "not offered: .*rebuilds this home \\(conflicts\\)"},
+        {"check": "notify", "since": "plan", "absent": true, "contains": "Breezehome setup available"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "home", "layout": false},
+        {"check": "noErrors", "except": ["not offered"]}
+      ]
+    },
+    {
+      "id": "3.6b.3-hotkey", "title": "The hotkey at nothing offers no template",
+      "steps": [
+        {"do": "hotkey"},
+        {"check": "notify", "since": "action", "absent": true, "contains": "Use template"},
+        {"check": "layoutFile", "exists": false}
+      ]
+    },
+    {
+      "id": "2.1-wynter-vanilla", "title": "Make master in the rebuilt Breezehome (no template), then Deposit",
+      "steps": [
+        {"do": "clearInventory"},
+        {"do": "buyHome"},
+        {"do": "makeMaster", "ref": "Skyrim.esm|0x000F3922"},
+        {"check": "notify", "contains": "is now the master container"},
+        {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000F3922"},
+        {"check": "home", "layout": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.3-wynter-vanilla", "title": "Deposit: the only enabled container of this cell is the master, so everything stays in it",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012EB7", "from": "dep", "eq": 2},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "eq": 2},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-wynter-vanilla", "title": "Reset (last)",
+      "steps": [
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

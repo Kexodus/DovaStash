@@ -1,0 +1,241 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Gallows Hall (Creation Club)",
+  "home": "Update.esm|0x00002FD0",
+  "coc": "ccRMSSSE001Interior01",
+  "tests": [
+    {
+      "id": "1.1-gallows",
+      "title": "Template offered and used",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Gallows Hall",
+          "layout": false
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: Gallows Hall v1.0.0 by Dova Stash"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "eq": "Templates/CreationClub/GallowsHall.json@1.0.0"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccRMSSSE001-NecroHouse.esl|0x00000968"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccRMSSSE001-NecroHouse.esl|0x000008CB",
+            "ignored": true
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6-gallows",
+      "title": "Re-apply keeps the player's ignore",
+      "steps": [
+        {
+          "do": "ignore",
+          "ref": "ccRMSSSE001-NecroHouse.esl|0x0000094C"
+        },
+        {
+          "check": "notify",
+          "contains": "is now ignored"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Update\\.esm_00002FD0\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccRMSSSE001-NecroHouse.esl|0x0000094C",
+            "ignored": true
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6.5-gallows",
+      "title": "Save as template keeps the ignore and the master",
+      "steps": [
+        {
+          "do": "export",
+          "name": "AutoTest Gallows Hall"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Gallows Hall.json",
+          "pointer": "/cell",
+          "eq": "Update.esm|0x00002FD0"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Gallows Hall.json",
+          "pointer": "/master",
+          "eq": "ccRMSSSE001-NecroHouse.esl|0x00000968"
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Gallows Hall.json",
+          "pointer": "/learned",
+          "absent": true
+        },
+        {
+          "check": "templateFile",
+          "name": "AutoTest Gallows Hall.json",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccRMSSSE001-NecroHouse.esl|0x0000094C",
+            "ignored": true
+          }
+        },
+        {
+          "check": "bestTemplate",
+          "source": "Templates/User/AutoTest Gallows Hall.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-gallows-respawn",
+      "title": "A respawning chest is never used (the template marks it ignored)",
+      "steps": [
+        {
+          "do": "bind",
+          "ref": "ccRMSSSE001-NecroHouse.esl|0x000008CB",
+          "category": "misc.gems"
+        },
+        {
+          "check": "log",
+          "regex": "respawn",
+          "since": "action",
+          "within": 3
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccRMSSSE001-NecroHouse.esl|0x000008CB",
+            "ignored": true
+          }
+        },
+        {
+          "do": "unbind",
+          "ref": "ccRMSSSE001-NecroHouse.esl|0x000008CB",
+          "category": "misc.gems"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.6a-gallows",
+      "title": "Broken backup refused; a good setup restored",
+      "steps": [
+        {
+          "do": "writeBackup",
+          "text": "{"
+        },
+        {
+          "do": "deleteLayout"
+        },
+        {
+          "do": "enter",
+          "coc": "WhiterunBanneredMare"
+        },
+        {
+          "do": "enter"
+        },
+        {
+          "do": "restore"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: that saved setup is broken (see DovaStash.log)"
+        },
+        {
+          "check": "log",
+          "contains": "could not be parsed; it is not used"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "home",
+          "layout": true
+        },
+        {
+          "check": "noErrors",
+          "except": [
+            "could not be parsed",
+            "invalid JSON"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3.5-gallows-reset",
+      "title": "Reset backs the setup up",
+      "steps": [
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "contains": "reset (setup backed up)"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Update\\.esm_00002FD0\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

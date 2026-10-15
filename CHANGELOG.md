@@ -26,6 +26,10 @@
 
 ### Fixed
 
+- A plain stack stored next to a container's own stock (a vanilla alchemy sack's salt, a food barrel's bread) could trip the special-copy check: the log said "Move of plain Salt Pile ... took a tempered, enchanted, renamed or worn copy; put 0 back", and from then on that item stayed put in that container for the session (crafting from storage fell back to Move). Lists that only carry a count or an owner now count as plain, as they are.
+- Make sell chest binds Clutter, but when the home's template already had a clutter container the chest never received any: list order decided ties. The sell chest now wins a tie for its own categories (a more specific pattern elsewhere still wins).
+- Test harness (not shipped): plans declare their test templates, `run.ps1 -Only`, extra home mods for the test profile, cross-cell "nothing lost" checks, message boxes left open are reported, and 60 new plans over 29 homes (city, Hearthfire, Creation Club, mod homes). `esm_dump.py cell` lists furniture (with crafting keywords) and doors (with the cell they lead to).
+
 - Plugins with non-ASCII names (`Château.esp`, `风舞.esp`) keep their names in setups and templates. Before, every form of such a plugin was written as `���.esp|0x...`, so the setup silently did nothing for those containers after the next load (nothing was lost; the entries were kept).
 - Deposit put an item away, then took it for a plaque, rack, mannequin or bookshelf in the same run; from then on it treated that item as one "a script hands back" and never put it away again that session. Taking it for a display no longer counts.
 - Loading another save mid-session: the Controller forgot nothing of the old game (a container that was open, a deferred sort-on-arrival, the undo window, a "wait until the container menu closes" step), so an action of the old save could run in the new one. A fill still placing items on displays could also keep going with the old game's references. Both are dropped on load and new game; learned destinations not yet written are saved first.

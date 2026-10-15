@@ -1,0 +1,138 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Black Fur Refuge - Solstheim Northern Cabin Player Home (solstheimretreat.esp, mod home; respawning containers in a cell that never resets, no displays)",
+  "home": "solstheimretreat.esp|0x00005A00",
+  "coc": "00BlackFurRefuge",
+  "templates": ["57_BlackFurRefuge.json"],
+  "tests": [
+    {
+      "id": "1.1-blackfur", "title": "Template offered on the first visit",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "log", "since": "plan", "regex": "Cell .*\\(solstheimretreat\\.esp\\|0x00005A00\\): template available"},
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Black Fur Refuge \\(AutoTest\\) setup available"}
+      ]
+    },
+    {
+      "id": "3.6-blackfur", "title": "Use template, Deposit: a potion with no container goes to the master, food to the chest",
+      "steps": [
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Black Fur Refuge (AutoTest) setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/57_BlackFurRefuge.json@1.0.0"},
+        {"check": "layout", "pointer": "/master", "eq": "solstheimretreat.esp|0x0000ADFE"},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00065C99", "count": 2},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "solstheimretreat.esp|0x0000ADFE", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
+        {"check": "count", "in": "solstheimretreat.esp|0x0000FF38", "item": "Skyrim.esm|0x00065C99", "from": "dep", "ge": 2},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "1.4-blackfur", "title": "A respawning barrel binds in a cell that never resets (NoResetZone): accepted with a warning",
+      "steps": [
+        {"do": "bind", "ref": "solstheimretreat.esp|0x00015062", "category": "alchemy.food"},
+        {"check": "log", "regex": "Barrel .* has the respawn flag; accepted because the cell never resets"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "solstheimretreat.esp|0x00015062", "categories": ["alchemy.food"]}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.2-blackfur-equipped", "title": "Equipped gear stays on the player, the spare copy goes to the master",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "equip", "item": "Skyrim.esm|0x00012EB7"},
+        {"do": "snapshot", "name": "worn"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "filter": "worn", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "eq": 1},
+        {"check": "count", "in": "solstheimretreat.esp|0x0000ADFE", "item": "Skyrim.esm|0x00012EB7", "from": "worn", "eq": 1},
+        {"check": "conserved", "snapshot": "worn"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.4-blackfur", "title": "Sort all and Retrieve by category (food)",
+      "steps": [
+        {"do": "snapshot", "name": "sortall"},
+        {"do": "op", "op": "SortAll"},
+        {"do": "waitIdle"},
+        {"do": "op", "op": "Retrieve", "pattern": "alchemy.food"},
+        {"check": "count", "item": "Skyrim.esm|0x00065C99", "ge": 2},
+        {"check": "conserved", "snapshot": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-blackfur", "title": "Remove the wardrobe from management (what's inside stays)",
+      "steps": [
+        {"do": "removeContainer", "ref": "solstheimretreat.esp|0x00005B3F"},
+        {"check": "notify", "contains": "removed (what's inside stays)"},
+        {"check": "layout", "pointer": "/containers", "lacks": {"ref": "solstheimretreat.esp|0x00005B3F"}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8a-blackfur", "title": "Restock to a keep quota",
+      "steps": [
+        {"do": "keep", "keep": {"quotas": [{"category": "alchemy.potions", "quota": 3, "restock": true}]}},
+        {"do": "op", "op": "Restock"},
+        {"check": "notify", "regex": "Dova Stash: (restocked \\d+ items?|nothing to restock)"},
+        {"do": "keep", "keep": null},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8b-blackfur", "title": "Craft from storage at the cooking pot 0x00005A34 (esm_dump furniture, CraftingCookpot)",
+      "steps": [
+        {"do": "sit", "ref": "solstheimretreat.esp|0x00005A34", "keyword": "CraftingCookpot"},
+        {"check": "crafting", "active": true, "within": 5},
+        {"do": "closeMenu", "menu": "Crafting Menu"},
+        {"check": "crafting", "active": false, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-blackfur", "title": "Displays",
+      "manual": "the cabin has no racks, mannequins, plaques or bookshelves in esm_dump's dump: nothing to test"
+    },
+    {
+      "id": "3.9-blackfur", "title": "Add the grounds outside (load door 0x00005A12 to Dragonborn.esm|0x0000ED43, an exterior), Deposit from there, remove it",
+      "steps": [
+        {"do": "enter"},
+        {"do": "exitDoor", "ref": "solstheimretreat.esp|0x00005A12"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Grounds"},
+        {"check": "notify", "contains": "Grounds is now part of Black Fur Refuge"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Grounds"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Black Fur Refuge"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Black Fur Refuge"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-blackfur-master", "title": "Make master and Reset (last)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "makeMaster", "ref": "solstheimretreat.esp|0x0000FF38"},
+        {"check": "layout", "pointer": "/master", "eq": "solstheimretreat.esp|0x0000FF38"},
+        {"do": "makeMaster", "ref": "solstheimretreat.esp|0x0000ADFE"},
+        {"check": "layout", "pointer": "/master", "eq": "solstheimretreat.esp|0x0000ADFE"},
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

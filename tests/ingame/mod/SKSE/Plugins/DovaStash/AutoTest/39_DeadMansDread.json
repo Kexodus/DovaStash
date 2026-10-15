@@ -1,0 +1,274 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Dead Man's Dread (no template)",
+  "home": "ccBGSSSE031-AdvCyrus.esm|0x000009D5",
+  "coc": "ccBGSSSE031Interior02",
+  "tests": [
+    {
+      "id": "1.1-dmd",
+      "title": "First visit: no template notice (there is none for this ship)",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Dead Man's Dread",
+          "layout": false
+        },
+        {
+          "check": "notify",
+          "since": "plan",
+          "contains": "setup available",
+          "absent": true
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "contains": "template: ",
+          "absent": true
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.1-dmd",
+      "title": "Make master on a chest of the ship",
+      "steps": [
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "makeMaster",
+          "ref": "ccBGSSSE031-AdvCyrus.esm|0x00001620"
+        },
+        {
+          "check": "notify",
+          "contains": "is now the master container"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccBGSSSE031-AdvCyrus.esm|0x00001620"
+        },
+        {
+          "check": "home",
+          "layout": true
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "2.2-dmd",
+      "title": "Deposit: with no bindings everything goes to the master",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 4
+        },
+        {
+          "do": "snapshot",
+          "name": "dmd"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "dmd",
+          "eq": 4
+        },
+        {
+          "check": "conserved",
+          "snapshot": "dmd"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.1-dmd",
+      "title": "Bind a dresser to weapons; Deposit fills it",
+      "steps": [
+        {
+          "do": "bind",
+          "ref": "ccBGSSSE031-AdvCyrus.esm|0x00000A59",
+          "category": "weapons.*"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "ccBGSSSE031-AdvCyrus.esm|0x00000A59",
+            "categories": [
+              "weapons.*"
+            ]
+          }
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "bind"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "in": "ccBGSSSE031-AdvCyrus.esm|0x00000A59",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "bind",
+          "eq": 2
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.2-dmd",
+      "title": "Distribute: a sword stored in the master goes to the dresser",
+      "steps": [
+        {
+          "do": "settings",
+          "set": {
+            "bSortOnArrival": false
+          }
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "dist"
+        },
+        {
+          "do": "store",
+          "to": "master",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "dist",
+          "eq": 1
+        },
+        {
+          "do": "op",
+          "op": "Distribute"
+        },
+        {
+          "check": "count",
+          "in": "ccBGSSSE031-AdvCyrus.esm|0x00000A59",
+          "item": "Skyrim.esm|0x00012EB7",
+          "eq": 3,
+          "within": 5
+        },
+        {
+          "check": "conserved",
+          "snapshot": "dist"
+        },
+        {
+          "do": "settings",
+          "set": {
+            "bSortOnArrival": true
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.4-dmd",
+      "title": "Retrieve by category takes the swords back",
+      "steps": [
+        {
+          "do": "op",
+          "op": "Retrieve",
+          "pattern": "weapons.*"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00012EB7",
+          "ge": 2
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.4b-dmd",
+      "title": "Homeless item (no container of its own in this home) goes to the master (gold is always kept)",
+      "steps": [
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 6
+        },
+        {
+          "do": "snapshot",
+          "name": "pots"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "check": "count",
+          "in": "master",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "pots",
+          "ge": 6
+        },
+        {
+          "check": "conserved",
+          "snapshot": "pots"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-dmd-reset",
+      "title": "Reset backs the setup up",
+      "steps": [
+        {
+          "do": "reset"
+        },
+        {
+          "check": "notify",
+          "contains": "reset (setup backed up)"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Wuth Rein - An ancient nordic hideout (WuthRein.esp, mod home; tests the template path, bookshelves, an anvil)",
+  "home": "WuthRein.esp|0x00001308",
+  "coc": "WuthReinInterior",
+  "templates": ["53_WuthRein.json"],
+  "tests": [
+    {
+      "id": "1.1-wuthrein", "title": "Template offered on the first visit",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "log", "since": "plan", "regex": "Cell .*\\(WuthRein\\.esp\\|0x00001308\\): template available"},
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Wuth Rein \\(AutoTest\\) setup available"}
+      ]
+    },
+    {
+      "id": "3.6-wuthrein", "title": "Use template, Deposit spreads ore, soul gems and potions",
+      "steps": [
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Wuth Rein (AutoTest) setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/53_WuthRein.json@1.0.0"},
+        {"check": "layout", "pointer": "/master", "eq": "WuthRein.esp|0x00001488"},
+        {"do": "additem", "item": "Skyrim.esm|0x00071CF3", "count": 4},
+        {"do": "additem", "item": "Skyrim.esm|0x0002E4E2", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "WuthRein.esp|0x000013FF", "item": "Skyrim.esm|0x00071CF3", "from": "dep", "ge": 4},
+        {"check": "count", "in": "WuthRein.esp|0x00001388", "item": "Skyrim.esm|0x0002E4E2", "from": "dep", "ge": 2},
+        {"check": "count", "in": "WuthRein.esp|0x0002730C", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3-wuthrein", "title": "Learn an item put into an unbound chest, then undo with the hotkey",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "openContainer", "ref": "WuthRein.esp|0x0000137D"},
+        {"do": "store", "to": "WuthRein.esp|0x0000137D", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: Aevar Stone-Singer .* -> .*: recorded"},
+        {"do": "wait", "seconds": 0.5},
+        {"do": "hotkey"},
+        {"check": "notify", "regex": "Dova Stash: undone, .* is not learned"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x0001ACE6", "absent": true, "within": 3},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.4-wuthrein", "title": "Sort all and Retrieve by category (ingots)",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00071CF3", "count": 2},
+        {"do": "snapshot", "name": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "WuthRein.esp|0x000013FF", "item": "Skyrim.esm|0x00071CF3", "ge": 2},
+        {"do": "op", "op": "SortAll"},
+        {"do": "waitIdle"},
+        {"do": "op", "op": "Retrieve", "pattern": "misc.ores_ingots"},
+        {"check": "count", "item": "Skyrim.esm|0x00071CF3", "ge": 2},
+        {"check": "conserved", "snapshot": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-wuthrein", "title": "Ignore an urn, stop ignoring, Remove a container (what's inside stays)",
+      "steps": [
+        {"do": "ignore", "ref": "WuthRein.esp|0x00001352"},
+        {"check": "notify", "contains": "is now ignored"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "WuthRein.esp|0x00001352", "ignored": true}},
+        {"do": "ignore", "ref": "WuthRein.esp|0x00001352", "on": false},
+        {"check": "notify", "contains": "is managed again"},
+        {"do": "removeContainer", "ref": "WuthRein.esp|0x0002C4CB"},
+        {"check": "notify", "contains": "removed (what's inside stays)"},
+        {"check": "layout", "pointer": "/containers", "lacks": {"ref": "WuthRein.esp|0x0002C4CB"}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-wuthrein", "title": "Bookshelf: Fill now puts a book up (a plain book, not a note: notes are refused without categories)",
+      "steps": [
+        {"do": "displayUse", "ref": "WuthRein.esp|0x000013C5"},
+        {"do": "additem", "item": "Skyrim.esm|0x000F456D", "count": 2},
+        {"do": "fill", "ref": "WuthRein.esp|0x000013C5"},
+        {"check": "log", "regex": "Display: The Great War .* on .*\\(bookshelf\\)", "within": 10},
+        {"check": "count", "in": "WuthRein.esp|0x000013C5", "item": "Skyrim.esm|0x000F456D", "ge": 1, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8a-wuthrein", "title": "Restock to a keep quota",
+      "steps": [
+        {"do": "keep", "keep": {"quotas": [{"category": "alchemy.potions", "quota": 2, "restock": true}]}},
+        {"do": "op", "op": "Restock"},
+        {"check": "notify", "regex": "Dova Stash: (restocked \\d+ items?|nothing to restock)"},
+        {"do": "keep", "keep": null},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8b-wuthrein", "title": "Craft from storage at the anvil 0x000024E6 (esm_dump furniture, CraftingSmithingForge)",
+      "steps": [
+        {"do": "sit", "ref": "WuthRein.esp|0x000024E6", "keyword": "CraftingSmithingForge"},
+        {"check": "crafting", "active": true, "within": 5},
+        {"do": "closeMenu", "menu": "Crafting Menu"},
+        {"check": "crafting", "active": false, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9-wuthrein", "title": "Add the grounds outside (load door 0x00001332 to GraywinterWatchExterior), Deposit from there, remove it",
+      "steps": [
+        {"do": "enter"},
+        {"do": "exitDoor", "ref": "WuthRein.esp|0x00001332"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Grounds"},
+        {"check": "notify", "contains": "Grounds is now part of Wuth Rein"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Grounds"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Wuth Rein"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Wuth Rein"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-wuthrein-master", "title": "Make master and Reset (last)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "makeMaster", "ref": "WuthRein.esp|0x0002C4DC"},
+        {"check": "layout", "pointer": "/master", "eq": "WuthRein.esp|0x0002C4DC"},
+        {"do": "makeMaster", "ref": "WuthRein.esp|0x00001488"},
+        {"check": "layout", "pointer": "/master", "eq": "WuthRein.esp|0x00001488"},
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

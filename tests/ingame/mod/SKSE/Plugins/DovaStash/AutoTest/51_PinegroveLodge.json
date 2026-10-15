@@ -1,0 +1,161 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Pinegrove Lodge - Family house (Eli_Pinegrove Lodge.esp, mod home; tests the template path)",
+  "home": "Eli_Pinegrove Lodge.esp|0x0002933F",
+  "coc": "0LodgeInt",
+  "templates": ["51_PinegroveLodge.json"],
+  "tests": [
+    {
+      "id": "1.1-pinegrove", "title": "Template offered on the first visit",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "log", "since": "plan", "regex": "Cell .*\\(Eli_Pinegrove Lodge\\.esp\\|0x0002933F\\): template available"},
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Pinegrove Lodge \\(AutoTest\\) setup available"}
+      ]
+    },
+    {
+      "id": "3.6-pinegrove", "title": "Use template: the setup is the AutoTest template, master is the lodge's chest",
+      "steps": [
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Pinegrove Lodge (AutoTest) setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/51_PinegroveLodge.json@1.0.0"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_Pinegrove Lodge.esp|0x001315AD"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.3-pinegrove", "title": "Deposit spreads: potions, soul gems, books and daggers each go to their container (the home's own stock is counted too: ge)",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 4},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397E", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x0002E4E2", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACE6", "count": 1},
+        {"do": "snapshot", "name": "dep"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x000E54B7", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 4},
+        {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x0013157D", "item": "Skyrim.esm|0x0002E4E2", "from": "dep", "ge": 2},
+        {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x000E54AD", "item": "Skyrim.esm|0x0001ACE6", "from": "dep", "ge": 1},
+        {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x001315D3", "item": "Skyrim.esm|0x0001397E", "from": "dep", "ge": 2},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "eq": 0},
+        {"check": "conserved", "snapshot": "dep"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.4-pinegrove", "title": "Sort all and Retrieve by category",
+      "steps": [
+        {"do": "snapshot", "name": "sortall"},
+        {"do": "op", "op": "SortAll"},
+        {"do": "waitIdle"},
+        {"do": "op", "op": "Retrieve", "pattern": "alchemy.potions"},
+        {"check": "count", "item": "Skyrim.esm|0x0003EADD", "ge": 4},
+        {"check": "conserved", "snapshot": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-pinegrove", "title": "Mannequin in use takes armour on Deposit",
+      "steps": [
+        {"do": "displayUse", "ref": "Eli_Pinegrove Lodge.esp|0x001366FF"},
+        {"do": "additem", "item": "Skyrim.esm|0x00013911", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Display: Hide Armor .* on .*\\(mannequin\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x00013911", "eq": 0},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3-pinegrove", "title": "Learn an item put into an unbound chest, then undo with the hotkey",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00012E4D", "count": 1},
+        {"do": "openContainer", "ref": "Eli_Pinegrove Lodge.esp|0x000E020F"},
+        {"do": "store", "to": "Eli_Pinegrove Lodge.esp|0x000E020F", "item": "Skyrim.esm|0x00012E4D", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: Iron Helmet .* -> .*: recorded"},
+        {"check": "notify", "regex": "Iron Helmet now goes to .* \\(K: undo\\)"},
+        {"do": "wait", "seconds": 0.5},
+        {"do": "hotkey"},
+        {"check": "notify", "regex": "Dova Stash: undone, .* is not learned"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x00012E4D", "absent": true, "within": 3},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.10-pinegrove", "title": "Sell chest: an item stored in it is quoted and sold",
+      "steps": [
+        {"do": "clearContainer", "ref": "Eli_Pinegrove Lodge.esp|0x000E0297"},
+        {"do": "sellChest", "ref": "Eli_Pinegrove Lodge.esp|0x000E0297"},
+        {"check": "notify", "contains": "is now the sell chest"},
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "store", "to": "Eli_Pinegrove Lodge.esp|0x000E0297", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "quote", "chest": "Eli_Pinegrove Lodge.esp|0x000E0297"},
+        {"check": "quote", "eq": 2, "minGold": 1},
+        {"do": "sellConfirmed"},
+        {"check": "notify", "regex": "Dova Stash: sold 2 items for \\d+ gold"},
+        {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x000E0297", "item": "Skyrim.esm|0x00012EB7", "eq": 0},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8a-pinegrove", "title": "Restock to a keep quota",
+      "steps": [
+        {"do": "keep", "keep": {"quotas": [{"category": "alchemy.potions", "quota": 3, "restock": true}]}},
+        {"check": "layout", "pointer": "/keep/quotas", "contains": {"category": "alchemy.potions", "quota": 3, "restock": true}},
+        {"do": "op", "op": "Restock"},
+        {"check": "notify", "regex": "Dova Stash: (restocked \\d+ items?|nothing to restock)"},
+        {"do": "keep", "keep": null},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8b-pinegrove", "title": "Craft from storage at the cooking pot 0x00136762 (esm_dump furniture, CraftingCookpot)",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00065C99", "count": 2},
+        {"do": "op", "op": "Deposit"},
+        {"do": "sit", "ref": "Eli_Pinegrove Lodge.esp|0x00136762", "keyword": "CraftingCookpot"},
+        {"check": "crafting", "active": true, "within": 5},
+        {"do": "closeMenu", "menu": "Crafting Menu"},
+        {"check": "crafting", "active": false, "within": 5},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9-pinegrove", "title": "Add the grounds outside (load door 0x0002934B to 0LodgeExt4), Deposit from there, remove it",
+      "steps": [
+        {"do": "enter"},
+        {"do": "exitDoor", "ref": "Eli_Pinegrove Lodge.esp|0x0002934B"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Grounds"},
+        {"check": "notify", "contains": "Grounds is now part of Pinegrove Lodge"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Grounds"}},
+        {"check": "home", "is": true},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Pinegrove Lodge"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Pinegrove Lodge"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.5-pinegrove", "title": "Make master and Reset (last: the setup file is removed)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "makeMaster", "ref": "Eli_Pinegrove Lodge.esp|0x0006B694"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_Pinegrove Lodge.esp|0x0006B694"},
+        {"do": "makeMaster", "ref": "Eli_Pinegrove Lodge.esp|0x001315AD"},
+        {"check": "layout", "pointer": "/master", "eq": "Eli_Pinegrove Lodge.esp|0x001315AD"},
+        {"do": "reset"},
+        {"check": "notify", "contains": "reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}
