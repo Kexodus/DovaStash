@@ -9,8 +9,8 @@
 //
 // How each kind is filled (always what the display's own script would do, or the script itself):
 // - Rack: one at a time, exactly like WeaponRackActivateSCRIPT places the equipped weapon: the very copy
-//   (tempering, enchantment, name) is dropped in the open in front of the player, made keyframed once its
-//   3D is loaded, and moved onto the trigger's pivot node with Papyrus' own MoveToNode
+//   (tempering, enchantment, name) is dropped out of sight (under the floor, below the player, its 3D
+//   culled), made keyframed once its 3D is loaded, and moved onto the trigger's pivot node with Papyrus' own MoveToNode
 //   (game::PapyrusMoveToNode; game::MoveToNodeDirect if the VM can't run it within 2 seconds). The node
 //   is the one the script picks (game::RackNode: the Unofficial Patch's script picks some bow, staff and
 //   shield nodes from the weapon's own 3D); a weapon that script would turn away there (a staff too long

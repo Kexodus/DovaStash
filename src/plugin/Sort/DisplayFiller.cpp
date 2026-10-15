@@ -75,16 +75,15 @@ namespace dova::display
 			std::int32_t        playerAfter{ 0 };   // Bookshelf: the player's count right after the moves
 		};
 
-		// Where a weapon from a container is dropped before it goes up: in the open in front of the player,
-		// like the equipped weapon WeaponRackActivateSCRIPT drops (DropObject).
-		RE::NiPoint3 InFrontOfPlayer()
+		// Where a weapon is dropped before it goes up: straight below the player, under the floor (the script
+		// drops it in the open in front of the player, where it is seen, keyframed, hanging in the air until
+		// the VM moves it; here it is out of sight, and its 3D is culled too, game::HideDropped). Not inside
+		// the rack: its collision would push it out. It is never left there: every way out moves it onto
+		// the rack or takes it back (TakeBack picks it up wherever it is).
+		RE::NiPoint3 OutOfSight()
 		{
-			auto*      player = game::Player();
-			auto       spot = player->GetPosition();
-			const auto yaw = player->data.angle.z;
-			spot.x += std::sin(yaw) * 60.0f;
-			spot.y += std::cos(yaw) * 60.0f;
-			spot.z += 80.0f;
+			auto spot = game::Player()->GetPosition();
+			spot.z -= 400.0f;
 			return spot;
 		}
 
@@ -177,7 +176,7 @@ namespace dova::display
 			}
 
 			// Racks, one at a time, the way WeaponRackActivateSCRIPT places the equipped weapon: drop the very
-			// copy in the open, wait for its 3D, make it keyframed and move it onto the trigger's pivot node.
+			// copy (out of sight, OutOfSight), wait for its 3D, make it keyframed and move it onto the trigger's pivot node.
 			// Then the script's bookkeeping (game::DisableRack, game::RecordRackItem): the activator is
 			// disabled (that is how the game knows the rack holds something, and lets the player take the
 			// weapon down). If the activator stays enabled, the weapon is taken back. From the drop until
@@ -192,7 +191,6 @@ namespace dova::display
 					return NextPlaque(0);
 				}
 				auto& s = _racks[a_index];
-				auto* player = game::Player();
 				auto* source = Ref(s.stack.owner);
 				auto* rack = Ref(s.display.ref);
 				auto* trigger = Ref(s.display.trigger);
@@ -208,12 +206,8 @@ namespace dova::display
 				}
 				{
 					game::ItemMover::SuppressScope suppress;
-					if (source == player) {
-						s.dropped = player->RemoveItem(s.stack.object, 1, RE::ITEM_REMOVE_REASON::kDropping, s.stack.extra, nullptr);
-					} else {
-						const auto spot = InFrontOfPlayer();
-						s.dropped = source->RemoveItem(s.stack.object, 1, RE::ITEM_REMOVE_REASON::kDropping, s.stack.extra, nullptr, &spot);
-					}
+					const auto spot = OutOfSight();
+					s.dropped = source->RemoveItem(s.stack.object, 1, RE::ITEM_REMOVE_REASON::kDropping, s.stack.extra, nullptr, &spot);
 				}
 				if (!s.dropped.get()) {
 					s.done = true;
