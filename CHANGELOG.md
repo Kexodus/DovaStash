@@ -45,6 +45,7 @@
 - The panel's Template tab starts from the current home's name after you move to another home, instead of the first home's.
 - Arrows or bolts picked up after equipping that type stay on you with the rest of the quiver when you Deposit. Before, Deposit took them out of the equipped stack, and from then on left the spare copies of every worn item on you for the rest of the session (nothing was lost). If the game ever takes a special copy for a plain one again, only that item stays put for the session.
 
+- The startup log's Environment block names the in-world menus your `iMode` picks (it always said UIExtensions lists when UIExtensions was installed).
 - Spare copies of worn gear are deposited now. Before, a second Iron Shield stayed on you while you wore one. Each such move checks that the worn, tempered or enchanted copy stayed behind.
 - Shelves, racks and cupboards that open a hidden chest (an activator linked to it, like Whitepeak Tower's Food shelf or a vanilla bookshelf) can be set up with the hotkey now. They show the chest's categories in the prompt and as floating icons.
 - Items that a script hands straight back when stored, such as the Curators Storage Token, stay on you after the first try instead of coming back (and opening their prompt) on every Deposit.
