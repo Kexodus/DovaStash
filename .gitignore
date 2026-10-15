@@ -9,3 +9,6 @@ __pycache__/
 
 # Claude Code (an editor agent keeps a worktree in .claude/worktrees/)
 .claude/
+
+# Windows shell cache files that git add -A once picked up
+%SystemDrive%/
