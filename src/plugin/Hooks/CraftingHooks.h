@@ -3,8 +3,10 @@
 // Craft from storage (DESIGN §8.5): the hooks that let a crafting menu count the home's stored materials and
 // take what the player lacks from the containers. Installed only when the mode resolves to "craft from
 // storage", on SE and AE (VR: never; the mode falls back to Move). Every hook calls the game first and only
-// changes the answer while sort::crafting::storage::Hooked() (a session is active, on the main thread, the
-// player sits at the session's station, and Dova Stash is not itself moving or counting items).
+// changes the answer while sort::crafting::storage::Hooked() (a session is active, the player sits at the
+// session's station, and this thread is not inside Dova Stash's own moving or counting). The hooks run on
+// whatever thread the engine calls them from: on AE the crafting menu's thread is not the one SKSE tasks
+// drain on, and neither is fixed (DESIGN §8.5, "Threads").
 //
 //   InventoryChanges, count of one object (SE 15869 / AE 16109, MinHook detour)
 //       What the recipe lists, the requirement lines ("Iron Ingot (3/2)"), the craftable check before a
@@ -32,4 +34,8 @@ namespace dova::hooks::crafting
 	[[nodiscard]] bool Installed() noexcept;
 	// The runtime has the functions (SE or AE). False on VR.
 	[[nodiscard]] bool Available() noexcept;
+	// What the count hook adds to the player's own count of `a_object` when the engine asks on this thread right
+	// now (0 outside a session or inside Dova Stash's own counting). For the automated tests, which check it on
+	// the crafting menu's thread without calling the engine's count function themselves.
+	[[nodiscard]] std::int32_t Added(const RE::TESBoundObject* a_object) noexcept;
 }

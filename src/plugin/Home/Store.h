@@ -84,6 +84,9 @@ namespace dova::home
 		// Documents/My Games/<edition>/SKSE/DovaStash/Backups (the log's folder; VR and GOG included), or
 		// nullopt when Documents cannot be found.
 		[[nodiscard]] static const std::optional<std::filesystem::path>& BackupDir();
+		// The in-game test harness (AutoTest/AutoTest.h) keeps a test run's copies apart from the player's: called
+		// at plugin load, before anything asks for BackupDir(). Nothing else calls it.
+		static void RedirectBackups(std::filesystem::path a_dir);
 		// The latest copy of this home's layout, if there is one. Main thread (one file check).
 		[[nodiscard]] std::optional<HomeBackup> LatestHomeBackup(const core::FormRef& a_cell) const;
 		// The latest copy first, then the history copies, newest first. Main thread (lists the folder).

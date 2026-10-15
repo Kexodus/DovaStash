@@ -1,6 +1,7 @@
 #include "Diagnostics/Environment.h"
 
 #include "Settings.h"
+#include "UI/MenuFramework.h"
 #include "UI/UIExtensions.h"
 
 #include <Windows.h>
@@ -56,6 +57,26 @@ namespace dova::diagnostics
 			const auto slot = file->IsLight() ? std::format("FE:{:03X}", file->smallFileCompileIndex) : std::format("{:02X}", file->compileIndex);
 			logger::info("  {:<32} {:<12} ({})", a_file, slot, a_role);
 		}
+
+		// What the hotkey opens in the world, as ui::CreateStashUIs picks it from [UI] iMode.
+		std::string InWorldMenus()
+		{
+			const auto mode = Settings::GetSingleton().GetUI().mode;
+			switch (mode) {
+			case 1:
+				return "native message boxes (iMode = 1)";
+			case 2:
+				return ui::menu_framework::IsInstalled() && ui::menu_framework::IsLoaded() ?
+				           "SKSE Menu Framework panel (iMode = 2)" :
+				           "native message boxes (iMode = 2, but SKSE Menu Framework is not loaded)";
+			default:
+				if (ui::uiext::IsInstalled()) {
+					return std::format("UIExtensions lists (iMode = {})", mode);
+				}
+				return mode == 3 ? "native message boxes (iMode = 3, but UIExtensions is not installed)" :
+				                   "native message boxes (iMode = 0, UIExtensions not installed)";
+			}
+		}
 	}
 
 	void LogEnvironment()
@@ -71,7 +92,7 @@ namespace dova::diagnostics
 		LogPlugin("SkyUI_SE.esp", "item/category icon SWFs");
 		LogPlugin("UIExtensions.esp", "in-world list menus");
 		LogPlugin("QuickLootIE.esp", "QuickLoot IE MCM");
-		logger::info("  In-world menus: {}", ui::uiext::IsInstalled() ? "UIExtensions lists" : "native message boxes");
+		logger::info("  In-world menus: {}", InWorldMenus());
 		logger::info("  Runtime: {}", REL::Module::IsVR() ? "VR (overlay and UIExtensions lists off)" : REL::Module::IsAE() ? "AE" : "SE");
 	}
 }

@@ -1,0 +1,553 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Breezehome",
+  "home": "Skyrim.esm|0x000165A8",
+  "coc": "WhiterunBreezehome",
+  "tests": [
+    {
+      "id": "1.1", "title": "Template offered on the first visit",
+      "steps": [
+        {"do": "enter"},
+        {"check": "home", "is": true, "name": "Breezehome", "layout": false},
+        {"check": "log", "since": "plan", "contains": "Cell Breezehome (Skyrim.esm|0x000165A8): template available"},
+        {"check": "log", "since": "plan", "contains": "template: Breezehome v1.0.0 by Dova Stash"},
+        {"check": "notify", "since": "plan", "contains": "Dova Stash: Breezehome setup available (by Dova Stash). Press K at any container to enable."}
+      ]
+    },
+    {
+      "id": "1.2", "title": "No second notification in the same session",
+      "steps": [
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"do": "enter"},
+        {"check": "notify", "since": "plan", "contains": "Breezehome setup available", "count": 1, "within": 0}
+      ]
+    },
+    {
+      "id": "2.1", "title": "Make a master",
+      "steps": [
+        {"do": "clearInventory"},
+        {"do": "buyHome"},
+        {"do": "makeMaster", "ref": "Skyrim.esm|0x000F3922"},
+        {"check": "notify", "contains": "is now the master container"},
+        {"check": "log", "contains": "Saved layout"},
+        {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000F3922"},
+        {"check": "home", "layout": true}
+      ]
+    },
+    {
+      "id": "2.2", "title": "Test inventory with special stacks (tempered, renamed, stolen, enchanted, equipped)",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0000000F", "count": 500},
+        {"do": "additem", "item": "Skyrim.esm|0x0000000A", "count": 10},
+        {"do": "additem", "item": "Skyrim.esm|0x0001D4EC", "count": 3},
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 3},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397E", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397D", "count": 50},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 4},
+        {"do": "additem", "item": "Skyrim.esm|0x0005B47D", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x00013989", "count": 1, "extra": {"health": 1.2}},
+        {"do": "additem", "item": "Skyrim.esm|0x00013982", "count": 1, "extra": {"name": "AutoTest Mace"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397E", "count": 1, "extra": {"owner": "Skyrim.esm|0x00013BA1"}},
+        {"do": "equip", "item": "Skyrim.esm|0x00012EB7"},
+        {"do": "equip", "item": "Skyrim.esm|0x0001397D", "count": 50},
+        {"check": "count", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00013982", "filter": "renamed:AutoTest Mace", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "filter": "stolen", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "filter": "worn", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "filter": "worn", "ge": 1},
+        {"do": "snapshot", "name": "inventory"}
+      ]
+    },
+    {
+      "id": "2.3", "title": "Deposit: everything to the master, keep defaults and protected stacks stay",
+      "steps": [
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "notify", "regex": "Dova Stash: deposited \\d+ items? into 1 container"},
+        {"check": "log", "contains": "Deposit in Breezehome (Skyrim.esm|0x000165A8)"},
+        {"check": "log", "regex": "ItemMover: moved \\d+ items in \\d+ stacks from 1 to 1 containers \\(0 skipped, 0 errors\\)"},
+        {"check": "log", "regex": "Moved Iron Sword \\[Skyrim\\.esm\\|0x00012EB7\\] x2 \\(plain, beside a special copy\\)"},
+        {"check": "count", "item": "Skyrim.esm|0x0000000F", "ge": 500},
+        {"check": "count", "item": "Skyrim.esm|0x0000000A", "ge": 10},
+        {"check": "count", "item": "Skyrim.esm|0x0001D4EC", "ge": 3},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "filter": "worn", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "eq": 50},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012EB7", "eq": 2},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0001397E", "eq": 3},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0001397E", "filter": "stolen", "eq": 1},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0003EADD", "eq": 4},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0005B47D", "eq": 1},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00013982", "filter": "renamed:AutoTest Mace", "eq": 1},
+        {"check": "conserved", "snapshot": "inventory"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.4", "title": "Round trip (M1 exit criterion): Retrieve everything, Deposit, Retrieve again",
+      "steps": [
+        {"do": "op", "op": "Retrieve", "pattern": "*"},
+        {"check": "notify", "regex": "Dova Stash: retrieved \\d+ items? from 1 container"},
+        {"check": "count", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00013982", "filter": "renamed:AutoTest Mace", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "filter": "stolen", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0005B47D", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "eq": 3},
+        {"check": "count", "item": "Skyrim.esm|0x0003EADD", "eq": 4},
+        {"do": "op", "op": "Deposit"},
+        {"do": "op", "op": "Retrieve", "pattern": "*"},
+        {"check": "count", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00013982", "filter": "renamed:AutoTest Mace", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "filter": "stolen", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "eq": 3},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012EB7", "eq": 0},
+        {"check": "conserved", "snapshot": "inventory"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.6", "title": "Plain copies next to a worn copy",
+      "steps": [
+        {"do": "op", "op": "Deposit"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397E", "count": 3},
+        {"do": "equip", "item": "Skyrim.esm|0x0001397E"},
+        {"do": "snapshot", "name": "daggers"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "filter": "worn", "eq": 1},
+        {"check": "log", "regex": "Moved Iron Dagger \\[Skyrim\\.esm\\|0x0001397E\\] x2 \\(plain, beside a special copy\\)"},
+        {"check": "log", "absent": true, "contains": "took a tempered, enchanted, renamed or worn copy"},
+        {"check": "conserved", "snapshot": "daggers"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "2.6b", "title": "More arrows of the type you have equipped (picked up after equipping them)",
+      "steps": [
+        {"do": "op", "op": "Deposit"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397D", "count": 20},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "eq": 70},
+        {"do": "snapshot", "name": "arrows"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "filter": "worn", "ge": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "eq": 70},
+        {"check": "log", "since": "action", "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ stays: kept by always equipped"},
+        {"check": "log", "absent": true, "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ -> "},
+        {"check": "log", "absent": true, "contains": "took a tempered, enchanted, renamed or worn copy"},
+        {"check": "conserved", "snapshot": "arrows"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.1", "title": "Bind containers to categories",
+      "steps": [
+        {"do": "bind", "ref": "Skyrim.esm|0x000CB437", "category": "weapons.*"},
+        {"do": "bind", "ref": "Skyrim.esm|0x000CB433", "category": "armor.heavy"},
+        {"do": "bind", "ref": "Skyrim.esm|0x000CB433", "category": "armor.light"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB437", "categories": ["weapons.*"]}},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB433", "categories": ["armor.heavy", "armor.light"]}}
+      ]
+    },
+    {
+      "id": "3.2", "title": "Distribute (closing the master): weapons and armor leave, homeless potions stay",
+      "steps": [
+        {"do": "additem", "to": "master", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "additem", "to": "master", "item": "Skyrim.esm|0x00012E49", "count": 1},
+        {"do": "additem", "to": "master", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "distribute"},
+        {"do": "op", "op": "Distribute"},
+        {"check": "notify", "regex": "Dova Stash: sorted \\d+ items? into 2 containers"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x00012EB7", "ge": 4},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x0001397E", "ge": 4},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x00013989", "filter": "tempered", "eq": 1},
+        {"check": "count", "in": "Skyrim.esm|0x000CB433", "item": "Skyrim.esm|0x00012E49", "eq": 1},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0003EADD", "eq": 6},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012EB7", "eq": 0},
+        {"check": "conserved", "snapshot": "distribute"},
+        {"do": "op", "op": "Distribute"},
+        {"check": "log", "since": "action", "contains": "Distribute: no moves"}
+      ]
+    },
+    {
+      "id": "3.2a", "title": "Sort on arrival: an item put into the master by hand moves on by itself",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 1},
+        {"do": "store", "to": "master", "item": "Skyrim.esm|0x00012EB7", "count": 1},
+        {"check": "log", "contains": "Sort on arrival in Breezehome", "within": 5},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012EB7", "eq": 0, "within": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x00012EB7", "ge": 5}
+      ]
+    },
+    {
+      "id": "3.3", "title": "Learn: an item put into an unbound container by hand",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x000C8868", "count": 2},
+        {"do": "openContainer", "ref": "Skyrim.esm|0x000CB42E"},
+        {"do": "store", "to": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x000C8868", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: Dwemer Gyro .* -> .*: recorded"},
+        {"check": "log", "regex": "Learn: .* is now a managed container"},
+        {"check": "notify", "regex": "Dwemer Gyro now goes to .* \\(K: undo\\)"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000C8868", "eq": "Skyrim.esm|0x000CB42E", "within": 5},
+        {"do": "wait", "seconds": 6},
+        {"do": "store", "to": "master", "item": "Skyrim.esm|0x000C8868", "count": 1},
+        {"check": "count", "in": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x000C8868", "eq": 2, "within": 5}
+      ]
+    },
+    {
+      "id": "3.3a.1", "title": "Undo a learn with the hotkey within the undo window",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x000ED63F", "count": 1},
+        {"do": "openContainer", "ref": "Skyrim.esm|0x000CB42E"},
+        {"do": "store", "to": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x000ED63F", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "notify", "contains": "now goes to"},
+        {"do": "wait", "seconds": 0.5},
+        {"do": "hotkey"},
+        {"check": "notify", "regex": "Dova Stash: undone, .* is not learned"},
+        {"check": "log", "contains": "Learn: 1 learn(s) undone in Breezehome"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000ED63F", "absent": true, "within": 3},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000C8868", "eq": "Skyrim.esm|0x000CB42E"}
+      ]
+    },
+    {
+      "id": "3.4", "title": "Sort all and Retrieve by category",
+      "steps": [
+        {"do": "unbind", "ref": "Skyrim.esm|0x000CB437", "category": "weapons.*"},
+        {"do": "bind", "ref": "Skyrim.esm|0x000CB437", "category": "weapons.swords"},
+        {"do": "snapshot", "name": "sortall"},
+        {"do": "op", "op": "SortAll"},
+        {"check": "notify", "regex": "Dova Stash: re-sorted \\d+ items?"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x0001397E", "eq": 0},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x0001397E", "ge": 4},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x00012EB7", "ge": 5},
+        {"do": "op", "op": "Retrieve", "pattern": "weapons.swords"},
+        {"check": "notify", "regex": "Dova Stash: retrieved \\d+ items? from 1 container"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x00012EB7", "eq": 0},
+        {"check": "count", "item": "Skyrim.esm|0x0001397E", "eq": 1},
+        {"check": "conserved", "snapshot": "sortall"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.3a.3", "title": "Item families: an enchanted iron sword is learned as Iron Sword",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0005B47E", "count": 1},
+        {"do": "openContainer", "ref": "Skyrim.esm|0x000CB42E"},
+        {"do": "store", "to": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x0005B47E", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: .*0x0005B47E.* -> .*: recorded \\(as Iron Sword"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x00012EB7", "eq": "Skyrim.esm|0x000CB42E", "within": 5},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x0005B47E", "absent": true},
+        {"do": "wait", "seconds": 6},
+        {"do": "op", "op": "SortAll"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x00012EB7", "ge": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x0005B47D", "eq": 1}
+      ]
+    },
+    {
+      "id": "3.3a.4", "title": "Category suggestion after three learned books; Yes binds the category",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x000F456D", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x000F1AB3", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x000EF638", "count": 1},
+        {"do": "openContainer", "ref": "Skyrim.esm|0x000CB42E"},
+        {"do": "store", "to": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x000F456D"},
+        {"do": "store", "to": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x000F1AB3"},
+        {"do": "store", "to": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x000EF638"},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "log", "regex": "Learn: asking whether all (books\\.\\w+) go to .* \\(3 learned\\)", "within": 15},
+        {"check": "menu", "name": "MessageBoxMenu", "open": true, "within": 3},
+        {"do": "answerMessageBox", "button": 0},
+        {"check": "notify", "contains": "now takes Books"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB42E", "categories": ["books.other"]}},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000F456D", "absent": true},
+        {"check": "log", "regex": "bound books\\.other from a suggestion \\(3 learned item\\(s\\) now covered by it dropped\\)"}
+      ]
+    },
+    {
+      "id": "3.5", "title": "Ignore, Remove, Make master, Reset",
+      "steps": [
+        {"do": "snapshot", "name": "manage"},
+        {"do": "ignore", "ref": "Skyrim.esm|0x000CB433"},
+        {"check": "notify", "contains": "is now ignored"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB433", "ignored": true}},
+        {"do": "additem", "item": "Skyrim.esm|0x00012E4B", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB433", "item": "Skyrim.esm|0x00012E4B", "eq": 0},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012E4B", "eq": 1},
+        {"do": "ignore", "ref": "Skyrim.esm|0x000CB433", "on": false},
+        {"check": "notify", "contains": "is managed again"},
+        {"do": "removeContainer", "ref": "Skyrim.esm|0x000CB42E"},
+        {"check": "notify", "contains": "removed (what's inside stays)"},
+        {"check": "layout", "pointer": "/containers", "lacks": {"ref": "Skyrim.esm|0x000CB42E"}},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000C8868", "absent": true},
+        {"check": "count", "in": "Skyrim.esm|0x000CB42E", "item": "Skyrim.esm|0x000C8868", "eq": 2},
+        {"do": "makeMaster", "ref": "Skyrim.esm|0x000CB43A"},
+        {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000CB43A"},
+        {"check": "layout", "pointer": "/containers", "lacks": {"ref": "Skyrim.esm|0x000F3922"}},
+        {"check": "count", "in": "Skyrim.esm|0x000F3922", "item": "Skyrim.esm|0x0003EADD", "ge": 6},
+        {"do": "makeMaster", "ref": "Skyrim.esm|0x000F3922"},
+        {"do": "reset"},
+        {"check": "notify", "contains": "Dova Stash: Breezehome reset (setup backed up)"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "files", "dir": "Layouts", "regex": "Skyrim\\.esm_000165A8\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak", "ge": 1},
+        {"check": "home", "layout": false},
+        {"check": "conserved", "snapshot": "manage", "ignore": ["Skyrim.esm|0x00012E4B"]},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.6", "title": "Use template, Deposit spreads the loot, Re-apply keeps the player's data",
+      "steps": [
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Breezehome setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/Vanilla/Breezehome.json@1.0.0"},
+        {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000F3922"},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 3},
+        {"do": "snapshot", "name": "template"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "count", "in": "Skyrim.esm|0x0010EB84", "item": "Skyrim.esm|0x0003EADD", "eq": 2},
+        {"check": "count", "in": "Skyrim.esm|0x000CB442", "item": "Skyrim.esm|0x0005ACE4", "eq": 3},
+        {"do": "op", "op": "SortAll"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x00012EB7", "ge": 5},
+        {"check": "count", "in": "Skyrim.esm|0x0010EB84", "item": "Skyrim.esm|0x0003EADD", "ge": 8},
+        {"check": "conserved", "snapshot": "template"},
+        {"do": "ignore", "ref": "Skyrim.esm|0x000CB46C"},
+        {"do": "useTemplate"},
+        {"check": "files", "dir": "Layouts", "regex": "Skyrim\\.esm_000165A8\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak", "ge": 2},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB46C", "ignored": true}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.6.5", "title": "Save as template, offered at once, same name again (v1.0.1), round trip",
+      "steps": [
+        {"do": "export", "name": "AutoTest Breezehome"},
+        {"check": "log", "contains": "Exported Breezehome as template \"AutoTest Breezehome\" v1.0.0"},
+        {"check": "templateFile", "name": "AutoTest Breezehome.json", "pointer": "/version", "eq": "1.0.0"},
+        {"check": "templateFile", "name": "AutoTest Breezehome.json", "pointer": "/cell", "eq": "Skyrim.esm|0x000165A8"},
+        {"check": "templateFile", "name": "AutoTest Breezehome.json", "pointer": "/master", "eq": "Skyrim.esm|0x000F3922"},
+        {"check": "templateFile", "name": "AutoTest Breezehome.json", "pointer": "/learned", "absent": true},
+        {"check": "templateFile", "name": "AutoTest Breezehome.json", "pointer": "/basedOn", "absent": true},
+        {"check": "templateFile", "name": "AutoTest Breezehome.json", "pointer": "/author"},
+        {"check": "bestTemplate", "source": "Templates/User/AutoTest Breezehome.json"},
+        {"do": "export", "name": "AutoTest Breezehome", "expect": "exists"},
+        {"do": "export", "name": "AutoTest Breezehome", "overwrite": true},
+        {"check": "templateFile", "name": "AutoTest Breezehome.json", "pointer": "/version", "eq": "1.0.1"},
+        {"check": "files", "dir": "TemplatesUser", "regex": "AutoTest Breezehome\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak", "ge": 1},
+        {"do": "reset"},
+        {"do": "useTemplate", "source": "Templates/User/AutoTest Breezehome.json"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/User/AutoTest Breezehome.json@1.0.1"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB46C", "ignored": true}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.6a", "title": "Setups backed up outside Data: copy written, restored after the layout is lost, broken copy refused",
+      "steps": [
+        {"check": "backupFile", "pointer": "/master", "eq": "Skyrim.esm|0x000F3922", "within": 5},
+        {"do": "deleteLayout"},
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"do": "enter"},
+        {"check": "log", "contains": "a backup of its layout can be restored"},
+        {"do": "restore"},
+        {"check": "notify", "contains": "Dova Stash: Breezehome restored"},
+        {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000F3922"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/User/AutoTest Breezehome.json@1.0.1"},
+        {"do": "wait", "seconds": 1},
+        {"do": "writeBackup", "text": "{"},
+        {"do": "deleteLayout"},
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"do": "enter"},
+        {"do": "restore"},
+        {"check": "notify", "contains": "Dova Stash: that saved setup is broken (see DovaStash.log)"},
+        {"check": "log", "contains": "could not be parsed; it is not used"},
+        {"check": "layoutFile", "exists": false},
+        {"do": "useTemplate"},
+        {"check": "home", "layout": true},
+        {"check": "noErrors", "except": ["could not be parsed", "invalid JSON"]}
+      ]
+    },
+    {
+      "id": "3.7", "title": "Displays: a weapon rack in use takes a weapon on Deposit",
+      "steps": [
+        {"do": "enable", "ref": "Skyrim.esm|0x00102A41"},
+        {"do": "require", "enabled": "Skyrim.esm|0x00102A41", "why": "Breezehome's racks come with the living room decoration"},
+        {"do": "displayUse", "ref": "Skyrim.esm|0x00102A41"},
+        {"check": "notify", "contains": "is used now"},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x00102A41"}},
+        {"do": "additem", "item": "Skyrim.esm|0x000139B9", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Display: Daedric Sword .* on .*\\(rack\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x000139B9", "eq": 0},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x000139B9", "eq": 0},
+        {"check": "count", "in": "Skyrim.esm|0x000CB437", "item": "Skyrim.esm|0x000139B9", "eq": 0},
+        {"check": "log", "absent": true, "regex": "did not take|had no 3D"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8b", "title": "Craft from storage at the cooking pot: counts include storage, a craft takes the shortfall",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x00065C99", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00034CDF", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00064B41", "count": 1},
+        {"do": "snapshot", "name": "precraft"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "count", "item": "Skyrim.esm|0x00034CDF", "eq": 0},
+        {"check": "count", "in": "Skyrim.esm|0x0010EB84", "item": "Skyrim.esm|0x00034CDF", "from": "precraft", "eq": 2},
+        {"do": "snapshot", "name": "craft"},
+        {"do": "sit", "keyword": "CraftingCookpot"},
+        {"check": "crafting", "active": true, "item": "Skyrim.esm|0x00034CDF", "ge": 2},
+        {"check": "log", "regex": "Crafting from storage at .* in Breezehome: \\d+ materials"},
+        {"check": "log", "absent": true, "since": "step", "contains": "ItemMover: moved"},
+        {"check": "hookedCount", "item": "Skyrim.esm|0x00034CDF", "ge": 2},
+        {"check": "count", "item": "Skyrim.esm|0x00034CDF", "eq": 0},
+        {"do": "consume", "item": "Skyrim.esm|0x00034CDF", "count": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00034CDF", "eq": 0},
+        {"check": "count", "in": "Skyrim.esm|0x0010EB84", "item": "Skyrim.esm|0x00034CDF", "from": "precraft", "eq": 1},
+        {"check": "log", "regex": "Crafting from storage: Salt Pile .* x1: carried 0, brought 1"},
+        {"do": "craft", "uses": "Skyrim.esm|0x00034CDF", "product": "HearthFires.esm|0x0000353D"},
+        {"check": "count", "item": "Skyrim.esm|0x00034CDF", "eq": 0},
+        {"check": "count", "in": "Skyrim.esm|0x0010EB84", "item": "Skyrim.esm|0x00034CDF", "from": "precraft", "eq": 0},
+        {"check": "log", "since": "action", "regex": "Crafting from storage: Salt Pile .* x1: carried 0, brought 1 from "},
+        {"check": "count", "item": "HearthFires.esm|0x0000353D", "from": "craft", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00064B41", "eq": 0},
+        {"check": "log", "since": "action", "regex": "Crafting from storage: Potato .* x1: carried 0, brought 1 from "},
+        {"do": "closeMenu", "menu": "Crafting Menu"},
+        {"check": "log", "regex": "Crafting from storage \\(crafting menu closed\\): 3 materials taken from storage", "within": 5},
+        {"check": "crafting", "active": false, "within": 5},
+        {"check": "conserved", "snapshot": "craft", "ignore": ["Skyrim.esm|0x00034CDF", "Skyrim.esm|0x00064B41", "HearthFires.esm|0x0000353D"]},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.8a", "title": "Restock to a keep quota, nothing more; Deposit restocks",
+      "steps": [
+        {"do": "op", "op": "Deposit"},
+        {"do": "keep", "keep": {"quotas": [{"category": "alchemy.potions", "quota": 3, "restock": true}]}},
+        {"check": "layout", "pointer": "/keep/quotas", "contains": {"category": "alchemy.potions", "quota": 3, "restock": true}},
+        {"do": "op", "op": "Restock"},
+        {"check": "notify", "contains": "Dova Stash: restocked 3 items"},
+        {"check": "count", "item": "Skyrim.esm|0x0003EADD", "eq": 3},
+        {"do": "op", "op": "Restock"},
+        {"check": "notify", "since": "action", "contains": "Dova Stash: nothing to restock"},
+        {"do": "removeitem", "item": "Skyrim.esm|0x0003EADD", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "count", "item": "Skyrim.esm|0x0003EADD", "eq": 3},
+        {"check": "notify", "since": "action", "regex": "restocked 1"},
+        {"do": "keep", "keep": null},
+        {"do": "op", "op": "Deposit"},
+        {"check": "count", "item": "Skyrim.esm|0x0003EADD", "eq": 0}
+      ]
+    },
+    {
+      "id": "3.10", "title": "Sell chest: routing, quote, Sell now (confirmed), never sold, Buy back, changed meanwhile",
+      "steps": [
+        {"do": "clearContainer", "ref": "Skyrim.esm|0x000CB45E"},
+        {"do": "sellChest", "ref": "Skyrim.esm|0x000CB45E"},
+        {"check": "notify", "contains": "is now the sell chest"},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB45E", "sell": true}},
+        {"do": "additem", "item": "Skyrim.esm|0x000319E3", "count": 5},
+        {"do": "additem", "item": "Skyrim.esm|0x00098620", "count": 2},
+        {"do": "op", "op": "Deposit"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x000319E3", "eq": 5},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x00098620", "eq": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x000319E3", "count": 1, "extra": {"owner": "Skyrim.esm|0x00013BA1"}},
+        {"do": "store", "to": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x000319E3", "count": 1},
+        {"do": "store", "to": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x0000000A", "count": 10},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x000319E3", "filter": "stolen", "eq": 1},
+        {"do": "snapshot", "name": "sale"},
+        {"do": "quote", "chest": "Skyrim.esm|0x000CB45E"},
+        {"check": "quote", "eq": 7, "minGold": 1, "stays": "stolen"},
+        {"do": "sellConfirmed"},
+        {"check": "notify", "regex": "Dova Stash: sold 7 items for \\d+ gold"},
+        {"check": "log", "contains": "Sell chest (sell now): sold 7 items"},
+        {"check": "gold", "snapshot": "sale", "plusQuote": true},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x000319E3", "eq": 1},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x00098620", "eq": 0},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x0000000A", "eq": 10},
+        {"do": "buyBack"},
+        {"check": "notify", "regex": "Dova Stash: bought back 7 items for \\d+ gold"},
+        {"check": "gold", "snapshot": "sale"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x000319E3", "eq": 6},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x00098620", "eq": 2},
+        {"check": "conserved", "snapshot": "sale"},
+        {"do": "quote", "chest": "Skyrim.esm|0x000CB45E"},
+        {"do": "additem", "to": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x000319E3", "count": 1},
+        {"do": "sellConfirmed"},
+        {"check": "notify", "contains": "Dova Stash: the sell chest changed; sell again"},
+        {"check": "count", "in": "Skyrim.esm|0x000CB45E", "item": "Skyrim.esm|0x000319E3", "eq": 7},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9", "title": "A home over several cells: add the street outside, rename it, Deposit from there, remove it",
+      "steps": [
+        {"do": "exitDoor"},
+        {"check": "home", "is": false},
+        {"do": "addArea", "label": "Grounds"},
+        {"check": "notify", "contains": "Dova Stash: Grounds is now part of Breezehome"},
+        {"check": "log", "regex": "Add area: .* is now part of Breezehome"},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Grounds"}},
+        {"check": "home", "is": true, "name": "Breezehome"},
+        {"do": "renameArea", "label": "Yard"},
+        {"check": "notify", "contains": "Dova Stash: area renamed to \"Yard\""},
+        {"check": "layout", "pointer": "/cells", "contains": {"label": "Yard"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"check": "log", "contains": "Deposit in Breezehome"},
+        {"do": "removeArea"},
+        {"check": "notify", "contains": "is no longer part of Breezehome"},
+        {"check": "layout", "pointer": "/cells", "absent": true},
+        {"do": "enter"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "4.1", "title": "A broken layout file is never overwritten; Reset moves it aside",
+      "steps": [
+        {"do": "writeLayout", "text": "{"},
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"do": "enter"},
+        {"check": "log", "contains": "could not be parsed; leaving it untouched"},
+        {"do": "hotkey"},
+        {"check": "notify", "contains": "Dova Stash: this home's setup file is broken (see DovaStash.log)"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "layoutFile", "exists": true, "text": "{"},
+        {"do": "reset"},
+        {"check": "layoutFile", "exists": false},
+        {"do": "useTemplate"},
+        {"check": "home", "layout": true},
+        {"check": "noErrors", "except": ["could not be parsed", "invalid JSON"]}
+      ]
+    },
+    {
+      "id": "4.4", "title": "A large inventory: one Deposit, timed",
+      "steps": [
+        {"do": "additemMany", "count": 200},
+        {"do": "snapshot", "name": "big"},
+        {"do": "op", "op": "Deposit"},
+        {"check": "notify", "regex": "Dova Stash: deposited \\d+ items into \\d+ containers?"},
+        {"check": "log", "regex": "Deposit took ([0-9.]+) ms", "max": 500},
+        {"check": "conserved", "snapshot": "big"},
+        {"check": "noErrors"}
+      ]
+    },
+    {"id": "2.2-fav", "title": "Favorited and quest items stay", "manual": "the harness cannot favorite an item or give one a quest alias"},
+    {"id": "2.5", "title": "Container-menu guard and QuickLoot", "manual": "needs real key presses with menus open"},
+    {"id": "2.7", "title": "Items that come back when stored", "manual": "needs a mod item whose script hands it back (Legacy of the Dragonborn token)"},
+    {"id": "3.7-visual", "title": "Display placement looks right (node, no floating or falling)", "manual": "visual"},
+    {"id": "3.8", "title": "Materials at the workbench: Move mode at forge, smelter, tanning rack", "manual": "Breezehome has no forge; automated only at the cooking pot (3.8b)"},
+    {"id": "3.6b", "title": "Other home mods: self-sorting and rebuilt homes", "manual": "needs other home mods in the load order"}
+  ]
+}

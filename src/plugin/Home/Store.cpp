@@ -562,9 +562,27 @@ namespace dova::home
 		return Utf8(a_path);
 	}
 
+	namespace
+	{
+		std::optional<std::filesystem::path>& BackupRedirect()
+		{
+			static std::optional<std::filesystem::path> dir;
+			return dir;
+		}
+	}
+
+	void Store::RedirectBackups(std::filesystem::path a_dir)
+	{
+		BackupRedirect() = std::move(a_dir);
+	}
+
 	const std::optional<std::filesystem::path>& Store::BackupDir()
 	{
 		static const std::optional<std::filesystem::path> dir = []() -> std::optional<std::filesystem::path> {
+			if (const auto& redirect = BackupRedirect()) {
+				logger::info("Home backup: copies go to {} (test run)", Utf8(*redirect));
+				return redirect;
+			}
 			auto path = SKSE::log::log_directory();  // Documents/My Games/<edition>/SKSE, as for the log
 			if (!path) {
 				logger::warn("Home backup: Documents not found; setups are only saved under Data");

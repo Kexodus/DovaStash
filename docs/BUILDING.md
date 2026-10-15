@@ -60,6 +60,21 @@ The `plugin` preset turns on CommonLib's prebuilt-bundle opt-in
 (`COMMONLIB_PREBUILT=ON`, `COMMONLIB_PREBUILT_MULTICONFIG=ON`), and that bundle covers Release only.
 `plugin-source` always compiles CommonLib from source, so it can build Debug.
 
+### Automated in-game tests
+
+`pwsh -File tools\autotest\run.ps1` starts Skyrim unattended in the MO2 profile *Dova Stash AutoTest*, runs the
+test plans in `tests/ingame` and prints the results (exit code 1 on a failure). The harness is part of
+`DovaStash.dll` (`src/plugin/AutoTest/`) but does nothing unless that profile's *Dova Stash AutoTest* mod provides a
+plan. Set the profile up once with `pwsh -File tests\ingame\install.ps1 -Profile`. Options:
+
+- `-Build`: builds the plugin first (`cmake --build build/plugin --config Release --target DovaStash`; it deploys
+  as configured above).
+- `-Dll <path>`: tests that DLL (copied into the AutoTest mod, so it overrides the Dova Stash mod's in that profile
+  only). Use it to test a branch without deploying it to the mod folder (configure that build with
+  `-DDOVASTASH_DEPLOY=OFF`). Without it, the profile loads the Dova Stash mod's DLL.
+
+Details, what is covered and what stays manual: docs/TESTING.md §9.
+
 ## Core logic + unit tests (no CommonLib)
 
 ```powershell
