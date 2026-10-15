@@ -47,7 +47,7 @@ namespace dova::game
 	{
 		bool         found{ false };
 		std::int32_t count{ 0 };
-		bool         isProtected{ false };  // worn, favorited or quest alias (never moved)
+		bool         isProtected{ false };  // worn (also the plain copies of an equipped ammo), favorited or quest alias (never moved)
 	};
 	[[nodiscard]] LiveStack FindLiveStack(RE::TESObjectREFR* a_ref, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extra);
 

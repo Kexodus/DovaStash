@@ -11,7 +11,9 @@
 // Plain copies (no extra list) of an object whose tempered / enchanted / renamed / worn copy stays in the
 // source move with RemoveItem and no extra list. The engine takes plain copies first, as the container
 // menu does; every extra-data stack of the source is checked afterwards, and if one left anyway it is put
-// back and such moves stop for the session.
+// back and such moves of that object stop for the session. Ammo is the exception the engine makes: a RemoveItem
+// with no extra list takes from the equipped quiver first, so the plain copies of an equipped ammo count as worn
+// (ItemAdapter) and never move.
 //
 // Items that come back: when an object Dova Stash stored in a container returns from that container to
 // the player within a few seconds (a script hands it back, e.g. a token that opens a prompt), it is never

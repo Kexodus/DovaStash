@@ -156,6 +156,20 @@ namespace dova::game
 			}
 			return nullptr;
 		}
+
+		// Ammo is equipped as a whole: the game shows one equipped entry with every copy, and a RemoveItem with no
+		// extra list takes from the worn stack first (that is how a shot arrow leaves the quiver). So when a worn
+		// copy of an ammo is there, its plain copies count as worn too: they stay, and are never moved with
+		// RemoveItem and no extra list, which would empty the quiver instead (DESIGN §8.2).
+		bool PlainCopiesWorn(RE::TESBoundObject* a_object, const RE::InventoryEntryData* a_entry)
+		{
+			if (!a_object || !a_object->IsAmmo() || !a_entry || !a_entry->extraLists) {
+				return false;
+			}
+			return std::ranges::any_of(*a_entry->extraLists, [](RE::ExtraDataList* a_list) {
+				return a_list && a_list->GetCount() > 0 && (a_list->HasType<RE::ExtraWorn>() || a_list->HasType<RE::ExtraWornLeft>());
+			});
+		}
 	}
 
 	std::uint32_t StackTable::Add(const StackRef& a_stack)
@@ -418,6 +432,7 @@ namespace dova::game
 				core::ItemInfo info = base;
 				info.count = plain;
 				info.questItem = inconsistent || entryQuest;
+				info.equipped = PlainCopiesWorn(object, entry.get());  // ammo: the rest of an equipped quiver
 				info.stackId = a_table.Add(StackRef{ owner, object, nullptr, plain });
 				items.push_back(std::move(info));
 			}
@@ -470,6 +485,7 @@ namespace dova::game
 		const auto total = LiveCount(a_ref, a_object);
 		result.found = total - extraTotal > 0;
 		result.count = std::max(0, total - extraTotal);
+		result.isProtected = PlainCopiesWorn(a_object, entry);
 		return result;
 	}
 

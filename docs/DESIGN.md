@@ -750,11 +750,19 @@ download that drops into the same `Categories/` folder, not in the main archive.
   Defer to the menu close to avoid UI desync. Sort on arrival (items put into the master) waits for
   the close when the game is paused, and only runs with the menu open when the menu does not pause
   (Skyrim Souls). The open menus are then told to rebuild their lists.
+- **Equipped ammo is equipped as a whole.** The game shows one equipped entry with every arrow of the type, but
+  arrows picked up after equipping can sit beside the worn stack as plain copies, and a `RemoveItem` with no
+  extra list takes from the worn stack first (that is how a shot arrow leaves the quiver). So while a worn copy
+  of an ammo is there, its plain copies count as equipped (`ItemAdapter`: `equipped` in the snapshot,
+  protected for the `ItemMover`'s live check): they stay with the player, and the quiver is never emptied by a
+  plain move.
 - **Plain remainder:** the copies without extra data move with `RemoveItem` and no extra list, after the
   extra-data stacks. When an extra-data copy of the object stays in the source (worn, kept, tempered), the
-  engine takes plain copies first, as the container menu does. Each such move is checked: every extra-data
-  stack of the source must still be there afterwards. If one left anyway, it is moved back, the error is
-  logged, and plain copies next to an extra-data copy stay where they are for the rest of the session.
+  engine takes plain copies first, as the container menu does (ammo aside, above). Each such move is checked:
+  every extra-data stack of the source must still be there afterwards. If one left anyway, it is moved back and
+  logged (a warning when every special copy is back where it was, an error when not), and that object's plain
+  copies next to an extra-data copy stay where they are for the rest of the session; other objects are not
+  affected.
 - **Items that come back:** when an object Dova Stash stored in a container goes from that container to the
   player within 5 seconds (a script hands it back, for example a token that opens a prompt when stored), it
   is marked for the session and never moved again (`ItemInfo::returns`; logged once at info). Taking it out

@@ -131,6 +131,9 @@
         {"do": "snapshot", "name": "arrows"},
         {"do": "op", "op": "Deposit"},
         {"check": "count", "item": "Skyrim.esm|0x0001397D", "filter": "worn", "ge": 1},
+        {"check": "count", "item": "Skyrim.esm|0x0001397D", "eq": 70},
+        {"check": "log", "since": "action", "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ stays: kept by always equipped"},
+        {"check": "log", "absent": true, "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ -> "},
         {"check": "log", "absent": true, "contains": "took a tempered, enchanted, renamed or worn copy"},
         {"check": "conserved", "snapshot": "arrows"},
         {"check": "noErrors"}

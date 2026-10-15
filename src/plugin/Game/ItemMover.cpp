@@ -13,7 +13,16 @@ namespace dova::game
 
 		std::atomic<int>                g_suppressDepth{ 0 };
 		std::atomic<Clock::rep>         g_suppressUntil{ 0 };
-		std::atomic<bool>               g_plainBesideSpecial{ true };  // false once the engine took a special copy
+		// Objects for which the engine took a special copy for a plain move: their plain copies stay beside a special
+		// copy for the rest of the session. Per object, so one surprise does not stop every other item.
+		std::mutex           g_plainLock;
+		std::set<RE::FormID> g_plainUnsafe;
+
+		bool PlainUnsafe(RE::FormID a_object)
+		{
+			std::scoped_lock lock(g_plainLock);
+			return g_plainUnsafe.contains(a_object);
+		}
 
 		struct Stored
 		{
@@ -194,7 +203,7 @@ namespace dova::game
 			ListCounts targetSpecialBefore;
 			if (!stack->extra) {
 				if (const auto special = ExtraStacks(source, stack->object); !special.empty()) {
-					if (!g_plainBesideSpecial) {
+					if (PlainUnsafe(stack->object->GetFormID())) {
 						logger::info("Move skipped: {} x{} left in {} because a tempered, enchanted, renamed or worn copy of it stays there",
 							Describe(stack->object), move.count, EndpointName(source));
 						++report.skipped;
@@ -213,12 +222,20 @@ namespace dova::game
 
 			std::int32_t putBack = 0;
 			if (!specialBefore.empty() && !SpecialCopiesStayed(source, stack->object, specialBefore)) {
-				g_plainBesideSpecial = false;
+				{
+					std::scoped_lock lock(g_plainLock);
+					g_plainUnsafe.insert(stack->object->GetFormID());
+				}
 				putBack = PutBack(source, target, stack->object, targetSpecialBefore);
-				++report.errors;
-				logger::error("Move of plain {} x{} {} -> {} took a tempered, enchanted, renamed or worn copy; put {} back. "
-							  "Plain copies next to such a copy stay where they are for the rest of this session.",
+				const auto text = std::format("Move of plain {} x{} {} -> {} took a tempered, enchanted, renamed or worn copy; put {} back. "
+											  "Plain copies of it next to such a copy stay where they are for the rest of this session.",
 					Describe(stack->object), move.count, EndpointName(source), EndpointName(target), putBack);
+				if (SpecialCopiesStayed(source, stack->object, specialBefore)) {
+					logger::warn("{}", text);  // every special copy is back where it was
+				} else {
+					++report.errors;
+					logger::error("{}", text);
+				}
 			}
 
 			const auto sourceAfter = LiveCount(source, stack->object);

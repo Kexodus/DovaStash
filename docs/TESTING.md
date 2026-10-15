@@ -159,9 +159,11 @@ Write down the inventory list, including names, *(Fine)* suffixes, enchantments 
 Moving the plain (no extra data) remainder of an item uses `RemoveItem` with no extra list. When a copy
 with extra data stays in the source (worn, favorited, quest, tempered, enchanted, renamed or stolen), the
 engine takes plain copies first, as the container menu does. Dova Stash checks every such move: if a
-special copy left anyway, it is moved back, the log has an `[error]` line
-`Move of plain ... took a tempered, enchanted, renamed or worn copy; put N back`, and from then on plain
-copies next to a special copy stay where they are (`Move skipped: ... left in ...`) until the game restarts.
+special copy left anyway, it is moved back, the log has a line
+`Move of plain ... took a tempered, enchanted, renamed or worn copy; put N back` (`[error]`, or `[warning]` when
+every special copy is back), and from then on plain copies **of that item** next to a special copy stay where
+they are (`Move skipped: ... left in ...`) until the game restarts. Ammo is the exception: with a worn stack of
+an arrow or bolt, its plain copies count as equipped too and stay (the game equips ammo as a whole).
 
 1. `player.additem 0001397E 3` (Iron Dagger x3) and equip one dagger.
 2. Deposit.
@@ -170,7 +172,10 @@ copies next to a special copy stay where they are (`Move skipped: ... left in ..
 4. Temper one of two Iron Swords at a grindstone, put a keep quota of 1 on swords, Deposit. **Expected:**
    the tempered sword stays with you (quota) and keeps its tempering; the plain one goes to its destination.
 5. Put a tempered and a plain Iron Sword into the master: both are sorted (the tempered one moves first).
-6. **Fail if** the `Move of plain ...` error appears: send the log (the engine chose a special copy).
+6. Arrows picked up after equipping: equip 50 Iron Arrows, then `player.additem 0001397D 20`, Deposit.
+   **Expected:** all 70 arrows stay with you, still equipped (the log has `Deposit: Iron Arrow ... stays: kept by
+   always equipped`, possibly twice: the worn stack and the plain copies beside it); no `Move of plain ...` line.
+7. **Fail if** the `Move of plain ...` line appears: send the log (the engine chose a special copy).
 
 ### 2.7 Items that come back when stored
 
