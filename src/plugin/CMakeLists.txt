@@ -134,6 +134,12 @@ set(DOVASTASH_PLUGIN_SOURCES
 	Integrations/QuickLoot.cpp
 	Diagnostics/Environment.h
 	Diagnostics/Environment.cpp
+	AutoTest/AutoTest.h
+	AutoTest/AutoTest.cpp
+	AutoTest/Steps.h
+	AutoTest/Steps.cpp
+	AutoTest/LogCapture.h
+	AutoTest/LogCapture.cpp
 )
 list(TRANSFORM DOVASTASH_PLUGIN_SOURCES PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
 

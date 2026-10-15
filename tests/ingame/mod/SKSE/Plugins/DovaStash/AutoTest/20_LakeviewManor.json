@@ -1,0 +1,43 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Lakeview Manor (Hearthfire, not built)",
+  "home": "HearthFires.esm|0x00002FEC",
+  "tests": [
+    {
+      "id": "3.6b.5", "title": "Hearthfire is not \"rebuilt\": the template is enabled on entry (auto-enable on)",
+      "steps": [
+        {"do": "settings", "set": {"bAutoEnableTemplates": true}},
+        {"do": "enter"},
+        {"do": "clearInventory"},
+        {"check": "home", "is": true, "name": "Lakeview Manor"},
+        {"check": "log", "since": "plan", "regex": "Lakeview Manor: template Templates/Vanilla/LakeviewManor\\.json fits: "},
+        {"check": "notify", "since": "plan", "contains": "Dova Stash: Lakeview Manor is set up. Press K anywhere here to put your loot away."},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/Vanilla/LakeviewManor.json@1.0.0", "within": 5},
+        {"do": "settings", "set": {"bAutoEnableTemplates": false}}
+      ]
+    },
+    {
+      "id": "1.8", "title": "Furniture not built yet: Use template reports the containers it can't use",
+      "steps": [
+        {"do": "reset"},
+        {"check": "layoutFile", "exists": false},
+        {"do": "useTemplate"},
+        {"check": "notify", "regex": "Dova Stash: Lakeview Manor setup enabled \\(\\d+ containers unavailable for now\\)"},
+        {"check": "log", "regex": "Template container .* unavailable: container is disabled \\(not built yet\\?\\)"}
+      ]
+    },
+    {
+      "id": "1.8-deposit", "title": "Deposit with the furniture not built: nothing is lost",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 4},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "unbuilt"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "conserved", "snapshot": "unbuilt"},
+        {"check": "noErrors"}
+      ]
+    },
+    {"id": "3.9-lakeview", "title": "Lakeview grounds as an area, forge outside", "manual": "needs the house built (Hearthfire building) and the exterior crafting area"}
+  ]
+}

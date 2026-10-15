@@ -1,0 +1,41 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Tundra Homestead (Creation Club)",
+  "home": "ccEEJSSE001-Hstead.esm|0x0000087F",
+  "tests": [
+    {
+      "id": "CC.1", "title": "A Creation Club home: template offered, enabled, Deposit sorts by it",
+      "steps": [
+        {"do": "enter"},
+        {"do": "clearInventory"},
+        {"do": "ownCell"},
+        {"check": "home", "is": true, "layout": false},
+        {"check": "log", "since": "plan", "contains": "template: Tundra Homestead v1.0.0 by Dova Stash"},
+        {"do": "useTemplate"},
+        {"check": "notify", "contains": "Dova Stash: Tundra Homestead setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/CreationClub/TundraHomestead.json@1.0.0"},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 5},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 3},
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x000319E3", "count": 2},
+        {"do": "snapshot", "name": "tundra"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "notify", "regex": "Dova Stash: deposited \\d+ items into \\d+ containers"},
+        {"check": "count", "in": "ccEEJSSE001-Hstead.esm|0x0000098F", "item": "Skyrim.esm|0x0005ACE4", "eq": 5},
+        {"check": "count", "in": "ccEEJSSE001-Hstead.esm|0x0000098D", "item": "Skyrim.esm|0x0003EADD", "eq": 3},
+        {"check": "count", "in": "ccEEJSSE001-Hstead.esm|0x00000FBA", "item": "Skyrim.esm|0x00012EB7", "eq": 2},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x000319E3", "eq": 2},
+        {"check": "conserved", "snapshot": "tundra"},
+        {"do": "op", "op": "SortAll"},
+        {"do": "op", "op": "SortAll"},
+        {"check": "notify", "since": "action", "contains": "Dova Stash: everything is already in place"},
+        {"do": "op", "op": "Retrieve", "pattern": "*"},
+        {"check": "count", "item": "Skyrim.esm|0x0005ACE4", "eq": 5},
+        {"check": "count", "item": "Skyrim.esm|0x000319E3", "ge": 2},
+        {"check": "conserved", "snapshot": "tundra"},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 // by add_commonlibsse_plugin() in src/plugin/CMakeLists.txt from the root project() version; only
 // SKSEPlugin_Load lives here.
 
+#include "AutoTest/AutoTest.h"
 #include "Controller.h"
 #include "Diagnostics/Environment.h"
 #include "Events/EventSinks.h"
@@ -75,6 +76,7 @@ namespace
 			dova::hooks::InstallActivatePrompt();
 			dova::ui::overlay::Install();
 			dova::diagnostics::LogEnvironment();
+			dova::autotest::OnDataLoaded();  // a test run only (AutoTest/AutoTest.h); else nothing
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
 			dova::sort::crafting::Reset("loading a game");
@@ -120,6 +122,8 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	dova::log::SetLevel(settings.GetGeneral().logLevel);
 
 	logger::info("{} v{} loaded", dova::version::kName, dova::version::kString);
+	// The in-game test harness: inert unless the MO2 test profile's AutoTest mod provides a plan.
+	dova::autotest::Init();
 	logger::info("Runtime: Skyrim {} {} (SKSE {:#x}, plugin built against CommonLibSSE-NG SE+AE+VR)",
 		RuntimeName(), REL::Module::get().version().string(), SKSE::GetSKSEVersion());
 	if (!logOk) {

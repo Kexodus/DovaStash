@@ -3,6 +3,7 @@
 This script is run by hand in Skyrim. It covers the M1 exit criterion (enchanted, tempered and
 renamed items survive round-trips), the M2 exit criterion (the full manual workflow in
 Breezehome) and the M4 Menu Framework panel (section 5). Section 8 is the Dova Stash Editor, outside the game.
+Section 9 runs much of sections 1-4 by itself, unattended (`tools/autotest/run.ps1`).
 Unit tests for `src/core` are separate: `ctest --preset core-tests`.
 
 Test rig: Skyrim AE 1.6.1170 through MO2, with SKSE and Address Library installed. Optional mods:
@@ -1217,3 +1218,147 @@ own: `$env:DOVASTASH_EDITOR_STATE = "$env:TEMP\ds-test-state.json"`. Every row a
 | 8.24 | A big home on the plan (`--home "Lakeview Manor" --tab plan --popover layers`, also Heljarchen Hall, Whitepeak Tower): L, tick *Effects*, then *Other*; untick *Structure*, *Furniture*, *People*, *Disabled* one by one; hover and click where a hidden footprint was; Home. Then press 1 and untick *Effects* (or `--layers effects,other`, `--layers -structure`) | The plan opens with *Effects* and *Other* off: no large faint boxes of fog, mist, light beams, Hearthfire's crafting triggers or `defaultBlankTrigger`. *Effects* adds faint blue outlines (dust beams, lights), *Other* grey ones (triggers, markers, room bounds); each untick removes its footprints at once, and nothing hidden shows a tooltip or gets selected (a chest under a trigger is picked first). Before you pan or zoom, each change re-fits the plan to what is shown, never to a fog bank or a trigger. In 3D the *Effects* tick is the 3D view's own (on): unticking it hides the glows and the dust beams; the plan's stays as it was. |
 | 8.26 | Vlindrel Hall, select the *Weapon Plaque* (`--home Vlindrel --select "Skyrim.esm|0x00102D37" --popover categories`), tick *Use this display*, open *+ add*; then add `soulgems.*` by typing it + Enter | The picker lists only *weapons.\** and the weapon categories (crossbows included: the editor can't see the crossbow spot); no armor, soul gems, potions. The typed pattern shows as a warning chip (hover: *Soul gems can't go on a weapon rack*) and Checks has `display Skyrim.esm\|0x00102D37 (Weapon Plaque): Soul gems can't go on a weapon rack; nothing goes on it`, which selects the plaque. A mannequin offers armor but no shields, a bookshelf books only. |
 | 8.25 | `--draft-all --save-to <scratch> --author Tester` twice, with a hand-made `Templates/<Home>/Tester.json` (no `autoDraft`) for one home and another author's file for a second home already in `<scratch>`; then save one auto-draft as a person (`--cell <its cell> --draft --save-to <scratch>`, or open it in the window and Ctrl+S) and run it once more; in the window, `--drafts --popover savedrafts` | The new files start with `"autoDraft": true`; both hand-made files are unchanged (same hash, no `.bak`) and each has a *not saved: ... is a template someone made* line; two homes of the same name: the second says *another home's auto-draft*; the second run says *refreshed the earlier auto-draft* (`.bak`, version raised); the person's save has no mark and the last run leaves it alone. The dialog counts new and refreshed files and lists the homes left alone; a home whose only template is an auto-draft shows the *auto-draft* chip. |
+
+## 9. Automated in-game tests
+
+Most of sections 1-4 runs unattended: `tools/autotest/run.ps1` starts Skyrim in its own MO2 profile, a test
+harness inside `DovaStash.dll` plays the steps (no input needed) and checks the result, and the game quits by
+itself. A run takes about five minutes. Nothing is saved; the player's profiles, saves and setups are not touched.
+
+### 9.1 Setup (once)
+
+```powershell
+pwsh -File tests\ingame\install.ps1 -Profile      # MO2 profile "Dova Stash AutoTest" + mod "Dova Stash AutoTest"
+```
+
+The profile (`profiles\Dova Stash AutoTest`) has the base game, the DLCs and Creation Club as installed, the
+Unofficial Patches (USSEP, USCCCP), SKSE, Address Library, SKSE Menu Framework, UIExtensions, QuickLoot IE (with
+SkyUI, which its loot menu needs: without it QuickLoot IE stops the game at the main menu with a dialog), KID,
+Dova Stash and *Dova Stash AutoTest*; nothing else. Profile-local INIs (`tests/ingame/profile`): windowed 1280x720,
+low settings, no intro (`sIntroSequence=`), runs without focus (`bAlwaysActive=1`), no gamepad, no autosaves, sound
+off, Papyrus logging on (`bEnableLogging`, `bEnableTrace`). The *Dova Stash AutoTest* mod holds the plans
+(`SKSE/Plugins/DovaStash/AutoTest/*.json`) and a `DovaStash.ini` of its own (`iLogLevel = 0`,
+`bAutoEnableTemplates = false`, `iMode = 1`), so a run never changes the player's INI. Run `install.ps1` again
+(with `-Profile`) after changing the plans or the profile files; `run.ps1` re-installs the plans by itself.
+
+### 9.2 Running
+
+```powershell
+pwsh -File tools\autotest\run.ps1                    # the Dova Stash mod's DLL
+pwsh -File tools\autotest\run.ps1 -Build             # build first (deploys as configured, docs/BUILDING.md)
+pwsh -File tools\autotest\run.ps1 -Dll build\plugin\src\plugin\Release\DovaStash.dll   # a DLL of your own
+```
+
+It refuses to start while a Skyrim is running, and starts Steam first when it is not running (the game needs it;
+MO2 would otherwise ask). It launches
+`ModOrganizer.exe --multiple -p "Dova Stash AutoTest" "moshortcut://:Launch Game"` (a second MO2 process: an MO2
+window that is open stays as it is; the runner puts `selected_profile` in `ModOrganizer.ini` back afterwards),
+waits for the results, ends only the game it started on a timeout (default 25 minutes) or a dialog nobody can
+answer (its text goes to `dialog.txt`), and starts the game again (up to three times) if it ended before the tests
+began (MO2 sometimes drops its virtual file system when `skse64_loader` exits before the game is up). `-Focus` brings
+the game window to the front once (not needed so far). Everything goes to `build/autotest/<date-time>/`: `results.json`, `DovaStash.log`, `Papyrus.0.log`, the
+run's home backups and, under `written/`, the files the run created in MO2's `overwrite` folder (layouts,
+exported templates; moved out, so other profiles never see them). It prints one line per test and the failed
+checks, and exits 1 when a test failed or the run did not finish.
+
+### 9.3 How it works
+
+`src/plugin/AutoTest/` (AutoTest.h has the design). Inert in normal play: without a plan in
+`Data/SKSE/Plugins/DovaStash/AutoTest/` it does one directory check at startup and nothing else. With plans:
+
+- **Isolation.** Home backups go to `SKSE/DovaStash/AutoTest/Backups` instead of the player's `Backups`; a plan
+  whose home already has a layout file (the player's own, which MO2's overwrite folder shows to every profile) is
+  refused (its tests fail with that reason), so a run only ever changes setups it made itself.
+- **Start.** At the main menu it waits a few seconds, then `coc <home>` (the console command, through `RE::Script`)
+  starts a game in the plan's home. Plans run one after the other in file-name order.
+- **Drive.** Steps call the Controller as the menus do (Make master, Use template, Deposit, Sort all, Retrieve,
+  Restock, Sell now's confirmed sale, Buy back, Use this rack, Save as template, Add/Rename/Remove area...), and the
+  game as a player would: `player.additem`-like adds (tempered, renamed and stolen copies are placed in the world
+  and picked up, so the game builds those stacks), equipping, opening a container's menu and putting items in by
+  hand (Learn), the hotkey, walking through a load door, sitting at a crafting station (the crafting menu opens) and
+  consuming a material as that menu does (`PlayerCharacter::RemoveItem`, where the craft-from-storage hook sits).
+- **Wait.** Steps run in SKSE tasks every 100 ms; a step that needs the game (a cell to load, a menu to open, a
+  display to fill) waits for it; after a move the next step waits half a second, so the container-changed events
+  are handled first, as between two things a player does.
+- **Assert.** Checks read inventories (counts per item, also only tempered / renamed / stolen / worn copies),
+  gold, the layout file (JSON pointer), exported templates and backups, the log since the test began (the HUD
+  lines are in it as `Notify: ...`), `[error]` lines, the crafting session, the item count a crafting menu sees,
+  open menus; "no item lost or gained" compares the player and every container of the cell with a snapshot.
+- **Message boxes nobody answers.** A box the game or another mod shows by itself blocks every other menu (no
+  container or crafting menu opens behind it). `_run.json` lists the ones to answer (`messageBoxes`: text to look
+  for, button): the SkyUI build's *MCM-Unlocked.dll* warning and the Survival Mode question (No). Every box is
+  logged (`AutoTest: a message box is up: ...`); Dova Stash's own (the category question) are answered by the
+  plan (`answerMessageBox`, as a click).
+- **Threads.** SKSE tasks run on worker threads; the crafting menu counts and consumes materials on the UI thread.
+  The crafting steps (`hookedCount`, `consume`) run there (`AddUITask`), as the menu does.
+- **Report.** `SKSE/DovaStash/AutoTest/results.json` after every test, then `qqq`.
+
+### 9.4 Plans
+
+`tests/ingame/mod/SKSE/Plugins/DovaStash/AutoTest/`: `_run.json` (start delay, run timeout, quit), then one file
+per home. A plan:
+
+```json
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Breezehome",
+  "home": "Skyrim.esm|0x000165A8",
+  "coc": "WhiterunBreezehome",
+  "tests": [
+    {"id": "2.3", "title": "Deposit", "steps": [
+      {"do": "op", "op": "Deposit"},
+      {"check": "count", "in": "master", "item": "Skyrim.esm|0x00012EB7", "eq": 2},
+      {"check": "notify", "regex": "Dova Stash: deposited \\d+ items? into 1 container"}
+    ]},
+    {"id": "2.5", "title": "Container-menu guard", "manual": "needs real key presses"}
+  ]
+}
+```
+
+`id` is the step of this document. A test passes when all its checks pass; an action that fails ends the test;
+`require` skips it (furniture the game does not have). Holders: `"player"`, `"master"`, a FormRef.
+
+| Actions (`do`) | |
+|---|---|
+| `enter` (`coc`, `cell`, `any`) | coc to the plan's home (or another cell) and wait until it is loaded |
+| `clearInventory`, `additem` (`extra`: `health`, `name`, `owner`), `additemMany`, `removeitem`, `equip` | the inventory |
+| `buyHome`, `enable`, `require`, `ownCell` | what buying a home and its decorations does; skip when something is missing |
+| `makeMaster`, `useTemplate`, `reset`, `restore`, `bind`, `unbind`, `ignore`, `removeContainer`, `label`, `keep`, `settings` | the setup |
+| `op` (`Deposit`, `Distribute`, `SortAll`, `Retrieve` + `pattern`, `Restock`) | operations |
+| `sellChest`, `quote`, `sellConfirmed`, `buyBack` | the sell chest (the quote is what the confirmation box shows) |
+| `displayUse`, `displayCategory`, `fill` | displays |
+| `export` (`expect`: `ok` / `exists`) | Save as template |
+| `exitDoor`, `addArea`, `renameArea`, `removeArea` | homes over several cells |
+| `openContainer`, `store`, `take`, `closeMenu`, `answerMessageBox` (`button`), `hotkey` (`target`), `acceptSuggestion`, `declineSuggestion` | by hand |
+| `sit` (`keyword`), `consume` | crafting |
+| `writeLayout`, `deleteLayout`, `writeBackup`, `deleteBackup`, `clearContainer` | the plan's own home only |
+| `console`, `snapshot`, `wait`, `waitIdle` | |
+
+| Checks (`check`; `within`: seconds to wait for it) | |
+|---|---|
+| `count` (`in`, `item`, `filter`, `from`: change since a snapshot, `eq`/`ge`/`le`/`gt`/`lt`/`ne`), `gold` | inventories |
+| `log`, `notify` (`contains` / `regex`, `absent`, `count`, `max`, `since`) | the log since the test (or `action`: the last action, `plan`, `run`) |
+| `noErrors` (`except`) | no `[error]` line |
+| `layout`, `templateFile`, `backupFile` (`pointer` + `eq` / `contains` / `lacks` / `absent` / `size`), `layoutFile`, `files` | files |
+| `conserved` (`snapshot`, `ignore`) | no item lost or gained |
+| `home`, `bestTemplate`, `menu`, `quote`, `crafting`, `hookedCount`, `hooks` | state |
+
+### 9.5 What is covered, what stays manual
+
+Automated (plan): startup log and the `[error]`-free start (0), 5.0.1/5.0.2; eligibility 1.1-1.5, 1.8; M1 2.1-2.4
+(tempered, renamed, stolen and enchanted copies survive Deposit and two round trips; equipped copies stay), 2.6
+(and 2.6b: more arrows of the equipped type);
+M2 3.1-3.5 (bind, Distribute, sort on arrival, Learn, undo, item families, the category suggestion, Sort all,
+Retrieve by category, Ignore / Remove / Make master / Reset); 3.6 (Use and Re-apply template), 3.6.5-3.6.8 (Save as
+template, same name, round trip), 3.6a (backup copy, restore, broken copy); 3.6b.5 (Hearthfire not "rebuilt");
+3.7 (a rack takes a weapon on Deposit); 3.8b (hooks installed, a storage session at the cooking pot counts the
+stored materials, a craft takes the shortfall from storage); 3.8a (Restock, Restock after Deposit); 3.9 (add,
+rename, Deposit from, remove an area); 3.10 (sell chest routing, quote, sale, never sold, buy back, changed
+meanwhile); 4.1, 4.4; a Creation Club home (Tundra Homestead).
+
+Manual: everything you look at or click in a menu (the UIExtensions lists, message boxes, the Menu Framework
+panel 5.1-5.8, the activate prompt, QuickLoot IE, floating icons: sections 5-6), the hotkey with menus open (1.7,
+2.5), how displays look (3.7 placement, nodes, bookshelves), favorited and quest items (2.2), items a script hands
+back (2.7), other home mods and the Menu Framework missing (3.6b, 5.0.3), Severin Manor's purchase (1.9), Move mode
+at a forge (3.8; Breezehome has none), built Hearthfire homes (3.9 at Lakeview), timed selling (3.10.9), and the
+Dova Stash Editor (section 8).

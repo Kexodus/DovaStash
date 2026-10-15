@@ -1,0 +1,69 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Startup and eligibility",
+  "tests": [
+    {
+      "id": "0", "title": "Startup log (docs/TESTING.md, Expected startup log)",
+      "steps": [
+        {"check": "log", "since": "run", "contains": "kDataLoaded: forms are available"},
+        {"check": "log", "since": "run", "regex": "FormUtil: \\d+ full \\+ \\d+ light plugins loaded"},
+        {"check": "log", "since": "run", "regex": "Categories: \\d+ loaded \\(0 errors"},
+        {"check": "log", "since": "run", "regex": "Templates: \\d+ loaded \\(0 errors"},
+        {"check": "log", "since": "run", "regex": "Homes that sort themselves: \\d+ listed, \\d+ apply in this game \\(0 errors"},
+        {"check": "log", "since": "run", "contains": "Home backup: copies go to"},
+        {"check": "log", "since": "run", "contains": "(test run)"},
+        {"check": "log", "since": "run", "contains": "Events: container-changed and cell-loaded sinks registered"},
+        {"check": "log", "since": "run", "contains": "Events: menu sink registered"},
+        {"check": "log", "since": "run", "contains": "Input: hotkey sink registered"},
+        {"check": "noErrors", "since": "run"}
+      ]
+    },
+    {
+      "id": "5.0.1", "title": "SKSE Menu Framework found; iMode = 1 gives message boxes (5.0.2)",
+      "steps": [
+        {"check": "log", "since": "run", "contains": "SKSE Menu Framework: installed"},
+        {"check": "log", "since": "run", "contains": "UI: in-world menus are native message boxes (iMode = 1)"},
+        {"check": "log", "since": "run", "contains": "UI: editor is the SKSE Menu Framework panel"}
+      ]
+    },
+    {
+      "id": "3.8b.1", "title": "Craft from storage: hooks installed, mode resolved",
+      "steps": [
+        {"check": "hooks", "installed": true},
+        {"check": "log", "since": "run", "contains": "Crafting hooks: installed"},
+        {"check": "log", "since": "run", "contains": "Materials at the workbench: craft from storage (auto"}
+      ]
+    },
+    {
+      "id": "1.3", "title": "Not a player home: the Bannered Mare",
+      "steps": [
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"check": "home", "is": false},
+        {"do": "hotkey"},
+        {"check": "notify", "contains": "Dova Stash: not a player home (owned by"}
+      ]
+    },
+    {
+      "id": "1.4", "title": "A respawning container is refused (Bleak Falls Barrow)",
+      "steps": [
+        {"do": "enter", "coc": "BleakFallsBarrow01"},
+        {"check": "home", "is": true},
+        {"do": "hotkey", "target": "respawning"},
+        {"check": "notify", "contains": "restocks itself when the area resets"}
+      ]
+    },
+    {
+      "id": "1.5", "title": "Exterior cell not owned by the player",
+      "steps": [
+        {"do": "enter", "coc": "Riverwood", "any": true},
+        {"do": "hotkey"},
+        {"check": "notify", "contains": "Dova Stash: not a player home (exterior cell not owned by you)"}
+      ]
+    },
+    {"id": "1.7", "title": "Hotkey ignored in console, inventory, dialogue", "manual": "needs real key presses with those menus open (the input sink)"},
+    {"id": "1.9", "title": "Severin Manor before and after purchase", "manual": "needs the Dragonborn purchase quest"},
+    {"id": "5.0.3", "title": "Menu Framework disabled in MO2", "manual": "needs another load order (the profile has the framework)"},
+    {"id": "5.1-5.8", "title": "Menu Framework panel", "manual": "the panel is drawn and clicked (ImGui): visual"},
+    {"id": "6.2-6.5", "title": "UIExtensions lists, activate prompt, QuickLoot IE, floating icons", "manual": "visual, depends on the UI skin"}
+  ]
+}
