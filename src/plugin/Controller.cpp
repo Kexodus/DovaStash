@@ -894,8 +894,9 @@ namespace dova
 				}
 			}
 			Registry().MarkDirty(*home);  // written when the container menu closes
-			// Undo: one batch per home; a learn in another home starts over.
-			if (!_undo || _undo->cellId != home->cellId) {
+			// Undo: one batch per home; a learn in another home, or after the batch's undo window has passed, starts over
+			// (the hotkey must never take back learns the player can no longer undo).
+			if (!_undo || _undo->cellId != home->cellId || (_undo->until && std::chrono::steady_clock::now() > *_undo->until)) {
 				_undo = PendingUndo{ .cellId = home->cellId };
 			}
 			_undo->learns.push_back(std::move(undo));
