@@ -43,9 +43,10 @@
 - Taking a just-deposited item back out through QuickLoot IE's loot menu no longer marks it as "comes back when stored" (an item that would never be moved again that session): only a script handing it back counts, as with the normal container menu.
 - Saved templates list the plugins of the displays they use in `requires`, so they pass the template check (not the plugins of display items or mannequin sets: those are optional, see Templates pre-define displays).
 - The panel's Template tab starts from the current home's name after you move to another home, instead of the first home's.
+- Materials at the workbench, Craft from storage (Skyrim AE): the crafting menu did not count the stored materials and a craft took nothing from the containers, because the menu runs on another game thread than the one the visit started on. The menu now counts and takes them whatever thread the game uses.
 - Arrows or bolts picked up after equipping that type stay on you with the rest of the quiver when you Deposit. Before, Deposit took them out of the equipped stack, and from then on left the spare copies of every worn item on you for the rest of the session (nothing was lost). If the game ever takes a special copy for a plain one again, only that item stays put for the session.
-
 - The startup log's Environment block names the in-world menus your `iMode` picks (it always said UIExtensions lists when UIExtensions was installed).
+
 - Spare copies of worn gear are deposited now. Before, a second Iron Shield stayed on you while you wore one. Each such move checks that the worn, tempered or enchanted copy stayed behind.
 - Shelves, racks and cupboards that open a hidden chest (an activator linked to it, like Whitepeak Tower's Food shelf or a vanilla bookshelf) can be set up with the hotkey now. They show the chest's categories in the prompt and as floating icons.
 - Items that a script hands straight back when stored, such as the Curators Storage Token, stay on you after the first try instead of coming back (and opening their prompt) on every Deposit.

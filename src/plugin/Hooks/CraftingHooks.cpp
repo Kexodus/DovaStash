@@ -35,10 +35,10 @@ namespace dova::hooks::crafting
 		std::int32_t ItemCount(RE::InventoryChanges* a_changes, RE::TESBoundObject* a_object, void* a_filter)
 		{
 			const auto count = g_itemCount(a_changes, a_object, a_filter);
-			if (!a_changes || !a_object || !storage::Hooked() || !IsPlayer(a_changes->owner)) {
+			if (!a_changes || !IsPlayer(a_changes->owner)) {
 				return count;
 			}
-			return count + storage::Stored(a_object);
+			return count + Added(a_object);
 		}
 
 		// TESObjectREFR::GetInventoryItemCount (SE 19274 / AE 19700).
@@ -109,6 +109,11 @@ namespace dova::hooks::crafting
 	bool Installed() noexcept
 	{
 		return g_installed;
+	}
+
+	std::int32_t Added(const RE::TESBoundObject* a_object) noexcept
+	{
+		return a_object && storage::Hooked() ? storage::Stored(a_object) : 0;
 	}
 
 	bool EnsureInstalled()

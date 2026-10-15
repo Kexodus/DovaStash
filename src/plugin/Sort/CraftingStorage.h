@@ -14,7 +14,10 @@
 // remove as usual, and puts back anything the craft did not use. If the containers cannot give what they
 // promised, the session falls back to Move for the rest of the visit (a task), with a log line.
 //
-// Everything here runs on the main thread (SKSE tasks and the game's menu code); the hooks check that.
+// Threads (DESIGN §8.5, "Threads"): Begin and End run in SKSE tasks; the hooks, and so Stored, the list
+// functions and Consume, run on whatever thread the engine calls them from (on AE the crafting menu's thread is
+// not the tasks' one). The session is shared under a lock that is never held while calling into the game;
+// Consume works from a copy of the home taken by Begin, never the live Home.
 
 #include <dova/core/CraftingStorage.h>
 
@@ -41,17 +44,19 @@ namespace dova::sort::crafting
 	namespace storage
 	{
 		// Starts a session at `a_station` in `a_home`. False when nothing could be set up (the caller falls
-		// back to Move). Main thread.
+		// back to Move). When the crafting menu is already open (it built its lists before the session), its
+		// recipe list is built again (a UI task). SKSE task.
 		bool Begin(RE::TESObjectREFR* a_station, const home::Home& a_home, const core::crafting::SupplyRequest& a_request);
+		// Any thread.
 		[[nodiscard]] bool       Active() noexcept;
 		[[nodiscard]] RE::FormID StationId() noexcept;
-		// Ends the session (summary in the log). Nothing moves.
+		// Ends the session (summary in the log). Nothing moves. SKSE task.
 		void End(std::string_view a_why);
 
-		// --- for the hooks (main thread) -----------------------------------------------------------------
+		// --- for the hooks (any thread) ------------------------------------------------------------------
 
-		// A session is active, this is the main thread, Dova Stash is not moving or counting items itself, and
-		// the player sits at the session's station.
+		// A session is active, the player sits at the session's station, and this thread is not inside Dova
+		// Stash's own counting or moving (Busy). On any thread: the crafting menu's is not the tasks' one.
 		[[nodiscard]] bool Hooked() noexcept;
 		// Hooked() at an alchemy lab: the ingredient list is extended.
 		[[nodiscard]] bool ListsHooked() noexcept;
@@ -75,7 +80,8 @@ namespace dova::sort::crafting
 		using RemoveFn = std::function<RE::ObjectRefHandle*()>;
 		RE::ObjectRefHandle* Consume(RE::TESBoundObject* a_item, std::int32_t a_count, const RemoveFn& a_remove);
 
-		// While alive, the hooks leave everything to the game (our own moves and counts). Main thread.
+		// While alive, the hooks leave everything to the game on this thread (our own moves and counts); the
+		// hooks on other threads (the menu's) still answer. thread_local.
 		struct Busy
 		{
 			Busy() noexcept;

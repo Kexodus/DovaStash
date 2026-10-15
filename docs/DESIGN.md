@@ -170,6 +170,10 @@ live `Home`/`Layout` or settings:
   `std::atomic<std::shared_ptr>`) after every change. Display code reads only that copy.
 - `Settings` is an atomically swapped `shared_ptr<const Values>`; getters return copies.
 - The UIExtensions bridge keeps its one pending menu behind a mutex, and runs callbacks unlocked.
+- Craft from storage's hooks run on whatever thread the crafting menu uses, and its consumption moves items
+  there (the one inventory mutation outside a task, as the engine's own menus do): they work from the storage
+  session's own data and a copy of the home taken in a task, under a lock never held while calling into the
+  game (§8.5, *Threads*).
 - Category data never changes after `kDataLoaded` and is shared freely. Template data is read only
   from SKSE tasks (Controller, `HomeRegistry`, the panel's snapshot builder), never from the UI
   thread: saving a template rescans the list (`Store::ReloadTemplates`, which replaces it) and
@@ -746,16 +750,16 @@ download that drops into the same `Categories/` folder, not in the main archive.
 - **Always skip:** quest items (`IsQuestObject`), non-playable forms, equipped (`ExtraWorn`/`ExtraWornLeft`),
   favorited (`ExtraHotkey`), and anything matched by keep rules. Gold, lockpicks and torches are kept by
   default (configurable).
-- Never sort *while* a `ContainerMenu` is open on an affected container if that menu pauses the game.
-  Defer to the menu close to avoid UI desync. Sort on arrival (items put into the master) waits for
-  the close when the game is paused, and only runs with the menu open when the menu does not pause
-  (Skyrim Souls). The open menus are then told to rebuild their lists.
 - **Equipped ammo is equipped as a whole.** The game shows one equipped entry with every arrow of the type, but
   arrows picked up after equipping can sit beside the worn stack as plain copies, and a `RemoveItem` with no
   extra list takes from the worn stack first (that is how a shot arrow leaves the quiver). So while a worn copy
   of an ammo is there, its plain copies count as equipped (`ItemAdapter`: `equipped` in the snapshot,
   protected for the `ItemMover`'s live check): they stay with the player, and the quiver is never emptied by a
   plain move.
+- Never sort *while* a `ContainerMenu` is open on an affected container if that menu pauses the game.
+  Defer to the menu close to avoid UI desync. Sort on arrival (items put into the master) waits for
+  the close when the game is paused, and only runs with the menu open when the menu does not pause
+  (Skyrim Souls). The open menus are then told to rebuild their lists.
 - **Plain remainder:** the copies without extra data move with `RemoveItem` and no extra list, after the
   extra-data stacks. When an extra-data copy of the object stays in the source (worn, kept, tempered), the
   engine takes plain copies first, as the container menu does (ammo aside, above). Each such move is checked:
@@ -1152,9 +1156,10 @@ menu closes, when the player gets up without it, on another station, and on load
 furniture event having been seen (its lists are already built) uses Move for that visit.
 
 **The hooks** (`Hooks/CraftingHooks.*`; installed the first time the mode resolves to Craft from storage, never
-on VR). Each calls the game first and only changes the answer while a session is active, on the main thread,
-while the player sits at the session's station, and never while Dova Stash itself is counting or moving items
-(`storage::Busy`, so the engine never sees inflated counts inside our moves or the game's own removal):
+on VR). Each calls the game first and only changes the answer while a session is active and the player sits at
+the session's station, on whatever thread the engine calls it from (see *Threads* below), and never while Dova
+Stash itself is counting or moving items on that thread (`storage::Busy`, so the engine never sees inflated
+counts inside our moves or the game's own removal):
 
 | Hook | ID (SE / AE) | How | Why |
 |---|---|---|---|
@@ -1175,8 +1180,8 @@ mode resolves to Move. On VR the SE IDs are not all in the VR Address Library, a
 (CommonLib's `report_and_fail`), so they are never resolved there (SCIE has VR-specific offsets for these;
 unverified here, so VR uses Move).
 
-**Consumption** (`storage::Consume`, inside the `RemoveItem` hook, main thread). The game asks to remove *n*
-of an item:
+**Consumption** (`storage::Consume`, inside the `RemoveItem` hook, on the crafting menu's thread). The game asks
+to remove *n* of an item:
 1. The player carries *n* or more, or the item is not a stored material: the game removes as usual.
 2. Else the shortfall (`core::crafting::Shortfall`) comes from the containers: the item's containers are
    snapshotted fresh (not the cache), `core::crafting::PlanTake` picks stacks in take order (bound container
@@ -1188,11 +1193,36 @@ of an item:
    containers they came from (`core::crafting::Unused`, `ReturnMoves`).
 5. The cache is updated from the fresh count (no rescan of the home).
 
+**Threads.** On AE the engine has no single "main thread" for this: SKSE tasks drain on several engine worker
+threads, and the crafting menu builds its lists, answers its counts and consumes materials on another one, which
+changes from visit to visit (the automated tests log the thread IDs: a session begun on one thread, the menu's
+event, its counts and its craft on others). So:
+- the session starts and ends in SKSE tasks (`Begin`/`End`, under the crafting supply's lock, where the live
+  `Home` may be read), and everything the hooks need is in the session: the cached counts, each material's
+  containers in take order, the station's request, and a **copy of the home** (`std::shared_ptr<const Home>`),
+  so the menu's thread never touches the live `Home` or `Layout` (§5, Threading);
+- the session is shared under one mutex that is held only to copy or update its data, never while calling into
+  the game (so it can never deadlock with the engine's own inventory locks); the hooks' first checks (a session
+  is active, the station's handle) are atomics, so outside a session a hook costs two atomic loads;
+- `storage::Busy` is `thread_local`: Dova Stash's own counts and moves on one thread see the game's plain answers,
+  while the menu on another thread keeps seeing the stored materials;
+- consumptions are serialized by a second mutex (one craft at a time) that the count hooks never take. The
+  shortfall is moved on the menu's thread itself, inside the hooked `RemoveItem`, right before the game's own
+  removal: the move has to be done before that removal returns, and the menu's thread is where the engine itself
+  moves items between the player and a container (the container menu's transfers, the craft's own `RemoveItem`
+  and the crafted item's `AddObjectToContainer`), which is also how Crafting Pulls Resources From Containers and
+  SCIE do it (both remove from the containers inside the same hook, with no thread checks). The `ItemMover`'s
+  state is atomics and mutexes;
+- a session that starts after the crafting menu has already built its lists (the furniture event's task ran
+  after the menu opened) has the open menu's recipe list built again in a UI task (`ConstructibleObjectMenu::
+  UpdateConstructibleList`, what the menu does itself after every craft); the counts it asks for later are hooked
+  anyway.
+
 **Fallback.** Never lose an item: if the containers give fewer copies than the cache promised (a script took
 some meanwhile, a stack failed the `ItemMover`'s checks), the game removes what the player has (as without
 Dova Stash), the storage session stops answering at once, and a task switches the station to Move for the rest
-of the visit (the storage session ends, the materials are brought, the menu refreshes). The same when the home
-is no longer loaded. Nothing else can make a craft half-done: the hooks never remove anything themselves.
+of the visit (the storage session ends, the materials are brought, the menu refreshes). The same when the player
+is no longer in the session's cell. Nothing else can make a craft half-done: the hooks never remove anything themselves.
 
 **Enchanters use Move.** The enchanting menu reads a soul gem's soul from the copy's own extra data and hands
 that exact copy back when it consumes it; offering container copies would mean handing a container's

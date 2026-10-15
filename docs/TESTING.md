@@ -695,6 +695,8 @@ no other crafting mod installed. `iLogLevel = 0`.
    <forge> in <home>: N materials (K kinds) in C containers` and a debug line per material (`Iron Ingot x12 in
    Chest, Master`). **No** `ItemMover: moved` line and nothing in your inventory changes (check with Tab before
    and after). The forge lists the recipes the stored materials allow, with counts like `Iron Ingot (12/1)`.
+   When the menu opened before Dova Stash saw the station, the log also has (debug) `... the crafting menu was
+   open before the session began; its recipe list was built again`, and the list still shows the stored counts.
 4. Craft one Iron Dagger. **Expected:** the dagger is in your inventory; one ingot and one strip are gone from
    the containers (open them), nothing else moved. Log (debug): `Crafting from storage: Iron Ingot ... x1:
    carried 0, brought 1 from ...` and the same for the strip; one `ItemMover: moved 1 items` per material.
@@ -1294,8 +1296,14 @@ checks, and exits 1 when a test failed or the run did not finish.
   for, button): the SkyUI build's *MCM-Unlocked.dll* warning and the Survival Mode question (No). Every box is
   logged (`AutoTest: a message box is up: ...`); Dova Stash's own (the category question) are answered by the
   plan (`answerMessageBox`, as a click).
-- **Threads.** SKSE tasks run on worker threads; the crafting menu counts and consumes materials on the UI thread.
-  The crafting steps (`hookedCount`, `consume`) run there (`AddUITask`), as the menu does.
+- **Threads.** SKSE tasks run on several worker threads; the crafting menu counts and consumes materials on
+  another one (the log names them: `AutoTest: Crafting Menu opened (event on thread ...)`). The crafting steps
+  (`hookedCount`, `consume`, `craft`) run in UI tasks, as the menu does. `hookedCount` is the player's count plus
+  what the count hook adds on that thread (`hooks::crafting::Added`; the hooked engine function itself is not
+  called by the harness); `craft` is the real menu path: it picks a recipe in the open recipe menu and calls the
+  menu's own `ChooseItem` and `CraftButtonPress` callbacks (what its Scaleform calls when the player picks and
+  crafts), so the menu checks its hooked
+  counts, consumes through `PlayerCharacter::RemoveItem` and adds the result.
 - **Report.** `SKSE/DovaStash/AutoTest/results.json` after every test, then `qqq`.
 
 ### 9.4 Plans
@@ -1335,7 +1343,7 @@ per home. A plan:
 | `export` (`expect`: `ok` / `exists`) | Save as template |
 | `exitDoor`, `addArea`, `renameArea`, `removeArea` | homes over several cells |
 | `openContainer`, `store`, `take`, `closeMenu`, `answerMessageBox` (`button`), `hotkey` (`target`), `acceptSuggestion`, `declineSuggestion` | by hand |
-| `sit` (`keyword`), `consume` | crafting |
+| `sit` (`keyword`), `consume`, `craft` (`uses`, `product`) | crafting (`craft`: through the open recipe menu's own callback) |
 | `writeLayout`, `deleteLayout`, `writeBackup`, `deleteBackup`, `clearContainer` | the plan's own home only |
 | `console`, `snapshot`, `wait`, `waitIdle` | |
 
@@ -1357,7 +1365,8 @@ M2 3.1-3.5 (bind, Distribute, sort on arrival, Learn, undo, item families, the c
 Retrieve by category, Ignore / Remove / Make master / Reset); 3.6 (Use and Re-apply template), 3.6.5-3.6.8 (Save as
 template, same name, round trip), 3.6a (backup copy, restore, broken copy); 3.6b.5 (Hearthfire not "rebuilt");
 3.7 (a rack takes a weapon on Deposit); 3.8b (hooks installed, a storage session at the cooking pot counts the
-stored materials, a craft takes the shortfall from storage); 3.8a (Restock, Restock after Deposit); 3.9 (add,
+stored materials on the menu's thread, a consumption and a craft through the menu's own callback take the
+shortfall from storage); 3.8a (Restock, Restock after Deposit); 3.9 (add,
 rename, Deposit from, remove an area); 3.10 (sell chest routing, quote, sale, never sold, buy back, changed
 meanwhile); 4.1, 4.4; a Creation Club home (Tundra Homestead).
 

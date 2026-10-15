@@ -716,14 +716,15 @@ namespace dova::autotest
 				});
 			}
 			if (a_kind == "hookedCount") {
-				// The count a crafting menu asks for (InventoryChanges' count of one object): with a session active,
-				// the player's own copies plus what storage can give. Asked on the UI thread, as the menu does.
+				// The count a crafting menu gets (the hooked count of one object, SE 15869 / AE 16109): with a session
+				// active, the player's own copies plus what the hook adds for storage. Asked on the UI thread, as the
+				// menu does. (CommonLib's InventoryChanges::GetItemCount is another function, which the menus do not
+				// use for materials and the hook does not change.)
 				auto* item = Item(s);
 				auto  value = std::make_shared<std::atomic<std::int64_t>>(std::numeric_limits<std::int64_t>::min());
 				SKSE::GetTaskInterface()->AddUITask([item, value]() {
-					auto* player = game::Player();
-					auto* changes = player ? player->GetInventoryChanges() : nullptr;
-					const auto n = changes && item ? static_cast<std::int64_t>(changes->GetItemCount(item)) : -1;
+					auto*      player = game::Player();
+					const auto n = player && item ? static_cast<std::int64_t>(CountIn(player, item) + hooks::crafting::Added(item)) : -1;
 					logger::info("AutoTest: count of {} asked on the UI thread ({}): {}", Name(item), ThreadId(), n);
 					*value = n;
 				});
@@ -743,13 +744,12 @@ namespace dova::autotest
 				return Check(s, c, [s]() {
 					auto*       item = Item(s);
 					auto*       player = game::Player();
-					auto*       changes = player ? player->GetInventoryChanges() : nullptr;
-					CheckRecord r{ false, std::format("player count of {} seen by the crafting menu{}", Name(item), Expectation(s)), {} };
-					if (!item || !changes) {
-						r.detail = "no item or inventory";
+					CheckRecord r{ false, std::format("player count of {} seen by the crafting menu (task thread){}", Name(item), Expectation(s)), {} };
+					if (!item || !player) {
+						r.detail = "no item or player";
 						return r;
 					}
-					const auto n = static_cast<std::int64_t>(changes->GetItemCount(item));
+					const auto n = static_cast<std::int64_t>(CountIn(player, item) + hooks::crafting::Added(item));
 					const auto failure = Compare(n, s);
 					r.ok = !failure;
 					r.detail = failure.value_or(std::format("{}", n)) + std::format(" (carried {})", CountIn(player, item));
@@ -1631,6 +1631,158 @@ namespace dova::autotest
 					*done = true;
 				});
 				return WaitFor("consumed on the UI thread", 10.0, [done]() { return done->load(); }, c);
+			}
+			if (a_kind == "craft") {
+				// A craft through the open crafting menu's own code, as the player's click makes it: in a UI task (where
+				// the menu runs), the recipe menu's recipe list is searched for a recipe that uses `uses` and whose
+				// components should be there (carried + stored), the recipe is chosen ("ChooseItem"), and the menu's own
+				// "CraftButtonPress" callback (what its Scaleform calls when the player crafts) crafts it: the menu
+				// checks its hooked counts, consumes the materials through PlayerCharacter::RemoveItem and adds the
+				// result.
+				auto* uses = Item(s, "uses");
+				auto* product = s.contains("product") ? Item(s, "product") : nullptr;  // optional: that recipe only
+				if (!uses || !player || (s.contains("product") && !product)) {
+					AbortTest(c, "craft", "item not found");
+					return std::nullopt;
+				}
+				struct Outcome
+				{
+					std::atomic<bool>   done{ false };
+					bool                listed{ false };
+					bool                pressed{ false };
+					RE::TESBoundObject* made{ nullptr };
+					std::int32_t        madeCount{ 1 };
+					std::int32_t        before{ 0 };
+					std::string         detail;
+				};
+				auto outcome = std::make_shared<Outcome>();
+				SKSE::GetTaskInterface()->AddUITask([uses, product, outcome]() {
+					class Callbacks final : public RE::FxDelegateHandler::CallbackProcessor
+					{
+					public:
+						void Process(const RE::GString& a_name, RE::FxDelegateHandler::CallbackFn* a_fn) override { fns.emplace(a_name.c_str(), a_fn); }
+						std::map<std::string, RE::FxDelegateHandler::CallbackFn*> fns;
+					};
+					auto finish = [&](std::string a_detail) {
+						outcome->detail = std::move(a_detail);
+						outcome->done = true;
+					};
+					auto*      p = game::Player();
+					auto*      ui = RE::UI::GetSingleton();
+					const auto menu = ui ? ui->GetMenu<RE::CraftingMenu>() : RE::GPtr<RE::CraftingMenu>{};
+					auto*      sub = menu ? menu->GetCraftingSubMenu() : nullptr;
+					auto*      recipes = sub ? skyrim_cast<RE::CraftingSubMenus::ConstructibleObjectMenu*>(sub) : nullptr;
+					if (!p || !recipes) {
+						return finish("no recipe menu open");
+					}
+					logger::info("AutoTest: crafting on the UI thread ({}): {} recipes listed", ThreadId(), recipes->recipes.size());
+					std::optional<std::uint32_t> pick;
+					RE::TESBoundObject*          made = nullptr;
+					std::uint16_t                madeCount = 1;
+					for (std::uint32_t i = 0; i < recipes->recipes.size() && !pick; ++i) {
+						auto* recipe = recipes->recipes[i].constructibleObject;
+						if (!recipe) {
+							continue;
+						}
+						bool usesIt = false;
+						bool enough = true;
+						std::string parts;
+						recipe->requiredItems.ForEachContainerObject([&](RE::ContainerObject& a_part) {
+							auto*      object = a_part.obj;
+							const auto carried = object ? CountIn(game::Player(), object) : 0;
+							// Picked by what should be there (carried + the session's stored count), so the craft below is the
+							// menu's own verdict on what its hooked count says.
+							const auto have = carried + sort::crafting::storage::Stored(object);
+							usesIt = usesIt || object == uses;
+							enough = enough && have >= a_part.count;
+							parts += std::format("{}{} {}/{} (carried {}, hooked count {})", parts.empty() ? "" : ", ", Name(object), have, a_part.count, carried,
+								carried + hooks::crafting::Added(object));
+							return RE::BSContainer::ForEachResult::kContinue;
+						});
+						auto* result = recipe->createdItem ? recipe->createdItem->As<RE::TESBoundObject>() : nullptr;
+						if (!usesIt || (product && result != product)) {
+							continue;
+						}
+						outcome->listed = true;
+						logger::info("AutoTest:   recipe {} for {}: {}{}", i, Name(result), parts, enough ? "" : " (not enough)");
+						if (enough && result) {
+							pick = i;
+							made = result;
+							madeCount = std::max<std::uint16_t>(1, recipe->data.numConstructed);
+						}
+					}
+					if (!pick) {
+						return finish(outcome->listed ? "no listed recipe with enough materials" : std::format("no listed recipe uses {}", Name(uses)));
+					}
+					Callbacks callbacks;
+					recipes->Accept(&callbacks);
+					std::string names;
+					for (const auto& [name, fn] : callbacks.fns) {
+						names += (names.empty() ? "" : ", ") + name;
+					}
+					logger::info("AutoTest:   the recipe menu's callbacks: {}", names);
+					// The recipe menu registers "CraftButtonPress" (what its Scaleform calls when the player crafts), after
+					// "ChooseItem" (the selection).
+					const auto craft = callbacks.fns.find("CraftButtonPress");
+					if (craft == callbacks.fns.end() || !craft->second) {
+						return finish("the recipe menu has no CraftButtonPress callback");
+					}
+					if (const auto choose = callbacks.fns.find("ChooseItem"); choose != callbacks.fns.end() && choose->second) {
+						const RE::GFxValue         index(static_cast<double>(*pick));
+						const RE::FxDelegateArgs args(RE::GFxValue{}, recipes, recipes->view.get(), &index, 1);
+						choose->second(args);
+					}
+					recipes->currentIndex = *pick;
+					outcome->made = made;
+					outcome->madeCount = madeCount;
+					outcome->before = CountIn(game::Player(), made);
+					logger::info("AutoTest:   crafting {} (recipe {}) through the menu's CraftButtonPress", Name(made), *pick);
+					const RE::FxDelegateArgs args(RE::GFxValue{}, recipes, recipes->view.get(), nullptr, 0);
+					craft->second(args);
+					outcome->pressed = true;
+					finish(std::format("{} (recipe {})", Name(made), *pick));
+				});
+				// Then the menu asks "Do you want to create this item?" (a message box, shown a frame later): Yes is pressed
+				// in a UI task, as the player's click would, and the craft runs from the box's callback.
+				auto crafted = [outcome]() {
+					return outcome->made && CountIn(game::Player(), outcome->made) - outcome->before >= outcome->madeCount;
+				};
+				auto record = [outcome, &c]() {
+					const auto now = outcome->made ? CountIn(game::Player(), outcome->made) : 0;
+					c.Record(outcome->made && now - outcome->before >= outcome->madeCount, "crafted through the crafting menu",
+						std::format("{}: {} -> {}", outcome->detail, outcome->before, now));
+				};
+				return WaitFor("crafting menu answered", 10.0, [outcome]() { return outcome->done.load(); }, c, true, [outcome, uses, crafted, record, &c]() {
+					c.Record(outcome->listed, std::format("the crafting menu lists a recipe that uses {}", Name(uses)), outcome->detail);
+					if (!outcome->pressed) {
+						c.Record(false, "crafted through the crafting menu", outcome->detail);
+						return;
+					}
+					Wait confirm;
+					confirm.what = "the crafting menu's confirmation";
+					confirm.deadline = Clock::now() + 5s;
+					confirm.done = [crafted]() { return crafted() || !MessageBoxText().empty(); };
+					confirm.finish = [crafted, record, &c](bool) {
+						const auto text = MessageBoxText();
+						if (crafted() || text.empty()) {
+							record();
+							return;
+						}
+						auto pressed = std::make_shared<std::atomic<bool>>(false);
+						SKSE::GetTaskInterface()->AddUITask([text, pressed]() {
+							logger::info("AutoTest:   answering \"{}\" with Yes on the UI thread ({})", text, ThreadId());
+							PressMessageBoxButton(0);
+							*pressed = true;
+						});
+						Wait done;
+						done.what = "crafted after the confirmation";
+						done.deadline = Clock::now() + 5s;
+						done.done = [crafted, pressed]() { return pressed->load() && crafted(); };
+						done.finish = [record](bool) { record(); };
+						c.next = std::move(done);
+					};
+					c.next = std::move(confirm);
+				});
 			}
 			if (a_kind == "writeLayout" || a_kind == "deleteLayout" || a_kind == "writeBackup" || a_kind == "deleteBackup") {
 				// Only the plan's own home (refused at startup when a layout of the player's existed).

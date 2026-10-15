@@ -400,6 +400,7 @@
       "steps": [
         {"do": "additem", "item": "Skyrim.esm|0x00065C99", "count": 2},
         {"do": "additem", "item": "Skyrim.esm|0x00034CDF", "count": 2},
+        {"do": "additem", "item": "Skyrim.esm|0x00064B41", "count": 1},
         {"do": "snapshot", "name": "precraft"},
         {"do": "op", "op": "Deposit"},
         {"check": "count", "item": "Skyrim.esm|0x00034CDF", "eq": 0},
@@ -415,11 +416,17 @@
         {"check": "count", "item": "Skyrim.esm|0x00034CDF", "eq": 0},
         {"check": "count", "in": "Skyrim.esm|0x0010EB84", "item": "Skyrim.esm|0x00034CDF", "from": "precraft", "eq": 1},
         {"check": "log", "regex": "Crafting from storage: Salt Pile .* x1: carried 0, brought 1"},
-        {"check": "crafting", "item": "Skyrim.esm|0x00034CDF", "ge": 1},
+        {"do": "craft", "uses": "Skyrim.esm|0x00034CDF", "product": "HearthFires.esm|0x0000353D"},
+        {"check": "count", "item": "Skyrim.esm|0x00034CDF", "eq": 0},
+        {"check": "count", "in": "Skyrim.esm|0x0010EB84", "item": "Skyrim.esm|0x00034CDF", "from": "precraft", "eq": 0},
+        {"check": "log", "since": "action", "regex": "Crafting from storage: Salt Pile .* x1: carried 0, brought 1 from "},
+        {"check": "count", "item": "HearthFires.esm|0x0000353D", "from": "craft", "eq": 1},
+        {"check": "count", "item": "Skyrim.esm|0x00064B41", "eq": 0},
+        {"check": "log", "since": "action", "regex": "Crafting from storage: Potato .* x1: carried 0, brought 1 from "},
         {"do": "closeMenu", "menu": "Crafting Menu"},
-        {"check": "log", "contains": "Crafting from storage (crafting menu closed): 1 material taken from storage", "within": 5},
+        {"check": "log", "regex": "Crafting from storage \\(crafting menu closed\\): 3 materials taken from storage", "within": 5},
         {"check": "crafting", "active": false, "within": 5},
-        {"check": "conserved", "snapshot": "craft", "ignore": ["Skyrim.esm|0x00034CDF"]},
+        {"check": "conserved", "snapshot": "craft", "ignore": ["Skyrim.esm|0x00034CDF", "Skyrim.esm|0x00064B41", "HearthFires.esm|0x0000353D"]},
         {"check": "noErrors"}
       ]
     },

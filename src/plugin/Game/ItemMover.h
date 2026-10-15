@@ -1,6 +1,7 @@
 #pragma once
 
-// Executes core::Moves (DESIGN §8.2). Main thread only.
+// Executes core::Moves (DESIGN §8.2). SKSE tasks, and Craft from storage's consumption on the crafting menu's
+// thread (as the container menu moves items on its own); its shared state is atomics and mutexes.
 //
 // Every move is one TESObjectREFR::RemoveItem(object, count, reason, extraList, target) call, so the
 // stack's ExtraDataList (tempering, enchantment, custom name, stolen ownership, soul) travels with it.

@@ -1,7 +1,8 @@
 #pragma once
 
 // Shared by the two ways of supplying a workbench (DESIGN §8.5): Move (Sort/CraftingSupply.cpp) and Craft from
-// storage (Sort/CraftingStorage.cpp). Main thread only.
+// storage (Sort/CraftingStorage.cpp). SKSE tasks, and Craft from storage's consumption on the crafting menu's
+// thread with the session's own copy of the home (never the live Home there).
 
 #include "Game/ItemAdapter.h"
 #include "Game/ItemMover.h"
