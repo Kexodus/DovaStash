@@ -49,7 +49,7 @@ TEST_CASE("Default keeps: equipped, favorited, quest, gold, lockpicks, torches",
 	CHECK(kTorchForm.ToString() == "Skyrim.esm|0x0001D4EC");
 }
 
-TEST_CASE("Quest and non-playable items are kept even with an empty config", "[keep]")
+TEST_CASE("Quest, non-playable, worn and favorited items are kept even with an empty config", "[keep]")
 {
 	auto quest = Misc(Sk(0x1));
 	quest.questItem = true;
@@ -57,14 +57,28 @@ TEST_CASE("Quest and non-playable items are kept even with an empty config", "[k
 	unplayable.playable = false;
 	auto equipped = Misc(Sk(0x3));
 	equipped.equipped = true;
+	auto favorited = Misc(Sk(0x4), 2);
+	favorited.favorited = true;
+	const auto other = Misc(Sk(0x5), 3);
 
 	KeepConfig empty;
 	empty.inherit = false;
 	KeepConfig layout;
 	layout.inherit = false;
 	layout.never = { "*" };
-	CHECK(Keep({ quest, unplayable, equipped }, empty) == std::vector<std::int32_t>{ 1, 5, 0 });
-	CHECK(Keep({ quest, unplayable, equipped }, DefaultKeepConfig(), &layout) == std::vector<std::int32_t>{ 1, 5, 0 });
+	const std::vector<ItemInfo> inv{ quest, unplayable, equipped, favorited, other };
+	CHECK(Keep(inv, empty) == std::vector<std::int32_t>{ 1, 5, 1, 2, 0 });
+	CHECK(Keep(inv, DefaultKeepConfig(), &layout) == std::vector<std::int32_t>{ 1, 5, 1, 2, 0 });
+
+	Diagnostics diags;
+	const auto  rules = KeepRules::Compile(DefaultKeepConfig(), &layout, diags);
+	const auto  categories = CompileCategories(kStandardCategories);
+	std::string why;
+	CHECK(rules.AlwaysKeeps(equipped, categories, &why));
+	CHECK(why == "worn item");
+	CHECK(rules.AlwaysKeeps(favorited, categories, &why));
+	CHECK(why == "favorited item");
+	CHECK_FALSE(rules.AlwaysKeeps(other, categories, &why));
 }
 
 TEST_CASE("Layout layer overrides the inherited global layer", "[keep]")
@@ -195,4 +209,17 @@ TEST_CASE("Invalid keep entries are ignored with a warning", "[keep]")
 	CHECK(diags.WarningCount() == 2);
 	REQUIRE(rules.Layers().size() == 1);
 	CHECK(rules.Layers()[0].always.size() == 1);
+}
+
+TEST_CASE("A keep entry that is a broken form reference says what is wrong with it", "[keep][diagnostics]")
+{
+	KeepConfig layout;
+	layout.always = { "Skyrim.esm|0x0100000F", "ammo.*" };
+	Diagnostics diags;
+	(void)KeepRules::Compile(KeepConfig{}, &layout, diags);
+	const bool  said = std::ranges::any_of(diags.Items(), [](const Diagnostic& d) {
+		return d.message.find("ignoring keep entry \"Skyrim.esm|0x0100000F\" (not a token, form reference or category pattern): "
+							  "form id above 0x00FFFFFF, drop the load-order byte") != std::string::npos;
+    });
+	CHECK(said);
 }

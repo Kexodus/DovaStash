@@ -1,7 +1,8 @@
 {
   "$schema": "dovastash-autotest-1",
-  "name": "Wynter's Breezehome Redux - its own cell WynterBreezehomeRedux.esp|0x0081181E (118 containers; NEEDS THE WYNTER PROFILE, tests/ingame/profile/extra-mods-wynter.txt)",
+  "name": "Wynter's Breezehome Redux - its own cell WynterBreezehomeRedux.esp|0x0081181E (118 containers; the Wynter profile: tests/ingame/profile/extra-mods-wynter.txt; skipped without it)",
   "home": "WynterBreezehomeRedux.esp|0x0081181E",
+  "requires": ["WynterBreezehomeRedux.esp"],
   "coc": "WyntersBreezehomeRedux",
   "tests": [
     {

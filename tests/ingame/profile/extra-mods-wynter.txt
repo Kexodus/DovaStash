@@ -1,3 +1,5 @@
-# Wynter's Breezehome Redux rebuilds Breezehome: run with its own profile (install.ps1 -Profile -ExtraMods <this file>),
+# Wynter's Breezehome Redux rebuilds Breezehome: its own profile, made once with
+#   pwsh -File tests\ingame\install.ps1 -Profile -ProfileName "Dova Stash AutoTest - wynter" -ExtraMods tests\ingame\profile\extra-mods-wynter.txt
+# (run.ps1 runs plans 60/61 in it after the usual run),
 # then the Breezehome plan must see "template not offered: ... rebuilds this home (conflicts)".
 Wynter's Breezehome Redux|WynterBreezehomeRedux.esp

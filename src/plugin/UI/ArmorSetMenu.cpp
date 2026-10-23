@@ -4,6 +4,7 @@
 #include "Game/ArmorIndex.h"
 #include "Game/Displays.h"
 #include "Game/FormUtil.h"
+#include "UI/MenuFramework.h"
 #include "UI/MessageBox.h"
 
 namespace dova::ui
@@ -11,7 +12,7 @@ namespace dova::ui
 	namespace
 	{
 		constexpr std::size_t kMaxChoices = 100;  // UIListMenu takes at most 128 entries
-		constexpr std::size_t kPerPage = 5;       // + More / Back = at most 7 buttons
+		constexpr std::size_t kMaxBoxOthers = 14;  // message boxes: Auto, the complete sets and these (3 pages)
 
 		// Many mannequins have no name (Whitepeak Tower's, home mods' copies): menus and labels call one "Mannequin",
 		// as the display menu does (Controller's DisplayName).
@@ -27,37 +28,27 @@ namespace dova::ui
 			return home && home->layout ? home->layout->FindDisplay(a_mannequin) : nullptr;
 		}
 
-		// The message-box picker: a page of choices, More..., Back (to the display menu).
-		void ShowSetBox(std::shared_ptr<const ArmorSetMenu> a_menu, std::size_t a_page)
+		// The message-box picker, paged like every message-box menu (ShowOptions); Back on the first page goes to
+		// the display menu. Five sets a box: Auto, the complete sets, the current one and the 14 most complete others;
+		// the panel's Displays page lists every set.
+		void ShowSetBox(const ArmorSetMenu& a_menu)
 		{
-			const auto& choices = a_menu->choices;
-			const auto  pages = std::max<std::size_t>(1, (choices.size() + kPerPage - 1) / kPerPage);
-			a_page = std::min(a_page, pages - 1);
-
-			std::vector<std::string>           labels;
-			std::vector<std::function<void()>> actions;
-			for (auto i = a_page * kPerPage; i < std::min(choices.size(), (a_page + 1) * kPerPage); ++i) {
-				labels.push_back(choices[i].text);
-				actions.emplace_back([a_menu, set = choices[i].set]() {
-					ChooseArmorSet(a_menu->cellId, a_menu->ref, set);
-					Controller::Get().ReopenDisplayMenu(a_menu->cellId, a_menu->ref);
-				});
-			}
-			if (a_page + 1 < pages) {
-				labels.emplace_back("More...");
-				actions.emplace_back([a_menu, a_page]() { ShowSetBox(a_menu, a_page + 1); });
-			}
-			labels.emplace_back("Back");
-			actions.emplace_back([a_menu]() { Controller::Get().ReopenDisplayMenu(a_menu->cellId, a_menu->ref); });
-			auto body = std::format("Dova Stash: what {} wears", a_menu->name);
-			if (pages > 1) {
-				body += std::format("\n(page {}/{})", a_page + 1, pages);
-			}
-			ShowMessageBox(body, labels, [actions = std::move(actions)](std::size_t a_index) {
-				if (a_index < actions.size() && actions[a_index]) {
-					actions[a_index]();
+			std::vector<MenuOption> options;
+			std::size_t             others = 0;
+			bool                    trimmed = false;
+			for (const auto& c : a_menu.choices) {
+				if (c.set && !c.complete && !c.current && others++ >= kMaxBoxOthers) {
+					trimmed = true;
+					continue;
 				}
-			});
+				options.push_back({ c.text, [cellId = a_menu.cellId, ref = a_menu.ref, set = c.set]() {
+									   ChooseArmorSet(cellId, ref, set);
+									   Controller::Get().ReopenDisplayMenu(cellId, ref);
+								   } });
+			}
+			const bool morePanel = trimmed && menu_framework::IsLoaded();
+			ShowOptions(std::format("Dova Stash: {}: Armor set{}", a_menu.name, morePanel ? "\nMore sets: Dova Stash > Displays"sv : ""sv), std::move(options),
+				[cellId = a_menu.cellId, ref = a_menu.ref]() { Controller::Get().ReopenDisplayMenu(cellId, ref); });
 		}
 	}
 
@@ -106,13 +97,14 @@ namespace dova::ui
 		menu->ref = a_mannequin;
 		menu->name = MannequinName(game::LookupRef(a_mannequin));
 		const bool automatic = !binding || !binding->set;
-		menu->choices.push_back({ std::format("{} Auto", automatic ? "[x]" : "[ ]"), std::nullopt });
+		menu->choices.push_back({ std::format("{} Auto", automatic ? "[x]" : "[ ]"), std::nullopt, false, automatic });
 		for (const auto& r : rows) {
 			if (menu->choices.size() > kMaxChoices) {
 				break;
 			}
 			const auto& set = index->sets[r.set];
-			menu->choices.push_back({ std::format("{} {} ({}/{})", current == r.set ? "[x]" : "[ ]", set.name, r.coverage.have, r.coverage.total), set.id });
+			menu->choices.push_back({ std::format("{} {} ({}/{})", current == r.set ? "[x]" : "[ ]", set.name, r.coverage.have, r.coverage.total), set.id,
+				r.coverage.Complete(), current == r.set });
 		}
 		logger::debug("Armor sets for {}: {} of {} sets owned", game::Describe(game::LookupRef(a_mannequin)), rows.size(), index->sets.size());
 		Controller::Get().UI().OpenArmorSetMenu(*menu);
@@ -126,7 +118,7 @@ namespace dova::ui
 			return;
 		}
 		if (home->layoutBroken) {
-			Controller::Get().Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Controller::Get().Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		auto*      ref = game::LookupRef(a_mannequin);
@@ -172,6 +164,6 @@ namespace dova::ui
 
 	void IStashUI::OpenArmorSetMenu(const ArmorSetMenu& a_menu)
 	{
-		ShowSetBox(std::make_shared<const ArmorSetMenu>(a_menu), 0);
+		ShowSetBox(a_menu);
 	}
 }

@@ -28,11 +28,11 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "setup available \\(by "
+          "regex": "setup available \\(press K\\)"
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/WinterCove.json"
+          "source": "Templates/Mods/WinterCove.json"
         },
         {
           "check": "noErrors"
@@ -64,11 +64,11 @@
     },
     {
       "id": "3.6",
-      "title": "Use template: the AutoTest template is the one applied",
+      "title": "Use template: the shipped template is the one applied",
       "steps": [
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/WinterCove.json"
+          "source": "Templates/Mods/WinterCove.json"
         },
         {
           "do": "useTemplate"
@@ -76,7 +76,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/WinterCove.json@1.0.0",
+          "contains": "Templates/Mods/WinterCove.json@",
           "within": 5
         },
         {
@@ -166,6 +166,11 @@
         },
         {
           "do": "additem",
+          "item": "Skyrim.esm|0x0001397D",
+          "count": 10
+        },
+        {
+          "do": "additem",
           "item": "HearthFires.esm|0x0000306C",
           "count": 2
         },
@@ -214,6 +219,13 @@
           "item": "HearthFires.esm|0x0000306C",
           "from": "inventory",
           "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x000216D4",
+          "item": "Skyrim.esm|0x0001397D",
+          "from": "inventory",
+          "ge": 10
         },
         {
           "check": "count",
@@ -389,7 +401,7 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "re-sorted \\d+ items?"
+          "regex": "re-sorted \\d+ items?|everything is already in place"
         },
         {
           "check": "conserved",
@@ -475,7 +487,7 @@
         },
         {
           "do": "useTemplate",
-          "source": "Templates/AutoTest/WinterCove.json"
+          "source": "Templates/Mods/WinterCove.json"
         },
         {
           "check": "layout",
@@ -548,16 +560,148 @@
     },
     {
       "id": "3.7-WinterCove",
-      "title": "Displays of the main hall (16)",
-      "manual": "display fills are checked by eye"
+      "title": "Use template, Deposit puts a sword on a weapon rack or plaque and a shield on a shield rack; nothing is lost",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "contains": "WinterCove.json@",
+          "within": 5
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013989",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB6",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "displays"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "Winter Cove.esp|0x00032489",
+            "Winter Cove.esp|0x0003248B",
+            "Winter Cove.esp|0x0003248F",
+            "Winter Cove.esp|0x00032491",
+            "Winter Cove.esp|0x000324B8",
+            "Winter Cove.esp|0x000324B9",
+            "Winter Cove.esp|0x000324BA",
+            "Winter Cove.esp|0x000324BB"
+          ],
+          "item": "Skyrim.esm|0x00013989",
+          "within": 10
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "Winter Cove.esp|0x000324A7",
+            "Winter Cove.esp|0x000324A8",
+            "Winter Cove.esp|0x00032A21",
+            "Winter Cove.esp|0x00032A22"
+          ],
+          "item": "Skyrim.esm|0x00012EB6",
+          "within": 10
+        },
+        {
+          "check": "conserved",
+          "snapshot": "displays"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-WinterCove-look",
+      "title": "Displays of the main hall (16): where each piece sits on its display",
+      "manual": "the placement on the display is checked by eye"
     },
     {
       "id": "3.9g-WinterCove",
-      "title": "Main hall has no draft of its own",
-      "manual": "data gap, not a step gap: the editor scan drafted only the storage cell; the main hall's 13 non-persistent containers are not in the template (bound by hand in 3.1)"
+      "title": "Main hall: the template's soul gem container there takes soul gems, ammo goes to the storage room's weapons chest; nothing is lost",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Winter Cove.esp|0x00012A70",
+            "categories": [
+              "soulgems.*"
+            ]
+          },
+          "within": 5
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0002E4E2",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001397D",
+          "count": 10
+        },
+        {
+          "do": "snapshot",
+          "name": "mainhall"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x00012A70",
+          "item": "Skyrim.esm|0x0002E4E2",
+          "from": "mainhall",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x000216D4",
+          "item": "Skyrim.esm|0x0001397D",
+          "from": "mainhall",
+          "ge": 10
+        },
+        {
+          "check": "conserved",
+          "snapshot": "mainhall"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
     }
-  ],
-  "templates": [
-    "WinterCove.json"
   ]
 }

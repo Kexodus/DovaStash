@@ -25,6 +25,7 @@ namespace dova::sort
 		bool        ran{ false };     // false: nothing was attempted (see message)
 		std::int32_t items{ 0 };
 		std::string message;          // one HUD line
+		bool        failed{ false };  // the action could not run (the panel shows `message` red)
 	};
 
 	// `a_pattern` is used by Retrieve only. The home must be the player's current cell. Deposit restocks

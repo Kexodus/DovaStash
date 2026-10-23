@@ -42,7 +42,8 @@ namespace dova::ui
 		virtual void OpenDisplayMenu(const DisplayMenu& a_menu);
 		// A mannequin's armor set picker (UI/ArmorSetMenu.h). The default is native message boxes.
 		virtual void OpenArmorSetMenu(const ArmorSetMenu& a_menu);
-		virtual void Notify(std::string_view a_message) = 0;
+		// `a_failed`: the action did not happen (the panel shows it red); the HUD shows both alike.
+		virtual void Notify(std::string_view a_message, bool a_failed = false) = 0;
 		// The current home or its layout may have changed outside the UI (cell change, learned items).
 		virtual void OnHomeChanged() {}
 		// The template list was scanned again (a template was saved): pages that list templates rebuild.

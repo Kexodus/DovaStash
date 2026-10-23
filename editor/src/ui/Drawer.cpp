@@ -31,7 +31,11 @@ namespace dova::editor::ui
 		ImGui::BeginChild("drawer", ImVec2(W, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 		ImGui::PopStyleColor();
 		if (open) {
-			w::SplitterTop("drawersplit", _state.ui.drawerHeight, 120.0f * t.scale, 4000.0f);
+			// The height is kept as a fraction of the window's (App.cpp); dragged in pixels.
+			float px = std::clamp(_state.ui.drawerHeight * _layoutH, _drawerMinH, _drawerMaxH);
+			if (w::SplitterTop("drawersplit", px, _drawerMinH, _drawerMaxH)) {
+				_state.ui.drawerHeight = px / _layoutH;
+			}
 		} else {
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			ImGui::GetWindowDrawList()->AddLine(p, ImVec2(p.x + W, p.y), t.line);
@@ -47,20 +51,35 @@ namespace dova::editor::ui
 				_state.ui.drawerOpen = false;
 			}
 		}
-		int containers = 0, displays = 0;
+		// The rows of this cell, and of them the usable ones (home::UsableContainer, the rail's count): "253 of 297".
+		int containers = 0, displays = 0, usable = 0, usableDisplays = 0;
 		for (const auto& r : c.info.refs) {
 			containers += r.IsContainer() && !r.display ? 1 : 0;
 			displays += r.display ? 1 : 0;
+			usable += home::UsableContainer(r) ? 1 : 0;
+			usableDisplays += home::UsableDisplay(r) ? 1 : 0;
 		}
+		// A home of more than one cell: this cell's usable ones of the home's (the rail's number), "252 of 253".
+		const auto* homeEntry = HomeEntryFor(c);
+		const auto  homeStorage = homeEntry && !homeEntry->extra.empty() ? HomeStorageFor(c) : std::nullopt;
 		static constexpr const char* labels[] = { "Containers", "Displays", "Doors", "Where items go" };
-		const int                    counts[] = { containers, displays, static_cast<int>(c.info.doors.size()), -1 };
+		const int                    counts[] = { usable, usableDisplays, static_cast<int>(c.info.doors.size()), -1 };
+		const int                    of[] = { homeStorage ? homeStorage->containers : -1, homeStorage ? homeStorage->displays : -1, -1, -1 };
+		auto                         tipFor = [&](int a_usable, int a_all, int a_home, const char* a_why) {
+            std::string tip = a_home >= 0 ? std::format("{} here · {} in the home", a_usable, a_home) : std::string{};
+            if (a_all > a_usable) {
+                tip += std::format("{}{} more in this cell {}", tip.empty() ? "" : "\n", a_all - a_usable, a_why);
+            }
+            return tip;
+		};
+		const std::string tips[] = { tipFor(usable, containers, of[0], "respawn, are owned or go with an upgrade"), tipFor(usableDisplays, displays, of[1], "go with an upgrade") };
 		ImGui::SetCursorPos(ImVec2(t.pad, ImGui::GetCursorPosY() + 1.0f * t.scale));
 		for (int i = 0; i < 4; ++i) {
 			if (i > 0) {
 				ImGui::SameLine(0.0f, 2.0f * t.scale);
 			}
 			const bool active = static_cast<int>(_drawerTab) == i;
-			if (w::TabButton(labels[i], active && open, counts[i])) {
+			if (w::TabButton(labels[i], active && open, counts[i], i < 2 && !tips[i].empty() ? tips[i].c_str() : nullptr, nullptr, of[i])) {
 				const bool second = io.MouseReleased[ImGuiMouseButton_Left] && io.MouseClickedLastCount[ImGuiMouseButton_Left] >= 2;
 				if (!(active && open)) {
 					_drawerTab = static_cast<DrawerTab>(i);
@@ -83,9 +102,13 @@ namespace dova::editor::ui
 			// The table's filter at the right, before the chevron: "N of M", the quick filters, the box.
 			const auto table = static_cast<DrawerTable>(_drawerTab);
 			auto&      view = Table(_drawerTab);
+			// Too narrow for the chips (a large text size, a small window): they fold into a "Filters" popover, so the
+			// Kind list and the box stay in view.
 			ImGui::SameLine();
-			ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX() + 2.0f * t.pad, W - b - 2.0f * t.pad - FilterBarWidth(view, table)));
-			DrawFilterBar(view, table);
+			const float from = ImGui::GetCursorPosX() + 2.0f * t.pad;
+			const bool  folded = from + FilterBarWidth(view, table) > W - b - 2.0f * t.pad;
+			ImGui::SetCursorPosX(std::max(from, W - b - 2.0f * t.pad - FilterBarWidth(view, table, folded)));
+			DrawFilterBar(view, table, folded);
 		}
 		ImGui::SameLine();
 		ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), W - b - t.pad));
@@ -155,9 +178,36 @@ namespace dova::editor::ui
 			}
 		}
 
-		TableCell Height(const home::PlacedRef& a_ref)
+		// Metres above the cell's floor (detail::FloorOf: 0 is its lowest containers), not the world's height: a floor
+		// of a tower reads 4.3, not -0.9; the Draft panel's "· 4.3 m" is the same number. Far out of the home (a mod
+		// parked it there): no number, the Notes say so.
+		TableCell Height(const home::PlacedRef& a_ref, const Floor& a_floor)
 		{
-			return { std::format("{:.0f}", a_ref.position[2]), static_cast<double>(a_ref.position[2]) };
+			const float m = a_floor.Metres(a_ref.position[2]);
+			if (a_floor.Outside(a_ref.position[2])) {
+				return { "-", static_cast<double>(m) };
+			}
+			return { std::format("{:.1f}", std::abs(m) < 0.05f ? 0.0f : m), static_cast<double>(m) };
+		}
+
+		// A container's script in a word ("bookshelf"); empty: none known (the raw name is shown).
+		std::string ScriptWord(std::string_view a_script)
+		{
+			static constexpr std::pair<std::string_view, std::string_view> kWords[] = {
+				{ "PlayerBookShelf", "bookshelf" },
+				{ "BYOH", "Hearthfire build" },
+				{ "critterspawn", "critter spawn" },
+				{ "BeeHive", "beehive" },
+				{ "WeaponRack", "weapon rack" },
+				{ "DisplayCase", "display case" },
+				{ "Mannequin", "mannequin" },
+			};
+			for (const auto& [prefix, word] : kWords) {
+				if (a_script.size() >= prefix.size() && core::IEquals(a_script.substr(0, prefix.size()), prefix)) {
+					return std::string(word);
+				}
+			}
+			return {};
 		}
 
 		// The table has rows but the filters hide them all.
@@ -188,19 +238,42 @@ namespace dova::editor::ui
 		};
 	}
 
+	std::string EditorApp::CategoryText(std::string_view a_pattern) const
+	{
+		if (a_pattern == "*") {
+			return "Everything";
+		}
+		const bool group = a_pattern.ends_with(".*");
+		const auto id = group ? a_pattern.substr(0, a_pattern.size() - 2) : a_pattern;
+		if (const auto* c = _categorySet ? _categorySet->Find(id) : nullptr; c && !c->name.empty()) {
+			return group ? c->name + " (all)" : c->name;
+		}
+		return std::string(a_pattern);
+	}
+
+	std::string EditorApp::CategoryTexts(const std::vector<std::string>& a_patterns) const
+	{
+		std::string out;
+		for (const auto& p : a_patterns) {
+			out += (out.empty() ? "" : ", ") + CategoryText(p);
+		}
+		return out;
+	}
+
 	void EditorApp::DrawContainers(OpenCell& a_cell)
 	{
 		auto& view = Table(DrawerTab::Containers);
 		std::vector<TableRow> rows;
+		const auto floor = FloorOf(a_cell.info);
 		for (std::size_t i = 0; i < a_cell.info.refs.size(); ++i) {
 			const auto& r = a_cell.info.refs[i];
-			if (!r.IsContainer()) {
-				continue;
+			if (!r.IsContainer() || r.display) {
+				continue;  // display containers (bookshelves, cases) are the Displays tab's, as the tab's count says
 			}
 			TableRow row;
 			row.index = static_cast<int>(i);
-			row.cells.resize(6);
-			row.cells[0].text = RefTitle(r);
+			row.cells.resize(7);  // [6]: not a column; the category ids and script names, for the filter and the tooltips
+			row.cells[0].text = RefLabel(a_cell.layout, a_cell.lo->ToFormRef(r.key), RefTitle(r));
 			row.cells[1].text = ContainerKind(r);
 			row.cells[1].group = row.cells[1].text == "Other" ? 1 : 0;
 			row.kind = row.cells[1].text;
@@ -217,7 +290,8 @@ namespace dova::editor::ui
 					role = Grouped("no categories", 1);
 					row.tags |= kNoCategories;
 				} else {
-					role.text = Join(b->categories);
+					role.text = CategoryTexts(b->categories);
+					row.cells[6].text = Join(b->categories);
 					row.tags |= kWithCategories;
 				}
 			} else {
@@ -225,11 +299,16 @@ namespace dova::editor::ui
 				row.tags |= kNotListed;
 			}
 			row.cells[3].text = a_cell.refText[i];
-			row.cells[4] = Height(r);
+			row.cells[4] = Height(r, floor);
 			std::vector<std::string> notes;
+			if (floor.Outside(r.position[2])) {
+				notes.emplace_back("out of the home");
+			}
 			if (r.respawns) {
 				notes.emplace_back("respawns");
 				row.tags |= kRespawning;
+			} else if (r.respawnFlag) {
+				notes.emplace_back("respawn flag, cell never resets");
 			}
 			if (r.initiallyDisabled) {
 				notes.emplace_back("initially disabled");
@@ -237,20 +316,39 @@ namespace dova::editor::ui
 			if (r.enableParent && r.enableOpposite) {
 				notes.emplace_back("goes away with an upgrade");
 			}
+			std::vector<std::string> scripts;
 			for (const auto& s : r.scripts) {
-				notes.push_back(s);
+				auto word = ScriptWord(s);
+				if (word.empty()) {
+					word = s;
+				}
+				if (std::ranges::find(notes, word) == notes.end()) {
+					notes.push_back(std::move(word));
+				}
+				scripts.push_back(s);
+			}
+			if (!scripts.empty()) {
+				row.cells[6].text += (row.cells[6].text.empty() ? "" : "\n") + Join(scripts, "; ");
 			}
 			row.cells[5].text = Join(notes, "; ");
 			row.cells[5].group = notes.empty() ? 1 : 0;
 			rows.push_back(std::move(row));
 		}
+		// The table's own order (no sort set, and a third header click): the master, containers with categories,
+		// without, ignored, not listed; in each, those that start disabled last (a Hearthfire home's are all built
+		// later), then the cell's order.
+		auto rank = [&](const TableRow& a_row) {
+			const int role = (a_row.tags & kMaster) ? 0 : (a_row.tags & kWithCategories) ? 1 : (a_row.tags & kNoCategories) ? 2 : (a_row.tags & kIgnored) ? 3 : 4;
+			return 2 * role + (a_cell.info.refs[static_cast<std::size_t>(a_row.index)].initiallyDisabled ? 1 : 0);
+		};
+		std::ranges::stable_sort(rows, [&](const TableRow& a, const TableRow& b) { return rank(a) < rank(b); });
 		if (!ImGui::BeginTable("containers", 6, kTableFlags | ImGuiTableFlags_Resizable)) {
 			return;
 		}
 		SetupColumns(DrawerTable::Containers, [](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
 			if (a_n == 1 || a_n == 4) {
 				a_flags = ImGuiTableColumnFlags_WidthFixed;
-				a_width = ImGui::GetFontSize() * (a_n == 1 ? 6.0f : 3.5f);
+				a_width = ImGui::GetFontSize() * (a_n == 1 ? 6.0f : 5.0f);
 			}
 		});
 		SyncSort(view);
@@ -273,12 +371,19 @@ namespace dova::editor::ui
 			ImGui::TextUnformatted(row.cells[1].text.c_str());
 			ImGui::TableNextColumn();
 			RoleText(row.cells[2]);
+			if (const auto* b = a_cell.layout.FindContainer(a_cell.lo->ToFormRef(r.key)); b && !b->ignored && !b->categories.empty()) {
+				w::Tip(Join(b->categories).c_str());
+			}
 			ImGui::TableNextColumn();
 			w::Mono(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(row.cells[4].text.c_str());
+			w::Tip("Metres above the cell's lowest containers");
 			ImGui::TableNextColumn();
 			w::Muted(row.cells[5].text.c_str());
+			if (!r.scripts.empty()) {
+				w::Tip(Join(r.scripts, "\n").c_str());
+			}
 		}
 		NoMatch(view);
 		ImGui::EndTable();
@@ -288,6 +393,7 @@ namespace dova::editor::ui
 	{
 		auto& view = Table(DrawerTab::Displays);
 		std::vector<TableRow> rows;
+		const auto floor = FloorOf(a_cell.info);
 		for (std::size_t i = 0; i < a_cell.info.refs.size(); ++i) {
 			const auto& r = a_cell.info.refs[i];
 			if (!r.display) {
@@ -295,8 +401,8 @@ namespace dova::editor::ui
 			}
 			TableRow row;
 			row.index = static_cast<int>(i);
-			row.cells.resize(5);
-			row.cells[0].text = RefTitle(r);
+			row.cells.resize(6);  // [5]: not a column; the category ids, for the filter
+			row.cells[0].text = RefLabel(a_cell.layout, a_cell.lo->ToFormRef(r.key), RefTitle(r));
 			row.cells[1].text = home::DisplayLabel(r);
 			row.tags |= kRack << static_cast<std::uint32_t>(*r.display);
 			auto& used = row.cells[2];
@@ -305,7 +411,8 @@ namespace dova::editor::ui
 					used = Grouped("ignored", 1);
 					row.tags |= kUnused;
 				} else {
-					used.text = d->categories.empty() ? "used" : Join(d->categories);
+					used.text = d->categories.empty() ? "yes" : CategoryTexts(d->categories);  // the column is "Used"
+					row.cells[5].text = Join(d->categories);
 					row.tags |= kUsed;
 				}
 			} else {
@@ -313,7 +420,7 @@ namespace dova::editor::ui
 				row.tags |= kUnused;
 			}
 			row.cells[3].text = a_cell.refText[i];
-			row.cells[4] = Height(r);
+			row.cells[4] = Height(r, floor);
 			rows.push_back(std::move(row));
 		}
 		if (!ImGui::BeginTable("displays", 5, kTableFlags | ImGuiTableFlags_Resizable)) {
@@ -322,7 +429,7 @@ namespace dova::editor::ui
 		SetupColumns(DrawerTable::Displays, [](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
 			if (a_n == 4) {
 				a_flags = ImGuiTableColumnFlags_WidthFixed;
-				a_width = ImGui::GetFontSize() * 3.5f;
+				a_width = ImGui::GetFontSize() * 5.0f;
 			}
 		});
 		SyncSort(view);
@@ -345,10 +452,14 @@ namespace dova::editor::ui
 			ImGui::TextUnformatted(row.cells[1].text.c_str());
 			ImGui::TableNextColumn();
 			RoleText(row.cells[2]);
+			if (!row.cells[5].text.empty()) {
+				w::Tip(row.cells[5].text.c_str());
+			}
 			ImGui::TableNextColumn();
 			w::Mono(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
 			ImGui::TextUnformatted(row.cells[4].text.c_str());
+			w::Tip("Metres above the cell's lowest containers");
 		}
 		NoMatch(view);
 		ImGui::EndTable();

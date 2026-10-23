@@ -120,6 +120,32 @@ namespace dova::core
 			void Warn(const std::string& a_msg) { diags.Warn(source, a_msg); }
 		};
 
+		// "; did you mean \"Heavy\"?" for a near miss of an enum name ("OneHandedSword"), or for a value that contains one
+		// ("HeavyArmor", "Weapon" for WEAP), the longest when several do; else empty.
+		template <class E>
+		std::string EnumHint(std::string_view a_name)
+		{
+			const auto                    all = ValidNames<E>();
+			std::vector<std::string_view> names;
+			for (std::size_t start = 0; start < all.size();) {
+				const auto comma = all.find(", ", start);
+				const auto end = comma == std::string::npos ? all.size() : comma;
+				names.emplace_back(std::string_view(all).substr(start, end - start));
+				start = comma == std::string::npos ? all.size() : comma + 2;
+			}
+			if (auto hint = detail::DidYouMean(a_name, names); !hint.empty()) {
+				return hint;
+			}
+			const auto       lower = ToLower(a_name);
+			std::string_view best;
+			for (const auto n : names) {
+				if (n.size() >= 4 && n.size() > best.size() && lower.find(ToLower(n)) != std::string::npos) {
+					best = n;
+				}
+			}
+			return best.empty() ? std::string() : "; did you mean \"" + std::string(best) + "\"?";
+		}
+
 		template <class E, class Parser>
 		std::optional<std::vector<E>> ReadEnumList(Ctx& a_ctx, const json& a_value, const std::string& a_where, Parser a_parse)
 		{
@@ -135,7 +161,7 @@ namespace dova::core
 						out.push_back(*v);
 					}
 				} else {
-					a_ctx.Error(a_where + ": unknown value \"" + name + "\"");
+					a_ctx.Error(a_where + ": unknown value \"" + name + "\" (one of " + ValidNames<E>() + ")" + EnumHint<E>(name));
 				}
 			}
 			if (out.empty() && names->empty()) {
@@ -170,7 +196,7 @@ namespace dova::core
 				if (auto ref = FormRef::Parse(name)) {
 					out.push_back(std::move(*ref));
 				} else {
-					a_ctx.Warn(a_where + ": invalid form reference \"" + name + "\" (ignored)");
+					a_ctx.Warn(a_where + ": invalid form reference \"" + name + "\" (ignored): " + FormRefError(name));
 				}
 			}
 			return out;
@@ -220,7 +246,10 @@ namespace dova::core
 				} else if (key.starts_with('_') || key.starts_with('$')) {
 					// comment-style keys
 				} else {
-					a_ctx.Error(where + ": unknown predicate \"" + key + "\"");
+					a_ctx.Error(where + ": unknown predicate \"" + key + "\" (one of formTypes, keywordsAny, keywordsAll, keywordsNone, forms, formLists, plugins, " +
+								"weaponTypes, armorTypes, bookTeaches, alchemy, soulGem, enchanted, ammo)" +
+								detail::DidYouMean(key, { "formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms", "formLists", "plugins", "weaponTypes",
+															"armorTypes", "bookTeaches", "alchemy", "soulGem", "enchanted", "ammo" }));
 				}
 			}
 			if (m.forms && m.forms->empty() && !m.formLists) {
@@ -283,7 +312,8 @@ namespace dova::core
 				} else if (key == "description" || key.starts_with('_') || key.starts_with('$')) {
 					// documentation only
 				} else {
-					a_ctx.Warn(where + ": unknown field \"" + key + "\" (ignored)");
+					a_ctx.Warn(where + ": unknown field \"" + key + "\" (ignored)" +
+							   detail::DidYouMean(key, { "id", "name", "priority", "match", "icon", "description" }));
 				}
 			}
 			if (def.name.empty()) {
@@ -308,15 +338,15 @@ namespace dova::core
 			a_diags.Error(source, "unsupported \"$schema\" (expected \"dovastash-categories-1\")");
 			return out;
 		}
+		for (const auto& [key, value] : a_doc.items()) {  // before the "categories" check: "categorys" gets its hint
+			if (key != "$schema" && key != "categories" && key != "description" && !key.starts_with('_')) {
+				a_diags.Warn(source, "unknown top-level field \"" + key + "\" (ignored)" + detail::DidYouMean(key, { "$schema", "categories", "description" }));
+			}
+		}
 		const auto catsIt = a_doc.find("categories");
 		if (catsIt == a_doc.end() || !catsIt->is_array()) {
 			a_diags.Error(source, "missing \"categories\" array");
 			return out;
-		}
-		for (const auto& [key, value] : a_doc.items()) {
-			if (key != "$schema" && key != "categories" && key != "description" && !key.starts_with('_')) {
-				a_diags.Warn(source, "unknown top-level field \"" + key + "\" (ignored)");
-			}
 		}
 
 		std::map<std::string, std::size_t> seen;
@@ -700,5 +730,15 @@ namespace dova::core
 	bool CategorySet::AnyMatches(std::string_view a_pattern) const
 	{
 		return std::ranges::any_of(_info, [&](const Category& c) { return CategoryPatternMatches(a_pattern, c.id); });
+	}
+
+	std::vector<std::string_view> CategorySet::Ids() const
+	{
+		std::vector<std::string_view> ids;
+		ids.reserve(_info.size());
+		for (const auto& c : _info) {
+			ids.emplace_back(c.id);
+		}
+		return ids;
 	}
 }

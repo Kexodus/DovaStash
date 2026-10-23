@@ -150,11 +150,14 @@ namespace dova::editor::ui
 			} else if (_cell->dirty) {
 				chip = "draft";
 				kind = w::Kind::Warn;
-			} else if (!existing.empty()) {
-				chip = user ? "yours" : "shipped";
-				kind = user ? w::Kind::Ok : w::Kind::Info;
-			} else if (autoDraft) {
-				chip = "auto-draft";
+			} else if (!existing.empty() || autoDraft || (_cellDraft >= 0 && HomeHasDraft(_cellDraft))) {
+				chip = "draft";  // the editor's draft is open, not the home's template (the Template panel opens it)
+				kind = w::Kind::Warn;
+			}
+			// The open template names a loaded plugin under "conflicts": the game does not offer it (DESIGN §6.2).
+			const auto conflict = chip == "draft" || chip == "no template" ? std::string{} : LoadedConflict(_cell->layout);
+			if (!conflict.empty()) {
+				chip = "off";
 				kind = w::Kind::Warn;
 			}
 			ImGui::SameLine(0.0f, t.gap);
@@ -165,7 +168,10 @@ namespace dova::editor::ui
 			}
 			// The tooltip adds what the word does not say: whose, and which file.
 			const auto& file = !_cell->filePath.empty() ? _cell->filePath : _cell->savedPath;
-			auto        tip = chip == "draft"         ? std::string("Changed, not saved yet")
+			auto        tip = chip == "draft"         ? (_cell->dirty                 ? std::string("Changed, not saved yet")
+			                                             : existing.empty() && !autoDraft ? std::string("The editor's draft, not saved yet")
+			                                                                              : "The editor's draft, not saved. This home has " + (existing.empty() ? std::string("an auto-draft") : existing))
+			                  : chip == "off"         ? "Not offered: a mod that rebuilds this home is loaded.\n" + conflict
 			                  : chip == "auto-draft"  ? std::string("Saved by Draft all homes, not by a person: Save makes it yours")
 			                  : chip == "no template" ? std::string("This home has no template yet: Draft suggests one")
 			                  : chip == "shipped"     ? (existing.empty() || !_cell->filePath.empty() ? std::string("Shipped with Dova Stash or a mod") : "This home has " + existing)
@@ -216,13 +222,7 @@ namespace dova::editor::ui
 			w::EndPopover();
 		}
 		ImGui::SameLine(0.0f, t.gap);
-		const int errors = _cell ? ErrorCount(*_cell) : 0;
-		if (w::PrimaryButton("Save", _cell != nullptr && errors == 0, !_cell ? "Open a home first" : "The checks find errors: see Checks")) {
-			RequestSave();
-		}
-		if (_cell && errors == 0) {
-			w::Tip(std::format("Save the template  Ctrl+S\n{}", PathToUtf8(TemplatePath(*_cell))).c_str());
-		}
+		DrawSaveButton();
 		ImGui::SameLine(0.0f, t.gap);
 		const bool setupOpen = w::BeginPopover("setup", nullptr, w::Icon::Settings, 0, "Setup");
 		if (setupOpen) {
@@ -239,6 +239,31 @@ namespace dova::editor::ui
 		ImGui::SameLine(0.0f, 0.0f);
 		_titleRightW = ImGui::GetCursorScreenPos().x - rightStart;
 		ImGui::EndChild();
+	}
+
+	void EditorApp::DrawSaveButton()
+	{
+		const int errors = _cell ? ErrorCount(*_cell) : 0;
+		// The filled button only when there is something to save: a change, or a draft not saved yet. An unchanged
+		// template is a plain button: "Save a copy" when it is not already the file Save writes (a shipped one).
+		const bool unsavedWork = _cell && (_cell->dirty || (_cell->filePath.empty() && _cell->savedPath.empty()));
+		if (!_cell || errors > 0 || unsavedWork) {
+			if (w::PrimaryButton("Save", _cell != nullptr && errors == 0, !_cell ? "Open a home first" : "The checks find errors: see Checks")) {
+				RequestSave();
+			}
+			if (_cell && errors == 0) {
+				w::Tip(std::format("Save the template  Ctrl+S\n{}", PathToUtf8(TemplatePath(*_cell))).c_str());
+			}
+		} else {
+			const auto      target = TemplatePath(*_cell);
+			std::error_code ec;
+			const bool      same = (!_cell->filePath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->filePath), ec)) ||
+			                  (!_cell->savedPath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->savedPath), ec));
+			const auto tip = same ? std::format("Save the template\n{}", PathToUtf8(target)) : std::format("Saves a copy into your templates folder\n{}", PathToUtf8(target));
+			if (w::ToolButton(same ? "Save###save" : "Save a copy###save", false, tip.c_str(), "Ctrl+S")) {
+				RequestSave();
+			}
+		}
 	}
 
 	void EditorApp::DrawMainMenu()
@@ -360,8 +385,8 @@ namespace dova::editor::ui
 	{
 		const auto& t = w::Th();
 		ImGui::PushItemWidth(360.0f * t.scale);
-		w::FieldLabel("MO2 instance");
-		ImGui::InputTextWithHint("##mo2", "Folder with ModOrganizer.ini", _mo2Path, sizeof(_mo2Path));
+		w::FieldLabel("MO2 instance or Data folder");
+		ImGui::InputTextWithHint("##mo2", "MO2 instance or Skyrim Data folder", _mo2Path, sizeof(_mo2Path));
 		ImGui::SameLine();
 		if (ImGui::Button("Browse...")) {
 			if (auto p = PickFolder()) {
@@ -487,6 +512,10 @@ namespace dova::editor::ui
 			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (t.inputH - ImGui::GetTextLineHeight()) * 0.5f);
 			w::Muted(_ws->Instance() ? std::format("{} of {} mods enabled", enabled, total).c_str() : "Data folder only");
 			w::Tip(_ws->Describe().c_str());
+		} else if (_wsError.starts_with(Workspace::kNoInstance)) {
+			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 440.0f * t.scale);
+			w::MutedWrapped(kPickSetup);
+			ImGui::PopTextWrapPos();
 		} else if (!_wsError.empty()) {
 			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 440.0f * t.scale);
 			w::ColouredWrapped(w::Kind::Error, _wsError.c_str());
@@ -507,11 +536,34 @@ namespace dova::editor::ui
 			(void)_job.get();
 			_jobLabel.clear();
 		}
-		_options.mo2 = std::move(a_mo2);
+		SetSetupFolder(std::move(a_mo2));
 		_options.profile = std::move(a_profile);
 		OpenWorkspace();
 		if (_ws) {
 			ScanHomes();
+		}
+	}
+
+	void EditorApp::SetSetupFolder(std::optional<std::filesystem::path> a_folder)
+	{
+		namespace fs = std::filesystem;
+		_options.mo2.reset();
+		_options.data.reset();
+		_dataPicked = false;
+		if (!a_folder) {
+			return;  // found from MO2
+		}
+		std::error_code ec;
+		if (fs::exists(*a_folder / L"ModOrganizer.ini", ec)) {
+			_options.mo2 = std::move(a_folder);
+		} else if (fs::exists(*a_folder / L"Skyrim.esm", ec)) {
+			_options.data = std::move(a_folder);
+			_dataPicked = true;
+		} else if (fs::exists(*a_folder / L"Data" / L"Skyrim.esm", ec)) {
+			_options.data = *a_folder / L"Data";
+			_dataPicked = true;
+		} else {
+			_options.mo2 = std::move(a_folder);
 		}
 	}
 
@@ -696,15 +748,57 @@ namespace dova::editor::ui
 		// Missing meshes or textures of the open cell (the list in the tooltip).
 		if (_scene && _cell && work.empty()) {
 			const auto p = _scene->Progress();
-			if (p.finished && p.missingModels + p.missingTextures > 0) {
-				const auto miss = std::format("{} missing", p.missingModels + p.missingTextures);
+			const auto missing = p.missingModels + p.missingTextures, unreadable = p.unreadableModels + p.unreadableTextures;
+			// "1 texture missing", "2 meshes, 1 texture unreadable": only the counts that are not 0.
+			auto counts = [](std::size_t a_meshes, std::size_t a_textures) {
+				std::string s;
+				if (a_meshes > 0) {
+					s = std::format("{} {}", a_meshes, a_meshes == 1 ? "mesh" : "meshes");
+				}
+				if (a_textures > 0) {
+					s += std::format("{}{} {}", s.empty() ? "" : ", ", a_textures, a_textures == 1 ? "texture" : "textures");
+				}
+				return s;
+			};
+			if (p.finished && missing + unreadable > 0) {
+				const auto lost = counts(p.missingModels, p.missingTextures) + " missing";
+				const auto bad = counts(p.unreadableModels, p.unreadableTextures) + " unreadable";
+				const auto miss = missing && unreadable ? lost + " · " + bad : missing ? lost : bad;
 				const float mw = ImGui::CalcTextSize(miss.c_str()).x;
 				x -= mw + 2.0f * t.pad;
 				ImGui::SameLine();
 				ImGui::SetCursorPosX(x);
 				w::Coloured(w::Kind::Warn, miss.c_str());
+				if (ImGui::IsItemHovered()) {
+					ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+				}
+				// Click: the Missing meshes layer (off by default: a mod's missing roofs would hide the home); right-click: copy.
+				if (ImGui::IsItemClicked() && p.missingModels > 0) {
+					_view.showMissing = !_view.showMissing;
+					SetStatus(_view.showMissing ? "Missing meshes shown as boxes" : "Missing meshes hidden");
+				}
+				if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+					std::string text;
+					const auto  problems = _scene->Problems();
+					for (const auto& line : problems) {
+						text += line + "\n";
+					}
+					ImGui::SetClipboardText(text.c_str());
+					SetStatus(std::format("Copied {} {}", problems.size(), problems.size() == 1 ? "line" : "lines"));
+				}
 				if (ImGui::BeginItemTooltip()) {
-					ImGui::Text("%zu meshes, %zu textures missing: boxes and a gray checker", p.missingModels, p.missingTextures);
+					if (missing > 0) {
+						const char* boxes = _view.showMissing ? "boxes" : "hidden";
+						ImGui::Text("%s missing: %s", counts(p.missingModels, p.missingTextures).c_str(),
+							p.missingModels && p.missingTextures ? (_view.showMissing ? "boxes and a gray checker" : "hidden, and a gray checker")
+							: p.missingModels                    ? boxes
+							                                     : "a gray checker");
+					}
+					if (unreadable > 0) {
+						ImGui::Text("%s found but unreadable", counts(p.unreadableModels, p.unreadableTextures).c_str());
+					}
+					w::Muted(p.missingModels > 0 ? "Click: show or hide the boxes · Right-click: copy the list. Changed files in MO2? Rescan (F5)."
+					                             : "Right-click: copy the list. Changed files in MO2? Rescan (F5) reads them again.");
 					const auto problems = _scene->Problems();
 					for (std::size_t i = 0; i < problems.size() && i < 30; ++i) {
 						ImGui::BulletText("%s", problems[i].c_str());

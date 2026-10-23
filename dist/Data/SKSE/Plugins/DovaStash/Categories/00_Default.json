@@ -30,6 +30,7 @@
     {
       "id": "weapons.axes",
       "name": "Battleaxes",
+      "description": "Two-handed battleaxes; war axes are weapons.waraxes.",
       "priority": 100,
       "icon": "weapon_battleaxe",
       "match": {"formTypes": ["WEAP"], "weaponTypes": ["TwoHandAxe"], "keywordsNone": ["WeapTypeWarhammer"]}
@@ -116,11 +117,7 @@
       "icon": "clothing_body",
       "match": {"formTypes": ["ARMO"], "armorTypes": ["Clothing"]}
     },
-    {
-      "id": "ammo",
-      "name": "Ammo",
-      "icon": "weapon_arrow"
-    },
+    {"id": "ammo", "name": "Ammo", "icon": "weapon_arrow"},
     {
       "id": "ammo.arrows",
       "name": "Arrows",
@@ -196,7 +193,7 @@
     },
     {
       "id": "books.other",
-      "name": "Books",
+      "name": "Other books",
       "priority": 100,
       "icon": "default_book",
       "match": {"formTypes": ["BOOK"]}
@@ -208,11 +205,7 @@
       "icon": "default_scroll",
       "match": {"formTypes": ["SCRL"]}
     },
-    {
-      "id": "soulgems",
-      "name": "Soul gems",
-      "icon": "misc_soulgem"
-    },
+    {"id": "soulgems", "name": "Soul gems", "icon": "misc_soulgem"},
     {
       "id": "soulgems.empty",
       "name": "Empty soul gems",
@@ -293,11 +286,26 @@
       }
     },
     {
+      "id": "misc.curios",
+      "name": "Curios",
+      "description": "Rare finds the game counts as potions (Welkynd Stone).",
+      "priority": 220,
+      "icon": "misc_gem",
+      "match": {"formTypes": ["ALCH"], "forms": ["ccBGSSSE037-Curios.esl|0x00000800", "ccBGSSSE067-DaedInv.esm|0x0020E802"]}
+    },
+    {
       "id": "misc.tools",
       "name": "Tools",
       "priority": 150,
       "icon": "misc_clutter",
       "match": {"formTypes": ["MISC"], "keywordsAny": ["VendorItemTool"]}
+    },
+    {
+      "id": "misc.lights",
+      "name": "Torches",
+      "priority": 100,
+      "icon": "misc_torch",
+      "match": {"formTypes": ["LIGH"]}
     },
     {
       "id": "misc.gems",

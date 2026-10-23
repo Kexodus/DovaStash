@@ -1,7 +1,7 @@
 #pragma once
 
 // Every armor set in the load order (DESIGN §8.4 "Mannequins"), for the mannequin set picker (hotkey
-// menu and the Menu Framework "Armor sets" page) and for mannequins with a chosen set.
+// menu and the Menu Framework Displays page's set picker) and for mannequins with a chosen set.
 //
 // - Built once, lazily, on the main thread, the first time a chosen set or a picker needs it: every
 //   playable ARMO a mannequin can wear (no shields, no jewelry other than circlets) from

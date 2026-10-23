@@ -24,9 +24,9 @@ namespace dova::input
 		std::int32_t     code;
 		std::string_view name;
 	};
-	// Keyboard keys (and mouse buttons) offered by the settings page, in display order.
+	// Named keyboard keys and mouse buttons (the names KeyName shows).
 	[[nodiscard]] std::span<const KeyChoice> KeyboardChoices();
-	// Gamepad buttons (SKSE codes 266-281).
+	// Named gamepad buttons (SKSE codes 266-281).
 	[[nodiscard]] std::span<const KeyChoice> GamepadChoices();
 	// "K", "Mouse 4", "Gamepad LB", or "key 123" for codes without a name.
 	[[nodiscard]] std::string KeyName(std::int32_t a_code);

@@ -1,10 +1,19 @@
 #include "esp/Bsa.h"
 
 #include <algorithm>
+#include <format>
 #include <fstream>
 
 #include <lz4frame.h>
 #include <zlib.h>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#	define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#	define NOMINMAX
+#endif
+#include <Windows.h>
 
 #include "Util.h"
 #include "dova/core/FormRef.h"
@@ -19,6 +28,21 @@ namespace dova::editor::esp
 		{
 			return static_cast<bool>(a_in.read(reinterpret_cast<char*>(&a_out), sizeof(T)));
 		}
+
+		// Size and last write time of a file (false when it cannot be read).
+		bool Identity(const std::filesystem::path& a_path, std::uint64_t& a_size, std::uint64_t& a_time)
+		{
+			WIN32_FILE_ATTRIBUTE_DATA d{};
+			if (!::GetFileAttributesExW(a_path.c_str(), GetFileExInfoStandard, &d)) {
+				return false;
+			}
+			a_size = (static_cast<std::uint64_t>(d.nFileSizeHigh) << 32) | d.nFileSizeLow;
+			a_time = (static_cast<std::uint64_t>(d.ftLastWriteTime.dwHighDateTime) << 32) | d.ftLastWriteTime.dwLowDateTime;
+			return true;
+		}
+
+		// No archived file is anywhere near this large: a bigger "original size" means the bytes are not the entry's.
+		constexpr std::uint32_t kMaxEntrySize = 512u << 20;
 	}
 
 	std::string Bsa::NormalizeKey(std::string_view a_key)
@@ -69,6 +93,9 @@ namespace dova::editor::esp
 		}
 		auto bsa = std::make_unique<Bsa>();
 		bsa->_path = a_path;
+		if (!Identity(a_path, bsa->_fileSize, bsa->_writeTime)) {
+			return nullptr;
+		}
 		bsa->_version = ver;
 		const bool compressedDefault = (archiveFlags & 0x4) != 0;
 		bsa->_embedNames = (archiveFlags & 0x100) != 0 && ver != 103;
@@ -128,19 +155,63 @@ namespace dova::editor::esp
 		return bsa;
 	}
 
-	std::optional<std::vector<std::byte>> Bsa::Read(std::string_view a_key) const
+	bool Bsa::Changed() const
+	{
+		std::uint64_t size = 0, time = 0;
+		return !Identity(_path, size, time) || size != _fileSize || time != _writeTime;
+	}
+
+	std::optional<std::vector<std::byte>> Bsa::Read(std::string_view a_key, std::string* a_error) const
 	{
 		const auto it = _files.find(Key(a_key));
 		if (it == _files.end()) {
 			return std::nullopt;
 		}
-		const auto&   e = it->second;
-		std::ifstream in(_path, std::ios::binary);
-		in.seekg(e.offset);
-		std::vector<std::byte> blob(e.size);
-		in.read(reinterpret_cast<char*>(blob.data()), e.size);
-		if (!in) {
+		auto fail = [&](std::string a_why) -> std::optional<std::vector<std::byte>> {
+			if (a_error) {
+				*a_error = PathToUtf8(_path.filename()) + ": " + std::move(a_why);
+			}
 			return std::nullopt;
+		};
+		const auto& e = it->second;
+		if (static_cast<std::uint64_t>(e.offset) + e.size > _fileSize) {
+			return fail("the entry lies past the end of the file");
+		}
+		// Win32 with an explicit offset: a real error code, and no C runtime stream (their number is limited).
+		const HANDLE file = ::CreateFileW(_path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (file == INVALID_HANDLE_VALUE) {
+			return fail(std::format("cannot open the archive (Win32 error {})", ::GetLastError()));
+		}
+		// The same file as indexed? (Replaced by a mod update, the old offsets would read other bytes.)
+		BY_HANDLE_FILE_INFORMATION info{};
+		if (!::GetFileInformationByHandle(file, &info) ||
+			((static_cast<std::uint64_t>(info.nFileSizeHigh) << 32) | info.nFileSizeLow) != _fileSize ||
+			((static_cast<std::uint64_t>(info.ftLastWriteTime.dwHighDateTime) << 32) | info.ftLastWriteTime.dwLowDateTime) != _writeTime) {
+			::CloseHandle(file);
+			return fail("the archive changed on disk since it was indexed");
+		}
+		std::vector<std::byte> blob(e.size);
+		std::size_t            got = 0;
+		DWORD                  error = 0;
+		while (got < blob.size()) {
+			OVERLAPPED at{};
+			const auto pos = static_cast<std::uint64_t>(e.offset) + got;
+			at.Offset = static_cast<DWORD>(pos & 0xFFFFFFFFu);
+			at.OffsetHigh = static_cast<DWORD>(pos >> 32);
+			DWORD n = 0;
+			if (!::ReadFile(file, blob.data() + got, static_cast<DWORD>(blob.size() - got), &n, &at)) {
+				error = ::GetLastError();
+				break;
+			}
+			if (n == 0) {
+				break;
+			}
+			got += n;
+		}
+		::CloseHandle(file);
+		if (got < blob.size()) {
+			return fail(error ? std::format("read error (Win32 error {})", error) : std::format("short read ({} of {} bytes at {})", got, e.size, e.offset));
 		}
 		std::size_t p = 0;
 		if (_embedNames && !blob.empty()) {
@@ -150,28 +221,31 @@ namespace dova::editor::esp
 			return std::vector<std::byte>(blob.begin() + static_cast<std::ptrdiff_t>(std::min(p, blob.size())), blob.end());
 		}
 		if (p + 4 > blob.size()) {
-			return std::nullopt;
+			return fail("truncated entry");
 		}
-		const auto             original = esp::Read<std::uint32_t>(blob.data() + p);
+		const auto original = esp::Read<std::uint32_t>(blob.data() + p);
+		if (original > kMaxEntrySize) {
+			return fail(std::format("bad entry header (original size {})", original));
+		}
 		std::vector<std::byte> out(original);
 		const auto*            src = blob.data() + p + 4;
 		const std::size_t      srcLen = blob.size() - p - 4;
 		if (_version == 105) {
 			LZ4F_dctx* ctx = nullptr;
 			if (LZ4F_isError(LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION))) {
-				return std::nullopt;
+				return fail("no LZ4 context");
 			}
 			std::size_t outLen = out.size(), inLen = srcLen;
 			const auto  rc = LZ4F_decompress(ctx, out.data(), &outLen, src, &inLen, nullptr);
 			LZ4F_freeDecompressionContext(ctx);
 			if (LZ4F_isError(rc)) {
-				return std::nullopt;
+				return fail("LZ4 data is corrupt");
 			}
 			out.resize(outLen);
 		} else {
 			uLongf outLen = static_cast<uLongf>(out.size());
 			if (::uncompress(reinterpret_cast<Bytef*>(out.data()), &outLen, reinterpret_cast<const Bytef*>(src), static_cast<uLong>(srcLen)) != Z_OK) {
-				return std::nullopt;
+				return fail("zlib data is corrupt");
 			}
 			out.resize(outLen);
 		}

@@ -101,14 +101,16 @@ set(DOVASTASH_PLUGIN_SOURCES
 	UI/Panel/PanelRender.cpp
 	UI/Panel/ArmorSetsModel.h
 	UI/Panel/ArmorSetsModel.cpp
-	UI/Panel/ArmorSetsPage.h
-	UI/Panel/ArmorSetsPage.cpp
+	UI/Panel/ArmorSetPicker.h
+	UI/Panel/ArmorSetPicker.cpp
 	UI/Panel/DisplaysModel.h
 	UI/Panel/DisplaysModel.cpp
 	UI/Panel/DisplaysPage.h
 	UI/Panel/DisplaysPage.cpp
 	UI/Panel/EditorInfo.h
 	UI/Panel/EditorInfo.cpp
+	UI/Panel/KeyCapture.h
+	UI/Panel/KeyCapture.cpp
 	UI/DisplayMenu.h
 	UI/DisplayMenu.cpp
 	UI/ArmorSetMenu.h
@@ -198,8 +200,27 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${DOVASTASH_PLUGIN_SOURCES
 
 # ---- Deploy into the MO2 mod folder ------------------------------------------------------------
 option(DOVASTASH_DEPLOY "Copy DovaStash.dll/.pdb and dist data into DOVASTASH_DEPLOY_DIR after build" ON)
-set(DOVASTASH_DEPLOY_DIR "E:/modding/Kexodus Skyrim/mods/Dova Stash"
+# The environment variable DOVASTASH_DEPLOY_DIR names the mod folder on another machine; the default is the
+# developer's MO2 instance.
+if(DEFINED ENV{DOVASTASH_DEPLOY_DIR})
+	set(_dova_deploy_default "$ENV{DOVASTASH_DEPLOY_DIR}")
+else()
+	set(_dova_deploy_default "E:/modding/Kexodus Skyrim/mods/Dova Stash")
+endif()
+set(DOVASTASH_DEPLOY_DIR "${_dova_deploy_default}"
 	CACHE PATH "Mod root to deploy into (the folder that maps onto Skyrim's Data/)")
+
+# Deploy after the build only where the mods folder exists (or the environment names the folder): a machine
+# without the developer's drive still builds.
+set(_dova_deploy_after_build OFF)
+if(DOVASTASH_DEPLOY)
+	get_filename_component(_dova_mods_dir "${DOVASTASH_DEPLOY_DIR}" DIRECTORY)
+	if(IS_DIRECTORY "${_dova_mods_dir}" OR DEFINED ENV{DOVASTASH_DEPLOY_DIR})
+		set(_dova_deploy_after_build ON)
+	else()
+		message(STATUS "Deploy off: ${DOVASTASH_DEPLOY_DIR} not found (set DOVASTASH_DEPLOY_DIR)")
+	endif()
+endif()
 
 set(_dova_deploy_cmd
 	"${CMAKE_COMMAND}"
@@ -207,13 +228,12 @@ set(_dova_deploy_cmd
 	"-DPDB=$<TARGET_PDB_FILE:DovaStash>"
 	"-DDIST_DIR=${PROJECT_SOURCE_DIR}/dist/Data/SKSE/Plugins/DovaStash"
 	"-DINTERFACE_DIR=${PROJECT_SOURCE_DIR}/dist/Data/Interface"
-	"-DEDITOR_EXE=${PROJECT_SOURCE_DIR}/build/editor/editor/Release/DovaStashEditor.exe"
 	"-DDEFAULT_INI=${CMAKE_CURRENT_SOURCE_DIR}/DovaStash.ini.default"
 	"-DDEPLOY_DIR=${DOVASTASH_DEPLOY_DIR}"
 	-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Deploy.cmake"
 )
 
-if(DOVASTASH_DEPLOY)
+if(_dova_deploy_after_build)
 	# Runs whenever the DLL relinks.
 	add_custom_command(TARGET DovaStash POST_BUILD
 		COMMAND ${_dova_deploy_cmd}
@@ -227,5 +247,25 @@ add_custom_target(DovaStash_deploy
 	COMMAND ${_dova_deploy_cmd}
 	DEPENDS DovaStash
 	COMMENT "Deploying DovaStash to ${DOVASTASH_DEPLOY_DIR}"
+	VERBATIM
+)
+
+# The release zip (one installable archive): cmake --build --preset plugin-release --target DovaStash_package
+# Stages build/release/Dova Stash/ (DLL, PDB, the default INI as DovaStash.ini, dist data, Interface, the editor of
+# build/editor and the user guide PDF) and zips it to build/release/DovaStash-<version>.zip (cmake/Package.cmake).
+add_custom_target(DovaStash_package
+	COMMAND "${CMAKE_COMMAND}"
+		"-DDLL=$<TARGET_FILE:DovaStash>"
+		"-DPDB=$<TARGET_PDB_FILE:DovaStash>"
+		"-DDIST_DIR=${PROJECT_SOURCE_DIR}/dist/Data/SKSE/Plugins/DovaStash"
+		"-DINTERFACE_DIR=${PROJECT_SOURCE_DIR}/dist/Data/Interface"
+		"-DDEFAULT_INI=${CMAKE_CURRENT_SOURCE_DIR}/DovaStash.ini.default"
+		"-DEDITOR_DIR=${PROJECT_SOURCE_DIR}/build/editor/editor/Release"
+		"-DGUIDE_PDF=${PROJECT_SOURCE_DIR}/presskit/guide/DovaStashEditor-UserGuide.pdf"
+		"-DOUT_DIR=${PROJECT_SOURCE_DIR}/build/release"
+		"-DVERSION=${PROJECT_VERSION}"
+		-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Package.cmake"
+	DEPENDS DovaStash
+	COMMENT "Packaging Dova Stash ${PROJECT_VERSION} into build/release"
 	VERBATIM
 )

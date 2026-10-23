@@ -20,7 +20,7 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Bloodchill Manor v1.0.0 by Dova Stash"
+          "regex": "template: Bloodchill Manor v[0-9.]+ by Dova Stash"
         },
         {
           "do": "clearInventory"
@@ -181,6 +181,17 @@
         }
       ]
     },
+    {"id": "6.2.5-bloodchill", "title": "Browse right after a container menu closed: the next one opens at once, no \"did not open\"",
+      "steps": [
+        {"do": "openContainer", "ref": "ccEEJSSE005-Cave.esm|0x00089E7E"},
+        {"do": "closeMenu"},
+        {"do": "openContainer", "ref": "ccEEJSSE005-Cave.esm|0x00089E7E"},
+        {"check": "log", "regex": "Browse: .* opened \\(activated\\)", "count": 2, "within": 5},
+        {"check": "notify", "regex": "did not open", "absent": true},
+        {"do": "closeMenu"},
+        {"check": "noErrors"}
+      ]
+    },
     {
       "id": "3.3a.4-bloodchill",
       "title": "Category suggestion after three learned books; Yes binds the category",
@@ -263,7 +274,7 @@
         },
         {
           "check": "notify",
-          "regex": "now takes Books"
+          "regex": "now takes ([a-z]+ )?books"
         },
         {
           "check": "log",

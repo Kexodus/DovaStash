@@ -69,6 +69,35 @@
 		{ "name": "editor-debug", "configurePreset": "editor", "configuration": "Debug" }
 	],
 	"testPresets": [
-		{ "name": "core-tests", "configurePreset": "core-tests", "configuration": "Debug", "output": { "outputOnFailure": true } }
+		{ "name": "core-tests", "configurePreset": "core-tests", "configuration": "Debug", "output": { "outputOnFailure": true } },
+		{ "name": "editor", "configurePreset": "editor", "configuration": "Release", "output": { "outputOnFailure": true } }
+	],
+	"workflowPresets": [
+		{
+			"name": "core-tests",
+			"displayName": "Configure, build and run the core unit tests",
+			"steps": [
+				{ "type": "configure", "name": "core-tests" },
+				{ "type": "build", "name": "core-tests" },
+				{ "type": "test", "name": "core-tests" }
+			]
+		},
+		{
+			"name": "plugin",
+			"displayName": "Configure and build the plugin (Release, deploys)",
+			"steps": [
+				{ "type": "configure", "name": "plugin" },
+				{ "type": "build", "name": "plugin-release" }
+			]
+		},
+		{
+			"name": "editor",
+			"displayName": "Configure, build and test the editor (Release)",
+			"steps": [
+				{ "type": "configure", "name": "editor" },
+				{ "type": "build", "name": "editor-release" },
+				{ "type": "test", "name": "editor" }
+			]
+		}
 	]
 }

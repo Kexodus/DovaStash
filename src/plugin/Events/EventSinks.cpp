@@ -12,6 +12,8 @@ namespace dova::events
 		using Control = RE::BSEventNotifyControl;
 
 		std::atomic<RE::RefHandle> g_crosshair{ 0 };
+		std::atomic<bool>          g_crosshairOverridden{ false };
+		std::atomic<RE::RefHandle> g_crosshairOverride{ 0 };
 
 		void Enqueue(std::function<void()> a_task)
 		{
@@ -201,6 +203,12 @@ namespace dova::events
 
 	RE::RefHandle CrosshairTarget() noexcept
 	{
-		return g_crosshair.load();
+		return g_crosshairOverridden.load() ? g_crosshairOverride.load() : g_crosshair.load();
+	}
+
+	void OverrideCrosshair(std::optional<RE::RefHandle> a_handle) noexcept
+	{
+		g_crosshairOverride = a_handle.value_or(0);
+		g_crosshairOverridden = a_handle.has_value();
 	}
 }

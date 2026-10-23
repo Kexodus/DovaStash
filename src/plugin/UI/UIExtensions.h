@@ -39,9 +39,11 @@ namespace dova::ui::uiext
 	// kDataLoaded: the mod-event sink.
 	void RegisterSinks();
 
-	// Index of the chosen entry, or -1 when the menu was cancelled. Always invoked once, on the main
+	// Index of the chosen entry, -1 when the menu was cancelled, or kNotShown when it never came up (the SWF did
+	// not load, OpenCustomMenu failed, another mod's custom menu stayed open). Always invoked once, on the main
 	// thread (SKSE task queue).
 	using ChoiceCallback = std::function<void(std::int32_t a_index)>;
+	inline constexpr std::int32_t kNotShown = -2;
 
 	struct ListEntry
 	{
@@ -68,8 +70,23 @@ namespace dova::ui::uiext
 	// children closes the menu and reports its index, except a stay-open entry while the menu supports
 	// it (see above): that one goes to `a_options.onStay` instead. Callers handle both. Returns false
 	// (and never calls back) when UIExtensions is not installed or a Dova Stash list is already pending;
-	// otherwise the callback always runs, with -1 if the list could not be shown.
+	// otherwise the callback always runs, with kNotShown if the list could not be shown.
 	bool OpenList(std::vector<ListEntry> a_entries, ChoiceCallback a_callback, ListOptions a_options = {});
+	// A Dova Stash list or text box is requested and not closed yet (also before its menu has opened). Any thread.
+	[[nodiscard]] bool IsBusy();
+
+	// AutoTest: the Dova Stash list that is pending (requested or on screen): its entry texts, its request serial
+	// (0 = none) and whether its menu has loaded.
+	struct ListState
+	{
+		std::uint64_t            serial{ 0 };
+		bool                     shown{ false };
+		std::vector<std::string> entries;
+	};
+	[[nodiscard]] ListState PendingList();
+	// AutoTest: chooses entry `a_index` of the list on screen the way the menu would (a stay-open entry updates
+	// the list in place; any other closes it and reports the choice). False when no list is on screen.
+	bool ChooseForTest(std::int32_t a_index);
 
 	// Entered text, or nullopt when cancelled. Main thread.
 	using TextCallback = std::function<void(std::optional<std::string> a_text)>;

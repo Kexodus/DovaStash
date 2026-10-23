@@ -1,0 +1,172 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Hotkey menus on UIExtensions lists (iMode = 0, the other plans use message boxes): entries, headers, < Back, stay-open toggles, the display menu",
+  "home": "Skyrim.esm|0x000165A8",
+  "coc": "WhiterunBreezehome",
+  "requires": ["UIExtensions.esp"],
+  "tests": [
+    {
+      "id": "6.2-lists-setup", "title": "Setup prompt as a list: header, Use template, Open panel... (the panel is loaded), no Advanced...; choosing Use template sets the home up (plan 10 may have saved its own Breezehome template: either one)",
+      "steps": [
+        {"do": "settings", "set": {"iMode": 0}},
+        {"do": "enter"},
+        {"do": "reset"},
+        {"do": "hotkey"},
+        {"check": "menuEntries", "contains": ["-- Breezehome --", "Use template \"", "Open panel..."], "lacks": ["Advanced..."]},
+        {"do": "choose", "entry": "Use template \""},
+        {"check": "home", "layout": true},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Breezehome"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-lists-master", "title": "Master list (Advanced... right after Sort all), then Advanced (with Save as template... and Reset home...), Retrieve, < Back, < Back: each list has its header and entries",
+      "steps": [
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"do": "hotkey"},
+        {"check": "menuEntries", "contains": ["-- Breezehome --", "Deposit", "Sort all", "Advanced..."], "lacks": ["< Back", "Save as template...", "Reset home..."]},
+        {"do": "choose", "entry": "Advanced..."},
+        {"check": "menuEntries", "contains": ["-- Advanced --", "< Back", "Retrieve...", "Browse containers...", "Re-apply template \"", "Save as template...", "Reset home...", "Open panel..."]},
+        {"do": "choose", "entry": "Retrieve..."},
+        {"check": "menuEntries", "contains": ["-- Retrieve --", "< Back", "Everything ("]},
+        {"do": "choose", "entry": "< Back"},
+        {"check": "menuEntries", "contains": ["-- Advanced --", "Retrieve..."]},
+        {"do": "choose", "entry": "< Back"},
+        {"check": "menuEntries", "contains": ["-- Breezehome --", "Deposit"]},
+        {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-lists-container", "title": "Container list: Categories..., Open panel... (no Advanced...); Categories... > Weapons... > [ ] All Weapons toggles in place, < Back returns",
+      "steps": [
+        {"do": "enable", "ref": "Skyrim.esm|0x0010EB84"},
+        {"do": "require", "enabled": "Skyrim.esm|0x0010EB84", "why": "the alchemy corner chest comes with Breezehome's alchemy laboratory"},
+        {"do": "hotkey", "target": "Skyrim.esm|0x0010EB84"},
+        {"check": "menuEntries", "contains": ["Categories... (", "Open ", "Rename...", "Make master", "Open panel..."], "lacks": ["Advanced..."]},
+        {"do": "choose", "entry": "Categories..."},
+        {"check": "menuEntries", "contains": ["< Back"]},
+        {"do": "choose", "index": 2},
+        {"check": "menuEntries", "contains": ["< Back", "[ ] All Weapons"]},
+        {"do": "choose", "entry": "[ ] All Weapons"},
+        {"check": "menuEntries", "contains": ["[x] All Weapons"], "within": 5},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x0010EB84", "categories": ["weapons.*"]}},
+        {"do": "choose", "entry": "[x] All Weapons"},
+        {"check": "menuEntries", "contains": ["[ ] All Weapons"], "within": 5},
+        {"do": "choose", "entry": "< Back"},
+        {"check": "menuEntries", "contains": ["< Back"]},
+        {"do": "choose", "entry": "< Back"},
+        {"check": "menuEntries", "contains": ["Categories... ("]},
+        {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2.2-lists-order", "title": "Container list in the shared order; Clear categories..., Make master... and Remove... ask, and No goes back to the list",
+      "steps": [
+        {"do": "require", "enabled": "Skyrim.esm|0x0010EB84", "why": "the alchemy corner chest comes with Breezehome's alchemy laboratory"},
+        {"do": "setCategories", "ref": "Skyrim.esm|0x0010EB84", "categories": ["weapons.*"]},
+        {"do": "hotkey", "target": "Skyrim.esm|0x0010EB84"},
+        {"check": "menuEntries", "order": ["Categories... (", "Open ", "Rename...", "Clear categories...", "Ignore", "Make sell chest...", "Remove...", "Make master...", "Open panel..."]},
+        {"do": "choose", "entry": "Clear categories..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "Clear the categories of"},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["Categories... (", "Clear categories..."], "within": 5},
+        {"do": "choose", "entry": "Make master..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "Its categories and learned items are forgotten"},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["Categories... ("], "within": 5},
+        {"do": "choose", "entry": "Remove..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "from Dova Stash?"},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["Categories... (", "Remove..."], "within": 5},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x0010EB84", "categories": ["weapons.*"]}},
+        {"do": "choose", "entry": "Clear categories..."},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "notify", "contains": "Dova Stash: categories cleared for"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2.16-lists", "title": "Learned items (1)... > Forget 1 learned item...: No goes back to the learned list, Yes forgets and returns to the container list",
+      "steps": [
+        {"do": "require", "enabled": "Skyrim.esm|0x0010EB84", "why": "the alchemy corner chest comes with Breezehome's alchemy laboratory"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001397E", "count": 1},
+        {"do": "openContainer", "ref": "Skyrim.esm|0x0010EB84"},
+        {"do": "store", "to": "Skyrim.esm|0x0010EB84", "item": "Skyrim.esm|0x0001397E", "count": 1},
+        {"do": "wait", "seconds": 1},
+        {"do": "closeMenu"},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x0001397E", "eq": "Skyrim.esm|0x0010EB84", "within": 5},
+        {"do": "wait", "seconds": 7},
+        {"do": "hotkey", "target": "Skyrim.esm|0x0010EB84"},
+        {"do": "choose", "entry": "Learned items (1)..."},
+        {"check": "menuEntries", "contains": ["< Back", "Forget 1 learned item...", "Forget Iron Dagger"], "lacks": ["Forget all"]},
+        {"do": "choose", "entry": "Forget 1 learned item..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "Forget 1 learned item for"},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["Forget 1 learned item..."], "within": 5},
+        {"do": "choose", "entry": "Forget 1 learned item..."},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "menuEntries", "contains": ["Categories... ("], "within": 5},
+        {"check": "layout", "pointer": "/learned/Skyrim.esm|0x0001397E", "absent": true},
+        {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-lists-display", "title": "Display menu as a list: Use this rack, then the menu reopens with Categories..., Fill now, Stop using this rack",
+      "steps": [
+        {"do": "enable", "ref": "Skyrim.esm|0x00102A41"},
+        {"do": "require", "enabled": "Skyrim.esm|0x00102A41", "why": "Breezehome's racks come with the living room decoration"},
+        {"do": "displayUse", "ref": "Skyrim.esm|0x00102A41", "on": false},
+        {"do": "hotkey", "target": "Skyrim.esm|0x00102A41"},
+        {"check": "menuEntries", "contains": ["Use this rack"]},
+        {"do": "choose", "entry": "Use this rack"},
+        {"check": "notify", "contains": "is used now"},
+        {"check": "menuEntries", "contains": ["-- Weapon Rack --", "Categories... (", "Fill now", "Stop using this rack"], "within": 5},
+        {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-lists-reapply", "title": "Re-apply template with a change of the player's own: No goes back to Advanced and keeps it, Yes brings the template's categories back and backs the old setup up",
+      "steps": [
+        {"do": "enter"},
+        {"do": "setCategories", "ref": "Skyrim.esm|0x0010EB84", "categories": ["books.*"]},
+        {"do": "hotkey"},
+        {"do": "choose", "entry": "Advanced..."},
+        {"do": "choose", "entry": "Re-apply template \""},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "It undoes your changes"},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["-- Advanced --", "Re-apply template \""], "within": 5},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x0010EB84", "categories": ["books.*"]}},
+        {"do": "choose", "entry": "Re-apply template \""},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "layout", "pointer": "/containers", "lacks": {"ref": "Skyrim.esm|0x0010EB84", "categories": ["books.*"]}, "within": 5},
+        {"check": "files", "dir": "Layouts", "regex": "Skyrim\\.esm_000165A8\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak", "ge": 1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-lists-reset", "title": "Reset home... from Advanced (No keeps the setup and returns to Advanced, Yes resets; last), back to message boxes for the plans that follow",
+      "steps": [
+        {"do": "enter"},
+        {"do": "hotkey"},
+        {"do": "choose", "entry": "Advanced..."},
+        {"do": "choose", "entry": "Reset home..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "Reset Breezehome?"},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["-- Advanced --", "Reset home..."], "within": 5},
+        {"check": "layoutFile", "exists": true},
+        {"do": "choose", "entry": "Reset home..."},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "notify", "contains": "reset (setup backed up)", "within": 5},
+        {"check": "layoutFile", "exists": false},
+        {"do": "settings", "set": {"iMode": 1}},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

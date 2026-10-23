@@ -10,8 +10,8 @@
         {"do": "enter"},
         {"check": "home", "is": true, "name": "Honeyside", "layout": false},
         {"check": "log", "since": "plan", "contains": "Cell Honeyside (Skyrim.esm|0x00016BDD): template available"},
-        {"check": "log", "since": "plan", "contains": "template: Honeyside v1.0.0 by Dova Stash"},
-        {"check": "notify", "since": "plan", "contains": "Dova Stash: Honeyside setup available (by Dova Stash)"},
+        {"check": "log", "since": "plan", "regex": "template: Honeyside v[0-9.]+ by Dova Stash"},
+        {"check": "notify", "since": "plan", "contains": "Dova Stash: Honeyside setup available (press K)"},
         {"do": "buyHome"},
         {"check": "noErrors"}
       ]
@@ -97,7 +97,7 @@
         {"do": "wait", "seconds": 1},
         {"do": "closeMenu"},
         {"check": "log", "regex": "Learn: Dwemer Gyro .* -> .*: recorded"},
-        {"check": "notify", "regex": "Dwemer Gyro now goes to .* \\(K: undo\\)"},
+        {"check": "notify", "regex": "Dwemer Gyro now goes to .*\\. K: undo"},
         {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000C8868", "eq": "HearthFires.esm|0x00004247", "within": 5},
         {"do": "wait", "seconds": 6},
         {"do": "store", "to": "master", "item": "Skyrim.esm|0x000C8868", "count": 1},
@@ -156,7 +156,7 @@
         {"check": "log", "regex": "Learn: asking whether all (books\\.\\w+) go to .* \\(3 learned\\)", "within": 15},
         {"check": "menu", "name": "MessageBoxMenu", "open": true, "within": 3},
         {"do": "answerMessageBox", "button": 0},
-        {"check": "notify", "contains": "now takes Books"},
+        {"check": "notify", "contains": "now takes Other books"},
         {"check": "layout", "pointer": "/containers", "contains": {"ref": "HearthFires.esm|0x00004247"}},
         {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000F456D", "absent": true},
         {"check": "log", "regex": "bound books\\.\\w+ from a suggestion \\(3 learned item\\(s\\) now covered by it dropped\\)"},
@@ -180,6 +180,25 @@
         {"check": "notify", "contains": "is no longer part of Honeyside"},
         {"check": "layout", "pointer": "/cells", "absent": true},
         {"do": "enter"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.7-template", "title": "The template lists the home's shelves and racks: Deposit puts a book on a shelf and a weapon on a rack",
+      "steps": [
+        {"do": "buyHome"},
+        {"do": "useTemplate"},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x00102BAB"}},
+        {"do": "require", "enabled": "Skyrim.esm|0x00102BAB", "why": "the bookshelf comes with a decoration"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACEF", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x000139A8", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Display: The Lusty Argonian Maid, v1 .* on .*\\(bookshelf\\)", "within": 10},
+        {"check": "log", "regex": "Display: Glass Mace .* on .*\\(rack\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x0001ACEF", "eq": 0},
+        {"check": "count", "item": "Skyrim.esm|0x000139A8", "eq": 0},
+        {"check": "log", "absent": true, "regex": "did not take|had no 3D"},
         {"check": "noErrors"}
       ]
     }

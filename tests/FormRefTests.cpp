@@ -105,6 +105,23 @@ TEST_CASE("FormRef equality, hashing and ordering ignore plugin case", "[formref
 	CHECK(m.at(a) == 2);
 }
 
+TEST_CASE("FormRefError says why a reference does not parse", "[formref]")
+{
+	CHECK(FormRefError("Skyrim.esm|0x000165A7").empty());
+	CHECK(FormRefError(" Skyrim.esm | 165a7 ").empty());
+	CHECK(FormRefError("Skyrim.esm 0x000165A7") == "expected \"Plugin.esm|0x00ABCDEF\"");
+	CHECK(FormRefError("Skyrim.esm|0x1|0x2") == "expected \"Plugin.esm|0x00ABCDEF\"");
+	CHECK(FormRefError("Skyrim.esm|zz") == "expected \"Plugin.esm|0x00ABCDEF\"");
+	CHECK(FormRefError("Skyrim.esm|0x123456789") == "expected \"Plugin.esm|0x00ABCDEF\"");
+	CHECK(FormRefError("Skyrim|0x165A7") == "not a plugin file name (.esm, .esp or .esl)");
+	CHECK(FormRefError("Skyrim.esm|0x0A0165A7") == "form id above 0x00FFFFFF, drop the load-order byte (0x0A0165A7 -> 0x000165A7)");
+	CHECK(FormRefError("Mine.esl|0xFE001800") == "form id above 0x00FFFFFF, drop the light plugin prefix (0xFE001800 -> 0x00000800)");
+	for (const auto* text : { "Skyrim.esm 0x1", "Skyrim|0x1", "Skyrim.esm|0x0A0165A7", "Skyrim.esm|" }) {
+		CHECK_FALSE(FormRef::Parse(text));
+		CHECK_FALSE(FormRefError(text).empty());
+	}
+}
+
 TEST_CASE("Default FormRef is invalid", "[formref]")
 {
 	FormRef ref;

@@ -58,13 +58,15 @@ namespace dova
 		// categories or learned items gets the junk category (misc.clutter) when the category set has it.
 		void SetSellChest(RE::FormID a_cellId, const core::FormRef& a_container, bool a_sell);
 		// "Sell now": works out the sale (one sell chest, or every one of the home) and asks (message box: "Sell 14
-		// items for 862 gold?"); Yes sells exactly that (SellConfirmed). Waits for an open container menu to close.
-		void SellNow(RE::FormID a_cellId, std::optional<core::FormRef> a_chest);
+		// items for 862 gold?"); Yes sells exactly that (SellConfirmed), No runs `a_onNo` (the hotkey menu it came
+		// from; none from the panel). Waits for an open container menu to close.
+		void SellNow(RE::FormID a_cellId, std::optional<core::FormRef> a_chest, std::function<void()> a_onNo = {});
 		// Sells, if the sale is still the one the player confirmed (`a_items`, `a_gold`). The panel calls it after
 		// its own confirmation.
 		void SellConfirmed(RE::FormID a_cellId, std::optional<core::FormRef> a_chest, std::int32_t a_items, std::int64_t a_gold);
-		// The last sale of the session, bought back for the same gold (asks first; BuyBackConfirmed does it).
-		void BuyBack(RE::FormID a_cellId);
+		// The last sale of the session, bought back for the same gold (asks first; BuyBackConfirmed does it; No runs
+		// `a_onNo`, as for SellNow).
+		void BuyBack(RE::FormID a_cellId, std::function<void()> a_onNo = {});
 		void BuyBackConfirmed(RE::FormID a_cellId);
 		// Takes the container out of the layout: its entry (categories, explicit items, label) and the
 		// learned destinations pointing at it go; what is inside stays. Not the master. Unlike Ignore,
@@ -97,6 +99,9 @@ namespace dova
 		// --- editor actions (M4 panel; main thread, validate a_cellId like the actions above) ---------
 		// Applies a specific eligible template for this cell (by TemplateCandidate::source).
 		void UseTemplate(RE::FormID a_cellId, std::string_view a_source);
+		// Removes a template from this home (`a_hidden`: no longer offered, chosen or applied here; the file stays) or
+		// adds it back (HomeRegistry::SetTemplateHidden). Needs a setup: the list lives in it.
+		void SetTemplateHidden(RE::FormID a_cellId, std::string_view a_source, bool a_hidden);
 		void SetLabel(RE::FormID a_cellId, const core::FormRef& a_container, std::string a_label);
 		// Drops every learned destination that points at `a_container`.
 		void ForgetLearned(RE::FormID a_cellId, const core::FormRef& a_container);
@@ -158,8 +163,9 @@ namespace dova
 
 		[[nodiscard]] static std::string HotkeyName();
 
-		// Status line for the player: the editor while it is open, else the world UI. Main thread.
-		void Notify(std::string_view a_message);
+		// Status line for the player: the editor while it is open, else the world UI. Main thread. `a_failed`: the
+		// action did not happen (the panel's status line shows it red).
+		void Notify(std::string_view a_message, bool a_failed = false);
 
 		// Settings page (main thread): validates, applies and saves to the INI. Everything takes effect
 		// immediately; a UI mode change rebuilds the UIs. No restart needed.
@@ -171,6 +177,11 @@ namespace dova
 		// Runs `a_fn` once no ContainerMenu is open (DESIGN §8.2: never sort while one is open), polling
 		// every 100 ms for up to ~5 s.
 		void RunWhenContainerMenuClosed(std::function<void()> a_fn, int a_retries = 50);
+		// Browse: a ContainerMenu that just closed has settled (none open, nothing pauses the game, activation
+		// controls on, 500 ms since the close). An activation before that is dropped by the game.
+		[[nodiscard]] bool BrowseSettled() const;
+		// What may keep an activation from opening a menu, for the log ("paused no, activate controls on, ...").
+		[[nodiscard]] std::string ActivationState() const;
 
 		// The hotkey aimed at a display (game::DisplayAt): opens its menu and returns true.
 		bool OpenDisplayMenu(home::Home& a_home, RE::TESObjectREFR* a_target);
@@ -207,6 +218,9 @@ namespace dova
 		// Bumped by OnPreLoadGame: a RunWhenContainerMenuClosed retry chain started in the save being left
 		// (Distribute on master close, Browse, Fill now) stops instead of running in the next one.
 		std::uint64_t _loadSerial{ 0 };
+		std::atomic<std::uint64_t> _containerOpens{ 0 };  // ContainerMenus opened so far (Browse: did its activation open one?)
+		// When the last ContainerMenu closed (steady clock ticks): Browse waits for that close to settle.
+		std::atomic<std::int64_t> _containerClosedAt{ 0 };
 		std::uint64_t _arrivalSerial{ 0 };
 		RE::FormID    _arrivalDeferredCell{ 0 };  // arrivals waiting for a paused master menu to close
 		std::uint64_t _learnSerial{ 0 };

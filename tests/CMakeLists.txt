@@ -8,7 +8,8 @@ target_link_libraries(dova_tests PRIVATE dova::core Catch2::Catch2WithMain)
 target_compile_definitions(dova_tests PRIVATE
 	DOVA_DIST_DIR="${PROJECT_SOURCE_DIR}/dist/Data/SKSE/Plugins/DovaStash"
 	DOVA_OPTIONAL_DIR="${PROJECT_SOURCE_DIR}/dist/Optional"
-	DOVA_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
+	DOVA_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+	DOVA_SCHEMA_DIR="${PROJECT_SOURCE_DIR}/tools/schema")
 if(MSVC)
 	target_compile_options(dova_tests PRIVATE /W4 /permissive- /utf-8)
 endif()

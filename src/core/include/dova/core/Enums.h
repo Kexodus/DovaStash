@@ -6,6 +6,7 @@
 // cannot be named in JSON.
 
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "dova/core/Item.h"
@@ -27,4 +28,22 @@ namespace dova::core
 	[[nodiscard]] std::string_view ToString(AlchemyKind a_value) noexcept;
 	[[nodiscard]] std::string_view ToString(SoulGemState a_value) noexcept;
 	[[nodiscard]] std::string_view ToString(AmmoKind a_value) noexcept;
+
+	// Every JSON name of an enum, comma-separated ("HandToHand, OneHandSword, ..."), for error messages.
+	template <class E>
+	[[nodiscard]] std::string ValidNames();
+	template <>
+	std::string ValidNames<ItemType>();
+	template <>
+	std::string ValidNames<WeaponType>();
+	template <>
+	std::string ValidNames<ArmorType>();
+	template <>
+	std::string ValidNames<BookTeaches>();
+	template <>
+	std::string ValidNames<AlchemyKind>();
+	template <>
+	std::string ValidNames<SoulGemState>();
+	template <>
+	std::string ValidNames<AmmoKind>();
 }

@@ -270,8 +270,9 @@ namespace dova::editor::render
 		desc.Usage = D3D11_USAGE_IMMUTABLE;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 		ID3D11Texture2D* tex = nullptr;
-		if (FAILED(a_device->CreateTexture2D(&desc, init.data(), &tex)) || !tex) {
-			a_error = std::format("Direct3D refused the texture ({}x{}, format {}, {} mips)", desc.Width, desc.Height, static_cast<int>(format), desc.MipLevels);
+		if (const HRESULT hr = a_device->CreateTexture2D(&desc, init.data(), &tex); FAILED(hr) || !tex) {
+			a_error = std::format("Direct3D refused the texture ({}x{}, format {}, {} mips, {:#x})", desc.Width, desc.Height, static_cast<int>(format),
+				desc.MipLevels, static_cast<std::uint32_t>(hr));
 			return nullptr;
 		}
 		ID3D11ShaderResourceView* srv = nullptr;

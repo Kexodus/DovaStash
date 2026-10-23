@@ -32,7 +32,8 @@ namespace dova::core
 			for (const auto& e : a_list) {
 				auto sel = KeepSelector::Parse(e);
 				if (sel.kind == KeepSelector::Kind::Invalid) {
-					a_diags.Warn(a_where, "ignoring keep entry \"" + e + "\" (not a token, form reference or category pattern)");
+					const auto err = e.find('|') != std::string::npos ? FormRefError(e) : std::string();  // a form reference was meant
+					a_diags.Warn(a_where, "ignoring keep entry \"" + e + "\" (not a token, form reference or category pattern)" + (err.empty() ? err : ": " + err));
 					continue;
 				}
 				out.push_back(std::move(sel));
@@ -192,6 +193,12 @@ namespace dova::core
 					ev.why[i] = item.questItem ? "quest item" : item.playable ? "comes back when stored" : "non-playable";
 					continue;
 				}
+				// Worn and favorited stacks are hard rules too (DESIGN §8.3): a layout keep without them still keeps them.
+				if (item.equipped || item.favorited) {
+					ev.keptAll[i] = true;
+					ev.why[i] = item.equipped ? "worn item" : "favorited item";
+					continue;
+				}
 				bool decided = false;
 				for (std::size_t l = 0; l < a_layers.size() && !decided; ++l) {
 					const auto& layer = a_layers[l];
@@ -266,6 +273,12 @@ namespace dova::core
 		}
 		if (a_item.returns) {
 			return why("comes back when stored");
+		}
+		if (a_item.equipped) {
+			return why("worn item");
+		}
+		if (a_item.favorited) {
+			return why("favorited item");
 		}
 		ItemView view;
 		view.item = &a_item;

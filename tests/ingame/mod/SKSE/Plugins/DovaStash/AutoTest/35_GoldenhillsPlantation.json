@@ -20,7 +20,7 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Goldenhills Plantation v1.0.0 by Dova Stash"
+          "regex": "template: Goldenhills Plantation v[0-9.]+ by Dova Stash"
         },
         {
           "do": "clearInventory"

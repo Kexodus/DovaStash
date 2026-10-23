@@ -49,7 +49,7 @@
         {"do": "enter", "coc": "BleakFallsBarrow01"},
         {"check": "home", "is": true},
         {"do": "hotkey", "target": "respawning"},
-        {"check": "notify", "contains": "restocks itself when the area resets"}
+        {"check": "notify", "contains": "(respawns, items would be lost)"}
       ]
     },
     {
@@ -58,6 +58,43 @@
         {"do": "enter", "coc": "Riverwood", "any": true},
         {"do": "hotkey"},
         {"check": "notify", "contains": "Dova Stash: not a player home (exterior cell not owned by you)"}
+      ]
+    },
+    {
+      "id": "6.6.1", "title": "Press-to-bind: L becomes the hotkey at once, saved as iHotkey = 38",
+      "steps": [
+        {"do": "bindHotkey", "target": "keyboard", "code": 38},
+        {"check": "log", "contains": "Settings: iHotkey 37 -> 38"},
+        {"check": "log", "contains": "Settings: saved to"},
+        {"check": "log", "contains": "Hotkey capture (test): L; framework key on before true, during false, after true"},
+        {"check": "log", "regex": "Hotkey capture \\(test\\): hotkey is now L, gamepad off; clash \"\""},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.6.1a", "title": "Press-to-bind: gamepad LB (also the framework's key), Clear, and a wait cancelled binds nothing",
+      "steps": [
+        {"do": "bindHotkey", "target": "gamepad", "code": 274},
+        {"check": "log", "contains": "Settings: iGamepadHotkey -1 -> 274"},
+        {"check": "log", "regex": "Hotkey capture \\(test\\): hotkey is now L, gamepad .*LB; clash \".*the SKSE Menu Framework key\""},
+        {"do": "bindHotkey", "target": "gamepad", "clear": true},
+        {"check": "log", "contains": "Settings: iGamepadHotkey 274 -> -1"},
+        {"do": "bindHotkey", "target": "keyboard", "cancel": true},
+        {"check": "log", "contains": "Hotkey capture (test): nothing bound; framework key on before true, during false, after true"},
+        {"check": "log", "contains": "Settings: iHotkey 38", "absent": true},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.6.1b", "title": "Press-to-bind: E is bound with the clash Activate; K back afterwards",
+      "steps": [
+        {"do": "bindHotkey", "target": "keyboard", "code": 18},
+        {"check": "log", "contains": "Settings: iHotkey 38 -> 18"},
+        {"check": "log", "regex": "Hotkey capture \\(test\\): hotkey is now E, gamepad off; clash \"Activate\""},
+        {"do": "bindHotkey", "target": "keyboard", "code": 37},
+        {"check": "log", "contains": "Settings: iHotkey 18 -> 37"},
+        {"check": "log", "regex": "Hotkey capture \\(test\\): hotkey is now K, "},
+        {"check": "noErrors"}
       ]
     },
     {"id": "1.7", "title": "Hotkey ignored in console, inventory, dialogue", "manual": "needs real key presses with those menus open (the input sink)"},

@@ -40,7 +40,10 @@ namespace dova::editor::home
 		bool persistent{ false };
 		bool initiallyDisabled{ false };
 		bool deleted{ false };
-		bool respawns{ false };  // CONT with the respawn flag: never bind it
+		// Its contents reset: a CONT with the respawn flag in a cell that resets. Never bind it. In a cell whose
+		// encounter zone never resets the flag is harmless, as the plugin rules (DESIGN §9): `respawnFlag` only.
+		bool respawns{ false };
+		bool respawnFlag{ false };
 
 		std::optional<esp::FormKey> enableParent;
 		bool                        enableOpposite{ false };
@@ -57,6 +60,11 @@ namespace dova::editor::home
 
 		[[nodiscard]] bool IsContainer() const noexcept;
 	};
+
+	// What a template can use, one count for the rail, the drawer and --draft-all: a container that is not a display,
+	// respawns not, nobody else owns and no house upgrade removes; a display no upgrade removes. Deleted: neither.
+	[[nodiscard]] bool UsableContainer(const PlacedRef& a_ref) noexcept;
+	[[nodiscard]] bool UsableDisplay(const PlacedRef& a_ref) noexcept;
 
 	// The groups of the Layers popover (docs/EDITOR.md §4.5): one rule for the plan and the 3D view.
 	enum class RefLayer : std::uint8_t
@@ -103,6 +111,9 @@ namespace dova::editor::home
 		std::optional<esp::FormKey> owner;
 		std::string                 ownerLabel;
 		bool                        ownedByPlayer{ false };
+		// Owned by a faction the cell's own mod adds (not the base game's): the one the player joins with the home
+		// (White Lighthouse). The plugin accepts it once the player is in it; its references that faction owns are no one else's.
+		bool                        ownedByHomeFaction{ false };
 		std::optional<esp::FormKey> location;
 		std::string                 locationLabel;
 		std::vector<std::string>    locationKeywords;
@@ -142,13 +153,18 @@ namespace dova::editor::home
 		int                      plaques{ 0 };  // item plaques + cases
 		bool                     playerHouseKeyword{ false };
 		bool                     ownedByPlayer{ false };
+		bool                     ownedByHomeFaction{ false };
 		bool                     neverResets{ false };
 		int                      score{ 0 };
 		std::vector<std::string> reasons;
 
 		// A home signal is required: dungeons with a never-resetting zone, containers and racks score too.
-		// Mannequins in a cell where nothing respawns catch homes owned by a faction (Severin Manor).
-		[[nodiscard]] bool Likely() const noexcept { return playerHouseKeyword || ownedByPlayer || (mannequins > 0 && respawning == 0); }
+		// Mannequins in a cell where nothing respawns catch homes owned by a faction (Severin Manor); a mod's own
+		// faction with containers, a home the player joins it for (White Lighthouse).
+		[[nodiscard]] bool Likely() const noexcept
+		{
+			return playerHouseKeyword || ownedByPlayer || (mannequins > 0 && respawning == 0) || (ownedByHomeFaction && containers > respawning);
+		}
 	};
 
 	// Every interior cell of the plugin (exteriors too with `a_exteriors`) that has containers or home

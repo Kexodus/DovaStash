@@ -39,7 +39,7 @@ namespace dova::editor::ui
 		bool  inspectorOpen{ true };
 		float inspectorWidth{ 0.0f };
 		bool  drawerOpen{ false };
-		float drawerHeight{ 0.0f };  // 0: a third of the window
+		float drawerHeight{ 0.0f };  // a fraction of the window's height; 0: a third (above 1: pixels, an older file)
 		int   view{ 0 };             // 0 3D, 1 plan
 		float textScale{ 0.0f };     // UI size factor on top of the DPI; 0 = Auto (from the monitor)
 		std::string theme;           // the colour theme's name (ui/Themes.h); empty = Dova Stash
@@ -53,8 +53,12 @@ namespace dova::editor::ui
 		void Load();
 		void Save() const;
 
+		std::filesystem::path path;         // empty: File()
+		bool                  memoryOnly{ false };  // screenshots: the defaults, never read or written
+
 		std::optional<std::string> mo2;
 		std::optional<std::string> profile;
+		std::optional<std::string> data;  // a Skyrim Data folder picked without MO2 (used when no instance is remembered)
 		std::string                author;
 		std::map<std::string, HomeRecord> homes;  // main cell form ref -> record
 		UiLayout                   ui;

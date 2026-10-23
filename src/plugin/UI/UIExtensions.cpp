@@ -970,7 +970,7 @@ namespace dova::ui::uiext
 						}
 						return stuck;
 					},
-					-1);
+					kNotShown);
 			});
 		}
 
@@ -991,7 +991,7 @@ namespace dova::ui::uiext
 			if (ui && ui->IsMenuOpen(kCustomMenu)) {
 				if (a_retries <= 0) {
 					logger::warn("UIExtensions: another custom menu stayed open; list not shown");
-					FinishIf(ours, -1);
+					FinishIf(ours, kNotShown);
 					return;
 				}
 				Later(std::chrono::milliseconds(50), [a_serial, a_retries]() { TryOpen(a_serial, a_retries - 1); });
@@ -999,7 +999,7 @@ namespace dova::ui::uiext
 			}
 			if (!OpenCustomMenu(ContractOf(kind).swf)) {
 				logger::warn("UIExtensions: could not open {}", ContractOf(kind).swf);
-				FinishIf(ours, -1);
+				FinishIf(ours, kNotShown);
 				return;
 			}
 			ArmTimeout(a_serial);
@@ -1089,6 +1089,12 @@ namespace dova::ui::uiext
 		}
 	}
 
+	bool IsBusy()
+	{
+		std::scoped_lock guard(g_lock);
+		return g_pending.open;
+	}
+
 	bool OpenList(std::vector<ListEntry> a_entries, ChoiceCallback a_callback, ListOptions a_options)
 	{
 		if (!IsInstalled() || a_entries.empty()) {
@@ -1136,6 +1142,54 @@ namespace dova::ui::uiext
 		}
 		logger::debug("UIExtensions: text entry request {}", serial);
 		TryOpen(serial, 40);
+		return true;
+	}
+
+	ListState PendingList()
+	{
+		std::scoped_lock guard(g_lock);
+		ListState        out;
+		if (!g_pending.open || g_pending.kind != Kind::List) {
+			return out;
+		}
+		out.serial = g_pending.serial;
+		out.shown = g_pending.instance != 0;
+		for (const auto& e : g_pending.entries) {
+			out.entries.push_back(e.text);
+		}
+		return out;
+	}
+
+	bool ChooseForTest(std::int32_t a_index)
+	{
+		std::uint64_t instance = 0;
+		StayCallback  onStay;
+		{
+			std::scoped_lock guard(g_lock);
+			if (!g_pending.open || g_pending.kind != Kind::List || g_pending.instance == 0 || a_index < -1 ||
+				a_index >= static_cast<std::int32_t>(g_pending.entries.size())) {
+				return false;
+			}
+			instance = g_pending.instance;
+			if (a_index >= 0 && g_pending.entries[static_cast<std::size_t>(a_index)].stayOpen && g_pending.options.onStay) {
+				onStay = g_pending.options.onStay;
+			}
+		}
+		logger::info("UIExtensions: AutoTest chooses entry {} of list instance {}", a_index, instance);
+		if (onStay) {
+			// What Stay does for a press of a stay-open entry: the menu stays open and its entries change in place.
+			SKSE::GetTaskInterface()->AddTask([onStay = std::move(onStay), instance, a_index]() {
+				auto entries = onStay(a_index);
+				SKSE::GetTaskInterface()->AddUITask([instance, entries = std::move(entries)]() mutable { Refresh(instance, std::move(entries)); });
+			});
+			return true;
+		}
+		// What the SWF does for any other entry (and Esc, -1): the menu closes and the choice is reported (its close
+		// event then finds nothing pending).
+		if (auto* queue = RE::UIMessageQueue::GetSingleton()) {
+			queue->AddMessage(kCustomMenu, RE::UI_MESSAGE_TYPE::kHide, nullptr);
+		}
+		Complete(instance, a_index);
 		return true;
 	}
 }

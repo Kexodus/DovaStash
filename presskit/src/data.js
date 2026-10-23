@@ -8,6 +8,12 @@ window.DS_DATA = {
    "containers": 28
   },
   {
+   "name": "Dead Man's Dread",
+   "group": "Creation Club",
+   "cellFile": "ccBGSSSE031-AdvCyrus.esm",
+   "containers": 15
+  },
+  {
    "name": "Gallows Hall",
    "group": "Creation Club",
    "cellFile": "Update.esm",
@@ -29,13 +35,7 @@ window.DS_DATA = {
    "name": "Myrwatch",
    "group": "Creation Club",
    "cellFile": "ccEEJSSE002-Tower.esl",
-   "containers": 19
-  },
-  {
-   "name": "Myrwatch Gallery",
-   "group": "Creation Club",
-   "cellFile": "ccEEJSSE002-Tower.esl",
-   "containers": 12
+   "containers": 31
   },
   {
    "name": "Nchuanthumz",
@@ -53,31 +53,103 @@ window.DS_DATA = {
    "name": "Tundra Homestead",
    "group": "Creation Club",
    "cellFile": "ccEEJSSE001-Hstead.esm",
+   "containers": 23
+  },
+  {
+   "name": "Antennaria",
+   "group": "Mods",
+   "cellFile": "Antennaria.esp",
+   "containers": 27
+  },
+  {
+   "name": "Bal Ruhn",
+   "group": "Mods",
+   "cellFile": "mtBalRuhn.esp",
+   "containers": 21
+  },
+  {
+   "name": "Black Fur Refuge",
+   "group": "Mods",
+   "cellFile": "solstheimretreat.esp",
+   "containers": 30
+  },
+  {
+   "name": "Ebongrove",
+   "group": "Mods",
+   "cellFile": "Undriel_Ebongrove.esp",
+   "containers": 16
+  },
+  {
+   "name": "Hydda",
+   "group": "Mods",
+   "cellFile": "Eli_WitchyHaus.esp",
    "containers": 17
   },
   {
-   "name": "Tundra Homestead Cellar",
-   "group": "Creation Club",
-   "cellFile": "ccEEJSSE001-Hstead.esm",
-   "containers": 6
+   "name": "Lost Hall",
+   "group": "Mods",
+   "cellFile": "gonkishvampdens.esp",
+   "containers": 9
+  },
+  {
+   "name": "Niflholm",
+   "group": "Mods",
+   "cellFile": "Niflholm.esp",
+   "containers": 60
+  },
+  {
+   "name": "Pinegrove Lodge",
+   "group": "Mods",
+   "cellFile": "Eli_Pinegrove Lodge.esp",
+   "containers": 26
+  },
+  {
+   "name": "Secret Cellar",
+   "group": "Mods",
+   "cellFile": "gonkishvampdens.esp",
+   "containers": 9
+  },
+  {
+   "name": "Sicarius' Refuge",
+   "group": "Mods",
+   "cellFile": "Eli_Sicarius' Refuge.esp",
+   "containers": 24
+  },
+  {
+   "name": "Tel Jerdein",
+   "group": "Mods",
+   "cellFile": "rmp_telvannihearthfires.esp",
+   "containers": 44
+  },
+  {
+   "name": "Winter Cove",
+   "group": "Mods",
+   "cellFile": "Winter Cove.esp",
+   "containers": 16
+  },
+  {
+   "name": "Wuth Rein",
+   "group": "Mods",
+   "cellFile": "WuthRein.esp",
+   "containers": 18
+  },
+  {
+   "name": "Arch-Mage's Quarters",
+   "group": "Vanilla",
+   "cellFile": "Skyrim.esm",
+   "containers": 13
   },
   {
    "name": "Breezehome",
    "group": "Vanilla",
    "cellFile": "Skyrim.esm",
-   "containers": 20
+   "containers": 21
   },
   {
    "name": "Heljarchen Hall",
    "group": "Hearthfire",
    "cellFile": "HearthFires.esm",
-   "containers": 55
-  },
-  {
-   "name": "Heljarchen Hall Cellar",
-   "group": "Hearthfire",
-   "cellFile": "HearthFires.esm",
-   "containers": 7
+   "containers": 86
   },
   {
    "name": "Hjerim",
@@ -95,13 +167,7 @@ window.DS_DATA = {
    "name": "Lakeview Manor",
    "group": "Hearthfire",
    "cellFile": "HearthFires.esm",
-   "containers": 55
-  },
-  {
-   "name": "Lakeview Manor Cellar",
-   "group": "Hearthfire",
-   "cellFile": "HearthFires.esm",
-   "containers": 7
+   "containers": 86
   },
   {
    "name": "Proudspire Manor",
@@ -119,19 +185,13 @@ window.DS_DATA = {
    "name": "Vlindrel Hall",
    "group": "Vanilla",
    "cellFile": "Skyrim.esm",
-   "containers": 38
+   "containers": 39
   },
   {
    "name": "Windstad Manor",
    "group": "Hearthfire",
    "cellFile": "HearthFires.esm",
-   "containers": 55
-  },
-  {
-   "name": "Windstad Manor Cellar",
-   "group": "Hearthfire",
-   "cellFile": "HearthFires.esm",
-   "containers": 7
+   "containers": 86
   }
  ],
  "categories": [
@@ -233,7 +293,7 @@ window.DS_DATA = {
   },
   {
    "id": "books.other",
-   "name": "Books"
+   "name": "Other books"
   },
   {
    "id": "scrolls",
@@ -256,8 +316,16 @@ window.DS_DATA = {
    "name": "Dwemer parts & curios"
   },
   {
+   "id": "misc.curios",
+   "name": "Curios"
+  },
+  {
    "id": "misc.tools",
    "name": "Tools"
+  },
+  {
+   "id": "misc.lights",
+   "name": "Torches"
   },
   {
    "id": "misc.gems",

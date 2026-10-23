@@ -1,7 +1,10 @@
 """Render the Dova Stash press kit images into presskit/nexus/, presskit/logo/ and
 presskit/in-game-examples/.
 
-Stdlib only. Run from anywhere with:   python -I presskit/src/render.py [--check-gray] [name-filter]
+Stdlib only. Run from anywhere with:   python -I presskit/src/render.py [--check-gray] [--dry-run] [name-filter ...]
+
+A name filter renders only the outputs whose path contains it ("gallery-homes"). --dry-run lists them and
+writes nothing. An unknown option is an error, so a typo never re-renders the whole set.
 
 Steps:
   1. Generate src/data.js from the shipped JSON (template names, categories), so the
@@ -12,6 +15,7 @@ Steps:
      (R == G == B), i.e. the set really is black, white and gray only. In-game examples
      are screenshots, so they skip the gray check and get a larger size cap.
 """
+import argparse
 import concurrent.futures
 import json
 import os
@@ -134,12 +138,14 @@ def write_data_js():
         cell_file = d.get("cell", "").split("|")[0]
         if folder == "CreationClub":
             group = "Creation Club"
+        elif folder == "Mods":
+            group = "Mods"
         elif cell_file.lower() == "hearthfires.esm":
             group = "Hearthfire"
         else:
             group = "Vanilla"
         templates.append({"name": d["name"], "group": group, "cellFile": cell_file,
-                          "containers": len(d.get("containers", []))})
+                          "containers": len(d.get("containers", []))})  # a multi-cell home is one template
     cats = json.loads((DATA / "Categories" / "00_Default.json").read_text(
         encoding="utf-8"))["categories"]
     # Group-only entries (no "match": "weapons", "armor"...) name a group; they sort nothing themselves.
@@ -265,11 +271,27 @@ def png_alpha_ok(path):
 
 
 def main(argv):
-    check_gray = "--check-gray" in argv
-    filters = [a for a in argv if not a.startswith("--")]
+    parser = argparse.ArgumentParser(
+        prog="render.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--check-gray", action="store_true",
+                        help="fail on any non-neutral pixel (in-game examples are exempt)")
+    parser.add_argument("--dry-run", action="store_true", help="list what would be rendered; write nothing")
+    parser.add_argument("filters", nargs="*", metavar="name-filter",
+                        help="render only the outputs whose path contains one of these")
+    args = parser.parse_args(argv)
+    check_gray = args.check_gray
+    filters = args.filters
+    todo = [j for j in jobs() if not filters or any(f in j[4] for f in filters)]
+    if args.dry_run:
+        for j in todo:
+            print(j[4])
+        print(f"{len(todo)} image(s); data.js would be regenerated")
+        return 0
+    if not todo:
+        print(f"no output matches {filters}")
+        return 1
     n_t, n_c = write_data_js()
     print(f"data.js: {n_t} templates, {n_c} categories")
-    todo = [j for j in jobs() if not filters or any(f in j[4] for f in filters)]
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         list(pool.map(render, todo))
     failures = 0

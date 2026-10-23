@@ -1,8 +1,7 @@
 #include "UI/Panel/DisplaysPage.h"
 
 #include "Controller.h"
-#include "UI/ArmorSetMenu.h"
-#include "UI/Panel/ArmorSetsModel.h"
+#include "UI/Panel/ArmorSetPicker.h"
 #include "UI/Panel/DisplaysModel.h"
 #include "UI/Panel/PanelModel.h"
 #include "UI/Panel/Strings.h"
@@ -18,7 +17,7 @@
 
 #include "UI/Panel/Widgets.h"  // needs ImGuiMCP from the header above
 
-// RENDER THREAD ONLY: read DisplaysModel / ArmorSetsModel snapshots, post Controller actions to the main
+// RENDER THREAD ONLY: read DisplaysModel snapshots (and ArmorSetsModel through the set picker), post Controller actions to the main
 // thread (they re-check the captured cell id, as the hotkey's display menu does). Layout, wording and widget
 // conventions: UI/Panel/Strings.h.
 
@@ -30,7 +29,6 @@ namespace dova::ui::panel
 		using namespace widgets;
 
 		constexpr std::size_t kMaxRows = 500;
-		constexpr std::size_t kMaxSets = 100;
 
 		enum Status : int
 		{
@@ -62,19 +60,14 @@ namespace dova::ui::panel
 			int                              contents{ kAnyContents };
 			int                              sort{ kByName };
 			std::optional<core::FormRef>     selected;
+			std::optional<core::FormRef>     aimedSeen;  // the aimed display last scrolled to
 			std::uint32_t                    cellId{ 0 };
 			std::string                      confirm;  // key of the inline confirmation being shown
-			std::array<char, 64>             setSearch{};
 
 			// filter cache
 			std::uint64_t            filteredSerial{ 0 };
 			std::string              filteredKey;
 			std::vector<std::size_t> filtered;
-
-			// armor set list cache
-			std::uint64_t            setsSerial{ 0 };
-			std::string              setsQuery;
-			std::vector<std::size_t> sets;
 		};
 		PageState g_page;
 
@@ -230,18 +223,22 @@ namespace dova::ui::panel
 				}
 				ImGui::EndCombo();
 			}
+			Tooltip(text::kDispKindTip);
 			ImGui::SameLine();
 			static constexpr std::array kStatuses{ text::kDispAnyStatus, text::kDispUsedOnly, text::kDispNotUsedOnly, text::kDispIgnoredOnly };
 			ImGui::SetNextItemWidth(120.0f);
 			ImGui::Combo("##status", &g_page.status, kStatuses.data(), static_cast<int>(kStatuses.size()));
+			Tooltip(text::kDispStatusTip);
 			ImGui::SameLine();
 			static constexpr std::array kContents{ text::kDispAnyContents, text::kDispEmptyOnly, text::kDispHoldsOnly, text::kDispRoomOnly };
 			ImGui::SetNextItemWidth(140.0f);
 			ImGui::Combo("##contents", &g_page.contents, kContents.data(), static_cast<int>(kContents.size()));
+			Tooltip(text::kDispContentsTip);
 			ImGui::SameLine();
 			static constexpr std::array kSorts{ text::kDispSortName, text::kDispSortKind, text::kDispSortArea, text::kDispSortStatus };
 			ImGui::SetNextItemWidth(130.0f);
 			ImGui::Combo("##sort", &g_page.sort, kSorts.data(), static_cast<int>(kSorts.size()));
+			Tooltip(text::kDispSortTip);
 
 			ImGui::SetNextItemWidth(260.0f);
 			ImGui::InputTextWithHint("##search", text::kDispSearchHint, g_page.search.data(), g_page.search.size());
@@ -279,6 +276,11 @@ namespace dova::ui::panel
 
 		void RenderTable(const DisplaysSnapshot& a_snap, const std::vector<std::size_t>& a_rows)
 		{
+			const auto* aimed = a_snap.aimedRow && *a_snap.aimedRow < a_snap.rows.size() ? &a_snap.rows[*a_snap.aimedRow] : nullptr;
+			const bool  scrollToAimed = aimed && g_page.aimedSeen != aimed->ref;
+			if (scrollToAimed) {
+				g_page.aimedSeen = aimed->ref;
+			}
 			const int columns = a_snap.multiCell ? 6 : 5;
 			if (!ImGui::BeginTable("##displays", columns, kScrollTableFlags, ImGui::ImVec2{ 0.0f, TableHeight(std::min(a_rows.size(), kMaxRows), 12) })) {
 				return;
@@ -304,6 +306,14 @@ namespace dova::ui::panel
 					g_page.confirm.clear();
 				}
 				Tooltip(row.refText);
+				if (&row == aimed) {
+					ImGui::SameLine();
+					Colored(kAccent, text::kStatusAimed);
+					Tooltip(text::kDispAimedTip);
+					if (scrollToAimed) {
+						ImGui::SetScrollHereY(0.5f);
+					}
+				}
 				ImGui::TableNextColumn();
 				Cell(row.kindName);
 				if (a_snap.multiCell) {
@@ -319,6 +329,9 @@ namespace dova::ui::panel
 				ImGui::PopID();
 			}
 			ImGui::EndTable();
+			if (a_rows.size() > kMaxRows) {
+				Disabled(std::format(text::kSetsTooMany, kMaxRows));  // the filters or the search narrow it down
+			}
 		}
 
 		// The category picker of a used rack or mannequin: the hotkey picker's choices, as checkboxes.
@@ -364,79 +377,15 @@ namespace dova::ui::panel
 			ImGui::TreePop();
 		}
 
-		// A mannequin's armor set: Auto, or any set of the load order (the Armor sets page's data); the sets
-		// the player has first.
+		// A mannequin's armor set: Auto, or any set of the load order (UI/Panel/ArmorSetPicker.h), the sets the
+		// player has first. The search over every set lives here (it was the Armor sets page).
 		void RenderArmorSet(const DisplaysSnapshot& a_snap, const DisplayRow& a_row)
 		{
 			if (!ImGui::TreeNode("##armorset", "%s", std::format(text::kDispArmorSet, a_row.setName).c_str())) {
 				Tooltip(text::kDispSetTip);
 				return;
 			}
-			const auto cellId = a_snap.cellId;
-			const auto ref = a_row.ref;
-			ImGui::BeginDisabled(!a_row.hasSet);
-			if (ImGui::Button(text::kAuto)) {
-				Do([cellId, ref]() { ChooseArmorSet(cellId, ref, std::nullopt); });
-			}
-			ImGui::EndDisabled();
-			Tooltip(text::kAutoTip);
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(220.0f);
-			ImGui::InputTextWithHint("##setsearch", text::kDispSetSearchHint, g_page.setSearch.data(), g_page.setSearch.size());
-
-			auto& model = ArmorSetsModel::Get();
-			model.RequestRefresh();
-			const auto sets = model.Snapshot();
-			if (!sets || !sets->index) {
-				Disabled(text::kLoading);
-				ImGui::TreePop();
-				return;
-			}
-			const auto& index = *sets->index;
-			const auto  query = FromBuffer(g_page.setSearch);
-			if (g_page.setsSerial != sets->serial || g_page.setsQuery != query) {
-				// No search: the sets the player has. A search: every set that matches, those first.
-				g_page.sets.clear();
-				for (std::size_t s = 0; s < index.sets.size(); ++s) {
-					const bool have = sets->coverage[s].pieces > 0;
-					if ((query.empty() && have) || (!query.empty() && core::ArmorSetMatches(index.sets[s], index.pieces, query))) {
-						g_page.sets.push_back(s);
-					}
-				}
-				std::ranges::stable_sort(g_page.sets, [&](std::size_t a_lhs, std::size_t a_rhs) {
-					const auto& l = sets->coverage[a_lhs];
-					const auto& r = sets->coverage[a_rhs];
-					if (l.Complete() != r.Complete()) {
-						return l.Complete();
-					}
-					return l.have > r.have;
-				});
-				g_page.setsSerial = sets->serial;
-				g_page.setsQuery = query;
-			}
-			std::optional<std::size_t> current;
-			if (a_row.set) {
-				if (const auto it = index.setOf.find(*a_row.set); it != index.setOf.end()) {
-					current = it->second;
-				}
-			}
-			if (ImGui::BeginChild("##sets", ImGui::ImVec2{ 0.0f, 150.0f }, ImGui::ImGuiChildFlags_Border)) {
-				for (std::size_t i = 0; i < g_page.sets.size() && i < kMaxSets; ++i) {
-					const auto  s = g_page.sets[i];
-					const auto& set = index.sets[s];
-					const auto& coverage = sets->coverage[s];
-					const auto  label = coverage.pieces > 0 ? std::format(text::kDispSetHave, set.name, coverage.have, coverage.total) : std::format(text::kDispSetPlugin, set.name, set.plugin);
-					ImGui::PushID(static_cast<int>(s));
-					if (ImGui::Selectable(label.c_str(), current == s)) {
-						Do([cellId, ref, id = set.id]() { ChooseArmorSet(cellId, ref, id); });
-					}
-					ImGui::PopID();
-				}
-				if (g_page.sets.empty()) {
-					Disabled(text::kNone);
-				}
-			}
-			ImGui::EndChild();
+			RenderArmorSetPicker(a_snap.cellId, a_row.ref, a_row.hasSet ? a_row.set : std::nullopt, [](std::function<void()> a_fn) { Do(std::move(a_fn)); });
 			ImGui::TreePop();
 		}
 
@@ -502,7 +451,7 @@ namespace dova::ui::panel
 
 	void __stdcall RenderDisplaysPage()
 	{
-		PanelModel::Get().MarkRendered();  // notifications go to the status line below while the page is open
+		PanelModel::Get().MarkRendered(Page::Displays);  // notifications go to the status line below while the page is open
 		auto& model = DisplaysModel::Get();
 		model.RequestRefresh();
 		// The player changed homes (the panel's home snapshot follows cell changes): rebuild now, once.
@@ -525,6 +474,7 @@ namespace dova::ui::panel
 		if (snap->cellId != g_page.cellId) {
 			g_page.cellId = snap->cellId;
 			g_page.selected.reset();
+			g_page.aimedSeen.reset();
 			g_page.confirm.clear();
 		}
 
@@ -535,34 +485,47 @@ namespace dova::ui::panel
 			model.RequestRefresh(true, true);
 		}
 		Tooltip(text::kDispRefreshTip);
-		const bool canEdit = snap->enabled && !snap->broken;
-		if (snap->broken) {
-			ColoredWrapped(kYellow, text::kDispBroken);
-		} else if (!snap->enabled) {
-			Disabled(text::kNeedsSetup);
-		}
-		if (snap->rows.empty()) {
-			Disabled(text::kDispNone);
-			StatusLine(PanelModel::Get().Status());
-			return;
-		}
+		StatusLine(PanelModel::Get().Status(Page::Displays), PanelModel::Get().StatusIsError());  // in view of the buttons below
+		// Only what is below the status line scrolls, so it stays in view of the button pressed.
+		const auto body = [&]() {
+			const bool canEdit = snap->enabled && !snap->broken;
+			if (snap->broken) {
+				ColoredWrapped(kRed, text::kDispBroken);
+			} else if (!snap->enabled) {
+				Disabled(text::kNeedsSetup);
+			}
+			if (snap->rows.empty()) {
+				Disabled(text::kDispNone);
+				return;
+			}
 
-		RenderFilters(*snap);
-		const auto& rows = Filtered(*snap);
-		ImGui::SameLine();
-		Disabled(std::format(text::kDispCount, rows.size(), snap->rows.size()));
-		RenderTable(*snap, rows);
+			// The display the player looks at is selected when nothing is (the table scrolls to it).
+			if (snap->aimedRow && *snap->aimedRow < snap->rows.size() && !g_page.selected && g_page.aimedSeen != snap->rows[*snap->aimedRow].ref) {
+				g_page.selected = snap->rows[*snap->aimedRow].ref;
+			}
+			RenderFilters(*snap);
+			const auto& rows = Filtered(*snap);
+			ImGui::SameLine();
+			Disabled(std::format(text::kDispCount, rows.size(), snap->rows.size()));
+			if (rows.empty()) {
+				Disabled(text::kDispNoMatch);
+			} else {
+				RenderTable(*snap, rows);
+			}
 
-		const auto selected = g_page.selected ? std::ranges::find(snap->rows, *g_page.selected, &DisplayRow::ref) : snap->rows.end();
-		if (selected != snap->rows.end()) {
-			RenderSelected(*snap, *selected, canEdit);
-		} else {
-			Disabled(text::kDispSelect);
+			const auto selected = g_page.selected ? std::ranges::find(snap->rows, *g_page.selected, &DisplayRow::ref) : snap->rows.end();
+			if (selected != snap->rows.end()) {
+				RenderSelected(*snap, *selected, canEdit);
+			} else {
+				Disabled(text::kDispSelect);
+			}
+			if (canEdit) {
+				RenderBulk(*snap);
+			}
+		};
+		if (ImGui::BeginChild("##dispbody")) {
+			body();
 		}
-		if (canEdit) {
-			RenderBulk(*snap);
-		}
-
-		StatusLine(PanelModel::Get().Status());
+		ImGui::EndChild();
 	}
 }

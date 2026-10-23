@@ -1,1 +1,1 @@
-One SKSE DLL for SE 1.5.97, AE 1.6.x and VR (experimental). No ESP. 37 categories and 22 home templates. Needs SKSE and Address Library. Optional: SKSE Menu Framework (settings and editor), UIExtensions (in-world lists), QuickLoot IE.
+One SKSE DLL for SE 1.5.97, AE 1.6.x and VR (experimental). No ESP. 39 categories and 32 home templates. Needs SKSE and Address Library. Optional: SKSE Menu Framework (settings and the in-game panel), UIExtensions (in-world lists), QuickLoot IE.

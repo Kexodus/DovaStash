@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <set>
+#include <utility>
 
 #include "JsonUtil.h"
 #include "dova/core/Category.h"
@@ -14,6 +15,27 @@ namespace dova::core
 
 	namespace
 	{
+		// The "kind" error, from the DisplayKind table: 'expected one of rack, ..., bookshelf', with a near miss.
+		std::string DisplayKindError(const json& a_value)
+		{
+			std::string                   message = "expected one of ";
+			std::vector<std::string_view> kinds;
+			for (auto k = std::to_underlying(DisplayKind::Rack); k <= std::to_underlying(DisplayKind::Bookshelf); ++k) {
+				kinds.push_back(DisplayKindName(static_cast<DisplayKind>(k)));
+				message += (kinds.size() > 1 ? ", " : "") + std::string(kinds.back());
+			}
+			message += " (kept verbatim, ignored)";
+			if (a_value.is_string()) {
+				const auto text = a_value.get<std::string>();
+				auto       hint = detail::DidYouMean(text, kinds);
+				if (hint.empty() && (ToLower(text).find("book") != std::string::npos || ToLower(text).find("shel") != std::string::npos)) {
+					hint = "; did you mean \"" + std::string(DisplayKindName(DisplayKind::Bookshelf)) + "\"?";  // "bookcase", "shelf"
+				}
+				message += hint;
+			}
+			return message;
+		}
+
 		ojson ToOrdered(const json& a_value)
 		{
 			return ojson::parse(a_value.dump());
@@ -48,8 +70,11 @@ namespace dova::core
 		{
 			for (std::size_t i = 0; i < a_list.size(); ++i) {
 				if (KeepSelector::Parse(a_list[i]).kind == KeepSelector::Kind::Invalid) {
+					// A '|' means a form reference was meant: say what is wrong with it.
+					const auto err = a_list[i].find('|') != std::string::npos ? FormRefError(a_list[i]) : std::string();
+					const auto why = err.empty() ? err : ": " + err;
 					a_diags.Warn(a_source, a_where + "[" + std::to_string(i) + "]: \"" + a_list[i] +
-						"\" is not a token, form reference or category pattern (kept, but ignored)");
+						"\" is not a token, form reference or category pattern (kept, but ignored)" + why);
 				}
 			}
 		}
@@ -85,7 +110,7 @@ namespace dova::core
 							if (auto ref = FormRef::Parse(s)) {
 								forms.push_back(std::move(*ref));
 							} else {
-								a_diags.Error(a_source, where + ": invalid form reference \"" + s + "\"");
+								a_diags.Error(a_source, where + ": invalid form reference \"" + s + "\": " + FormRefError(s));
 								ok = false;
 							}
 						}
@@ -109,6 +134,9 @@ namespace dova::core
 						rule.extra[key] = value;
 					}
 				} else {
+					if (key != "note") {  // a comment, as on containers and displays
+						a_diags.Warn(a_source, where + ": unknown field (preserved)" + detail::DidYouMean(key, { "category", "keywordsAny", "forms", "quota", "restock" }));
+					}
 					rule.extra[key] = value;
 				}
 			}
@@ -163,7 +191,7 @@ namespace dova::core
 			}
 			auto ref = FormRef::Parse(refIt->get<std::string>());
 			if (!ref) {
-				a_diags.Error(a_source, a_where + ".ref: invalid form reference \"" + refIt->get<std::string>() + "\" (kept verbatim)");
+				a_diags.Error(a_source, a_where + ".ref: invalid form reference \"" + refIt->get<std::string>() + "\" (kept verbatim): " + FormRefError(refIt->get<std::string>()));
 				return std::nullopt;
 			}
 
@@ -197,7 +225,7 @@ namespace dova::core
 							if (auto f = FormRef::Parse(s)) {
 								c.forms.push_back(std::move(*f));
 							} else {
-								a_diags.Error(a_source, where + ": invalid form reference \"" + s + "\" (kept verbatim, ignored)");
+								a_diags.Error(a_source, where + ": invalid form reference \"" + s + "\" (kept verbatim, ignored): " + FormRefError(s));
 								c.unparsedForms.push_back(s);
 							}
 						}
@@ -206,7 +234,7 @@ namespace dova::core
 					if (key == "label" || key == "note" || key == "ignored" || key == "sell" || key == "categories" || key == "forms") {
 						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
-						a_diags.Warn(a_source, where + ": unknown field (preserved)");
+						a_diags.Warn(a_source, where + ": unknown field (preserved)" + detail::DidYouMean(key, { "ref", "label", "note", "ignored", "sell", "categories", "forms" }));
 					}
 					c.extra[key] = value;
 				}
@@ -260,7 +288,7 @@ namespace dova::core
 			}
 			auto ref = FormRef::Parse(refIt->get<std::string>());
 			if (!ref) {
-				a_diags.Error(a_source, a_where + ".ref: invalid form reference \"" + refIt->get<std::string>() + "\" (kept verbatim)");
+				a_diags.Error(a_source, a_where + ".ref: invalid form reference \"" + refIt->get<std::string>() + "\" (kept verbatim): " + FormRefError(refIt->get<std::string>()));
 				return std::nullopt;
 			}
 
@@ -294,7 +322,7 @@ namespace dova::core
 							if (auto f = FormRef::Parse(s)) {
 								d.items.push_back(std::move(*f));
 							} else {
-								a_diags.Error(a_source, where + ": invalid form reference \"" + s + "\" (kept verbatim, ignored)");
+								a_diags.Error(a_source, where + ": invalid form reference \"" + s + "\" (kept verbatim, ignored): " + FormRefError(s));
 								d.unparsedItems.push_back(s);
 							}
 						}
@@ -305,13 +333,13 @@ namespace dova::core
 					d.set = FormRef::Parse(value.get<std::string>());
 				} else {
 					if (key == "kind") {
-						a_diags.Error(a_source, where + ": expected \"rack\", \"mannequin\", \"item\" or \"case\" (kept verbatim, ignored)");
+						a_diags.Error(a_source, where + ": " + DisplayKindError(value));
 					} else if (key == "set") {
 						a_diags.Error(a_source, where + ": expected a form reference to a piece of the set (kept verbatim, ignored)");
 					} else if (key == "label" || key == "note" || key == "ignored" || key == "items" || key == "categories" || key == "only") {
 						a_diags.Error(a_source, where + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
-						a_diags.Warn(a_source, where + ": unknown field (preserved)");
+						a_diags.Warn(a_source, where + ": unknown field (preserved)" + detail::DidYouMean(key, { "ref", "kind", "label", "note", "categories", "ignored", "items", "only", "set" }));
 					}
 					d.extra[key] = value;
 				}
@@ -366,7 +394,7 @@ namespace dova::core
 			}
 			auto ref = FormRef::Parse(a_value.get<std::string>());
 			if (!ref) {
-				a_diags.Error(a_source, a_where + ": invalid form reference \"" + a_value.get<std::string>() + "\" (kept verbatim)");
+				a_diags.Error(a_source, a_where + ": invalid form reference \"" + a_value.get<std::string>() + "\" (kept verbatim): " + FormRefError(a_value.get<std::string>()));
 			}
 			return ref;
 		}
@@ -472,7 +500,7 @@ namespace dova::core
 					}
 				}
 			} else {
-				a_diags.Warn(source, where + ": unknown field (preserved)");
+				a_diags.Warn(source, where + ": unknown field (preserved)" + detail::DidYouMean(key, { "inherit", "always", "never", "quotas", "rules" }));
 				keep.extra[key] = value;
 			}
 		}
@@ -565,9 +593,9 @@ namespace dova::core
 					a_diags.Error(source, "priority: expected an integer (kept verbatim)");
 					layout.extra[key] = value;
 				}
-			} else if (key == "requires" || key == "conflicts") {
+			} else if (key == "requires" || key == "conflicts" || key == "replaces") {
 				if (auto list = detail::ReadStringList(value, source, key, a_diags)) {
-					(key == "requires" ? layout.requiredPlugins : layout.conflictPlugins) = std::move(*list);
+					(key == "requires" ? layout.requiredPlugins : key == "conflicts" ? layout.conflictPlugins : layout.replaces) = std::move(*list);
 				} else {
 					layout.extra[key] = value;
 				}
@@ -636,7 +664,8 @@ namespace dova::core
 					auto form = FormRef::Parse(formText);
 					auto target = containerValue.is_string() ? FormRef::Parse(containerValue.get<std::string>()) : std::nullopt;
 					if (!form || !target) {
-						a_diags.Error(source, "learned[\"" + formText + "\"]: invalid form reference (kept verbatim)");
+						const auto reason = !form ? FormRefError(formText) : containerValue.is_string() ? FormRefError(containerValue.get<std::string>()) : std::string("expected a container reference");
+						a_diags.Error(source, "learned[\"" + formText + "\"]: invalid form reference (kept verbatim): " + reason);
 						layout.unparsedLearned[formText] = containerValue;
 						continue;
 					}
@@ -669,7 +698,8 @@ namespace dova::core
 						}
 					}
 					if (!ok) {
-						a_diags.Error(source, "declined[\"" + refText + "\"]: expected a container reference and a list of category ids (kept verbatim)");
+						a_diags.Error(source, "declined[\"" + refText + "\"]: expected a container reference and a list of category ids (kept verbatim)" +
+							(ref ? std::string() : ": " + FormRefError(refText)));
 						layout.unparsedDeclined[refText] = idsValue;
 						continue;
 					}
@@ -680,8 +710,27 @@ namespace dova::core
 						}
 					}
 				}
+			} else if (key == "hiddenTemplates") {
+				// Templates the player removed from this home: a list of template sources. Anything else is kept
+				// verbatim, never dropped (and then nothing is hidden, nor can be until it is fixed by hand).
+				const bool ok = value.is_array() && std::ranges::all_of(value, [](const nlohmann::json& a_entry) {
+					return a_entry.is_string() && !a_entry.get<std::string>().empty();
+				});
+				if (!ok) {
+					a_diags.Error(source, "hiddenTemplates: expected a list of template files (kept verbatim)");
+					layout.extra[key] = value;
+					continue;
+				}
+				for (const auto& entry : value) {
+					auto text = entry.get<std::string>();
+					if (std::ranges::none_of(layout.hiddenTemplates, [&](const std::string& e) { return IEquals(e, text); })) {
+						layout.hiddenTemplates.push_back(std::move(text));
+					}
+				}
 			} else {
-				a_diags.Warn(source, "unknown field \"" + key + "\" (preserved)");
+				a_diags.Warn(source, "unknown field \"" + key + "\" (preserved)" +
+					detail::DidYouMean(key, { "$schema", "name", "note", "author", "version", "basedOn", "autoDraft", "priority", "requires", "conflicts", "replaces", "cell",
+						"master", "cells", "containers", "displays", "keep", "learned", "declined", "hiddenTemplates" }));
 				layout.extra[key] = value;
 			}
 		}
@@ -689,7 +738,7 @@ namespace dova::core
 		if (!layout.cell && !layout.extra.contains("cell")) {
 			a_diags.Error(source, "missing \"cell\"");
 		}
-		ValidateHomeCells(layout.cell, layout.cells, source, a_diags);
+		ValidateHomeCells(layout.cell, layout.cells, source, a_diags, layout.master);
 		if (layout.master) {
 			if (const auto* c = layout.FindContainer(*layout.master); c && c->ignored) {
 				a_diags.Warn(source, "the master container is also listed as ignored");
@@ -741,6 +790,9 @@ namespace dova::core
 		if (!a_layout.conflictPlugins.empty()) {
 			out["conflicts"] = a_layout.conflictPlugins;
 		}
+		if (!a_layout.replaces.empty()) {
+			out["replaces"] = a_layout.replaces;
+		}
 		if (a_layout.cell) {
 			out["cell"] = a_layout.cell->ToString();
 		}
@@ -791,6 +843,9 @@ namespace dova::core
 				out["declined"] = std::move(declined);
 			}
 		}
+		if (!a_layout.hiddenTemplates.empty()) {
+			out["hiddenTemplates"] = a_layout.hiddenTemplates;
+		}
 		if (a_layout.basedOn) {
 			out["basedOn"] = *a_layout.basedOn;
 		}
@@ -822,9 +877,9 @@ namespace dova::core
 		return ParseLayoutText(*text, a_source, a_diags);
 	}
 
-	bool SaveLayoutFile(const std::filesystem::path& a_path, const Layout& a_layout)
+	bool SaveLayoutFile(const std::filesystem::path& a_path, const Layout& a_layout, bool a_inPlaceFallback)
 	{
-		return detail::WriteTextFileAtomic(a_path, SerializeLayout(a_layout));
+		return detail::WriteTextFileAtomic(a_path, SerializeLayout(a_layout), a_inPlaceFallback);
 	}
 
 	std::string LayoutFileName(const FormRef& a_cell)

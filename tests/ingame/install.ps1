@@ -1,3 +1,4 @@
+#Requires -Version 7
 <#
 .SYNOPSIS
   Installs the automated in-game tests into an MO2 instance (docs/TESTING.md, "Automated in-game tests").
@@ -11,6 +12,9 @@
     The Creation Club and DLC entries are copied from -SourceProfile. No other profile is changed.
   - With -Only <regex>: only the plans whose file name matches are installed (plus _run.json), so one run stays
     under the run timeout. Without it, every plan.
+  - A plan that names plugins it needs ("requires": ["WynterBreezehomeRedux.esp"]) is not installed when the profile
+    does not enable them (its plugins.txt; the base game files count as enabled). Installed anyway (by hand), the
+    plugin marks its tests "skip" in a load order without them.
   - Extra home mods for the profile: tests/ingame/profile/extra-mods.txt, one "Mod folder name|plugin.esp[,more.esp]"
     per line (# comments; -ExtraMods <file> names another list, e.g. extra-mods-wynter.txt). They are enabled below the base mods, their plugins after the base plugins, so plans
     for mod-added homes can run. A missing mod is skipped with a warning (the plans for it then fail on `enter`).
@@ -19,11 +23,11 @@
     DLL left there by an earlier run is removed, so the profile tests the Dova Stash mod's own DLL.
 
 .EXAMPLE
-  powershell -File tests\ingame\install.ps1 -Profile
+  pwsh -File tests\ingame\install.ps1 -Profile
 #>
 [CmdletBinding()]
 param(
-	[string]$Mo2 = 'E:\modding\Kexodus Skyrim',
+	[string]$Mo2 = $(if ($env:DOVASTASH_MO2) { $env:DOVASTASH_MO2 } else { 'E:\modding\Kexodus Skyrim' }),
 	[string]$ProfileName = 'Dova Stash AutoTest',
 	[switch]$Profile,
 	[string]$SourceProfile = 'Dova Stash Testing',
@@ -33,6 +37,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not (Test-Path (Join-Path $Mo2 'ModOrganizer.ini'))) { throw "No MO2 instance at ${Mo2}: pass -Mo2 <instance folder> or set DOVASTASH_MO2" }
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $modsDir = Join-Path $Mo2 'mods'
 $testMod = Join-Path $modsDir 'Dova Stash AutoTest'
@@ -55,6 +60,17 @@ comments=$comment
 New-Item -ItemType Directory -Force $testMod | Out-Null
 $plans = Join-Path $testMod 'SKSE\Plugins\DovaStash\AutoTest'
 if (Test-Path $plans) { Remove-Item -Recurse -Force $plans }
+# Test templates mirror the repository exactly: a deployed one that is no longer there (an older run's, or one deleted
+# from the repo) would shadow the shipped template of its home in every later run.
+$testTemplates = Join-Path $testMod 'SKSE\Plugins\DovaStash\Templates\AutoTest'
+if (Test-Path $testTemplates) {
+	$repoNames = @{}
+	foreach ($t in Get-ChildItem (Join-Path $here 'mod\SKSE\Plugins\DovaStash\Templates\AutoTest') -File -ErrorAction SilentlyContinue) { $repoNames[$t.Name.ToLower()] = $true }
+	foreach ($t in Get-ChildItem $testTemplates -File) {
+		if (-not $repoNames.ContainsKey($t.Name.ToLower())) { Write-Host "AutoTest: removed test template $($t.Name) (not in the repository)" }
+	}
+	Remove-Item -Recurse -Force $testTemplates
+}
 Copy-Item -Recurse -Force (Join-Path $here 'mod\*') $testMod
 if ($Only) {
 	$kept = 0
@@ -67,10 +83,33 @@ if ($Only) {
 }
 Write-Meta $testMod 'Dova Stash automated in-game tests (tests/ingame). Enable only in the Dova Stash AutoTest profile.'
 
-# Test templates (mod/SKSE/Plugins/DovaStash/Templates/AutoTest/*.json) are seen by every plan of the run, and one with a
-# higher priority changes what "Use template" picks for its cell: only the templates the installed plans declare
-# ("templates": ["LakeviewManor.json"]) are kept, so plans that need the shipped template alone can run without them.
-$testTemplates = Join-Path $testMod 'SKSE\Plugins\DovaStash\Templates\AutoTest'
+# Plans whose "requires" plugins the profile does not enable: not installed (they could only fail).
+function Remove-UnmetPlans([string]$profileDir) {
+	$pluginsFile = Join-Path $profileDir 'plugins.txt'
+	if (-not (Test-Path $pluginsFile)) { return }
+	$enabled = @{}
+	foreach ($l in Get-Content $pluginsFile) { if ($l.StartsWith('*')) { $enabled[$l.Substring(1).Trim().ToLower()] = $true } }
+	$loadOrder = Join-Path $profileDir 'loadorder.txt'
+	if (Test-Path $loadOrder) {
+		foreach ($l in Get-Content $loadOrder) {
+			if ($l -match '^(Skyrim|Update|Dawnguard|HearthFires|Dragonborn)\.esm$' -or $l -match '^cc\w+.*\.es[ml]$') { $enabled[$l.Trim().ToLower()] = $true }
+		}
+	}
+	foreach ($f in Get-ChildItem $plans -Filter '*.json') {
+		if ($f.Name -like '_*') { continue }
+		try { $plan = Get-Content $f.FullName -Raw | ConvertFrom-Json } catch { continue }
+		$missing = @($plan.requires | Where-Object { $_ -and -not $enabled.ContainsKey($_.ToLower()) })
+		if ($missing.Count) {
+			Remove-Item -Force $f.FullName
+			Write-Host "AutoTest: $($f.BaseName) not installed: needs $($missing -join ', ')"
+		}
+	}
+}
+
+# Test templates (mod/SKSE/Plugins/DovaStash/Templates/AutoTest/*.json): one with a higher priority changes what "Use
+# template" picks for its cell. The plugin scopes them to the plan that declares them ("templates": ["LakeviewManor.json"]),
+# loading only those while that plan runs (AutoTest.cpp), so a plan that needs the shipped template sees it even in a
+# full run. Here, the ones no installed plan declares are not installed at all.
 if (Test-Path $testTemplates) {
 	$declared = @{}
 	foreach ($f in Get-ChildItem $plans -Filter '*.json') {
@@ -80,9 +119,23 @@ if (Test-Path $testTemplates) {
 	}
 	$removed = 0
 	foreach ($t in Get-ChildItem $testTemplates -Filter '*.json') {
-		if (-not $declared.ContainsKey($t.Name.ToLower())) { Remove-Item -Force $t.FullName; $removed++ }
+		if (-not $declared.ContainsKey($t.Name.ToLower())) { Remove-Item -Force $t.FullName; $removed++; Write-Host "AutoTest: test template $($t.Name) left out (no installed plan declares it)" }
 	}
-	Write-Host "AutoTest: $($declared.Count) test template(s) kept, $removed not declared by an installed plan removed"
+	$kept = @(Get-ChildItem $testTemplates -Filter '*.json').Count
+	Write-Host "AutoTest: $kept test template(s) installed, $removed left out"
+}
+# A test template that no plan in the repository declares is dead data that drifts from the shipped templates.
+$repoTemplates = Join-Path $here 'mod\SKSE\Plugins\DovaStash\Templates\AutoTest'
+if (Test-Path $repoTemplates) {
+	$anyPlan = @{}
+	foreach ($f in Get-ChildItem (Join-Path $here 'mod\SKSE\Plugins\DovaStash\AutoTest') -Filter '*.json') {
+		if ($f.Name -like '_*') { continue }
+		try { $plan = Get-Content $f.FullName -Raw | ConvertFrom-Json } catch { continue }
+		foreach ($t in @($plan.templates)) { if ($t) { $anyPlan[$t.ToLower()] = $true } }
+	}
+	foreach ($t in Get-ChildItem $repoTemplates -Filter '*.json') {
+		if (-not $anyPlan.ContainsKey($t.Name.ToLower())) { Write-Warning "AutoTest: test template $($t.Name) is declared by no plan; delete it or add it to a plan's `"templates`"" }
+	}
 }
 
 $dllTarget = Join-Path $testMod 'SKSE\Plugins\DovaStash.dll'
@@ -98,7 +151,10 @@ if ($Dll) {
 
 Write-Host "AutoTest: installed $testMod"
 
-if (-not $Profile) { return }
+if (-not $Profile) {
+	Remove-UnmetPlans (Join-Path (Join-Path $Mo2 'profiles') $ProfileName)
+	return
+}
 
 # --- the profile ----------------------------------------------------------------------------------------------
 $profiles = Join-Path $Mo2 'profiles'
@@ -160,3 +216,4 @@ foreach ($f in 'settings.ini', 'skyrim.ini', 'skyrimprefs.ini', 'skyrimcustom.in
 	Copy-Item -Force (Join-Path $here "profile\$f") (Join-Path $target $f)
 }
 Write-Host "AutoTest: profile $target written ($($mods.Count + $homeMods.Count) mods, $($base.Count + $plugins.Count) plugins)"
+Remove-UnmetPlans $target

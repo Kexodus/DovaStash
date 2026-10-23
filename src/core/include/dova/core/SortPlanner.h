@@ -12,7 +12,8 @@
 //      first category that any non-ignored container binds, the container with the most specific
 //      matching pattern wins (exact > deeper wildcard > shallower wildcard > "*"), ties go to the
 //      container listed first
-//   4. the master container ("homeless")
+//   4. the master container ("homeless"); while it is not available, the area master (HomeCell::master, DESIGN §6.7)
+//      of the player's area (SetPlayerArea), else the first available area master in `cells` order
 // Candidates rejected by the availability callback (unloaded, disabled, failed safety checks) are
 // skipped; if nothing is available the item has no destination and is not moved.
 //
@@ -154,7 +155,14 @@ namespace dova::core
 	public:
 		SortPlanner(const Layout& a_layout, const CategorySet& a_categories, ContainerAvailability a_available = {});
 
+		// The cell the player is in (a multi-cell home): its area master is the first fallback when the home's master is
+		// not available. Unset: the area masters in `cells` order.
+		void SetPlayerArea(const FormRef& a_cell) { _area = a_cell; }
+
 		[[nodiscard]] std::optional<Destination> ResolveDestination(const ItemInfo& a_item) const;
+
+		// Where homeless items go now (step 4): the master when available, else an area master (see above), else nullopt.
+		[[nodiscard]] std::optional<FormRef> CatchAll() const;
 
 		// `a_explain`, when given, receives one StackDecision per input stack.
 		[[nodiscard]] std::vector<Move> Deposit(std::span<const ItemInfo> a_inventory, const KeepRules& a_keep,
@@ -167,12 +175,12 @@ namespace dova::core
 		[[nodiscard]] std::vector<Move> Restock(std::span<const ItemInfo> a_inventory, std::span<const ContainerContents> a_containers,
 			const KeepRules& a_keep, std::vector<RestockLine>* a_explain = nullptr) const;
 
-		// Master, or a non-ignored container of the layout (availability not considered).
+		// Master or an area master, or a non-ignored container of the layout (availability not considered).
 		[[nodiscard]] bool IsManaged(const FormRef& a_container) const;
 		[[nodiscard]] bool IsAvailable(const FormRef& a_container) const;
 
-		// Master, or a non-ignored container with category bindings or explicit forms that is not the sell chest
-		// (SortAll sources).
+		// Master or an area master, or a non-ignored container with category bindings or explicit forms that is not the
+		// sell chest (SortAll sources).
 		[[nodiscard]] bool IsSortSource(const FormRef& a_container) const;
 
 		// Quest items, non-playable items, nameless items and empty stacks are never moved.
@@ -182,6 +190,9 @@ namespace dova::core
 		const Layout&         _layout;
 		const CategorySet&    _categories;
 		ContainerAvailability _available;
+		std::optional<FormRef> _area;
+
+		[[nodiscard]] bool IsAreaMaster(const FormRef& a_container) const;
 	};
 
 	enum class LearnResult : std::uint8_t

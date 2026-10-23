@@ -1,5 +1,7 @@
 #include "Cli.h"
 
+#include <array>
+#include <span>
 #include <chrono>
 #include <cstdio>
 #include <algorithm>
@@ -21,6 +23,7 @@
 #include "render/Image.h"
 #include "render/Nif.h"
 #include "render/Scene.h"
+#include "ui/Common.h"
 #include "ui/Tables.h"
 #include "ui/Themes.h"
 
@@ -135,7 +138,7 @@ namespace dova::editor
 						why));
 				}
 			}
-			Out("\n* = likely a player home (LocTypePlayerHouse location, owned by the player, or mannequins where nothing respawns)\n");
+			Out("\n* = likely a player home (LocTypePlayerHouse location, owned by the player or by its mod's own faction, or mannequins where nothing respawns)\n");
 			return 0;
 		}
 
@@ -190,7 +193,7 @@ namespace dova::editor
 						Err("error: " + r.error + "\n");
 						return 1;
 					}
-					Out(std::format("saved version {} to {}{}\n", r.version, PathToUtf8(r.path), r.replaced ? " (old file kept as " + PathToUtf8(r.backup.filename()) + ")" : ""));
+					Out(std::format("saved version {} to {}{}\n", r.version, PathToUtf8(std::filesystem::path(r.path).make_preferred()), r.replaced ? " (old file kept as " + PathToUtf8(r.backup.filename()) + ")" : ""));
 					return 0;
 				}
 				Out(core::SerializeLayout(layout));
@@ -217,6 +220,8 @@ namespace dova::editor
 				std::string flags;
 				if (r.respawns) {
 					flags += " RESPAWNS";
+				} else if (r.respawnFlag) {
+					flags += " respawn-flag";  // the cell never resets: harmless (DESIGN §9)
 				}
 				if (r.initiallyDisabled) {
 					flags += " initially-disabled";
@@ -384,7 +389,12 @@ namespace dova::editor
 					options.zHi = v[1];
 				}
 			}
-			render::Camera cam = scene.OverviewCamera(aspect);
+			if (a_args.roofCut) {
+				// The window's roof cut (interiors): per area, never above the highest container + 120.
+				options.roofZ = ui::detail::RoofTop(*cell);
+				options.roofGrid = render::RoofGrid::Build(ui::detail::RoofFloor(*cell), options.roofZ, ui::detail::kRoofAboveFloor);
+			}
+			render::Camera cam = scene.OverviewCamera(aspect, options.roofZ, options.showDisabled);
 			if (a_args.select) {
 				const auto ref = lo->ParseFormRef(*a_args.select);
 				for (std::size_t i = 0; ref && i < cell->refs.size(); ++i) {
@@ -429,7 +439,8 @@ namespace dova::editor
 					std::string what = "nothing";
 					if (hit && hit->index >= 0) {
 						const auto& r = cell->refs[static_cast<std::size_t>(hit->index)];
-						what = std::format("{} {} {} \"{}\" at {:.0f} units", lo->Format(r.key), esp::SigToString(r.baseType), r.baseEditorId, r.baseName, hit->distance);
+						what = std::format("{} {} {} \"{}\" at {:.0f} units{}", lo->Format(r.key), esp::SigToString(r.baseType), r.baseEditorId, r.baseName, hit->distance,
+							r.model.empty() ? std::string{} : " (" + r.model + ")");
 					} else if (hit) {
 						what = "a neighbour cell's object";
 					}
@@ -470,8 +481,9 @@ namespace dova::editor
 				Out(std::format("terrain ({}, {}): heights {:.0f} .. {:.0f}, {} colors, {} normals, texture {}\n", t.gridX, t.gridY, lo2, hi2, t.colors.size(),
 					t.normals.size(), t.texture));
 			}
-			Out(std::format("meshes: {} unique, {} missing or unreadable; textures: {} loaded, {} missing; {} archives, {} loose roots{}\n",
-				progress.modelsTotal, progress.missingModels, progress.texturesTotal - progress.missingTextures, progress.missingTextures,
+			Out(std::format("meshes: {} unique, {} missing, {} unreadable; textures: {} loaded, {} missing, {} unreadable; {} archives, {} loose roots{}\n",
+				progress.modelsTotal, progress.missingModels, progress.unreadableModels,
+				progress.texturesTotal - progress.missingTextures - progress.unreadableTextures, progress.missingTextures, progress.unreadableTextures,
 				assets->ArchiveCount(), assets->LooseRootCount(), warp ? "; WARP software device" : ""));
 			Out(std::format("camera {:.0f},{:.0f},{:.0f} yaw {:.1f} pitch {:.1f}; {} draw calls\n", cam.position.x, cam.position.y, cam.position.z,
 				cam.yaw * 180.0f / std::numbers::pi_v<float>, cam.pitch * 180.0f / std::numbers::pi_v<float>, scene.DrawCalls()));
@@ -501,11 +513,62 @@ namespace dova::editor
 		}
 	}
 
+	namespace
+	{
+		// The window's names: ParseArgs accepts exactly these and Usage lists them, so the two cannot drift.
+		constexpr std::array<std::string_view, 7>  kTabs{ "3d", "plan", "containers", "displays", "doors", "preview", "template" };
+		constexpr std::array<std::string_view, 4>  kInspectors{ "selection", "template", "draft", "checks" };
+		constexpr std::array<std::string_view, 13> kPopovers{ "menu", "setup", "switcher", "filter", "kind", "draftmenu", "layers", "colours",
+			"camera", "paintcat", "templates", "savedrafts", "categories" };
+		constexpr std::array<std::string_view, 3>  kColours{ "category", "fill", "none" };
+		constexpr std::array<std::string_view, 12> kLayers{ "structure", "containers", "displays", "doors", "furniture", "people", "disabled",
+			"effects", "other", "terrain", "roof", "missing" };
+
+		template <std::size_t N>
+		std::string JoinNames(const std::array<std::string_view, N>& a_names, std::string_view a_sep = ", ")
+		{
+			std::string out;
+			for (const auto n : a_names) {
+				out += (out.empty() ? "" : std::string(a_sep)) + std::string(n);
+			}
+			return out;
+		}
+
+		// The help text's lines wrapped at 104 columns, each continuation indented to the description column.
+		std::string Wrapped(std::string_view a_first, const std::string& a_text)
+		{
+			constexpr std::size_t kWidth = 104;
+			const std::string     indent(24, ' ');
+			std::string           out(a_first);
+			out.resize(std::max<std::size_t>(out.size(), 24), ' ');
+			std::size_t col = out.size();
+			std::size_t pos = 0;
+			while (pos < a_text.size()) {
+				auto end = a_text.find(' ', pos);
+				end = end == std::string::npos ? a_text.size() : end;
+				const auto word = std::string_view(a_text).substr(pos, end - pos);
+				if (col > indent.size() && col + 1 + word.size() > kWidth) {
+					out += "\n" + indent;
+					col = indent.size();
+				} else if (col > indent.size()) {
+					out += ' ';
+					++col;
+				}
+				out += word;
+				col += word.size();
+				pos = end + 1;
+			}
+			return out + "\n";
+		}
+	}
+
 	std::string Usage()
 	{
-		return "Dova Stash Editor (in development): make Dova Stash home templates outside the game.\n"
+		return std::string("Dova Stash Editor (in development): make Dova Stash home templates outside the game.\n"
 		       "\n"
 		       "Without a command it opens the editor window. Run it as an MO2 executable to see your mods.\n"
+		       "In cmd or PowerShell type DovaStashEditor (no .exe): DovaStashEditor.com, next to the .exe, runs it,\n"
+		       "waits, and passes on its output and exit code.\n"
 		       "\n"
 		       "Workspace:\n"
 		       "  --mo2 <folder>        MO2 instance folder (with ModOrganizer.ini); detected when launched from MO2\n"
@@ -526,7 +589,8 @@ namespace dova::editor
 		       "                        draw the cell in 3D without a window (loads like --cell); options:\n"
 		       "                        --size WxH, --camera x,y,z,yaw,pitch (degrees), --select <ref> [--frame],\n"
 		       "                        --height lo,hi, --no-disabled, --markers, --light <factor>, --no-neighbours (exteriors),\n"
-		       "                        --pick x,y (what a click there selects), --verbose (boxes, bounds check, frame time)\n"
+		       "                        --pick x,y (what a click there selects), --roof-cut (the 3D view's, interiors),\n"
+		       "                        --verbose (boxes, bounds check, frame time)\n"
 		       "  --nif-info <mesh>     how the 3D view reads a mesh (\"clutter\\chest01.nif\" or a file on disk)\n"
 		       "  --draft-all           every player home of the active load order with its template status and a\n"
 		       "                        draft (master, categories with confidence and reason, ignored containers);\n"
@@ -544,29 +608,34 @@ namespace dova::editor
 		       "  --gui                 open the window even with --mod/--cell (they preselect)\n"
 		       "  --mod <name or id>    the rail shows that mod's homes; with --cell, the cell is searched in its plugins\n"
 		       "  --cell <cell>         open that cell (a home of the rail opens with its draft)\n"
-		       "  --home <text>         open the first home whose name contains it\n"
+		       "  --home <text>         open the first home whose name contains it (again: those homes in turn,\n"
+		       "                        each once the previous one's 3D view has loaded; --screenshot: the last)\n"
 		       "  --drafts              start \"Draft all homes\"; the rail shows the homes without a template\n"
 		       "                        (with --home: that home's Draft panel; --only <text> is the same as --home)\n"
 		       "  --tab <name>          3d or plan (the view); containers, displays, doors or preview (the drawer);\n"
-		       "                        template (the inspector's Template panel)\n"
-		       "  --inspector <panel>   selection, template, draft or checks\n"
+		       "                        template (the inspector's Template panel)\n") +
+		       Wrapped("  --inspector <panel>", JoinNames(kInspectors)) +
 		       "  --select <ref>        select a reference once the cell is open; --multi <ref> selects more\n"
-		       "  --paint <category>    paint mode on with that category\n"
-		       "  --colours <mode>      category or fill: colour the containers\n"
-		       "  --palette             open the command palette (Ctrl+K)\n"
-		       "  --popover <id>        open a popover (menu, setup, switcher, filter, draftmenu, layers, colours,\n"
-		       "                        camera, paintcat; savedrafts: the Save N drafts dialog;\n"
-		       "                        categories: the selection's category picker) for a screenshot\n"
+		       "  --paint <category>    paint mode on with that category\n" +
+		       Wrapped("  --colours <mode>", "colour the containers: " + JoinNames(kColours)) +
+		       "  --palette             open the command palette (Ctrl+K)\n" +
+		       Wrapped("  --popover <id>", "open a popover for a screenshot: " + JoinNames(kPopovers) +
+		                                      " (kind: the drawer tab's Kind list; templates: the title's template list; savedrafts: the Save N "
+		                                      "drafts dialog; categories: the selection's category picker)") +
 		       "  --window WxH          the window's client size (e.g. 1280x720)\n"
 		       "  --theme <name>        a colour theme for this run (Setup's Theme list, e.g. \"Windows10 Dark\")\n"
-		       "  --layers <names>      turn layers on, or off with a leading -, comma separated: structure, containers,\n"
-		       "                        displays, doors, furniture, people, disabled, effects, other, terrain\n"
+		       "  --text-size <n|auto>  the text size for this run, in percent (100 to 250) or auto; screenshots too\n" +
+		       Wrapped("  --layers <names>", "turn layers on, or off with a leading -, comma separated: " + JoinNames(kLayers)) +
 		       "  --sort <t>:<col>[:desc]  sort a drawer table (containers, displays, doors, preview) by a column\n"
 		       "                        (its header or number); repeat it to add columns\n"
 		       "  --filter <text>       the drawer tab's filter box (every word must match)\n"
 		       "  --quick <chip>        turn a quick filter of the drawer tab on (e.g. Ignored, Respawning, Used,\n"
 		       "                        \"Receives nothing\"); repeatable\n"
-		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit\n"
+		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit; the\n"
+		       "                        run starts from the default state and writes none (no state.json change;\n"
+		       "                        it logs to %TEMP%\\DovaStashEditor\\editor-run.log, as console commands do)\n"
+		       "  --state <file>        read and write this state file instead of state.json (also with --screenshot;\n"
+		       "                        screenshots keep the text at 100 % unless --text-size is given)\n"
 		       "  (no --mod/--cell/--home/--drafts: the start panel)\n"
 		       "  --help\n";
 	}
@@ -648,7 +717,11 @@ namespace dova::editor
 			} else if (s == "--gui") {
 				a.gui = true;
 			} else if (s == "--home") {
-				a.home = value();
+				if (auto v = value(); v && a.home) {
+					a.moreHomes.push_back(*v);
+				} else {
+					a.home = v;
+				}
 			} else if (s == "--inspector") {
 				a.inspector = value();
 			} else if (s == "--palette") {
@@ -663,6 +736,16 @@ namespace dova::editor
 						a.errors.push_back("--theme: no theme named \"" + *v + "\" (Setup's Theme list)");
 					}
 					a.theme = std::move(v);
+				}
+			} else if (s == "--text-size") {
+				if (auto v = value()) {
+					if (core::IEquals(*v, "auto")) {
+						a.textSize = 0.0f;
+					} else if (const float pct = std::strtof(v->c_str(), nullptr); pct >= 100.0f && pct <= 250.0f) {
+						a.textSize = pct / 100.0f;
+					} else {
+						a.errors.push_back("--text-size wants a percent from 100 to 250, or auto");
+					}
 				}
 			} else if (s == "--sort") {
 				if (auto v = value()) {
@@ -711,6 +794,8 @@ namespace dova::editor
 				a.heightCut = value();
 			} else if (s == "--no-disabled") {
 				a.noDisabled = true;
+			} else if (s == "--roof-cut") {
+				a.roofCut = true;
 			} else if (s == "--tab") {
 				a.tab = value();
 			} else if (s == "--save-to") {
@@ -735,8 +820,40 @@ namespace dova::editor
 				a.nifColumns = true;
 			} else if (s == "--screenshot") {
 				a.screenshot = value();
+			} else if (s == "--state") {
+				a.state = value();
 			} else {
 				a.errors.push_back("unknown option " + s);
+			}
+		}
+		// The window's names: a typo is an error (exit 2), not a screenshot of something else.
+		const auto oneOf = [&](const char* a_flag, const std::optional<std::string>& a_value, std::span<const std::string_view> a_names) {
+			if (!a_value) {
+				return;
+			}
+			std::string list;
+			for (const auto n : a_names) {
+				if (core::IEquals(*a_value, n)) {
+					return;
+				}
+				list += (list.empty() ? "" : ", ") + std::string(n);
+			}
+			a.errors.push_back(std::format("unknown {} {} ({})", a_flag, *a_value, list));
+		};
+		oneOf("--tab", a.tab, kTabs);
+		oneOf("--inspector", a.inspector, kInspectors);
+		oneOf("--popover", a.popover, kPopovers);
+		oneOf("--colours", a.colours, kColours);
+		if (a.layers) {
+			std::string_view rest = *a.layers;
+			while (!rest.empty()) {
+				const auto comma = rest.find(',');
+				std::string      name(rest.substr(0, comma));
+				rest = comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 1);
+				if (name.starts_with('-') || name.starts_with('+')) {
+					name.erase(0, 1);
+				}
+				oneOf("--layers", name, kLayers);
 			}
 		}
 		// --quick names a chip of the drawer tab --tab shows (the Containers tab without one).

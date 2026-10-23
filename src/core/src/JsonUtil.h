@@ -3,7 +3,9 @@
 // Internal helpers shared by the JSON loaders. Not part of the public API.
 
 #include <filesystem>
+#include <initializer_list>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -20,8 +22,10 @@ namespace dova::core::detail
 	std::optional<json> ParseJson(std::string_view a_text, std::string_view a_source, Diagnostics& a_diags);
 
 	std::optional<std::string> ReadTextFile(const std::filesystem::path& a_path);
-	// Writes to "<path>.tmp" then renames over the target, so a crash never leaves a half-written file.
-	bool WriteTextFileAtomic(const std::filesystem::path& a_path, std::string_view a_text);
+	// Writes to "<path>.tmp" then renames over the target, so a crash never leaves a half-written file. The rename
+	// is retried 3 times about 50 ms apart (a sync client holding the target); `a_inPlaceFallback` then writes
+	// the target in place as the last resort.
+	bool WriteTextFileAtomic(const std::filesystem::path& a_path, std::string_view a_text, bool a_inPlaceFallback = false);
 
 	std::string PathToUtf8(const std::filesystem::path& a_path);
 
@@ -30,6 +34,11 @@ namespace dova::core::detail
 	std::optional<std::vector<std::string>> ReadStringList(const json& a_value, std::string_view a_source, std::string_view a_where, Diagnostics& a_diags);
 
 	std::string TypeName(const json& a_value);
+
+	// "; did you mean \"restock\"?" when `a_key` is a near miss (edit distance 2 or less, ignoring case) of one of
+	// `a_known`, else empty. For the "unknown field" warnings and the unknown-category lint.
+	std::string DidYouMean(std::string_view a_key, std::span<const std::string_view> a_known);
+	std::string DidYouMean(std::string_view a_key, std::initializer_list<std::string_view> a_known);
 
 	// Serializes for people to read: tab indentation, short lists and entries without nested objects on one
 	// line (up to 200 columns), lists of such entries one per line with their fields lined up, trailing newline.

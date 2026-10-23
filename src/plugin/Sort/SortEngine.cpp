@@ -39,11 +39,12 @@ namespace dova::sort
 				                           game::Verdict::Reject(_home->MultiCell() ? "not in memory (in an area of the home that is not loaded and not persistent, or its plugin is missing)" :
 				                                                                      "reference not found (plugin missing?)");
 				if (!verdict.ok) {
-					// Out of reach from this area of a multi-cell home is expected, not a problem: debug.
-					if (_quiet || reach == core::Reach::Unreachable || (!ref && _home->MultiCell())) {
-						logger::debug("Container {} unavailable: {}", a_ref.ToString(), verdict.reason);
+					// Out of reach from this area of a multi-cell home is expected, not a problem, and so is furniture
+					// not built yet (Hearthfire): debug. Use template reports those once (Controller CountUnavailable).
+					if (_quiet || reach == core::Reach::Unreachable || (!ref && _home->MultiCell()) || verdict.notBuilt) {
+						logger::debug("Container {} unavailable: {}", a_ref.ToString(), verdict.LogReason());
 					} else {
-						logger::warn("Container {} unavailable: {}", a_ref.ToString(), verdict.reason);
+						logger::warn("Container {} unavailable: {}", a_ref.ToString(), verdict.LogReason());
 					}
 				} else if (!verdict.warning.empty()) {
 					logger::debug("{}", verdict.warning);
@@ -229,6 +230,7 @@ namespace dova::sort
 		auto* cell = player ? player->GetParentCell() : nullptr;
 		if (!cell || cell->GetFormID() != a_home.cellId) {
 			result.message = "Dova Stash: you are no longer in this home";
+			result.failed = true;
 			return result;
 		}
 
@@ -242,6 +244,7 @@ namespace dova::sort
 		display::Prepared displays;
 		const auto        sorting = Settings::GetSingleton().GetSorting();
 		const bool        fill = sorting.fillDisplays;
+		std::int32_t      stranded = 0;  // Deposit: items no reachable container takes (their area is not loaded)
 
 		logger::info("{} in {} ({}){}", OpName(a_op), a_home.name, a_home.cell.ToString(),
 			a_op == Op::Retrieve ? std::format(" pattern '{}'", a_pattern) : "");
@@ -265,9 +268,14 @@ namespace dova::sort
 				std::vector<core::StackDecision> why;
 				const bool                       explain = spdlog::should_log(spdlog::level::info);
 				const bool                       restocks = sorting.restockAfterDeposit && keep.Restocks();
-				moves = planner.Deposit(inventory, keep, explain || fill ? &why : nullptr);
+				moves = planner.Deposit(inventory, keep, &why);
 				if (explain) {
 					LogDecisions(a_op, inventory, why);
+				}
+				for (std::size_t i = 0; i < why.size() && i < inventory.size(); ++i) {
+					if (why[i].outcome == core::StackDecision::Outcome::NoDestination) {
+						stranded += inventory[i].count;
+					}
 				}
 				std::vector<core::ContainerContents> stored;
 				if (fill || restocks) {
@@ -288,6 +296,7 @@ namespace dova::sort
 			{
 				if (!layout.master || !available(*layout.master)) {
 					result.message = "Dova Stash: the master container is unavailable";
+					result.failed = true;
 					return result;
 				}
 				auto* master = game::LookupRef(*layout.master);
@@ -337,7 +346,13 @@ namespace dova::sort
 		if (moves.empty() && restock.empty()) {
 			switch (a_op) {
 			case Op::Deposit:
-				result.message = "Dova Stash: nothing to deposit";
+				if (stranded > 0) {
+					// Everything waits for an area that is not loaded (DESIGN §6.7): say so, not "nothing to deposit".
+					const bool away = layout.master && !available(*layout.master);
+					result.message = std::format("Dova Stash: nothing deposited ({} left: {})", Plural(stranded, "item"), away ? "master not here" : "no container here takes them");
+				} else {
+					result.message = "Dova Stash: nothing to deposit";
+				}
 				break;
 			case Op::Distribute:
 				result.message = {};  // closing the master with nothing to sort: stay quiet
@@ -382,6 +397,11 @@ namespace dova::sort
 					result.message += std::format(", restocked {}", restocked.items);
 				}
 			}
+			if (stranded > 0) {
+				// The master and their containers are in an area that is not loaded (DESIGN §6.7): they wait for it.
+				const bool away = layout.master && !available(*layout.master);
+				result.message += std::format(" ({} left: {})", Plural(stranded, "item"), away ? "master not here" : "no container here takes them");
+			}
 			break;
 		case Op::Distribute:
 			result.message = std::format("Dova Stash: sorted {} into {}", Plural(report.items, "item"), Plural(containers, "container"));
@@ -397,7 +417,7 @@ namespace dova::sort
 			break;
 		}
 		if (const auto skipped = report.skipped + report.errors + restocked.skipped + restocked.errors; skipped > 0) {
-			result.message += std::format(" ({} skipped, see log)", skipped);
+			result.message += std::format(" ({} skipped, see DovaStash.log)", skipped);
 		}
 		return result;
 	}
@@ -419,15 +439,18 @@ namespace dova::sort
 		const auto name = game::RefName(ref);
 		if (!Settings::GetSingleton().GetSorting().fillDisplays) {
 			result.message = "Dova Stash: putting gear on displays is off in the settings";
+			result.failed = true;
 			return result;
 		}
 		if (display::Busy()) {
 			result.message = "Dova Stash: still putting things on display; try again in a moment";
+			result.failed = true;
 			return result;
 		}
 		if (const auto found = game::DisplayAt(ref)) {
 			if (!game::DisplayAvailable(*found)) {
 				result.message = std::format("Dova Stash: {} isn't built yet", name);
+				result.failed = true;
 				return result;
 			}
 			if (game::DisplayFullFor(*found, a_home.layout->FindDisplay(a_display))) {

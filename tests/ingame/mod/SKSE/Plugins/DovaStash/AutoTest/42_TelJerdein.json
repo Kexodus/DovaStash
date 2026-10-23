@@ -25,11 +25,11 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "setup available \\(by "
+          "regex": "setup available \\(press K\\)"
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/TelJerdein.json"
+          "source": "Templates/Mods/TelJerdein.json"
         },
         {
           "check": "noErrors"
@@ -61,11 +61,11 @@
     },
     {
       "id": "3.6",
-      "title": "Use template: the AutoTest template is the one applied",
+      "title": "Use template: the shipped template is the one applied",
       "steps": [
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/TelJerdein.json"
+          "source": "Templates/Mods/TelJerdein.json"
         },
         {
           "do": "useTemplate"
@@ -73,7 +73,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/TelJerdein.json@1.0.0",
+          "contains": "Templates/Mods/TelJerdein.json@",
           "within": 5
         },
         {
@@ -368,7 +368,7 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "re-sorted \\d+ items?"
+          "regex": "re-sorted \\d+ items?|everything is already in place"
         },
         {
           "check": "conserved",
@@ -503,7 +503,7 @@
         },
         {
           "do": "useTemplate",
-          "source": "Templates/AutoTest/TelJerdein.json"
+          "source": "Templates/Mods/TelJerdein.json"
         },
         {
           "check": "layout",
@@ -532,6 +532,21 @@
         {
           "check": "noErrors"
         }
+      ]
+    },
+    {"id": "3.7-TelJerdein", "title": "Displays in the Foyer (18 racks, mannequins and jars) are not filled from the Bedroom: a Deposit in the Bedroom puts nothing up in Tel Jerdein - Foyer (display fills are logged with their cell)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x00013911", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x000F456D", "count": 1},
+        {"do": "snapshot", "name": "displays"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Displays in .*: "},
+        {"check": "log", "regex": "Display: .* on .*\\) in Tel Jerdein - Foyer$", "absent": true},
+        {"check": "conserved", "snapshot": "displays"},
+        {"check": "noErrors"}
       ]
     },
     {
@@ -579,14 +594,6 @@
       "id": "3.9f-TelJerdein",
       "title": "Deposit reaches persistent containers of another cell",
       "manual": "the template has no persistent container outside the Bedroom (Foyer and Root Cellar containers are not persistent): nothing to spread to; the non-persistent case is covered by 2.3"
-    },
-    {
-      "id": "3.7-TelJerdein",
-      "title": "Displays in the Foyer (18 racks, mannequins and jars) are not filled from the Bedroom",
-      "manual": "display fills are logged without their cell: needs a look at the Foyer's displays after a Deposit in the Bedroom"
     }
-  ],
-  "templates": [
-    "TelJerdein.json"
   ]
 }

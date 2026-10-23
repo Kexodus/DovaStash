@@ -1,8 +1,6 @@
 #include "UI/Panel/ArmorSetsModel.h"
 
-#include "Game/Displays.h"
-#include "Game/FormUtil.h"
-#include "UI/Panel/Strings.h"
+#include "Home/HomeRegistry.h"
 
 #include <mutex>
 
@@ -44,16 +42,6 @@ namespace dova::ui::panel
 		});
 	}
 
-	void ArmorSetsModel::Post(std::function<void()> a_action)
-	{
-		SKSE::GetTaskInterface()->AddTask([this, action = std::move(a_action)]() {
-			if (action) {
-				action();
-			}
-			Rebuild();
-		});
-	}
-
 	void ArmorSetsModel::Rebuild()
 	{
 		_lastMs = NowMs();
@@ -61,44 +49,8 @@ namespace dova::ui::panel
 		snap->serial = ++_serial;
 		snap->index = game::GetArmorIndex();
 
-		auto* home = home::HomeRegistry::Get().Current();
-		if (home) {
-			snap->inHome = true;
-			snap->enabled = home->Enabled();
-			snap->cellId = home->cellId;
-			snap->homeName = home->name;
+		if (const auto* home = home::HomeRegistry::Get().Current()) {
 			snap->have = game::HaveArmor(*snap->index, *home, nullptr);
-
-			auto* player = game::Player();
-			auto* cell = player ? player->GetParentCell() : nullptr;
-			if (cell && cell->GetFormID() != _scannedCell) {
-				_scannedCell = cell->GetFormID();
-				_mannequins.clear();
-				for (const auto& d : game::FindDisplays(cell)) {
-					if (d.kind == core::DisplayKind::Mannequin) {
-						_mannequins.push_back(d.ref);
-					}
-				}
-			}
-			for (const auto id : _mannequins) {
-				auto* ref = RE::TESForm::LookupByID<RE::TESObjectREFR>(id);
-				auto  formRef = game::ToFormRef(ref);
-				if (!formRef) {
-					continue;
-				}
-				MannequinRow row;
-				row.ref = *formRef;
-				row.name = game::RefName(ref);
-				if (const auto* binding = home->layout ? home->layout->FindDisplay(row.ref) : nullptr) {
-					row.used = !binding->ignored;
-					row.set = binding->set;
-					if (!binding->label.empty()) {
-						row.name = binding->label;
-					}
-				}
-				row.setName = row.set ? game::SetName(*snap->index, *row.set) : std::string(text::kAuto);
-				snap->mannequins.push_back(std::move(row));
-			}
 		} else {
 			home::Home none;  // not in a home: what the player carries
 			snap->have = game::HaveArmor(*snap->index, none, nullptr);

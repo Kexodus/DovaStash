@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <set>
 #include <system_error>
+#include <utility>
 
 #include "JsonUtil.h"
 #include "dova/core/TemplateDisplays.h"
@@ -115,6 +116,9 @@ namespace dova::core
 		if (a_template.basedOn) {
 			a_diags.Warn(source, "templates should not contain \"basedOn\"");
 		}
+		if (!a_template.hiddenTemplates.empty()) {
+			a_diags.Warn(source, "templates should not contain \"hiddenTemplates\" (the player's own choice; dropped when the template is applied)");
+		}
 		if (!a_template.master) {
 			a_diags.Warn(source, "no \"master\" container: items without a destination will stay in the player inventory");
 		}
@@ -130,6 +134,9 @@ namespace dova::core
 		}
 		for (const auto& c : a_template.cells) {
 			check(c.cell, "cells");
+			if (c.master) {
+				check(*c.master, "cells master");
+			}
 		}
 		if (a_template.master) {
 			check(*a_template.master, "master");
@@ -174,19 +181,46 @@ namespace dova::core
 	void ValidateLayoutCategories(const Layout& a_layout, const CategorySet& a_categories, std::string_view a_source, Diagnostics& a_diags)
 	{
 		const std::string source(a_source);
+		// Near-miss candidates: every id, and "<group>.*" for each id other ids sit under.
+		std::vector<std::string>      groupPatterns;
+		std::vector<std::string_view> known = a_categories.Ids();
+		for (const auto id : a_categories.Ids()) {
+			const std::string prefix = std::string(id) + ".";
+			if (std::ranges::any_of(known, [&](std::string_view a_other) { return a_other.starts_with(prefix); })) {
+				groupPatterns.push_back(prefix + "*");
+			}
+		}
+		known.insert(known.end(), groupPatterns.begin(), groupPatterns.end());
+		const auto unknown = [&](std::string_view a_pattern) {
+			return "category pattern \"" + std::string(a_pattern) + "\" matches no known category" + detail::DidYouMean(a_pattern, known);
+		};
 		for (const auto& c : a_layout.containers) {
 			for (const auto& p : c.categories) {
 				if (!a_categories.AnyMatches(p)) {
-					a_diags.Warn(source, "container " + c.ref.ToString() + ": category pattern \"" + p + "\" matches no known category");
+					a_diags.Warn(source, "container " + c.ref.ToString() + ": " + unknown(p));
+				}
+			}
+		}
+		for (const auto& d : a_layout.displays) {
+			if (d.ignored) {
+				continue;
+			}
+			for (const auto& p : d.categories) {
+				if (!a_categories.AnyMatches(p)) {
+					a_diags.Warn(source, "display " + d.ref.ToString() + ": " + unknown(p));
 				}
 			}
 		}
 		if (a_layout.keep) {
+			// A misspelt token ("equiped") parses as a category pattern: point to the tokens too.
+			auto keepKnown = known;
+			keepKnown.insert(keepKnown.end(), { "equipped", "favorited", "quest" });
 			auto checkList = [&](const std::vector<std::string>& a_list, std::string_view a_name) {
 				for (const auto& e : a_list) {
 					const auto sel = KeepSelector::Parse(e);
 					if (sel.kind == KeepSelector::Kind::Category && !a_categories.AnyMatches(sel.pattern)) {
-						a_diags.Warn(source, "keep." + std::string(a_name) + ": category pattern \"" + e + "\" matches no known category");
+						a_diags.Warn(source, "keep." + std::string(a_name) + ": category pattern \"" + e + "\" matches no known category" +
+							detail::DidYouMean(e, keepKnown));
 					}
 				}
 			};
@@ -194,7 +228,7 @@ namespace dova::core
 			checkList(a_layout.keep->never, "never");
 			for (const auto& q : a_layout.keep->quotas) {
 				if (q.category && !a_categories.AnyMatches(*q.category)) {
-					a_diags.Warn(source, "keep quota: category pattern \"" + *q.category + "\" matches no known category");
+					a_diags.Warn(source, "keep quota: " + unknown(*q.category));
 				}
 			}
 		}
@@ -232,6 +266,10 @@ namespace dova::core
 			if (!t.layout.cell || *t.layout.cell != a_cell) {
 				continue;
 			}
+			if (a_playerLayout && IsTemplateHidden(*a_playerLayout, t.source)) {
+				res.hidden.push_back(i);
+				continue;
+			}
 			auto missing = MissingRequirements(t.layout, a_loadedPlugins);
 			auto conflicting = LoadedConflicts(t.layout, a_loadedPlugins);
 			if (!missing.empty() || !conflicting.empty()) {
@@ -241,10 +279,24 @@ namespace dova::core
 			eligible.push_back(i);
 		}
 		std::ranges::stable_sort(eligible, [&](std::size_t a_lhs, std::size_t a_rhs) { return RanksBefore(a_templates[a_lhs], a_templates[a_rhs]); });
+		std::ranges::stable_sort(res.hidden, [&](std::size_t a_lhs, std::size_t a_rhs) { return RanksBefore(a_templates[a_lhs], a_templates[a_rhs]); });
 
 		if (!eligible.empty()) {
 			res.chosen = eligible.front();
 			res.alternatives.assign(eligible.begin() + 1, eligible.end());
+		}
+		if (!a_playerLayout && !res.chosen) {
+			// No template of its own: the best eligible template that lists the cell as one of its home's areas.
+			for (std::size_t i = 0; i < a_templates.size(); ++i) {
+				const auto& t = a_templates[i];
+				if (!t.layout.cell || *t.layout.cell == a_cell || std::ranges::none_of(t.layout.cells, [&](const HomeCell& c) { return c.cell == a_cell; }) ||
+					!MissingRequirements(t.layout, a_loadedPlugins).empty() || !LoadedConflicts(t.layout, a_loadedPlugins).empty()) {
+					continue;
+				}
+				if (!res.partOf || RanksBefore(t, a_templates[*res.partOf])) {
+					res.partOf = i;
+				}
+			}
 		}
 		if (a_playerLayout) {
 			res.kind = LayoutResolution::Kind::Player;
@@ -252,6 +304,32 @@ namespace dova::core
 			res.kind = LayoutResolution::Kind::Template;
 		}
 		return res;
+	}
+
+	bool IsTemplateHidden(const Layout& a_layout, std::string_view a_source)
+	{
+		return std::ranges::any_of(a_layout.hiddenTemplates, [&](const std::string& a_hidden) { return IEquals(a_hidden, a_source); });
+	}
+
+	bool HideTemplate(Layout& a_layout, std::string_view a_source)
+	{
+		if (a_source.empty() || IsTemplateHidden(a_layout, a_source) || a_layout.extra.contains("hiddenTemplates")) {
+			return false;
+		}
+		a_layout.hiddenTemplates.emplace_back(a_source);
+		// "<source>@<version>": the setup no longer follows a template that is not offered here.
+		if (a_layout.basedOn) {
+			const auto at = a_layout.basedOn->rfind('@');
+			if (IEquals(std::string_view(*a_layout.basedOn).substr(0, at), a_source)) {
+				a_layout.basedOn.reset();
+			}
+		}
+		return true;
+	}
+
+	bool UnhideTemplate(Layout& a_layout, std::string_view a_source)
+	{
+		return std::erase_if(a_layout.hiddenTemplates, [&](const std::string& a_hidden) { return IEquals(a_hidden, a_source); }) > 0;
 	}
 
 	std::string MakeBasedOn(std::string_view a_source, std::string_view a_version)
@@ -271,6 +349,68 @@ namespace dova::core
 		return it != a_templates.end() ? &*it : nullptr;
 	}
 
+	namespace
+	{
+		// "<source>@<version>" split at the last '@' (no '@': all source, empty version).
+		std::pair<std::string_view, std::string_view> SplitBasedOn(std::string_view a_basedOn)
+		{
+			const auto at = a_basedOn.rfind('@');
+			if (at == std::string_view::npos) {
+				return { a_basedOn, {} };
+			}
+			return { a_basedOn.substr(0, at), a_basedOn.substr(at + 1) };
+		}
+
+		// A setup made from an older version of a template holds nothing of the player's, judged by its structure (the
+		// old file is gone): nothing learned or declined, no template removed, keep and master as the template has
+		// them, and every container and display one of the template's with its label and ignored/sell flags, no
+		// explicit item bindings, nothing unreadable. Categories cannot be told apart from the old version's.
+		// `a_fresh`: the current version applied fresh (and the caller's step after applying). `a_areaMaster`: the setup is
+		// for one of `a_fresh`'s extra cells (a retired template it replaces), whose area master may be the setup's master.
+		bool LooksUntouched(const Layout& a_layout, const Layout& a_fresh, bool a_areaMaster = false)
+		{
+			const auto& t = a_fresh;
+			const auto  area = a_areaMaster && a_layout.cell ? std::ranges::find(t.cells, *a_layout.cell, &HomeCell::cell) : t.cells.end();
+			const bool  masterOk = a_layout.master == t.master || (area != t.cells.end() && area->master && a_layout.master == area->master);
+			if (!a_layout.learned.empty() || !a_layout.unparsedLearned.empty() || !a_layout.declined.empty() ||
+				!a_layout.unparsedDeclined.empty() || !a_layout.hiddenTemplates.empty() || !a_layout.unparsedContainers.empty() ||
+				!a_layout.unparsedDisplays.empty() || !a_layout.unparsedCells.empty() || !masterOk ||
+				a_layout.keep.has_value() != t.keep.has_value() || (a_layout.keep && KeepConfigToJson(*a_layout.keep) != KeepConfigToJson(*t.keep))) {
+				return false;
+			}
+			for (const auto& c : a_layout.containers) {
+				const auto* mine = t.FindContainer(c.ref);
+				if (!mine || !c.forms.empty() || !c.unparsedForms.empty() || c.label != mine->label || c.ignored != mine->ignored ||
+					c.sell != mine->sell) {
+					return false;
+				}
+			}
+			for (const auto& d : a_layout.displays) {
+				const auto it = std::ranges::find(t.displays, d.ref, &DisplayBinding::ref);
+				if (it == t.displays.end() || !d.unparsedItems.empty() || d.label != it->label || d.ignored != it->ignored) {
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+
+	const TemplateCandidate* FindBasedOnSource(const Layout& a_layout, std::span<const TemplateCandidate> a_templates)
+	{
+		if (!a_layout.basedOn) {
+			return nullptr;
+		}
+		const auto source = SplitBasedOn(*a_layout.basedOn).first;
+		const auto it = std::ranges::find_if(a_templates, [&](const TemplateCandidate& t) { return IEquals(t.source, source); });
+		return it != a_templates.end() ? &*it : nullptr;
+	}
+
+	bool TemplateUpdated(const Layout& a_layout, std::span<const TemplateCandidate> a_templates)
+	{
+		const auto* tmpl = FindBasedOnSource(a_layout, a_templates);
+		return tmpl && CompareVersionStrings(SplitBasedOn(*a_layout.basedOn).second, tmpl->layout.version) < 0;
+	}
+
 	bool HasOwnChanges(const Layout& a_layout, const TemplateCandidate* a_basedOn, const std::function<void(Layout&)>& a_afterApply)
 	{
 		if (!a_layout.basedOn || !a_basedOn || MakeBasedOn(a_basedOn->source, a_basedOn->layout.version) != *a_layout.basedOn) {
@@ -285,6 +425,75 @@ namespace dova::core
 		return !SameSetup(again, a_layout);
 	}
 
+	const TemplateCandidate* FindReplacement(const Layout& a_layout, std::span<const TemplateCandidate> a_templates)
+	{
+		if (!a_layout.basedOn || !a_layout.cell || FindBasedOnSource(a_layout, a_templates)) {
+			return nullptr;
+		}
+		const auto source = SplitBasedOn(*a_layout.basedOn).first;
+		const TemplateCandidate* best = nullptr;
+		for (const auto& t : a_templates) {
+			const bool replaces = std::ranges::any_of(t.layout.replaces, [&](const std::string& r) { return IEquals(r, source); });
+			const bool lists = std::ranges::any_of(t.layout.cells, [&](const HomeCell& c) { return c.cell == *a_layout.cell; });
+			if (replaces && lists && (!best || RanksBefore(t, *best))) {
+				best = &t;
+			}
+		}
+		return best;
+	}
+
+	bool IsUntouchedTemplateSetup(const Layout& a_layout, std::span<const TemplateCandidate> a_templates, const std::function<void(Layout&)>& a_afterApply)
+	{
+		const auto* tmpl = FindBasedOn(a_layout, a_templates);
+		if (!tmpl) {
+			// A retired template that a whole-home template replaces (`replaces`, the old file gone): judged by structure
+			// against the template that replaces it, the area's own master standing in for the home's.
+			if (const auto* by = FindReplacement(a_layout, a_templates)) {
+				auto current = ApplyTemplate(*by);
+				if (a_afterApply) {
+					a_afterApply(current);
+				}
+				return LooksUntouched(a_layout, current, true);
+			}
+			// An older version of a template still there: judged by structure. Custom, gone or newer: false.
+			if (!TemplateUpdated(a_layout, a_templates)) {
+				return false;
+			}
+			auto current = ApplyTemplate(*FindBasedOnSource(a_layout, a_templates));
+			if (a_afterApply) {
+				a_afterApply(current);
+			}
+			return LooksUntouched(a_layout, current);
+		}
+		auto fresh = ApplyTemplate(*tmpl);
+		fresh.cell = a_layout.cell;
+		fresh.conflictPlugins = a_layout.conflictPlugins;  // only decides where a template is offered, never a setup
+		if (a_afterApply) {
+			a_afterApply(fresh);
+		}
+		// SameSetup compares everything written (learned, declined, keep, hiddenTemplates, unknown keys...).
+		return SameSetup(fresh, a_layout);
+	}
+
+	std::vector<FormRef> AbsorbableCells(const Layout& a_home, const std::function<const Layout*(const FormRef&)>& a_cellLayout,
+		std::span<const TemplateCandidate> a_templates, const std::function<void(Layout&)>& a_afterApply)
+	{
+		std::vector<FormRef> out;
+		if (!a_cellLayout) {
+			return out;
+		}
+		for (const auto& c : a_home.cells) {
+			if ((a_home.cell && c.cell == *a_home.cell) || std::ranges::find(out, c.cell) != out.end()) {
+				continue;
+			}
+			const auto* own = a_cellLayout(c.cell);
+			if (own && IsUntouchedTemplateSetup(*own, a_templates, a_afterApply)) {
+				out.push_back(c.cell);
+			}
+		}
+		return out;
+	}
+
 	Layout ApplyTemplate(const TemplateCandidate& a_template, const Layout* a_existing)
 	{
 		Layout layout = a_template.layout;
@@ -294,10 +503,16 @@ namespace dova::core
 		layout.unparsedDeclined = nlohmann::json::object();
 		layout.basedOn = MakeBasedOn(a_template.source, a_template.layout.version);
 		layout.autoDraft = false;  // the player's layout now, not a file "Draft all homes" may refresh
+		layout.hiddenTemplates.clear();  // the player's, never a template's
+		layout.replaces.clear();  // which retired files the template takes over: the template's business
 
 		if (!a_existing) {
 			return layout;
 		}
+
+		// The templates the player removed from this home stay removed; the one applied now is wanted here again.
+		layout.hiddenTemplates = a_existing->hiddenTemplates;
+		UnhideTemplate(layout, a_template.source);
 
 		// Adds `a_from`'s keys that `a_to` does not have (both objects; anything else is left alone).
 		const auto mergeExtra = [](nlohmann::json& a_to, const nlohmann::json& a_from) {
@@ -326,8 +541,11 @@ namespace dova::core
 			if (c.note.empty()) {
 				c.note = old->note;
 			}
+			// A container the template makes the sell chest: the player's own item bindings to it would send those
+			// items to be sold, so they are not carried over (never lose an item).
+			const bool newSellChest = c.sell && !c.ignored && !layout.IsMaster(c.ref) && !a_existing->IsSellChest(c.ref);
 			for (const auto& f : old->forms) {
-				if (std::ranges::find(c.forms, f) == c.forms.end()) {
+				if (!newSellChest && std::ranges::find(c.forms, f) == c.forms.end()) {
 					c.forms.push_back(f);
 				}
 			}
@@ -395,16 +613,18 @@ namespace dova::core
 			}
 		}
 
-		// Learned destinations: every entry whose container is still part of the layout (not the master).
+		// Learned destinations: every entry whose container is still part of the layout (not the master), except a
+		// container the template makes the sell chest (Deposit would sell what the player put there).
+		const auto newSellChest = [&](const FormRef& a_ref) { return layout.IsSellChest(a_ref) && !a_existing->IsSellChest(a_ref); };
 		for (const auto& [form, container] : a_existing->learned) {
-			if (layout.FindContainer(container) && !layout.IsMaster(container)) {
+			if (layout.FindContainer(container) && !layout.IsMaster(container) && !newSellChest(container)) {
 				layout.learned.emplace(form, container);
 			}
 		}
 		layout.unparsedLearned = a_existing->unparsedLearned;
 		// Declined category suggestions (Learning.h): the player's answers for containers still in the layout.
 		for (const auto& [container, ids] : a_existing->declined) {
-			if (layout.FindContainer(container) && !layout.IsMaster(container)) {
+			if (layout.FindContainer(container) && !layout.IsMaster(container) && !newSellChest(container)) {
 				layout.declined.emplace(container, ids);
 			}
 		}
@@ -470,6 +690,11 @@ namespace dova::core
 		if (a_layout.master) {
 			add(*a_layout.master);
 		}
+		for (const auto& c : a_layout.cells) {
+			if (c.master) {
+				add(*c.master);
+			}
+		}
 		for (const auto& c : a_layout.containers) {
 			add(c.ref);
 			for (const auto& f : c.forms) {
@@ -532,6 +757,7 @@ namespace dova::core
 		out.declined.clear();  // the player's answers, not part of a shared setup
 		out.unparsedDeclined = nlohmann::json::object();
 		out.basedOn.reset();
+		out.hiddenTemplates.clear();  // which templates this player removed from the home: not part of a shared setup
 		out.autoDraft = false;  // the player's own setup
 		for (auto& plugin : ReferencedPlugins(out)) {
 			if (!PluginLoaded(plugin, out.requiredPlugins)) {

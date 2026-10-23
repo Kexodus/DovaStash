@@ -13,7 +13,8 @@ Subcommands (all print JSON to stdout):
   check           validate Dova Stash template/layout + category JSON files against the plugins
   plugins         show the resolved load order (masters, light/localized flags)
 
-Run `python -I esm_dump.py <subcommand> -h` for options. See tools/README.md.
+Run `python -I esm_dump.py <subcommand> -h` for options. See tools/README.md. `--mo2 <instance> --profile <name>`
+reads the load order of an MO2 profile, its plugins from the mod folders (as the editor does).
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ import json
 import math
 import mmap
 import os
+import re
 import struct
 import sys
 import zlib
@@ -865,8 +867,68 @@ def build_load_order(args) -> LoadOrder:
         names = [n for n in BASE_MASTERS if (data_dir / n).exists()]
     else:
         names = default_load_order(data_dir)
+    if getattr(args, "mo2", None) or getattr(args, "profile", None):
+        names = mo2_load_order(Path(args.mo2 or os.environ.get("DOVASTASH_MO2") or DEFAULT_MO2), args.profile, data_dir, names)
     names += args.add or []
     return LoadOrder(data_dir, names, args.lang)
+
+
+def cell_never_resets(lo: LoadOrder, cell_key) -> bool:
+    """The cell's encounter zone has the NeverResets flag (what the plugin checks before using a respawning container)."""
+    crec, _world = lo.cell_record(cell_key)
+    xezn = crec.get("XEZN") if crec is not None else None
+    if not xezn:
+        return False
+    erec = lo.lookup(crec.plugin.resolve(struct.unpack_from("<I", xezn)[0]), ["ECZN"])
+    ed = erec.get("DATA") if erec is not None else None
+    return bool(ed and len(ed) >= 11 and ed[10] & 0x01)
+
+
+DEFAULT_MO2 = r"E:\modding\Kexodus Skyrim"  # the developer's instance, as in stress_loot.py and tools/autotest/run.ps1
+
+
+def mo2_load_order(instance: Path, profile: str | None, data_dir: Path, base: list[str]) -> list[str]:
+    """The load order an MO2 profile gives the game, as the editor reads it: `base` (the game's own masters and
+    Creation Club files) then the profile's enabled plugins (plugins.txt, in order), each taken from the overwrite
+    folder or the highest-priority enabled mod that has it (modlist.txt, top wins), else from the game's Data."""
+    if not (instance / "ModOrganizer.ini").exists():
+        sys.exit(f"No MO2 instance at {instance}: set DOVASTASH_MO2 or pass --mo2 <instance folder>")
+    if not profile:
+        sys.exit("--mo2 needs --profile <name> (a folder under profiles)")
+    pdir = instance / "profiles" / profile
+    if not (pdir / "modlist.txt").exists():
+        sys.exit(f"MO2 profile {profile!r} not found ({pdir / 'modlist.txt'})")
+    mods_dir = instance / "mods"
+    for line in (instance / "ModOrganizer.ini").read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("mod_directory="):  # an instance that keeps its mods elsewhere
+            value = line.split("=", 1)[1].strip().replace("%BASE_DIR%", str(instance)).removeprefix("@ByteArray(").removesuffix(")")
+            if value:
+                mods_dir = Path(value)
+    roots = [instance / "overwrite"]
+    for line in (pdir / "modlist.txt").read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("+"):
+            roots.append(mods_dir / line[1:].strip())
+    enabled = []
+    plugins_txt = pdir / "plugins.txt"
+    if plugins_txt.exists():
+        for line in plugins_txt.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("*") and line[1:].strip():
+                enabled.append(line[1:].strip())
+
+    def resolve(name: str) -> str:
+        for root in roots:
+            p = root / name
+            if p.exists():
+                return str(p)
+        return name
+
+    seen = {Path(n).name.lower() for n in base}
+    names = [resolve(n) for n in base]
+    for n in enabled:
+        if n.lower() not in seen:
+            seen.add(n.lower())
+            names.append(resolve(n))
+    return names
 
 
 # --------------------------------------------------------------------------------------------
@@ -1350,9 +1412,14 @@ ENUMS = {
 }
 MATCH_KEYS = {"formTypes", "keywordsAny", "keywordsAll", "keywordsNone", "forms", "formLists", "plugins",
               "weaponTypes", "armorTypes", "bookTeaches", "alchemy", "soulGem", "enchanted", "ammo"}
-CELLS_KEYS = {"cell", "label", "note"}
-LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "conflicts", "cell", "cells", "master", "containers",
-               "displays", "keep", "learned", "declined", "basedOn"}
+CELLS_KEYS = {"cell", "label", "master", "note"}
+LAYOUT_KEYS = {"$schema", "name", "note", "author", "version", "priority", "requires", "conflicts", "replaces", "cell", "cells", "master",
+               "containers",
+               "displays", "keep", "learned", "declined", "basedOn", "autoDraft", "hiddenTemplates"}
+PLAYER_ONLY_KEYS = ("learned", "declined", "basedOn", "hiddenTemplates")
+KEEP_KEYS = {"inherit", "always", "never", "quotas", "rules"}
+QUOTA_KEYS = {"category", "keywordsAny", "forms", "quota", "restock", "note"}
+KEEP_TOKENS = {"equipped", "favorited", "quest"}
 SELF_SORTING_KEYS = {"plugin", "name", "note", "cells", "containers"}
 PLUGIN_EXTS = (".esp", ".esm", ".esl")
 
@@ -1393,10 +1460,53 @@ def _check_ref_syntax(s, where, errors):
     return plugin, fid
 
 
-def check_categories(lo, doc, errors, warnings):
-    ids = []
+def read_kid_keywords(paths):
+    """Keyword EditorIDs that KID creates at runtime: from *_KID.ini files ('Keyword = Name|Type|...' lines; a
+    directory is searched recursively) or a keyword list (one per line, first column; # comments, as
+    tests/data/ocf_keywords.txt)."""
+    out = set()
+    for raw in paths or []:
+        p = Path(raw)
+        files = sorted(p.rglob("*_KID.ini")) if p.is_dir() else [p]
+        for f in files:
+            try:
+                text = f.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                print(f"warning: --kid {f}: cannot read", file=sys.stderr)
+                continue
+            ini = f.suffix.lower() == ".ini"
+            for line in text.splitlines():
+                line = line.strip()
+                if ini:
+                    m = re.match(r"^Keyword\s*=\s*([^|;#]+)", line)
+                    if m:
+                        out.add(m.group(1).strip().lower())
+                elif line and not line.startswith("#"):
+                    out.add(line.split()[0].lower())
+    return out
+
+
+def keyword_warnings(lo, uses, kid_keywords, warnings):
+    """A keyword no loaded plugin has never matches (DESIGN 7.2): a warning, not an error, and none for keywords KID
+    creates (--kid). Returns how many were found only in the KID files."""
     kw = {(r.edid() or "").lower() for r in lo.index("KYWD").values()}
+    from_kid = set()
+    for where, e in uses:
+        if not isinstance(e, str):
+            continue
+        if e.lower() in kw:
+            continue
+        if e.lower() in kid_keywords:
+            from_kid.add(e.lower())
+        else:
+            warnings.append(f"{where}: keyword {e!r} is not in any loaded plugin (KID?)")
+    return len(from_kid)
+
+
+def check_categories(lo, doc, errors, warnings, kid_keywords=frozenset(), info=None):
+    ids = []
     loaded = {p.name.lower() for p in lo.plugins}
+    keyword_uses = []
     for i, c in enumerate(doc.get("categories", [])):
         cid = c.get("id")
         if not cid:
@@ -1418,9 +1528,7 @@ def check_categories(lo, doc, errors, warnings):
             if t not in ITEM_TYPES:
                 errors.append(f"{where}: unknown formType {t!r}")
         for k in ("keywordsAny", "keywordsAll", "keywordsNone"):
-            for e in _as_list(m.get(k, [])):
-                if e.lower() not in kw:
-                    errors.append(f"{where}: keyword {e!r} does not exist in the loaded plugins")
+            keyword_uses += [(where, e) for e in _as_list(m.get(k, []))]
         for k, allowed in ENUMS.items():
             for v in _as_list(m.get(k, [])):
                 if str(v).lower() not in {a.lower() for a in allowed}:
@@ -1431,6 +1539,9 @@ def check_categories(lo, doc, errors, warnings):
             if key and not any(lo.index(t).get(kl(key)) for t in types):
                 (errors if key[0].lower() in loaded else warnings).append(
                     f"{where}: form {f} not found as {'/'.join(types)}")
+    n_kid = keyword_warnings(lo, keyword_uses, kid_keywords, warnings)
+    if info is not None and n_kid:
+        info["kidKeywords"] = n_kid  # found only in the KID files (--kid)
     return ids
 
 
@@ -1472,16 +1583,81 @@ def check_self_sorting(lo, doc, errors, warnings):
     return {"homes": len(homes)}
 
 
-def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
+def check_keep(keep, errors, warnings, category_ids, item_refs, keyword_uses):
+    """The keep block (DESIGN 8.3), as core's ParseKeepConfig reads it. Form refs go to item_refs, quota keywords to
+    keyword_uses (checked against the load order by the caller)."""
+    if keep is None:
+        return
+    if not isinstance(keep, dict):
+        errors.append("keep: expected an object")
+        return
+    for k in keep:
+        if k not in KEEP_KEYS:
+            warnings.append(f"keep: unknown key {k!r}")
+    if "inherit" in keep and not isinstance(keep["inherit"], bool):
+        errors.append("keep.inherit must be true or false")
+    for k in ("always", "never"):
+        for j, e in enumerate(_as_list(keep.get(k, []))):
+            where = f"keep.{k}[{j}]"
+            if not isinstance(e, str):
+                errors.append(f"{where}: expected a string")
+            elif e.lower() in KEEP_TOKENS:
+                continue
+            elif "|" in e:
+                fk = _check_ref_syntax(e, where, errors)
+                if fk:
+                    item_refs.append((where, fk))
+            elif not re.fullmatch(r"\*|[a-z0-9_-]+(\.[a-z0-9_-]+)*(\.\*)?", e.lower()):
+                warnings.append(f"{where}: {e!r} is not a token ({', '.join(sorted(KEEP_TOKENS))}), form ref or category pattern")
+            elif category_ids is not None and not _pattern_known(e, category_ids):
+                warnings.append(f"{where}: unknown category {e!r}")
+    if "quotas" in keep and "rules" in keep:
+        warnings.append("keep: both 'quotas' and 'rules' given (merged, saved as 'quotas')")
+    for k in ("quotas", "rules"):
+        rules = keep.get(k, [])
+        if not isinstance(rules, list):
+            errors.append(f"keep.{k}: expected a list")
+            continue
+        for j, q in enumerate(rules):
+            where = f"keep.{k}[{j}]"
+            if not isinstance(q, dict):
+                errors.append(f"{where}: expected an object")
+                continue
+            for key in q:
+                if key not in QUOTA_KEYS:
+                    warnings.append(f"{where}: unknown key {key!r}")
+            quota = q.get("quota")
+            if not isinstance(quota, int) or isinstance(quota, bool) or quota < 0:
+                errors.append(f"{where}: 'quota' must be an integer of 0 or more")
+            if not any(x in q for x in ("category", "keywordsAny", "forms")):
+                errors.append(f"{where}: needs at least one of 'category', 'keywordsAny', 'forms'")
+            if "restock" in q and not isinstance(q["restock"], bool):
+                errors.append(f"{where}: 'restock' must be true or false")
+            if "category" in q:
+                cat = q["category"]
+                if not isinstance(cat, str):
+                    errors.append(f"{where}: 'category' must be a category pattern string")
+                elif category_ids is not None and not _pattern_known(cat, category_ids):
+                    errors.append(f"{where}: unknown category {cat!r}")
+            keyword_uses += [(f"{where}.keywordsAny", e) for e in _as_list(q.get("keywordsAny", []))]
+            for i, f in enumerate(_as_list(q.get("forms", []))):
+                fk = _check_ref_syntax(f, f"{where}.forms[{i}]", errors)
+                if fk:
+                    item_refs.append((f"{where}.forms[{i}]", fk))
+
+
+def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, kid_keywords=frozenset()):
     for k in doc:
         if k not in LAYOUT_KEYS:
             warnings.append(f"unknown top-level key {k!r}")
     for k in ("name", "cell", "master", "containers"):
         if k not in doc:
             errors.append(f"missing required key {k!r}")
-    for k in ("learned", "declined", "basedOn"):
+    for k in PLAYER_ONLY_KEYS:
         if k in doc:
             warnings.append(f"{k!r} belongs in player Layouts only, not in shipped templates")
+    if "autoDraft" in doc and not isinstance(doc["autoDraft"], bool):
+        errors.append("autoDraft must be true or false")
     requires = [r.lower() for r in doc.get("requires", [])]
     loaded = {p.name.lower() for p in lo.plugins}
     # 'conflicts' (DESIGN 6.2): plugins that rebuild the home; the template is not offered while one is loaded.
@@ -1499,13 +1675,19 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
             warnings.append(f"conflicts: {c} is the plugin of the template's own cell; the template is never offered")
         elif c.lower() in loaded:
             warnings.append(f"conflicts: {c} is in the load order, so this template is not offered in it")
+    # 'replaces' (DESIGN 6.7): the retired templates whose untouched setups this one takes in ("Templates/....json").
+    replaces = doc.get("replaces", [])
+    if not isinstance(replaces, list) or not all(isinstance(r, str) and r.startswith("Templates/") and r.lower().endswith(".json")
+                                                 for r in replaces):
+        errors.append("'replaces' must be a list of template sources (\"Templates/Vanilla/LakeviewManorCellar.json\")")
     missing_plugins = [r for r in doc.get("requires", []) if r.lower() not in loaded]
     if missing_plugins:
-        warnings.append(f"required plugins not in the load order, refs not verified: {missing_plugins}")
+        warnings.append(f"required plugins not in the load order, refs not verified: {missing_plugins} "
+                        "(--mo2 <instance> --profile <name> reads a profile's mods)")
     refs = []
     cell_key = _check_ref_syntax(doc.get("cell", ""), "cell", errors)
     # More cells of a multi-cell home (DESIGN 6.7): strings or {"cell", "label", "note"}.
-    extra_cells = []
+    extra_cells, area_masters = [], []
     cells_val = doc.get("cells", [])
     for i, entry in enumerate(cells_val if isinstance(cells_val, list) else [cells_val]):
         where = f"cells[{i}]"
@@ -1528,11 +1710,23 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
             warnings.append(f"{where}: duplicate cell {fmt_ref(ck)}")
         else:
             extra_cells.append(ck)
+            # The area's own master: its catch-all while the home's master is out of reach (DESIGN 6.7).
+            if isinstance(entry, dict) and "master" in entry:
+                amk = _check_ref_syntax(entry["master"], f"{where}.master", errors) if isinstance(entry["master"], str) else None
+                if not isinstance(entry["master"], str):
+                    errors.append(f"{where}.master: expected a container form ref")
+                if amk:
+                    area_masters.append((f"{where}.master", amk, ck))
     master = doc.get("master")
     mk = _check_ref_syntax(master, "master", errors) if master else None
     if mk:
         refs.append(("master", mk, {}))
-    seen, cats_seen = {}, {}
+    for where, amk, _ck in area_masters:
+        if mk and kl(amk) == kl(mk):
+            warnings.append(f"{where}: {fmt_ref(amk)} is the home's master (ignored)")
+        else:
+            refs.append((where, amk, {}))
+    seen, cats_seen, item_refs, keyword_uses = {}, {}, [], []
     for i, c in enumerate(doc.get("containers", [])):
         where = f"containers[{i}]"
         for k in c:
@@ -1546,6 +1740,8 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
         seen[kl(key)] = where
         if mk and kl(key) == kl(mk):
             warnings.append(f"{where}: the master is also listed as a container")
+        if any(kl(key) == kl(a) for _w, a, _c in area_masters):
+            warnings.append(f"{where}: an area master is also listed as a container")
         if not c.get("label"):
             warnings.append(f"{where}: no label")
         if c.get("ignored") and c.get("categories"):
@@ -1555,19 +1751,24 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
             errors.append(f"{where}: sell must be true or false")
         elif c.get("sell") and (c.get("ignored") or (mk and kl(key) == kl(mk))):
             warnings.append(f"{where}: sell has no effect on an ignored container or the master")
-        for cat in c.get("categories", []):
-            if cat in cats_seen:
-                warnings.append(f"{where}: category {cat!r} also bound at {cats_seen[cat]}")
-            cats_seen[cat] = where
+        for cat in _as_list(c.get("categories", [])):
+            if not c.get("ignored"):
+                cats_seen.setdefault(cat, []).append((where, kl(key)))
             if category_ids is not None:
                 if not _pattern_known(cat, category_ids):
                     errors.append(f"{where}: unknown category {cat!r}")
         refs.append((where, key, c))
+        for j, f in enumerate(_as_list(c.get("forms", []))):
+            fk = _check_ref_syntax(f, f"{where}.forms[{j}]", errors)
+            if fk:
+                item_refs.append((f"{where}.forms[{j}]", fk))
+    check_keep(doc.get("keep"), errors, warnings, category_ids, item_refs, keyword_uses)
     # Displays (DESIGN 8.4 "Displays in templates"): the display refs need their plugins in 'requires'; the items
     # and sets of racks and mannequins are soft references (skipped in games without their plugin), never required.
     display_refs, soft_refs, display_entries = [], [], []
     storage = {kl(mk)} if mk else set()
-    storage |= {kl(r[1]) for r in refs if r[0] != "master" and not r[2].get("ignored")}
+    storage |= {kl(r[1]) for r in refs if not r[0].endswith("master") and not r[2].get("ignored")}
+    storage |= {kl(a) for _w, a, _c in area_masters}
     for i, d in enumerate(doc.get("displays", [])):
         where = f"displays[{i}]"
         if not isinstance(d, dict):
@@ -1601,9 +1802,14 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
             sk = _check_ref_syntax(d["set"], f"{where}.set", errors)
             if sk:
                 soft_refs.append((f"{where}.set", sk))
-    for k in [cell_key] + extra_cells + [r[1] for r in refs] + [r[1] for r in display_refs]:
+    for k in [cell_key] + extra_cells + [r[1] for r in refs] + [r[1] for r in display_refs] + [r[1] for r in item_refs]:
         if k and k[0].lower() not in requires:
             errors.append(f"plugin {k[0]} is referenced but not listed in 'requires'")
+    # Container forms and keep form refs are hard references: the item must exist (when its plugin is loaded).
+    for where, key in item_refs:
+        if key[0].lower() in loaded and lo.lookup(key, ITEM_TYPES) is None:
+            errors.append(f"{where}: {fmt_ref(key)} is not an item ({', '.join(ITEM_TYPES)})")
+    keyword_warnings(lo, keyword_uses, kid_keywords, warnings)
     optional = sorted({k[0] for _w, k in soft_refs if k[0].lower() not in requires}, key=str.lower)
     if optional:
         info_optional = {"optionalPlugins": optional}  # display items/sets: fine without them (skipped, one info log line)
@@ -1644,14 +1850,29 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
                     if ik[0].lower() in loaded and lo.lookup(ik, DISPLAY_ITEM_TYPES) is not None and lo.lookup(ik, ["BOOK"]) is None:
                         warnings.append(f"{where}.items[{j}]: {fmt_ref(ik)} is not a book; a bookshelf only takes books")
 
+    def shared_category_warnings(starts_disabled, reach=None):
+        # The same category on several containers is a fallback chain (DESIGN 7.3). Worth a word only when two of
+        # them can be there at once: containers that start disabled (a Hearthfire wing's choices) are left out, and
+        # in a home over several cells one that the other's cell cannot reach (not persistent, another cell).
+        for cat, places in cats_seen.items():
+            there = [(w, k) for w, k in places if not starts_disabled.get(k)]
+            for i in range(1, len(there)):
+                first = next((w for w, k in there[:i] if reach is None or reach(k, there[i][1])), None)
+                if first is not None:
+                    warnings.append(f"{there[i][0]}: category {cat!r} also bound at {first} (the first one there takes it)")
+                    break
+
     info = dict(info_optional)
     if not cell_key or missing_plugins:
+        # Refs not verified: which containers start disabled, and which cells reach which, are unknown, so the shared
+        # category lint would warn about fallback chains that are fine (it needs the plugins loaded).
         kind_warnings({})
         return info
     crec, _world = lo.cell_record(cell_key)
     if crec is None:
         errors.append(f"cell {doc['cell']} not found")
         kind_warnings({})
+        shared_category_warnings({})
         return info
     info["cellEditorId"] = crec.edid()
     info["cellName"] = crec.plugin.lstring(crec.get("FULL"))
@@ -1675,23 +1896,33 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
         info["cellsChecked"] = len(home_cells)
         info["onlyReachableInTheirCell"] = []
     where_text = f"cell {doc['cell']}" if len(home_cells) == 1 else "any of the home's cells"
+    starts_disabled = {}
     for where, key, entry in refs:
         hit = cell_refs.get(kl(key))
         if hit is None:
             errors.append(f"{where}: {fmt_ref(key)} is not a reference in {where_text}")
             continue
-        if len(home_cells) > 1 and not (hit[0].flags & REC_FLAG_PERSISTENT) and (where == "master" or not entry.get("ignored")):
+        area_master_cell = next((c for w, _a, c in area_masters if w == where), None)
+        if area_master_cell is not None and kl(ref_cell.get(kl(key), cell_key)) != kl(area_master_cell):
+            errors.append(f"{where}: {fmt_ref(key)} is not in its area's cell {fmt_ref(area_master_cell)}")
+        if len(home_cells) > 1 and area_master_cell is None and not (hit[0].flags & REC_FLAG_PERSISTENT) and (where == "master" or not entry.get("ignored")):
             crec2, _w = lo.cell_record(ref_cell[kl(key)])
             info["onlyReachableInTheirCell"].append(f"{where} {fmt_ref(key)} ({crec2.edid() if crec2 else fmt_ref(ref_cell[kl(key)])})")
         d = decode_ref(lo, hit[0], ["CONT"], cell_refs)
         if d is None:
             errors.append(f"{where}: {fmt_ref(key)} is not a container (base is not a CONT)")
             continue
-        bound = where == "master" or not entry.get("ignored")
+        bound = where.endswith("master") or not entry.get("ignored")
+        starts_disabled[kl(key)] = bool(d.get("startsDisabled"))
         if d["deleted"]:
             errors.append(f"{where}: {fmt_ref(key)} is deleted")
         if d["respawns"] and bound:
-            errors.append(f"{where}: {fmt_ref(key)} ({d['baseEditorId']}) RESPAWNS - never bind it")
+            # As the plugin decides (Eligibility.cpp): a respawning container is safe only in a cell that never resets.
+            # A mod in the load order (the Unofficial Patch on StrongBox) can set the flag on a base the home uses.
+            if cell_never_resets(lo, ref_cell.get(kl(key), cell_key)):
+                warnings.append(f"{where}: {fmt_ref(key)} ({d['baseEditorId']}) respawns; accepted because its cell never resets")
+            else:
+                errors.append(f"{where}: {fmt_ref(key)} ({d['baseEditorId']}) RESPAWNS - never bind it")
         if bound and "PlayerBookShelfContainerScript" in d.get("baseScripts", []):
             warnings.append(f"{where}: {fmt_ref(key)} is a scripted bookshelf (it holds a few books and hands the rest back): "
                             "mark it ignored and list it under 'displays' instead")
@@ -1699,8 +1930,15 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None):
         divert = any(s.lower() == "byohdivertitemscript" for s in d.get("refScripts", []))
         if bound and ep.get("oppositeOfParent") and not divert:
             warnings.append(f"{where}: {fmt_ref(key)} disappears when its enable parent is enabled (house upgrade?)")
-        if where == "master" and d.get("startsDisabled"):
-            warnings.append(f"master {fmt_ref(key)} starts disabled (the game enables it later, e.g. when built)")
+        if where.endswith("master") and d.get("startsDisabled"):
+            warnings.append(f"{where} {fmt_ref(key)} starts disabled (the game enables it later, e.g. when built)")
+    def reaches(a_first, a_later):
+        # From a_later's cell, is a_first usable? The same cell, or a persistent reference (HomeCells.h, JudgeReach).
+        hit = cell_refs.get(a_first)
+        same = ref_cell.get(a_first, cell_key) == ref_cell.get(a_later, cell_key)
+        return same or bool(hit and hit[0].flags & REC_FLAG_PERSISTENT)
+
+    shared_category_warnings(starts_disabled, reaches if len(home_cells) > 1 else None)
     info["containersChecked"] = len(refs)
     if doc.get("displays"):
         actor_refs = {}
@@ -1748,6 +1986,35 @@ def strip_json_comments(text: str) -> str:
     return "".join(out)
 
 
+def shipped_template_conflicts(docs, results):
+    """Across files: a home ships as one template (DESIGN 6.7). A cell (main or in `cells`) in two templates under a
+    Templates folder (not Templates/User, the player's own) is an error on the later file; a `replaces` entry that
+    still ships is an error too."""
+    owner, shipped = {}, {}
+    for (f, doc, _err), r in zip(docs, results):
+        parts = [p.lower() for p in Path(f).parts]
+        if not doc or doc.get("$schema") != "dovastash-layout-1" or "templates" not in parts or "user" in parts:
+            continue
+        rel = "Templates/" + "/".join(Path(f).parts[parts.index("templates") + 1:])
+        shipped[rel.lower()] = r
+    for (f, doc, _err), r in zip(docs, results):
+        parts = [p.lower() for p in Path(f).parts]
+        if not doc or doc.get("$schema") != "dovastash-layout-1" or "templates" not in parts or "user" in parts:
+            continue
+        cells = [doc.get("cell")] + [e.get("cell") if isinstance(e, dict) else e for e in _as_list(doc.get("cells", []))]
+        for c in dict.fromkeys(c for c in cells if isinstance(c, str)):
+            try:
+                key = kl(parse_ref(c))
+            except (ValueError, AttributeError):
+                continue
+            if key in owner and owner[key] != str(f):
+                r["errors"].append(f"cell {c} is in {Path(owner[key]).name} and {Path(f).name}: a home ships as one template (DESIGN 6.7)")
+            owner.setdefault(key, str(f))
+        for old in doc.get("replaces", []) if isinstance(doc.get("replaces"), list) else []:
+            if isinstance(old, str) and old.lower() in shipped:
+                r["errors"].append(f"replaces {old}, which still ships")
+
+
 def cmd_check(lo, args):
     files = []
     for f in args.files:
@@ -1760,6 +2027,14 @@ def cmd_check(lo, args):
             docs.append((f, json.loads(strip_json_comments(f.read_text(encoding="utf-8-sig"))), None))
         except (OSError, json.JSONDecodeError) as e:
             docs.append((f, None, f"invalid JSON: {e}"))
+    kid_paths = list(args.kid or [])
+    if not kid_paths and any(f.name.lower() == "50_ocf.json" for f in files):
+        default = Path(__file__).resolve().parents[1] / "tests" / "data" / "ocf_keywords.txt"
+        if default.exists():
+            kid_paths.append(default)
+    # KID also reads *_KID.ini from the Data folder itself.
+    kid_paths += sorted(Path(lo.data_dir).glob("*_KID.ini")) if getattr(lo, "data_dir", None) else []
+    kid_keywords = read_kid_keywords(kid_paths)
     # category files first, so layouts can be checked against the known category ids
     docs.sort(key=lambda t: 0 if t[1] and t[1].get("$schema") == "dovastash-categories-1" else 1)
     cats, cat_defs, results, ok = None, {}, [], True
@@ -1768,20 +2043,21 @@ def cmd_check(lo, args):
         if doc is not None:
             schema = doc.get("$schema")
             if schema == "dovastash-categories-1":
-                ids = check_categories(lo, doc, errors, warnings)
+                ids = check_categories(lo, doc, errors, warnings, kid_keywords, info)
                 cats = (cats or []) + ids
                 for c in doc.get("categories", []):  # a later id replaces an earlier one (as the DLL merges them)
                     if c.get("id"):
                         cat_defs[str(c["id"]).lower()] = c
                 info["categories"] = len(ids)
             elif schema == "dovastash-layout-1":
-                info = check_layout(lo, doc, errors, warnings, cats, cat_defs)
+                info = check_layout(lo, doc, errors, warnings, cats, cat_defs, kid_keywords)
             elif schema == "dovastash-selfsorting-1":
                 info = check_self_sorting(lo, doc, errors, warnings)
             else:
                 errors.append(f"unknown $schema {schema!r}")
-        ok = ok and not errors
         results.append({"file": str(f), "errors": errors, "warnings": warnings, **info})
+    shipped_template_conflicts(docs, results)
+    ok = all(not r["errors"] for r in results)
     out = {"ok": ok, "results": results}
     if not ok:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -1798,6 +2074,9 @@ def main(argv=None):
     ap.add_argument("--add", action="append", metavar="PLUGIN",
                     help="append a plugin (file name in Data, or a full path, e.g. from an MO2 mod folder); repeatable")
     ap.add_argument("--lang", default="english", help="Strings language (default: english)")
+    ap.add_argument("--mo2", metavar="INSTANCE", help="read the load order of an MO2 instance's profile (with --profile; "
+                                                       "default: $DOVASTASH_MO2, else the developer's instance): its enabled plugins, from the mod folders")
+    ap.add_argument("--profile", metavar="NAME", help="the MO2 profile for --mo2, e.g. \"Dova Stash AutoTest\"")
     ap.add_argument("--compact", action="store_true", help="single-line JSON")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -1828,6 +2107,9 @@ def main(argv=None):
     p = sub.add_parser("check", help="validate Dova Stash template/layout and category JSON files")
     p.add_argument("files", nargs="+", help="JSON files or directories (searched recursively)")
     p.add_argument("--categories", nargs="*", help="extra category files used to resolve category ids")
+    p.add_argument("--kid", "--kid-keywords", dest="kid", action="append", metavar="PATH",
+                   help="keywords KID creates at runtime: a *_KID.ini file, a folder searched for them, or a keyword list "
+                        "(one per line); default tests/data/ocf_keywords.txt when 50_OCF.json is checked")
 
     args = ap.parse_args(argv)
     lo = build_load_order(args)

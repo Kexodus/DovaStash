@@ -7,12 +7,20 @@ namespace dova::game
 	struct Verdict
 	{
 		bool        ok{ false };
-		std::string reason;   // why it was rejected (UI text), empty when ok
+		std::string reason;   // why it was rejected (UI text: a short clause, no parentheses), empty when ok
 		std::string warning;  // accepted but worth logging / showing (respawn flag in a never-reset cell, scripts...)
 		bool        scripted{ false };  // the container has Papyrus scripts attached (never auto-added by Learn)
+		std::string detail;   // the long form of `reason` for the log (empty: the same as `reason`)
+		bool        notBuilt{ false };  // rejected because it is disabled (unbuilt furniture): expected, logged quietly
 
 		static Verdict Accept(std::string a_warning = {}) { return { true, {}, std::move(a_warning), false }; }
-		static Verdict Reject(std::string a_reason) { return { false, std::move(a_reason), {}, false }; }
+		static Verdict Reject(std::string a_reason, std::string a_detail = {})
+		{
+			return { false, std::move(a_reason), {}, false, std::move(a_detail) };
+		}
+
+		// What the log says about a rejection.
+		[[nodiscard]] const std::string& LogReason() const noexcept { return detail.empty() ? reason : detail; }
 
 		void AddWarning(std::string_view a_text)
 		{
@@ -54,6 +62,12 @@ namespace dova::game
 	// Every front in `a_cell`: activator -> the container it opens. Main thread.
 	[[nodiscard]] std::unordered_map<RE::FormID, RE::FormID> FindFronts(RE::TESObjectCELL* a_cell);
 	[[nodiscard]] bool IsEffectivelyDisabled(RE::TESObjectREFR* a_ref);
+	// A reference xEdit "undeleted" (a deleted one restored as disabled): its enable parent is the player with the
+	// opposite state, or it was moved below z -29000. Nothing ever enables it.
+	[[nodiscard]] bool IsUndeletedRef(RE::TESObjectREFR* a_ref);
+	// Disabled furniture a build can turn on: it has an enable parent (a build marker, as in Hearthfire) and is no
+	// undeleted reference.
+	[[nodiscard]] bool MayBeBuilt(RE::TESObjectREFR* a_ref);
 	[[nodiscard]] bool IsPlayerHouse(RE::TESObjectCELL* a_cell);
 	[[nodiscard]] bool CellNeverResets(RE::TESObjectCELL* a_cell);
 	// Player NPC, PlayerFaction, or any faction the player belongs to (e.g. DLC2RRSeverinManorFaction).

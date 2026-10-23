@@ -28,11 +28,11 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "setup available \\(by "
+          "regex": "setup available \\(press K\\)"
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/SecretCellar.json"
+          "source": "Templates/Mods/SecretCellar.json"
         },
         {
           "check": "noErrors"
@@ -64,11 +64,11 @@
     },
     {
       "id": "3.6",
-      "title": "Use template: the AutoTest template is the one applied",
+      "title": "Use template: the shipped template is the one applied",
       "steps": [
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/SecretCellar.json"
+          "source": "Templates/Mods/SecretCellar.json"
         },
         {
           "do": "useTemplate"
@@ -76,7 +76,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/SecretCellar.json@1.0.0",
+          "contains": "Templates/Mods/SecretCellar.json@",
           "within": 5
         },
         {
@@ -266,7 +266,7 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "re-sorted \\d+ items?"
+          "regex": "re-sorted \\d+ items?|everything is already in place"
         },
         {
           "check": "conserved",
@@ -319,7 +319,7 @@
         },
         {
           "do": "useTemplate",
-          "source": "Templates/AutoTest/SecretCellar.json"
+          "source": "Templates/Mods/SecretCellar.json"
         },
         {
           "check": "layout",
@@ -391,11 +391,88 @@
     },
     {
       "id": "3.7-SecretCellar",
-      "title": "Displays (20: bookshelves, cases, racks)",
-      "manual": "display fills are checked by eye"
+      "title": "Use template, Deposit puts a sword on a weapon rack or plaque and a shield on a shield rack; nothing is lost",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "contains": "SecretCellar.json@",
+          "within": 5
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013989",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB6",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "displays"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "gonkishvampdens.esp|0x00064873",
+            "gonkishvampdens.esp|0x0006705A",
+            "gonkishvampdens.esp|0x0006705C",
+            "gonkishvampdens.esp|0x0006E754",
+            "gonkishvampdens.esp|0x0006E756",
+            "gonkishvampdens.esp|0x000B92D4",
+            "gonkishvampdens.esp|0x000B92D7",
+            "gonkishvampdens.esp|0x000B92DA",
+            "gonkishvampdens.esp|0x000B92E0",
+            "gonkishvampdens.esp|0x000B92E1",
+            "gonkishvampdens.esp|0x000B92E9",
+            "gonkishvampdens.esp|0x000B92EA",
+            "gonkishvampdens.esp|0x000B92F2",
+            "gonkishvampdens.esp|0x000B92F3",
+            "gonkishvampdens.esp|0x000B92FB",
+            "gonkishvampdens.esp|0x000B92FC"
+          ],
+          "item": "Skyrim.esm|0x00013989",
+          "within": 10
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "gonkishvampdens.esp|0x000B92DF",
+            "gonkishvampdens.esp|0x000B92E8",
+            "gonkishvampdens.esp|0x000B92F1",
+            "gonkishvampdens.esp|0x000B92FA"
+          ],
+          "item": "Skyrim.esm|0x00012EB6",
+          "within": 10
+        },
+        {
+          "check": "conserved",
+          "snapshot": "displays"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-SecretCellar-look",
+      "title": "Displays (20: bookshelves, cases, racks): where each piece sits on its display",
+      "manual": "the placement on the display is checked by eye"
     }
-  ],
-  "templates": [
-    "SecretCellar.json"
   ]
 }

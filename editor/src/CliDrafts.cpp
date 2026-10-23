@@ -9,7 +9,9 @@
 #include <chrono>
 #include <cstdio>
 #include <format>
+#include <iterator>
 #include <map>
+#include <span>
 
 #include "Cli.h"
 #include "Util.h"
@@ -40,15 +42,44 @@ namespace dova::editor
 			return out;
 		}
 
-		std::string Status(const std::vector<const home::KnownTemplate*>& a_templates)
+		// The plugins of a template's "conflicts" that are loaded: the game does not offer it (core::LoadedConflicts).
+		std::vector<std::string> Off(const home::KnownTemplate& a_template, std::span<const std::string> a_loaded)
+		{
+			return a_template.layout.conflictPlugins.empty() ? std::vector<std::string>{} : core::LoadedConflicts(a_template.layout, a_loaded);
+		}
+
+		std::string Status(const std::vector<const home::KnownTemplate*>& a_templates, std::span<const std::string> a_loaded)
 		{
 			if (a_templates.empty()) {
 				return "no template";
 			}
-			// Auto-drafts are not a person's template: the next --draft-all --save-to may refresh them.
-			const bool user = std::ranges::any_of(a_templates, [](const home::KnownTemplate* t) { return t->user && !t->layout.autoDraft; });
-			const bool shipped = std::ranges::any_of(a_templates, [](const home::KnownTemplate* t) { return !t->user && !t->layout.autoDraft; });
-			return user && shipped ? "user + shipped template" : user ? "user template" : shipped ? "shipped template" : "auto-draft only";
+			// Auto-drafts are not a person's template: the next --draft-all --save-to may refresh them. A kind whose
+			// templates all have a loaded conflict is off (the game offers none of them).
+			auto kind = [&](bool a_user, bool& a_off) {
+				bool any = false;
+				a_off = true;
+				for (const auto* t : a_templates) {
+					if (t->user == a_user && !t->layout.autoDraft) {
+						any = true;
+						a_off = a_off && !Off(*t, a_loaded).empty();
+					}
+				}
+				a_off = any && a_off;
+				return any;
+			};
+			bool       userOff = false, shippedOff = false;
+			const bool user = kind(true, userOff);
+			const bool shipped = kind(false, shippedOff);
+			if (!user && !shipped) {
+				return "auto-draft only";
+			}
+			std::string out = user && shipped ? "user + shipped template" : user ? "user template" : "shipped template";
+			if (user && shipped && userOff != shippedOff) {
+				out += userOff ? ", user off" : ", shipped off";
+			} else if (userOff || shippedOff) {
+				out += ", off";
+			}
+			return out;
 		}
 
 		// The templates of a home: its main cell's, and those of its other cells.
@@ -107,13 +138,17 @@ namespace dova::editor
 		}
 		const auto scanStart = Clock::now();
 		std::size_t lastPct = 101;
-		auto        homes = home::FindAllHomes(*lo, [&](std::size_t a_done, std::size_t a_total, const std::string&) {
-            const auto pct = a_total ? a_done * 100 / a_total : 100;
-            if (pct / 10 != lastPct / 10) {
-                lastPct = pct;
-                Err(std::format("scanning cells: {}%\r", pct));
-            }
-		});
+		const auto  templateCells = home::TemplateCellsOf(*lo, templates);
+		auto        homes = home::FindAllHomes(
+            *lo,
+            [&](std::size_t a_done, std::size_t a_total, const std::string&) {
+                const auto pct = a_total ? a_done * 100 / a_total : 100;
+                if (pct / 10 != lastPct / 10) {
+                    lastPct = pct;
+                    Err(std::format("scanning cells: {}%\r", pct));
+                }
+            },
+            nullptr, &templateCells);
 		Err("\n");
 		if (a_args.only) {
 			std::erase_if(homes, [&](const home::HomeEntry& h) {
@@ -130,6 +165,14 @@ namespace dova::editor
 		const auto               itemNames = categories.set ? home::BuildItemNameIndex(catalog, *categories.set) : home::ItemNameIndex{};
 		Out(std::format("Items: {} playable in the load order ({} ms)\n\n", catalog.items.size(), Ms(catalogStart)));
 		const home::DraftContext ctx{ categories.set ? &*categories.set : nullptr, &rules.rules, &itemNames };
+		// What the game would load: a template whose "conflicts" names one of these is not offered.
+		std::vector<std::string> loaded;
+		if (a_args.baseGame) {
+			loaded = { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" };
+			std::ranges::copy(a_ws.BasePlugins(), std::back_inserter(loaded));
+		} else {
+			loaded = a_ws.ActivePlugins();
+		}
 		struct Totals
 		{
 			int homes{ 0 }, compared{ 0 }, containers{ 0 }, exact{ 0 }, overlap{ 0 }, different{ 0 }, missing{ 0 }, categories{ 0 }, sameDest{ 0 }, masters{ 0 },
@@ -150,10 +193,20 @@ namespace dova::editor
 			for (const auto& e : h.extra) {
 				cells += std::format(" + {} ({}{})", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely ? "" : ", storage behind a door");
 			}
-			Out(std::format("== {}  [{}]  {}  {}\n   cells: {}\n   {} containers, {} displays; draft in {} ms\n", h.name, Status(tmpl), h.plugin,
-				h.lastPlugin != h.plugin ? "(last edited by " + h.lastPlugin + ")" : "", cells, h.containers, h.displays, Ms(start1)));
+			// Usable storage over the home's cells (home::UsableContainer: the rail's and the drawer's count).
+			int usable = 0, displays = 0;
+			for (const auto& c : draft.cells) {
+				for (const auto& r : c.refs) {
+					usable += home::UsableContainer(r) ? 1 : 0;
+					displays += home::UsableDisplay(r) ? 1 : 0;
+				}
+			}
+			Out(std::format("== {}  [{}]  {}  {}\n   cells: {}\n   {} usable containers, {} displays; draft in {} ms\n", h.name, Status(tmpl, loaded), h.plugin,
+				h.lastPlugin != h.plugin ? "(last edited by " + h.lastPlugin + ")" : "", cells, usable, displays, Ms(start1)));
 			for (const auto* t : tmpl) {
-				Out(std::format("   template: {} ({}, {}{})\n", t->source, t->origin, t->user ? "user" : "shipped", t->layout.autoDraft ? ", auto-draft" : ""));
+				const auto off = Off(*t, loaded);
+				Out(std::format("   template: {} ({}, {}{}{})\n", t->source, t->origin, t->user ? "user" : "shipped", t->layout.autoDraft ? ", auto-draft" : "",
+					off.empty() ? std::string{} : ", off: " + Join(off) + " loaded"));
 			}
 			Out("   master: " + draft.plan.masterReason + "\n");
 			if (!draft.plan.masterRunnersUp.empty()) {
@@ -190,6 +243,10 @@ namespace dova::editor
 					if (!(t->layout.cell && *t->layout.cell == draft.layout.cell)) {
 						continue;  // a cellar's own template: compared on its own run
 					}
+					if (const auto off = Off(*t, loaded); !off.empty()) {
+						Out(std::format("   not compared with {}: off, {} loaded\n", t->source, Join(off)));
+						continue;  // made for another version of the home
+					}
 					const auto cmp = home::CompareToTemplate(draft.layout, t->layout, *categories.set);
 					++total.compared;
 					total.containers += cmp.containers;
@@ -216,21 +273,29 @@ namespace dova::editor
 			if (a_args.saveTo && personsTemplate && !a_args.includeTemplated) {
 				++total.leftAlone;
 				Out("   not saved: this home has a template (--include-templated drafts it anyway, never over a template in the folder)\n");
+			} else if (a_args.saveTo && !draft.layout.master) {
+				++total.leftAlone;
+				Out("   not saved: no container to sort into\n");
 			} else if (a_args.saveTo) {
 				if (a_args.author) {
 					draft.layout.author = *a_args.author;
 				}
 				const auto base = PathFromUtf8(*a_args.saveTo);
-				const auto target = home::TemplatePath(base, draft.layout, h.name);
-				const auto check = core::CheckAutoDraftTarget(existing, target, home::HomeCellRefs(*lo, h));
+				// Another home of the same name has the file: this one's goes under its name and cell EditorID.
+				auto       fileHome = h.name;
+				auto       check = core::CheckAutoDraftTarget(existing, home::TemplatePath(base, draft.layout, fileHome), home::HomeCellRefs(*lo, h));
+				if (check.verdict == core::AutoDraftVerdict::OtherHome) {
+					fileHome = home::TemplateHomeName(h, true);
+					check = core::CheckAutoDraftTarget(existing, home::TemplatePath(base, draft.layout, fileHome), home::HomeCellRefs(*lo, h));
+				}
 				if (check.verdict == core::AutoDraftVerdict::Person || check.verdict == core::AutoDraftVerdict::OtherHome) {
 					++total.leftAlone;
-					Out(std::format("   not saved: {} is {}; left as it is\n", PathToUtf8(check.blocker),
+					Out(std::format("   not saved: {} is {}; left as it is\n", PathToUtf8(std::filesystem::path(check.blocker).make_preferred()),
 						check.verdict == core::AutoDraftVerdict::Person ? "a template someone made (not an auto-draft)" : "another home's auto-draft (same home name)"));
-				} else if (const auto r = home::SaveTemplateFile(base, draft.layout, { .autoDraft = true }, h.name); r.ok) {
+				} else if (const auto r = home::SaveTemplateFile(base, draft.layout, { .autoDraft = true }, fileHome); r.ok) {
 					++total.saved;
 					total.refreshed += r.replaced ? 1 : 0;
-					Out(std::format("   saved auto-draft version {} to {}{}\n", r.version, PathToUtf8(r.path),
+					Out(std::format("   saved auto-draft version {} to {}{}\n", r.version, PathToUtf8(std::filesystem::path(r.path).make_preferred()),
 						r.replaced ? " (refreshed the earlier auto-draft, kept as " + PathToUtf8(r.backup.filename()) + ")" : ""));
 					std::erase_if(existing, [&](const core::TemplateFileInfo& f) { return f.path == r.path; });
 					if (auto info = core::ReadTemplateFileInfo(r.path)) {

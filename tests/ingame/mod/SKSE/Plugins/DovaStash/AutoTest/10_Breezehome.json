@@ -10,8 +10,8 @@
         {"do": "enter"},
         {"check": "home", "is": true, "name": "Breezehome", "layout": false},
         {"check": "log", "since": "plan", "contains": "Cell Breezehome (Skyrim.esm|0x000165A8): template available"},
-        {"check": "log", "since": "plan", "contains": "template: Breezehome v1.0.0 by Dova Stash"},
-        {"check": "notify", "since": "plan", "contains": "Dova Stash: Breezehome setup available (by Dova Stash). Press K at any container to enable."}
+        {"check": "log", "since": "plan", "regex": "template: Breezehome v[0-9.]+ by Dova Stash"},
+        {"check": "notify", "since": "plan", "contains": "Dova Stash: Breezehome setup available (press K)"}
       ]
     },
     {
@@ -132,7 +132,7 @@
         {"do": "op", "op": "Deposit"},
         {"check": "count", "item": "Skyrim.esm|0x0001397D", "filter": "worn", "ge": 1},
         {"check": "count", "item": "Skyrim.esm|0x0001397D", "eq": 70},
-        {"check": "log", "since": "action", "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ stays: kept by always equipped"},
+        {"check": "log", "since": "action", "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ stays: kept by (always equipped|worn item)"},
         {"check": "log", "absent": true, "regex": "Deposit: Iron Arrow \\[Skyrim\\.esm\\|0x0001397D\\] x\\d+ -> "},
         {"check": "log", "absent": true, "contains": "took a tempered, enchanted, renamed or worn copy"},
         {"check": "conserved", "snapshot": "arrows"},
@@ -189,7 +189,7 @@
         {"do": "closeMenu"},
         {"check": "log", "regex": "Learn: Dwemer Gyro .* -> .*: recorded"},
         {"check": "log", "regex": "Learn: .* is now a managed container"},
-        {"check": "notify", "regex": "Dwemer Gyro now goes to .* \\(K: undo\\)"},
+        {"check": "notify", "regex": "Dwemer Gyro now goes to .*\\. K: undo"},
         {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000C8868", "eq": "Skyrim.esm|0x000CB42E", "within": 5},
         {"do": "wait", "seconds": 6},
         {"do": "store", "to": "master", "item": "Skyrim.esm|0x000C8868", "count": 1},
@@ -265,7 +265,7 @@
         {"check": "log", "regex": "Learn: asking whether all (books\\.\\w+) go to .* \\(3 learned\\)", "within": 15},
         {"check": "menu", "name": "MessageBoxMenu", "open": true, "within": 3},
         {"do": "answerMessageBox", "button": 0},
-        {"check": "notify", "contains": "now takes Books"},
+        {"check": "notify", "contains": "now takes Other books"},
         {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB42E", "categories": ["books.other"]}},
         {"check": "layout", "pointer": "/learned/Skyrim.esm|0x000F456D", "absent": true},
         {"check": "log", "regex": "bound books\\.other from a suggestion \\(3 learned item\\(s\\) now covered by it dropped\\)"}
@@ -308,7 +308,7 @@
       "steps": [
         {"do": "useTemplate"},
         {"check": "notify", "contains": "Dova Stash: Breezehome setup enabled"},
-        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/Vanilla/Breezehome.json@1.0.0"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Vanilla/Breezehome.json@"},
         {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000F3922"},
         {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
         {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 3},
@@ -324,6 +324,51 @@
         {"do": "useTemplate"},
         {"check": "files", "dir": "Layouts", "regex": "Skyrim\\.esm_000165A8\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak", "ge": 2},
         {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x000CB46C", "ignored": true}},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.6c", "title": "Panel: the template's row (applied), Remove and Add back, Use by source; Use asks only after a change of your own; All templates lists it as installed; nothing aimed, then the container you look at (a managed one, an unmanaged one with a row of its own); the keep rules' Add item picker lists what you carry, and a keep rule's item shows its name",
+      "steps": [
+        {"check": "panel", "template": "Templates/Vanilla/Breezehome.json", "applied": true, "hidden": false},
+        {"do": "snapshot", "name": "panelRemove"},
+        {"do": "hideTemplate", "source": "Templates/Vanilla/Breezehome.json"},
+        {"check": "notify", "contains": "Dova Stash: Breezehome removed from this home"},
+        {"check": "panel", "template": "Templates/Vanilla/Breezehome.json", "hidden": true, "applied": false},
+        {"check": "conserved", "snapshot": "panelRemove"},
+        {"do": "hideTemplate", "source": "Templates/Vanilla/Breezehome.json", "hidden": false},
+        {"check": "notify", "contains": "Dova Stash: Breezehome added back to this home"},
+        {"check": "panel", "template": "Templates/Vanilla/Breezehome.json", "hidden": false},
+        {"do": "useTemplate", "source": "Templates/Vanilla/Breezehome.json"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Vanilla/Breezehome.json"},
+        {"check": "panel", "template": "Templates/Vanilla/Breezehome.json", "applied": true},
+        {"check": "panel", "ownChanges": false},
+        {"do": "bind", "ref": "Skyrim.esm|0x000CB437", "category": "books.*"},
+        {"check": "panel", "ownChanges": true},
+        {"do": "unbind", "ref": "Skyrim.esm|0x000CB437", "category": "books.*"},
+        {"check": "panel", "ownChanges": false},
+        {"check": "panel", "catalogue": {"source": "Templates/Vanilla/Breezehome.json", "installed": true}},
+        {"check": "panel", "aimed": null},
+        {"do": "aim", "ref": "Skyrim.esm|0x000CB437"},
+        {"check": "panel", "aimed": "Skyrim.esm|0x000CB437", "managed": true},
+        {"do": "aim", "ref": "Skyrim.esm|0x000CB46D"},
+        {"check": "panel", "aimed": "Skyrim.esm|0x000CB46D", "managed": false},
+        {"do": "aim", "clear": true},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 1},
+        {"check": "panel", "inventoryHas": "Skyrim.esm|0x0003EADD"},
+        {"do": "removeitem", "item": "Skyrim.esm|0x0003EADD", "count": 1},
+        {"do": "keep", "keep": {"always": ["Skyrim.esm|0x00012EB7", "equipped"]}},
+        {"check": "panel", "keepEntry": "Skyrim.esm|0x00012EB7", "name": "Iron Sword", "within": 3},
+        {"do": "keep", "keep": null},
+        {"do": "panelVisible", "page": "home"},
+        {"do": "useTemplate", "source": "Templates/Nowhere.json"},
+        {"check": "panel", "status": {"page": "home", "contains": "That template is not available for this home", "error": true}},
+        {"check": "panel", "status": {"page": "settings", "empty": true}},
+        {"do": "panelVisible", "page": "home"},
+        {"do": "hideTemplate", "source": "Templates/Vanilla/Breezehome.json"},
+        {"check": "panel", "status": {"page": "home", "contains": "Breezehome removed from this home", "error": false}},
+        {"do": "hideTemplate", "source": "Templates/Vanilla/Breezehome.json", "hidden": false},
+        {"check": "panel", "template": "Templates/Vanilla/Breezehome.json", "hidden": false},
         {"check": "noErrors"}
       ]
     },
@@ -548,6 +593,22 @@
     {"id": "2.7", "title": "Items that come back when stored", "manual": "needs a mod item whose script hands it back (Legacy of the Dragonborn token)"},
     {"id": "3.7-visual", "title": "Display placement looks right (node, no floating or falling)", "manual": "visual"},
     {"id": "3.8", "title": "Materials at the workbench: Move mode at forge, smelter, tanning rack", "manual": "Breezehome has no forge; automated only at the cooking pot (3.8b)"},
-    {"id": "3.6b", "title": "Other home mods: self-sorting and rebuilt homes", "manual": "needs other home mods in the load order"}
+    {"id": "3.6b", "title": "Other home mods: self-sorting and rebuilt homes", "manual": "needs other home mods in the load order"},
+    {
+      "id": "3.7-template", "title": "The template lists the home's shelves and racks: Deposit puts a book on a shelf (its racks are full by now: 3.7 covers them)",
+      "steps": [
+        {"do": "buyHome"},
+        {"do": "useTemplate"},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x00102A59"}},
+        {"do": "require", "enabled": "Skyrim.esm|0x00102A59", "why": "the bookshelf comes with a decoration"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACEF", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Display: The Lusty Argonian Maid, v1 .* on .*\\(bookshelf\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x0001ACEF", "eq": 0},
+        {"check": "log", "absent": true, "regex": "did not take|had no 3D"},
+        {"check": "noErrors"}
+      ]
+    }
   ]
 }

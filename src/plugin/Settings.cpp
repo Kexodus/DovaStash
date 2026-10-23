@@ -197,8 +197,11 @@ namespace dova
 		return true;
 	}
 
-	std::vector<std::string> Settings::Update(Values a_values)
+	std::vector<std::string> Settings::Update(Values a_values, bool* a_saved)
 	{
+		if (a_saved) {
+			*a_saved = true;
+		}
 		Validate(a_values);
 		std::vector<std::string> changed;
 		const auto               current = *_v.load();
@@ -218,6 +221,8 @@ namespace dova
 		}
 		if (Save()) {
 			logger::info("Settings: saved to {}", kPath);
+		} else if (a_saved) {
+			*a_saved = false;
 		}
 		return changed;
 	}

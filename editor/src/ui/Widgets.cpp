@@ -168,6 +168,7 @@ namespace dova::editor::ui::w
 			bool        open{ false };     // its popover is open
 			bool        chevron{ false };
 			int         badge{ 0 };
+			int         badgeOf{ -1 };          // >= 0 and not `badge`: "badge of badgeOf"
 			bool        badgeNeutral{ false };  // a count (bg3, text) instead of an alert (accent)
 			bool        badgeZero{ false };     // draw "0" too
 			const char* tooltip{ nullptr };
@@ -208,7 +209,11 @@ namespace dova::editor::ui::w
 			l.badgePx = kBadgePx * t.scale;
 			l.badgeH = std::round((kBadgePx + 5.0f) * t.scale);
 			if (a_s.badge > 0 || (a_s.badgeZero && a_s.badge == 0)) {
-				std::snprintf(l.badge, sizeof(l.badge), "%d", a_s.badge);
+				if (a_s.badgeOf >= 0 && a_s.badgeOf != a_s.badge) {
+					std::snprintf(l.badge, sizeof(l.badge), "%d of %d", a_s.badge, a_s.badgeOf);
+				} else {
+					std::snprintf(l.badge, sizeof(l.badge), "%d", a_s.badge);
+				}
 				l.badgeW = std::max(l.badgeH, l.badgeFont->CalcTextSizeA(l.badgePx, FLT_MAX, 0.0f, l.badge).x + 8.0f * t.scale);
 			}
 			float w = l.padX * 2.0f;
@@ -648,12 +653,13 @@ namespace dova::editor::ui::w
 		return FlatButton(s);
 	}
 
-	bool TabButton(const char* a_label, bool a_active, int a_count, const char* a_tooltip, const char* a_shortcut)
+	bool TabButton(const char* a_label, bool a_active, int a_count, const char* a_tooltip, const char* a_shortcut, int a_of)
 	{
 		FlatSpec s;
 		s.label = a_label;
 		s.active = a_active;
 		s.badge = a_count;
+		s.badgeOf = a_of;
 		s.badgeNeutral = true;
 		s.badgeZero = a_count == 0;
 		s.tooltip = a_tooltip;
@@ -832,7 +838,18 @@ namespace dova::editor::ui::w
 		ImGui::PushStyleColor(ImGuiCol_NavCursor, IM_COL32(0, 0, 0, 0));  // the box's own border is the focus ring
 		ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, ImGui::GetStyle().FramePadding.y));
-		bool changed = ImGui::InputTextWithHint("##s", a_hint ? a_hint : "", a_buf, a_size, ImGuiInputTextFlags_EscapeClearsAll);
+		// A hint wider than the box drops its last ", part" until it fits ("Home, mod, plugin"), else "Search": never cut mid-word.
+		std::string hint = a_hint ? a_hint : "";
+		const float hintW = w - iconW - clearW;
+		while (!hint.empty() && ImGui::CalcTextSize(hint.c_str()).x > hintW) {
+			const auto comma = hint.rfind(',');
+			if (comma == std::string::npos) {
+				hint = ImGui::CalcTextSize("Search").x <= hintW ? "Search" : "";
+				break;
+			}
+			hint.resize(comma);
+		}
+		bool changed = ImGui::InputTextWithHint("##s", hint.c_str(), a_buf, a_size, ImGuiInputTextFlags_EscapeClearsAll);
 		ImGui::PopStyleVar(2);
 		ImGui::PopStyleColor(5);
 		const bool active = ImGui::IsItemActive();
@@ -1727,7 +1744,16 @@ namespace dova::editor::ui::w
 			dl->AddRect(p, q, t.accentDim, t.radius);
 		}
 		float right = q.x - t.pad * 0.5f;
-		if (a_chip && *a_chip) {
+		// A name the chip would cut (a large text size, a narrow rail): the chip becomes a dot of its colour, a quiet
+		// "none" goes (the row's tooltip says it).
+		const bool narrow = a_chip && *a_chip && p.x + t.pad + TextSize(ImGui::GetFont(), a_name).x > right - ChipW(a_chip) - t.gap;
+		if (narrow) {
+			if (a_chipKind != Kind::Neutral) {
+				const float r = std::round(4.0f * t.scale);
+				dl->AddCircleFilled(ImVec2(right - 4.0f * t.scale - r, p.y + h * 0.5f), r, Colour(a_chipKind), 16);
+				right -= 2.0f * r + 4.0f * t.scale + t.gap;
+			}
+		} else if (a_chip && *a_chip) {
 			const float cw = ChipW(a_chip);
 			if (a_chipKind == Kind::Neutral) {
 				// A neutral status ("none") is quiet: its word in muted, where a chip's text would end, without the pill.

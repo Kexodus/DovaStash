@@ -22,7 +22,7 @@ namespace dova::core
 			if (a_value.is_string()) {
 				auto ref = FormRef::Parse(a_value.get<std::string>());
 				if (!ref) {
-					a_diags.Error(a_source, a_where + ": invalid form reference \"" + a_value.get<std::string>() + "\" (kept verbatim)");
+					a_diags.Error(a_source, a_where + ": invalid form reference \"" + a_value.get<std::string>() + "\" (kept verbatim): " + FormRefError(a_value.get<std::string>()));
 					return std::nullopt;
 				}
 				return HomeCell{ std::move(*ref) };
@@ -38,7 +38,7 @@ namespace dova::core
 			}
 			auto ref = FormRef::Parse(cellIt->get<std::string>());
 			if (!ref) {
-				a_diags.Error(a_source, a_where + ".cell: invalid form reference \"" + cellIt->get<std::string>() + "\" (kept verbatim)");
+				a_diags.Error(a_source, a_where + ".cell: invalid form reference \"" + cellIt->get<std::string>() + "\" (kept verbatim): " + FormRefError(cellIt->get<std::string>()));
 				return std::nullopt;
 			}
 			HomeCell entry{ std::move(*ref) };
@@ -48,13 +48,18 @@ namespace dova::core
 				}
 				if (key == "label" && value.is_string()) {
 					entry.label = value.get<std::string>();
+				} else if (key == "master" && value.is_string() && FormRef::Parse(value.get<std::string>())) {
+					entry.master = FormRef::Parse(value.get<std::string>());
 				} else if (key == "note" && value.is_string()) {
 					entry.note = value.get<std::string>();
 				} else {
-					if (key == "label" || key == "note") {
+					if (key == "master" && value.is_string()) {
+						a_diags.Error(a_source, a_where + ".master: invalid form reference \"" + value.get<std::string>() + "\" (kept verbatim, ignored): " +
+							FormRefError(value.get<std::string>()));
+					} else if (key == "label" || key == "note" || key == "master") {
 						a_diags.Error(a_source, a_where + "." + key + ": unexpected type " + detail::TypeName(value) + " (kept verbatim, ignored)");
 					} else {
-						a_diags.Warn(a_source, a_where + "." + key + ": unknown field (preserved)");
+						a_diags.Warn(a_source, a_where + "." + key + ": unknown field (preserved)" + detail::DidYouMean(key, { "cell", "label", "master", "note" }));
 					}
 					entry.extra[key] = value;
 				}
@@ -96,7 +101,7 @@ namespace dova::core
 	{
 		ojson out = ojson::array();
 		for (const auto& c : a_cells) {
-			const bool plain = c.label.empty() && c.note.empty() && (!c.extra.is_object() || c.extra.empty());
+			const bool plain = c.label.empty() && !c.master && c.note.empty() && (!c.extra.is_object() || c.extra.empty());
 			if (plain) {
 				out.push_back(c.cell.ToString());
 				continue;
@@ -105,6 +110,9 @@ namespace dova::core
 			entry["cell"] = c.cell.ToString();
 			if (!c.label.empty()) {
 				entry["label"] = c.label;
+			}
+			if (c.master) {
+				entry["master"] = c.master->ToString();
 			}
 			if (!c.note.empty()) {
 				entry["note"] = c.note;
@@ -126,7 +134,8 @@ namespace dova::core
 		return out;
 	}
 
-	void ValidateHomeCells(const std::optional<FormRef>& a_main, std::span<const HomeCell> a_cells, std::string_view a_source, Diagnostics& a_diags)
+	void ValidateHomeCells(const std::optional<FormRef>& a_main, std::span<const HomeCell> a_cells, std::string_view a_source, Diagnostics& a_diags,
+		const std::optional<FormRef>& a_homeMaster)
 	{
 		const std::string source(a_source);
 		for (std::size_t i = 0; i < a_cells.size(); ++i) {
@@ -140,6 +149,9 @@ namespace dova::core
 				[&](const HomeCell& c) { return c.cell == cell; });
 			if (first != a_cells.begin() + static_cast<std::ptrdiff_t>(i)) {
 				a_diags.Warn(source, where + ": duplicate cell " + cell.ToString() + "; the first entry is used");
+			}
+			if (a_homeMaster && a_cells[i].master && *a_cells[i].master == *a_homeMaster) {
+				a_diags.Warn(source, where + ".master: " + a_homeMaster->ToString() + " is the home's master (ignored)");
 			}
 		}
 	}
@@ -155,6 +167,9 @@ namespace dova::core
 			}
 			if (it->label.empty()) {
 				it->label = old.label;
+			}
+			if (!it->master) {
+				it->master = old.master;
 			}
 			if (it->note.empty()) {
 				it->note = old.note;
@@ -180,6 +195,17 @@ namespace dova::core
 		const auto last = a_label.find_last_not_of(" \t\r\n");
 		it->label = first == std::string_view::npos ? std::string{} : std::string(a_label.substr(first, last - first + 1));
 		return true;
+	}
+
+	std::vector<FormRef> AreaMasters(std::span<const HomeCell> a_cells, const std::optional<FormRef>& a_homeMaster)
+	{
+		std::vector<FormRef> out;
+		for (const auto& c : a_cells) {
+			if (c.master && (!a_homeMaster || *c.master != *a_homeMaster) && std::ranges::find(out, *c.master) == out.end()) {
+				out.push_back(*c.master);
+			}
+		}
+		return out;
 	}
 
 	std::vector<FormRef> HomeCellRefs(const FormRef& a_main, std::span<const HomeCell> a_cells)

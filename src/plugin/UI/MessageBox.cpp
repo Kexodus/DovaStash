@@ -31,6 +31,15 @@ namespace dova::ui
 			MessageBoxCallback _fn;
 			std::size_t        _buttonCount;
 		};
+
+		std::mutex               g_lastLock;
+		std::vector<std::string> g_lastButtons;  // the last box we queued (AutoTest reads its entries)
+	}
+
+	std::vector<std::string> LastMessageBoxButtons()
+	{
+		std::scoped_lock lock(g_lastLock);
+		return g_lastButtons;
 	}
 
 	bool ShowMessageBox(std::string_view a_body, const std::vector<std::string>& a_buttons, MessageBoxCallback a_callback)
@@ -50,6 +59,10 @@ namespace dova::ui
 			data->buttonText.push_back(RE::BSString(label.c_str()));
 		}
 		data->callback = RE::BSTSmartPointer<RE::IMessageBoxCallback>(new Callback(std::move(a_callback), a_buttons.size()));
+		{
+			std::scoped_lock lock(g_lastLock);
+			g_lastButtons = a_buttons;
+		}
 		data->warningType = 10;  // same value community helpers use for plugin message boxes
 		data->buttonPressOffset = 0;
 		data->cancelButtonIndex = static_cast<std::int32_t>(a_buttons.size() - 1);
@@ -57,6 +70,53 @@ namespace dova::ui
 		data->useHtml = false;
 		RE::MessageBoxMenu::QueueMessage(data);
 		return true;
+	}
+
+	namespace
+	{
+		void ShowPaged(std::string a_body, std::shared_ptr<const std::vector<MenuOption>> a_options, std::function<void()> a_onBack, std::size_t a_page)
+		{
+			const auto total = a_options->size();
+			const auto pages = std::max<std::size_t>(1, (total + kOptionsPerPage - 1) / kOptionsPerPage);
+			a_page = std::min(a_page, pages - 1);
+			const auto first = a_page * kOptionsPerPage;
+			const auto last = std::min(first + kOptionsPerPage, total);
+
+			std::vector<std::string>           labels;
+			std::vector<std::function<void()>> actions;
+			for (auto i = first; i < last; ++i) {
+				labels.push_back((*a_options)[i].label);
+				actions.push_back((*a_options)[i].action);
+			}
+			if (last < total) {
+				labels.emplace_back("More...");
+				actions.emplace_back([=]() { ShowPaged(a_body, a_options, a_onBack, a_page + 1); });
+			}
+			if (a_page > 0) {
+				labels.emplace_back("Back");
+				actions.emplace_back([=]() { ShowPaged(a_body, a_options, a_onBack, a_page - 1); });
+			} else if (a_onBack) {
+				labels.emplace_back("Back");
+				actions.emplace_back(a_onBack);
+			}
+			labels.emplace_back("Cancel");
+			actions.emplace_back(nullptr);
+
+			auto body = a_body;
+			if (pages > 1) {
+				body += std::format("\n(page {}/{})", a_page + 1, pages);
+			}
+			ShowMessageBox(body, labels, [actions = std::move(actions)](std::size_t a_index) {
+				if (a_index < actions.size() && actions[a_index]) {
+					actions[a_index]();
+				}
+			});
+		}
+	}
+
+	void ShowOptions(std::string a_body, std::vector<MenuOption> a_options, std::function<void()> a_onBack, std::size_t a_page)
+	{
+		ShowPaged(std::move(a_body), std::make_shared<const std::vector<MenuOption>>(std::move(a_options)), std::move(a_onBack), a_page);
 	}
 
 	void ShowNotification(std::string_view a_message)

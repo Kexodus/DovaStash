@@ -3,7 +3,9 @@
 // A small reader for Skyrim NIF meshes (NIF 20.2.0.7: LE user version 12 / BS version 83, SE BS version
 // 100), enough for the 3D view (docs/EDITOR.md §4.5): the node tree with its transforms, the triangle
 // shapes (BSTriShape and its SE subclasses, NiTriShape / NiTriStrips with their data blocks, skinned SE
-// shapes through NiSkinPartition), and per shape the diffuse texture, alpha and two-sidedness.
+// shapes through NiSkinPartition), and per shape the diffuse texture, alpha and two-sidedness. Shapes that draw
+// nothing (material alpha 0 with alpha on) or only a black card (textures\black.dds: Lux's shadow planes, the
+// darkness behind doorways) are left out; a model of only those is invisible, as a collision-only one.
 //
 // Block sizes in the header let every block be skipped without knowing it, so unknown blocks never stop
 // a file. Everything is bounds-checked; a malformed file gives an error, never a crash. Pure C++: no game,
@@ -50,6 +52,7 @@ namespace dova::editor::render
 		std::array<float, 3>  boundsMin{ 0.0f, 0.0f, 0.0f };
 		std::array<float, 3>  boundsMax{ 0.0f, 0.0f, 0.0f };
 		std::vector<std::string> warnings;  // blocks or shapes left out, and why
+		std::size_t              hiddenShapes{ 0 };  // shapes that draw nothing, or only a black card (light blockers): left out
 
 		[[nodiscard]] bool Empty() const noexcept { return shapes.empty(); }
 		void               ComputeBounds();

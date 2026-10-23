@@ -161,6 +161,8 @@ namespace dova::core
 		// True if at least one known category matches the pattern.
 		[[nodiscard]] bool AnyMatches(std::string_view a_pattern) const;
 		[[nodiscard]] std::size_t Size() const noexcept { return _info.size(); }
+		// Every category id, in definition order (views into this set).
+		[[nodiscard]] std::vector<std::string_view> Ids() const;
 
 	private:
 		struct Compiled

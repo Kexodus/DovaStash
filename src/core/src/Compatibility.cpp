@@ -41,7 +41,7 @@ namespace dova::core
 						out.push_back(std::move(*ref));
 					}
 				} else {
-					a_diags.Error(a_source, a_where + ": invalid form reference \"" + s + "\" (skipped)");
+					a_diags.Error(a_source, a_where + ": invalid form reference \"" + s + "\" (skipped): " + FormRefError(s));
 				}
 			}
 			return out;

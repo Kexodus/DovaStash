@@ -1,6 +1,7 @@
 #include "render/Nif.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <format>
@@ -315,6 +316,22 @@ namespace dova::editor::render
 		private:
 			Reader Block(std::size_t a_index) const { return Reader(_data, _h.offsets[a_index], _h.offsets[a_index] + _h.sizes[a_index]); }
 
+			// Shapes the editor leaves out although the file draws them, or that draw nothing: nullptr when drawn.
+			static const char* HiddenReason(const NifShape& a_shape)
+			{
+				if (!a_shape.effect && a_shape.alpha <= 0.0f && (a_shape.alphaBlend || a_shape.alphaTest)) {
+					return "material alpha 0";
+				}
+				// A plain black card (textures\black.dds): Lux's shadow planes and the darkness behind doorways. It
+				// blocks light or fakes the dark outside the rooms; from above it hides them.
+				std::string name = a_shape.diffuse;
+				std::ranges::transform(name, name.begin(), [](char c) { return static_cast<char>(c == '/' ? '\\' : std::tolower(static_cast<unsigned char>(c))); });
+				if (!a_shape.effect && (name == "black.dds" || name.ends_with("\\black.dds"))) {
+					return "a black card (light blocker)";
+				}
+				return nullptr;
+			}
+
 			void Warn(std::string a_text)
 			{
 				if (_model.warnings.size() < 50) {
@@ -596,10 +613,16 @@ namespace dova::editor::render
 						std::copy(p, p + 3, &a_shape.normals[i * 3]);
 					}
 				}
+				const auto hidden = HiddenReason(a_shape);
 				if (verbose) {
-					log.push_back(std::format("  shape \"{}\": {} vertices, {} triangles, texture \"{}\"{}{}{}{}{}", a_shape.name, nv, a_shape.indices.size() / 3,
+					log.push_back(std::format("  shape \"{}\": {} vertices, {} triangles, texture \"{}\"{}{}{}{}{}{}", a_shape.name, nv, a_shape.indices.size() / 3,
 						a_shape.diffuse, a_shape.alphaBlend ? ", blend" : "", a_shape.alphaTest ? std::format(", alpha test {}", a_shape.alphaThreshold) : "",
-						a_shape.doubleSided ? ", two-sided" : "", a_shape.effect ? ", effect" : "", a_shape.vertexColors && !a_shape.colors.empty() ? ", vertex colors" : ""));
+						a_shape.doubleSided ? ", two-sided" : "", a_shape.effect ? ", effect" : "", a_shape.vertexColors && !a_shape.colors.empty() ? ", vertex colors" : "",
+						hidden ? std::string(", hidden: ") + hidden : std::string{}));
+				}
+				if (hidden) {
+					++_model.hiddenShapes;  // not drawn (a model of only these is invisible, like a collision-only activator)
+					return;
 				}
 				_model.shapes.push_back(std::move(a_shape));
 			}
@@ -993,8 +1016,9 @@ namespace dova::editor::render
 			for (const auto& w : model.warnings) {
 				out += "  warning: " + w + "\n";
 			}
-			out += std::format("{} shapes; bounds ({:.1f} {:.1f} {:.1f}) .. ({:.1f} {:.1f} {:.1f})\n", model.shapes.size(), model.boundsMin[0], model.boundsMin[1],
-				model.boundsMin[2], model.boundsMax[0], model.boundsMax[1], model.boundsMax[2]);
+			out += std::format("{} shapes{}; bounds ({:.1f} {:.1f} {:.1f}) .. ({:.1f} {:.1f} {:.1f})\n", model.shapes.size(),
+				model.hiddenShapes ? std::format(" ({} hidden{})", model.hiddenShapes, model.shapes.empty() ? ": the model is invisible" : "") : std::string{},
+				model.boundsMin[0], model.boundsMin[1], model.boundsMin[2], model.boundsMax[0], model.boundsMax[1], model.boundsMax[2]);
 		} catch (const std::exception& e) {
 			out += std::string("error: ") + e.what() + "\n";
 		}

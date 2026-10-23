@@ -197,7 +197,7 @@ namespace dova::sort::selling
 					continue;
 				}
 				if (const auto verdict = home::CheckHomeContainer(ref, a_home); !verdict.ok) {
-					logger::debug("Sell chest {}: not usable from here ({})", game::Describe(ref), verdict.reason);
+					logger::debug("Sell chest {}: not usable from here ({})", game::Describe(ref), verdict.LogReason());
 					continue;
 				}
 				Chest chest;
@@ -292,6 +292,7 @@ namespace dova::sort::selling
 			auto*  gold = RE::TESForm::LookupByID<RE::TESBoundObject>(kGoldID);
 			if (!player || !gold) {
 				result.message = "Dova Stash: can't sell now";
+				result.failed = true;
 				return result;
 			}
 			std::vector<Sold> sold;
@@ -316,7 +317,8 @@ namespace dova::sort::selling
 					items += s.count;
 				}
 				if (sold.empty()) {
-					result.message = "Dova Stash: nothing was sold (see log)";
+					result.message = "Dova Stash: nothing was sold (see DovaStash.log)";
+					result.failed = true;
 					return result;
 				}
 				total = std::min<std::int64_t>(total, std::numeric_limits<std::int32_t>::max());
@@ -400,7 +402,7 @@ namespace dova::sort::selling
 			// Never sell something other than what the player said yes to.
 			logger::info("Sell chest: not sold, the chest changed since the question ({} items for {} gold, now {} for {})", a_items, a_gold, quote.items,
 				quote.gold);
-			return Result{ false, "Dova Stash: the sell chest changed; sell again" };
+			return Result{ false, "Dova Stash: the sell chest changed; sell again", true };
 		}
 		std::vector<cs::Plan> plans;
 		for (const auto& chest : chests) {
@@ -437,28 +439,28 @@ namespace dova::sort::selling
 		{
 			std::scoped_lock lock(g_lock);
 			if (!g_last || g_last->cellId != a_home.cellId) {
-				return Result{ false, "Dova Stash: nothing to buy back here" };
+				return Result{ false, "Dova Stash: nothing to buy back here", true };
 			}
 			last = g_last;
 		}
 		auto* player = game::Player();
 		auto* gold = RE::TESForm::LookupByID<RE::TESBoundObject>(kGoldID);
 		if (!player || !gold) {
-			return Result{ false, "Dova Stash: can't buy back now" };
+			return Result{ false, "Dova Stash: can't buy back now", true };
 		}
 		// Every chest must be usable from here and every item still exist: all or nothing.
 		for (const auto& s : last->sold) {
 			auto* chest = RE::TESForm::LookupByID<RE::TESObjectREFR>(s.chest);
 			if (!chest || !home::CheckHomeContainer(chest, a_home).ok) {
-				return Result{ false, "Dova Stash: the sell chest can't be reached from here" };
+				return Result{ false, "Dova Stash: the sell chest can't be reached from here", true };
 			}
 			if (!RE::TESForm::LookupByID<RE::TESBoundObject>(s.object)) {
-				return Result{ false, "Dova Stash: can't buy back (an item no longer exists)" };
+				return Result{ false, "Dova Stash: can't buy back (an item no longer exists)", true };
 			}
 		}
 		const auto have = game::LiveCount(player, gold);
 		if (have < last->gold) {
-			return Result{ false, std::format("Dova Stash: buying back takes {} gold", last->gold) };
+			return Result{ false, std::format("Dova Stash: buying back takes {} gold", last->gold), true };
 		}
 		std::int32_t items = 0;
 		{
@@ -553,7 +555,7 @@ namespace dova::sort::selling
 		}
 		const auto result = Execute(*home, chests, plans, true);
 		if (!result.message.empty()) {
-			Controller::Get().Notify(result.message);
+			Controller::Get().Notify(result.message, result.failed);
 		}
 	}
 

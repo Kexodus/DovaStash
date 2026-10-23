@@ -1,6 +1,7 @@
 #include "UI/MenuFrameworkUI.h"
 
 #include "Game/FormUtil.h"
+#include "Home/HomeRegistry.h"
 #include "UI/MessageBox.h"
 #include "UI/Panel/PanelModel.h"
 #include "UI/Panel/PanelRender.h"
@@ -45,11 +46,21 @@ namespace dova::ui
 		Open(a_home, a_container, panel::Tab::Actions);
 	}
 
-	void MenuFrameworkUI::Notify(std::string_view a_message)
+	void MenuFrameworkUI::Notify(std::string_view a_message, bool a_failed)
 	{
 		logger::info("Notify: {}", a_message);
 		ShowNotification(a_message);  // queued by the HUD while the (pausing) window is open
-		panel::PanelModel::Get().SetStatus(std::string(a_message));
+		// Our own window needs no "Dova Stash:" prefix (UI/Panel/Strings.h); the HUD keeps it.
+		std::string status(a_message);
+		if (constexpr std::string_view prefix = "Dova Stash: "; status.starts_with(prefix)) {
+			status.erase(0, prefix.size());
+			if (!status.empty() && status[0] >= 'a' && status[0] <= 'z') {
+				status[0] = static_cast<char>(status[0] - 'a' + 'A');
+			}
+		}
+		// A failure shows in red: the caller says which (Controller::Notify's a_failed).
+		const auto here = home::HomeRegistry::Get().Display();  // published copy: any thread
+		panel::PanelModel::Get().SetStatus(std::move(status), a_failed, here ? here->cellId : 0);
 	}
 
 	void MenuFrameworkUI::OnHomeChanged()
@@ -61,7 +72,7 @@ namespace dova::ui
 
 	void MenuFrameworkUI::OnTemplatesChanged()
 	{
-		// The Templates and Diagnostics pages read the global snapshot; the home's template choices come
+		// All templates (This home) and About's Diagnostics read the global snapshot; the home's template choices come
 		// with the next home rebuild.
 		panel::PanelModel::Get().BuildGlobal();
 		panel::PanelModel::Get().RequestRefresh(panel::Refresh::Light);

@@ -5,9 +5,15 @@
 #   SKSE/Plugins/DovaStash.ini          created if missing; otherwise kept, and only [Sections] that the
 #                                       default INI has but it lacks are appended (new settings show up
 #                                       without touching the user's values)
-#   SKSE/Plugins/DovaStash/...          mirror of dist/Data/SKSE/Plugins/DovaStash (if present)
-#   Interface/...                       mirror of dist/Data/Interface (if present: the list menu logo)
-#   Tools/DovaStashEditor.exe           the editor, if built (preset editor-release)
+#   SKSE/Plugins/DovaStash/...          exact mirror of dist/Data/SKSE/Plugins/DovaStash (if present): files dist no
+#                                       longer has are removed (a renamed template would stay live otherwise),
+#                                       except what the plugin or the player writes (Layouts/, Backups/,
+#                                       Templates/User/, AutoTest/: under MO2 those live in overwrite anyway)
+#   Interface/...                       dist/Data/Interface (if present: the list menu logo); Interface/DovaStash
+#                                       is an exact mirror
+#
+# The Dova Stash Editor (Tools/DovaStashEditor.exe and .com) is not copied here: the editor build deploys itself
+# (preset editor-release), so a plugin build never replaces a newer editor with an older build/editor one.
 
 foreach(_var DLL DEPLOY_DIR)
 	if(NOT DEFINED ${_var} OR "${${_var}}" STREQUAL "")
@@ -17,6 +23,20 @@ endforeach()
 
 set(_plugins "${DEPLOY_DIR}/SKSE/Plugins")
 file(MAKE_DIRECTORY "${_plugins}")
+
+# Top-level entries no build writes (a test tool's output, a hand-copied file): Root Builder copies root/ into the game
+# folder, so say so once per deploy. Nothing is removed: they may be the player's.
+file(GLOB _top RELATIVE "${DEPLOY_DIR}" "${DEPLOY_DIR}/*")
+set(_stray "")
+foreach(_entry IN LISTS _top)
+	if(NOT _entry MATCHES "^(SKSE|Interface|Tools|meta\\.ini)$")
+		list(APPEND _stray "${_entry}")
+	endif()
+endforeach()
+if(_stray)
+	string(REPLACE ";" ", " _stray "${_stray}")
+	message(WARNING "Deploy: ${DEPLOY_DIR} has entries no build writes: ${_stray}. Remove them unless they belong there.")
+endif()
 
 # The game locks the DLL (and PDB) while it runs: report that instead of failing the build, and still
 # deploy the data and INI below.
@@ -83,7 +103,37 @@ if(DEFINED DEFAULT_INI AND EXISTS "${DEFAULT_INI}")
 	endif()
 endif()
 
+# Removes the files under `_dst` that `_src` does not have (then the folders left empty), so `_dst` mirrors `_src`
+# exactly. Paths the plugin or the player write are never touched.
+function(_dova_prune _src _dst _what)
+	if(NOT IS_DIRECTORY "${_dst}")
+		return()
+	endif()
+	file(GLOB_RECURSE _deployed RELATIVE "${_dst}" "${_dst}/*")
+	foreach(_rel IN LISTS _deployed)
+		if(_rel MATCHES "^(Layouts|Backups|AutoTest|Templates/User)(/|$)")
+			continue()
+		endif()
+		if(NOT EXISTS "${_src}/${_rel}")
+			file(REMOVE "${_dst}/${_rel}")
+			message(STATUS "Removed ${_what}/${_rel} (no longer in dist)")
+		endif()
+	endforeach()
+	file(GLOB_RECURSE _dirs LIST_DIRECTORIES true RELATIVE "${_dst}" "${_dst}/*")
+	list(SORT _dirs ORDER DESCENDING)  # deeper folders first
+	foreach(_rel IN LISTS _dirs)
+		if(IS_DIRECTORY "${_dst}/${_rel}" AND NOT EXISTS "${_src}/${_rel}" AND NOT _rel MATCHES "^(Layouts|Backups|AutoTest|Templates/User)(/|$)")
+			file(GLOB _left "${_dst}/${_rel}/*")
+			if(NOT _left)
+				file(REMOVE_RECURSE "${_dst}/${_rel}")
+				message(STATUS "Removed ${_what}/${_rel}/ (no longer in dist)")
+			endif()
+		endif()
+	endforeach()
+endfunction()
+
 if(DEFINED DIST_DIR AND IS_DIRECTORY "${DIST_DIR}")
+	_dova_prune("${DIST_DIR}" "${_plugins}/DovaStash" "SKSE/Plugins/DovaStash")
 	file(GLOB _dist_entries "${DIST_DIR}/*")
 	if(_dist_entries)
 		file(COPY ${_dist_entries} DESTINATION "${_plugins}/DovaStash")
@@ -97,20 +147,12 @@ endif()
 
 # The hotkey list menu's logo (Interface/DovaStash/logo.dds): Scaleform loads it relative to Interface/.
 if(DEFINED INTERFACE_DIR AND IS_DIRECTORY "${INTERFACE_DIR}")
+	if(IS_DIRECTORY "${INTERFACE_DIR}/DovaStash")
+		_dova_prune("${INTERFACE_DIR}/DovaStash" "${DEPLOY_DIR}/Interface/DovaStash" "Interface/DovaStash")
+	endif()
 	file(GLOB _interface_entries "${INTERFACE_DIR}/*")
 	if(_interface_entries)
 		file(COPY ${_interface_entries} DESTINATION "${DEPLOY_DIR}/Interface")
 		message(STATUS "Deployed interface files from ${INTERFACE_DIR}")
-	endif()
-endif()
-
-# The Dova Stash Editor (Tools/DovaStashEditor.exe), when it has been built (preset editor-release).
-if(DEFINED EDITOR_EXE AND EXISTS "${EDITOR_EXE}")
-	file(MAKE_DIRECTORY "${DEPLOY_DIR}/Tools")
-	file(COPY_FILE "${EDITOR_EXE}" "${DEPLOY_DIR}/Tools/DovaStashEditor.exe" RESULT _rc)
-	if(_rc EQUAL 0)
-		message(STATUS "Deployed ${EDITOR_EXE}")
-	else()
-		message(WARNING "Could not replace Tools/DovaStashEditor.exe (${_rc}). Is the editor running?")
 	endif()
 endif()

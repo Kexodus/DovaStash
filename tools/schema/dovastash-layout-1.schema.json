@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dova Stash layout or template (dovastash-layout-1)",
+  "description": "A home's setup: its cell, master and the containers and displays that take item categories (docs/DESIGN.md 6.3, 8.4). The same schema serves templates (Templates/**/*.json) and player layouts (Layouts/*.json). Unknown keys are kept by Dova Stash with a warning; here they are flagged too.",
+  "type": "object",
+  "required": ["cell"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {"const": "dovastash-layout-1"},
+    "name": {"type": "string", "description": "The home's name players see."},
+    "note": {"type": "string", "description": "Free text for people reading the file."},
+    "author": {"type": "string"},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+([-+].*)?$", "description": "Semantic version; raise it with every change to a shipped template."},
+    "basedOn": {"type": "string", "description": "Player layouts only: \"<template source>@<version>\" it was made from."},
+    "autoDraft": {"type": "boolean", "description": "An editor auto-draft, refreshed by \"Draft all homes\"; a template someone made always wins over it."},
+    "priority": {"type": "integer", "description": "Higher wins between templates of the same cell."},
+    "requires": {"$ref": "#/$defs/pluginList", "description": "Every plugin the file's form references point into (cell, master, containers, their forms, displays, keep forms)."},
+    "conflicts": {"$ref": "#/$defs/pluginList", "description": "Plugins that rebuild the home: the template is not offered while one is loaded."},
+    "replaces": {
+      "description": "Templates only: retired template sources this one takes over (\"Templates/Vanilla/LakeviewManorCellar.json\"); an untouched setup made from one of them may be taken in (DESIGN 6.7).",
+      "type": "array",
+      "items": {"type": "string", "pattern": "^Templates/.+\\.json$"}
+    },
+    "cell": {"$ref": "#/$defs/formRef", "description": "The home's main cell: its identity and its layout file name."},
+    "cells": {
+      "description": "More cells of a multi-cell home (DESIGN 6.7).",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {"$ref": "#/$defs/formRef"},
+          {
+            "type": "object",
+            "required": ["cell"],
+            "additionalProperties": false,
+            "properties": {
+              "cell": {"$ref": "#/$defs/formRef"},
+              "label": {"type": "string"},
+              "master": {"$ref": "#/$defs/formRef", "description": "The area's catch-all while the home's master is out of reach from it."},
+              "note": {"type": "string"}
+            }
+          }
+        ]
+      }
+    },
+    "master": {"$ref": "#/$defs/formRef", "description": "The container that takes everything without a place of its own."},
+    "containers": {"type": "array", "items": {"$ref": "#/$defs/container"}},
+    "displays": {"type": "array", "items": {"$ref": "#/$defs/display"}},
+    "keep": {"$ref": "#/$defs/keep"},
+    "learned": {
+      "description": "Player layouts only: item -> container the player put it in.",
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/formRef"},
+      "additionalProperties": {"$ref": "#/$defs/formRef"}
+    },
+    "declined": {
+      "description": "Player layouts only: container -> category suggestions the player turned down.",
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/formRef"},
+      "additionalProperties": {"type": "array", "items": {"type": "string", "minLength": 1}}
+    },
+    "hiddenTemplates": {
+      "description": "Player layouts only: templates the player removed from this home.",
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "formRef": {
+      "description": "\"Plugin.esm|0x00ABCDEF\": the plugin file and the LOCAL form id (DESIGN 6.1).",
+      "type": "string",
+      "pattern": "^\\s*[^|/\\\\:\"<>?*]+\\.[eE][sS][mMpPlL]\\|(0[xX])?0{0,2}[0-9A-Fa-f]{1,6}\\s*$"
+    },
+    "formRefs": {"anyOf": [{"$ref": "#/$defs/formRef"}, {"type": "array", "items": {"$ref": "#/$defs/formRef"}}]},
+    "pluginList": {
+      "anyOf": [
+        {"type": "string", "pattern": "\\.[eE][sS][mMpPlL]$"},
+        {"type": "array", "items": {"type": "string", "pattern": "\\.[eE][sS][mMpPlL]$"}}
+      ]
+    },
+    "categoryPattern": {
+      "description": "A category id (\"alchemy.potions\"), a group and everything below it (\"weapons.*\") or \"*\" (DESIGN 7.3).",
+      "type": "string",
+      "pattern": "^(\\*|[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*(\\.\\*)?)$"
+    },
+    "categoryPatterns": {"anyOf": [{"$ref": "#/$defs/categoryPattern"}, {"type": "array", "items": {"$ref": "#/$defs/categoryPattern"}}]},
+    "container": {
+      "type": "object",
+      "required": ["ref"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": {"$ref": "#/$defs/formRef", "description": "The container reference."},
+        "label": {"type": "string"},
+        "note": {"type": "string"},
+        "categories": {"$ref": "#/$defs/categoryPatterns"},
+        "forms": {"$ref": "#/$defs/formRefs", "description": "Items bound to this container one by one."},
+        "ignored": {"type": "boolean", "description": "Listed but never used (respawns, goes away with an upgrade...)."},
+        "sell": {"type": "boolean", "description": "The sell chest (DESIGN 8.8)."}
+      }
+    },
+    "display": {
+      "type": "object",
+      "required": ["ref"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": {"$ref": "#/$defs/formRef", "description": "The display reference (rack activator, mannequin, plaque, case, bookshelf)."},
+        "kind": {"enum": ["rack", "mannequin", "item", "case", "bookshelf"]},
+        "label": {"type": "string"},
+        "note": {"type": "string"},
+        "categories": {"$ref": "#/$defs/categoryPatterns"},
+        "items": {"$ref": "#/$defs/formRefs", "description": "Preferred items (soft references: skipped when their plugin is not loaded)."},
+        "only": {"type": "boolean", "description": "Nothing but its items."},
+        "set": {"$ref": "#/$defs/formRef", "description": "Mannequins: the armor set it wears, by any one of its pieces."},
+        "ignored": {"type": "boolean"}
+      }
+    },
+    "keepEntry": {
+      "description": "\"equipped\", \"favorited\", \"quest\", a form reference or a category pattern.",
+      "anyOf": [{"enum": ["equipped", "favorited", "quest"]}, {"$ref": "#/$defs/formRef"}, {"$ref": "#/$defs/categoryPattern"}]
+    },
+    "keepList": {"anyOf": [{"$ref": "#/$defs/keepEntry"}, {"type": "array", "items": {"$ref": "#/$defs/keepEntry"}}]},
+    "quota": {
+      "type": "object",
+      "required": ["quota"],
+      "additionalProperties": false,
+      "anyOf": [{"required": ["category"]}, {"required": ["keywordsAny"]}, {"required": ["forms"]}],
+      "properties": {
+        "category": {"$ref": "#/$defs/categoryPattern"},
+        "keywordsAny": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+        "forms": {"$ref": "#/$defs/formRefs"},
+        "quota": {"type": "integer", "minimum": 0, "description": "Deposit leaves up to this many on you."},
+        "restock": {"type": "boolean", "description": "Restock also brings you up to the quota (DESIGN 8.7)."},
+        "note": {"type": "string"}
+      }
+    },
+    "keep": {
+      "description": "What Deposit leaves on the player (DESIGN 8.3).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inherit": {"type": "boolean"},
+        "always": {"$ref": "#/$defs/keepList"},
+        "never": {"$ref": "#/$defs/keepList"},
+        "quotas": {"type": "array", "items": {"$ref": "#/$defs/quota"}},
+        "rules": {"type": "array", "items": {"$ref": "#/$defs/quota"}}
+      }
+    }
+  }
+}

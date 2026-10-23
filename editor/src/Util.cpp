@@ -1,7 +1,10 @@
 #include "Util.h"
 
+#include <cmath>
+#include <cstdint>
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -181,5 +184,74 @@ namespace dova::editor
 			return std::nullopt;
 		}
 		return QtUnescape(k->second);
+	}
+}
+
+namespace dova::editor
+{
+	std::vector<std::size_t> LargestGroup(const std::vector<std::array<float, 3>>& a_points, const std::vector<bool>& a_weighted, float a_gap)
+	{
+		const std::size_t n = a_points.size();
+		std::vector<std::size_t> out;
+		if (n <= 1) {
+			for (std::size_t i = 0; i < n; ++i) {
+				out.push_back(i);
+			}
+			return out;
+		}
+		const auto key = [&](std::size_t a_i, int a_dx, int a_dy, int a_dz) {
+			const auto c = [&](std::size_t k, int d) { return static_cast<std::int64_t>(std::floor(a_points[a_i][k] / a_gap)) + d; };
+			return ((c(0, a_dx) & 0x1FFFFF) << 42) | ((c(1, a_dy) & 0x1FFFFF) << 21) | (c(2, a_dz) & 0x1FFFFF);
+		};
+		std::unordered_map<std::int64_t, std::vector<std::size_t>> grid;
+		for (std::size_t i = 0; i < n; ++i) {
+			grid[key(i, 0, 0, 0)].push_back(i);
+		}
+		std::vector<int> group(n, -1);
+		int              best = -1;
+		std::size_t      bestWeighted = 0, bestSize = 0;
+		for (std::size_t s = 0, groups = 0; s < n; ++s) {
+			if (group[s] >= 0) {
+				continue;
+			}
+			const int                g = static_cast<int>(groups++);
+			std::vector<std::size_t> todo{ s };
+			group[s] = g;
+			std::size_t size = 0, weighted = 0;
+			while (!todo.empty()) {
+				const auto i = todo.back();
+				todo.pop_back();
+				++size;
+				weighted += i < a_weighted.size() && a_weighted[i] ? 1 : 0;
+				for (int dx = -1; dx <= 1; ++dx) {
+					for (int dy = -1; dy <= 1; ++dy) {
+						for (int dz = -1; dz <= 1; ++dz) {
+							const auto it = grid.find(key(i, dx, dy, dz));
+							if (it == grid.end()) {
+								continue;
+							}
+							for (const auto j : it->second) {
+								if (group[j] < 0) {
+									group[j] = g;
+									todo.push_back(j);
+								}
+							}
+							it->second.clear();  // every member is in a group now
+						}
+					}
+				}
+			}
+			if (best < 0 || weighted > bestWeighted || (weighted == bestWeighted && size > bestSize)) {
+				best = g;
+				bestWeighted = weighted;
+				bestSize = size;
+			}
+		}
+		for (std::size_t i = 0; i < n; ++i) {
+			if (group[i] == best) {
+				out.push_back(i);
+			}
+		}
+		return out;
 	}
 }

@@ -85,7 +85,7 @@ namespace dova::editor::home
 			for (const auto& e : fs::directory_iterator(dir, ec)) {
 				if (e.is_regular_file(ec) && IEndsWith(PathToUtf8(e.path().filename()), ".json")) {
 					files[core::ToLower(PathToUtf8(e.path().filename()))] = e.path();
-					out.source = PathToUtf8(dir);
+					out.source = PathToUtf8(fs::path(dir).make_preferred());
 				}
 			}
 		}
@@ -175,7 +175,7 @@ namespace dova::editor::home
 		if (const auto text = ReadTextFile(path)) {
 			if (auto rules = core::ParseDraftRules(*text, PathToUtf8(path), diags)) {
 				out.rules = std::move(*rules);
-				out.source = PathToUtf8(path);
+				out.source = PathToUtf8(fs::path(path).make_preferred());
 			}
 		}
 		for (const auto& d : diags.Items()) {

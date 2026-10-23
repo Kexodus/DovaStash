@@ -20,7 +20,7 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Nchuanthumz v1.0.0 by Dova Stash"
+          "regex": "template: Nchuanthumz v[0-9.]+ by Dova Stash"
         },
         {
           "do": "clearInventory"

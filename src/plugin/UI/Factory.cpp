@@ -27,7 +27,7 @@ namespace dova::ui
 				logger::warn("UI: SKSE Menu Framework did not accept the panel");
 			}
 		}
-		const auto messageBoxes = std::make_shared<MessageBoxUI>();
+		const auto messageBoxes = std::make_shared<MessageBoxUI>(panel);  // "Open panel..." under Advanced...
 
 		StashUIs uis;
 		uis.editor = panel ? panel : messageBoxes;

@@ -84,9 +84,34 @@ namespace dova::core
 		return !Unmovable(a_item).has_value();
 	}
 
+	bool SortPlanner::IsAreaMaster(const FormRef& a_container) const
+	{
+		return std::ranges::any_of(_layout.cells, [&](const HomeCell& c) { return c.master && *c.master == a_container; });
+	}
+
+	std::optional<FormRef> SortPlanner::CatchAll() const
+	{
+		if (_layout.master && IsAvailable(*_layout.master)) {
+			return *_layout.master;
+		}
+		// The home's master is out of reach (another area, not persistent): the area's own catch-all (DESIGN §6.7).
+		if (_area) {
+			const auto it = std::ranges::find(_layout.cells, *_area, &HomeCell::cell);
+			if (it != _layout.cells.end() && it->master && !_layout.IsMaster(*it->master) && IsAvailable(*it->master)) {
+				return *it->master;
+			}
+		}
+		for (const auto& m : AreaMasters(_layout.cells, _layout.master)) {
+			if (IsAvailable(m)) {
+				return m;
+			}
+		}
+		return std::nullopt;
+	}
+
 	bool SortPlanner::IsSortSource(const FormRef& a_container) const
 	{
-		if (_layout.IsMaster(a_container)) {
+		if (_layout.IsMaster(a_container) || IsAreaMaster(a_container)) {
 			return true;
 		}
 		const auto* c = _layout.FindContainer(a_container);
@@ -101,7 +126,7 @@ namespace dova::core
 
 	bool SortPlanner::IsManaged(const FormRef& a_container) const
 	{
-		if (_layout.IsMaster(a_container)) {
+		if (_layout.IsMaster(a_container) || IsAreaMaster(a_container)) {
 			return true;
 		}
 		const auto* c = _layout.FindContainer(a_container);
@@ -122,8 +147,9 @@ namespace dova::core
 		if (const auto* c = explicitFor(a_item.form)) {
 			return Destination{ c->ref, Destination::Reason::Explicit, {} };
 		}
+		// The sell chest takes the very item only, never its family (DESIGN §8.8): a sold variant does not sell the root.
 		if (a_item.family) {
-			if (const auto* c = explicitFor(*a_item.family)) {
+			if (const auto* c = explicitFor(*a_item.family); c && !_layout.IsSellChest(c->ref)) {
 				return Destination{ c->ref, Destination::Reason::Explicit, {} };
 			}
 		}
@@ -141,7 +167,7 @@ namespace dova::core
 			return Destination{ c->ref, Destination::Reason::Learned, {} };
 		}
 		if (a_item.family) {
-			if (const auto* c = learnedFor(*a_item.family)) {
+			if (const auto* c = learnedFor(*a_item.family); c && !_layout.IsSellChest(c->ref)) {
 				return Destination{ c->ref, Destination::Reason::Learned, {} };
 			}
 		}
@@ -174,9 +200,9 @@ namespace dova::core
 			}
 		}
 
-		// 4. Master.
-		if (_layout.master && IsAvailable(*_layout.master)) {
-			return Destination{ *_layout.master, Destination::Reason::Master, {} };
+		// 4. Master (or, out of reach, the area's own).
+		if (auto master = CatchAll()) {
+			return Destination{ std::move(*master), Destination::Reason::Master, {} };
 		}
 		return std::nullopt;
 	}
@@ -430,8 +456,10 @@ namespace dova::core
 			return LearnResult::RejectedIgnored;
 		}
 
-		// A variant is learned under its root item (the family), so every variant follows.
-		const FormRef& key = a_item.family ? *a_item.family : a_item.form;
+		// A variant is learned under its root item (the family), so every variant follows. Not into the sell chest:
+		// there only the very item is learned, and the family's own entry stays (DESIGN §8.8).
+		const bool     byFamily = a_item.family && !a_layout.IsSellChest(a_container);
+		const FormRef& key = byFamily ? *a_item.family : a_item.form;
 
 		// What would the destination be without a learned entry for this item (its own, or its family's)?
 		std::optional<FormRef> previous;
@@ -440,7 +468,7 @@ namespace dova::core
 			a_layout.learned.erase(it);
 		}
 		std::optional<std::pair<FormRef, FormRef>> variantWas;
-		if (a_item.family) {
+		if (byFamily) {
 			if (const auto it = a_layout.learned.find(a_item.form); it != a_layout.learned.end()) {
 				variantWas = *it;
 				a_layout.learned.erase(it);  // older data for the variant itself: the family's entry takes over

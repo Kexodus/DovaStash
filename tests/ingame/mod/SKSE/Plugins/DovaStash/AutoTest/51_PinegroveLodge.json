@@ -3,7 +3,6 @@
   "name": "Pinegrove Lodge - Family house (Eli_Pinegrove Lodge.esp, mod home; tests the template path)",
   "home": "Eli_Pinegrove Lodge.esp|0x0002933F",
   "coc": "0LodgeInt",
-  "templates": ["51_PinegroveLodge.json"],
   "tests": [
     {
       "id": "1.1-pinegrove", "title": "Template offered on the first visit",
@@ -11,15 +10,16 @@
         {"do": "enter"},
         {"check": "home", "is": true, "layout": false},
         {"check": "log", "since": "plan", "regex": "Cell .*\\(Eli_Pinegrove Lodge\\.esp\\|0x0002933F\\): template available"},
-        {"check": "notify", "since": "plan", "regex": "Dova Stash: Pinegrove Lodge \\(AutoTest\\) setup available"}
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Pinegrove Lodge setup available"}
       ]
     },
     {
-      "id": "3.6-pinegrove", "title": "Use template: the setup is the AutoTest template, master is the lodge's chest",
+      "id": "3.6-pinegrove", "title": "Use template: the setup is the shipped template, master is the lodge's chest",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Pinegrove Lodge (AutoTest) setup enabled"},
-        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/51_PinegroveLodge.json@1.0.0"},
+        {"check": "notify", "contains": "Dova Stash: Pinegrove Lodge setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/PinegroveLodge.json@"},
+        {"check": "log", "since": "run", "regex": ": template Templates/Mods/PinegroveLodge\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "Eli_Pinegrove Lodge.esp|0x001315AD"},
         {"check": "noErrors"}
       ]
@@ -34,9 +34,9 @@
         {"do": "snapshot", "name": "dep"},
         {"do": "op", "op": "Deposit"},
         {"do": "waitIdle"},
-        {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x000E54B7", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 4},
+        {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x000EA608", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 4},
         {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x0013157D", "item": "Skyrim.esm|0x0002E4E2", "from": "dep", "ge": 2},
-        {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x000E54AD", "item": "Skyrim.esm|0x0001ACE6", "from": "dep", "ge": 1},
+        {"check": "log", "regex": "Display: Aevar Stone-Singer from .* on .*\\(bookshelf\\)", "within": 10},
         {"check": "count", "in": "Eli_Pinegrove Lodge.esp|0x001315D3", "item": "Skyrim.esm|0x0001397E", "from": "dep", "ge": 2},
         {"check": "count", "item": "Skyrim.esm|0x0001397E", "eq": 0},
         {"check": "conserved", "snapshot": "dep"},
@@ -77,7 +77,7 @@
         {"do": "wait", "seconds": 1},
         {"do": "closeMenu"},
         {"check": "log", "regex": "Learn: Iron Helmet .* -> .*: recorded"},
-        {"check": "notify", "regex": "Iron Helmet now goes to .* \\(K: undo\\)"},
+        {"check": "notify", "regex": "Iron Helmet now goes to .*\\. K: undo"},
         {"do": "wait", "seconds": 0.5},
         {"do": "hotkey"},
         {"check": "notify", "regex": "Dova Stash: undone, .* is not learned"},

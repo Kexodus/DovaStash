@@ -11,8 +11,6 @@ namespace dova::ui
 {
 	namespace
 	{
-		constexpr std::size_t kPerPage = 5;  // + More / Back = at most 7 buttons
-
 		std::string_view Noun(core::DisplayKind a_kind)
 		{
 			switch (a_kind) {
@@ -66,38 +64,21 @@ namespace dova::ui
 			return out;
 		}
 
-		// The message-box picker: a page of choices, More..., Back (to the display menu).
+		// The message-box picker, paged like every message-box menu (ShowOptions): a toggle reopens its page,
+		// Back on the first page goes to the display menu.
 		void ShowCategoryBox(RE::FormID a_cellId, core::FormRef a_display, core::DisplayFit a_fit, std::string a_name, std::size_t a_page)
 		{
-			const auto choices = DisplayCategoryChoices(a_fit);
-			const auto patterns = DisplayCategories(a_cellId, a_display);
-			const auto pages = std::max<std::size_t>(1, (choices.size() + kPerPage - 1) / kPerPage);
-			a_page = std::min(a_page, pages - 1);
-
-			std::vector<std::string>           labels;
-			std::vector<std::function<void()>> actions;
-			for (auto i = a_page * kPerPage; i < std::min(choices.size(), (a_page + 1) * kPerPage); ++i) {
-				labels.push_back(DisplayCategoryEntry(patterns, choices[i]));
-				actions.emplace_back([=, choice = choices[i]]() {
-					Controller::Get().ToggleDisplayCategory(a_cellId, a_display, choice);
-					ShowCategoryBox(a_cellId, a_display, a_fit, a_name, a_page);
-				});
+			const auto              choices = DisplayCategoryChoices(a_fit);
+			const auto              patterns = DisplayCategories(a_cellId, a_display);
+			std::vector<MenuOption> options;
+			for (std::size_t i = 0; i < choices.size(); ++i) {
+				options.push_back({ DisplayCategoryEntry(patterns, choices[i]), [=, choice = choices[i], page = i / kOptionsPerPage]() {
+									   Controller::Get().ToggleDisplayCategory(a_cellId, a_display, choice);
+									   ShowCategoryBox(a_cellId, a_display, a_fit, a_name, page);
+								   } });
 			}
-			if (a_page + 1 < pages) {
-				labels.emplace_back("More...");
-				actions.emplace_back([=]() { ShowCategoryBox(a_cellId, a_display, a_fit, a_name, a_page + 1); });
-			}
-			labels.emplace_back("Back");
-			actions.emplace_back([=]() { Controller::Get().ReopenDisplayMenu(a_cellId, a_display); });
-			auto body = std::format("Dova Stash: what goes on {}\n(nothing chosen: anything that fits)", a_name);
-			if (pages > 1) {
-				body += std::format("\n(page {}/{})", a_page + 1, pages);
-			}
-			ShowMessageBox(body, labels, [actions = std::move(actions)](std::size_t a_index) {
-				if (a_index < actions.size() && actions[a_index]) {
-					actions[a_index]();
-				}
-			});
+			ShowOptions(std::format("Dova Stash: {}: Categories\n(nothing chosen: anything that fits)", a_name), std::move(options),
+				[a_cellId, a_display]() { Controller::Get().ReopenDisplayMenu(a_cellId, a_display); }, a_page);
 		}
 	}
 

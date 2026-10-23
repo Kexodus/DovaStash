@@ -1,6 +1,7 @@
 #include "UI/AreaPrompt.h"
 
 #include "Controller.h"
+#include "Game/FormUtil.h"
 #include "Home/Areas.h"
 #include "Home/HomeRegistry.h"
 #include "UI/UIExtensions.h"
@@ -56,5 +57,24 @@ namespace dova::ui
 				logger::debug("Rename area: cancelled");
 			}
 		});
+	}
+
+	bool RenameContainerNamed(RE::FormID a_cellId, const core::FormRef& a_container)
+	{
+		auto* ref = game::LookupRef(a_container);
+		if (!ref || !uiext::IsInstalled()) {
+			return false;
+		}
+		return uiext::OpenTextEntry(game::RefName(ref), [a_cellId, a_container](std::optional<std::string> a_text) {
+			// The text box reports an empty text when it is cancelled: that must never clear a name.
+			if (!Blank(a_text)) {
+				Controller::Get().SetLabel(a_cellId, a_container, *a_text);
+			}
+		});
+	}
+
+	bool HasCustomName(RE::TESObjectREFR* a_ref)
+	{
+		return a_ref && a_ref->extraList.HasType(RE::ExtraDataType::kTextDisplayData);
 	}
 }

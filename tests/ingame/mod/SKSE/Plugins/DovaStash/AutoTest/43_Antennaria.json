@@ -28,11 +28,11 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "setup available \\(by "
+          "regex": "setup available \\(press K\\)"
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/Antennaria.json"
+          "source": "Templates/Mods/Antennaria.json"
         },
         {
           "check": "noErrors"
@@ -64,11 +64,11 @@
     },
     {
       "id": "3.6",
-      "title": "Use template: the AutoTest template is the one applied",
+      "title": "Use template: the shipped template is the one applied",
       "steps": [
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/Antennaria.json"
+          "source": "Templates/Mods/Antennaria.json"
         },
         {
           "do": "useTemplate"
@@ -76,7 +76,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/Antennaria.json@1.0.0",
+          "contains": "Templates/Mods/Antennaria.json@",
           "within": 5
         },
         {
@@ -180,7 +180,7 @@
     },
     {
       "id": "2.3-Antennaria",
-      "title": "Deposit in the main hall: the matching chests, the master takes the rest",
+      "title": "Deposit in the main hall: the matching chests (potions to the Supplies drawers)",
       "steps": [
         {
           "do": "op",
@@ -212,7 +212,7 @@
         },
         {
           "check": "count",
-          "in": "Antennaria.esp|0x0000B018",
+          "in": "Antennaria.esp|0x00007526",
           "item": "Skyrim.esm|0x0003EADD",
           "from": "inventory",
           "ge": 2
@@ -400,7 +400,7 @@
         },
         {
           "do": "useTemplate",
-          "source": "Templates/AutoTest/Antennaria.json"
+          "source": "Templates/Mods/Antennaria.json"
         },
         {
           "check": "layout",
@@ -474,11 +474,106 @@
     },
     {
       "id": "3.7-Antennaria",
-      "title": "Bookshelves and racks of the main hall",
-      "manual": "display fills are checked by eye (36 displays)"
+      "title": "Use template, Deposit puts a sword on a weapon rack or plaque and a shield on a shield rack and a book on a bookshelf; nothing is lost",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "contains": "Antennaria.json@",
+          "within": 5
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013989",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB6",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACEF",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "displays"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "Antennaria.esp|0x00009258",
+            "Antennaria.esp|0x0000925E",
+            "Antennaria.esp|0x00009260",
+            "Antennaria.esp|0x0000928D",
+            "Antennaria.esp|0x00009292",
+            "Antennaria.esp|0x000092A2",
+            "Antennaria.esp|0x00009866",
+            "Antennaria.esp|0x00009867",
+            "Antennaria.esp|0x0000986A",
+            "Antennaria.esp|0x0000986B",
+            "Antennaria.esp|0x0000986E",
+            "Antennaria.esp|0x0000986F",
+            "Antennaria.esp|0x0000B00F",
+            "Antennaria.esp|0x0000D85B",
+            "Antennaria.esp|0x0000D85C",
+            "Antennaria.esp|0x0000E342",
+            "Antennaria.esp|0x0000E343"
+          ],
+          "item": "Skyrim.esm|0x00013989",
+          "within": 10
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "Antennaria.esp|0x00009262"
+          ],
+          "item": "Skyrim.esm|0x00012EB6",
+          "within": 10
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "Antennaria.esp|0x0000D7DF",
+            "Antennaria.esp|0x0000D7E1",
+            "Antennaria.esp|0x0000D7E5",
+            "Antennaria.esp|0x0000D7E6",
+            "Antennaria.esp|0x0000D7E7",
+            "Antennaria.esp|0x0000D7E8",
+            "Antennaria.esp|0x0000D7E9",
+            "Antennaria.esp|0x0000D7EA"
+          ],
+          "item": "Skyrim.esm|0x0001ACEF",
+          "within": 10
+        },
+        {
+          "check": "conserved",
+          "snapshot": "displays"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-Antennaria-look",
+      "title": "Bookshelves and racks of the main hall: where each piece sits on its display",
+      "manual": "the placement on the display is checked by eye"
     }
-  ],
-  "templates": [
-    "Antennaria.json"
   ]
 }

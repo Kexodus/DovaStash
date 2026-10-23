@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.25)
 
+# The presets load vcpkg's toolchain from $env{VCPKG_ROOT}: without it CMake only says the toolchain file is missing.
+if(NOT DEFINED ENV{VCPKG_ROOT} AND (NOT CMAKE_TOOLCHAIN_FILE OR NOT EXISTS "${CMAKE_TOOLCHAIN_FILE}"))
+	message(FATAL_ERROR "Set VCPKG_ROOT to your vcpkg folder (docs/BUILDING.md, Prerequisites)")
+endif()
+
 project(
 	DovaStash
 	VERSION 0.2.4
@@ -35,5 +40,6 @@ endif()
 
 # Standalone template editor (Win32 + Dear ImGui), links dova_core. Preset `editor`.
 if(DOVASTASH_BUILD_EDITOR)
+	enable_testing()  # DovaStashEditorTests: `ctest --preset editor`
 	add_subdirectory(editor)
 endif()

@@ -85,6 +85,24 @@ namespace dova::game
 			return back;
 		}
 
+		// "Health, Ownership": the extra data types of special stacks (which kind of copy the engine took).
+		std::string ExtraTypes(const std::vector<RE::ExtraDataList*>& a_lists)
+		{
+			std::set<std::string> names;
+			for (auto* x : a_lists) {
+				for (const auto& data : *x) {
+					if (data.GetType() != RE::ExtraDataType::kCount) {
+						names.insert(std::format("0x{:02X}", static_cast<std::uint32_t>(data.GetType())));
+					}
+				}
+			}
+			std::string out;
+			for (const auto& n : names) {
+				out += (out.empty() ? "" : ", ") + n;
+			}
+			return out;
+		}
+
 		std::string EndpointName(RE::TESObjectREFR* a_ref)
 		{
 			if (!a_ref) {
@@ -199,8 +217,9 @@ namespace dova::game
 			// Plain-remainder move (RemoveItem with no extra list) while extra-data copies of the object stay in
 			// the source (worn, kept, tempered...; the ones that were leaving moved earlier in this batch). The
 			// engine takes plain copies first, as the container menu does: checked after the move.
-			ListCounts specialBefore;
-			ListCounts targetSpecialBefore;
+			ListCounts  specialBefore;
+			ListCounts  targetSpecialBefore;
+			std::string specialTypes;
 			if (!stack->extra) {
 				if (const auto special = SpecialStacks(source, stack->object); !special.empty()) {
 					if (PlainUnsafe(stack->object->GetFormID())) {
@@ -210,6 +229,7 @@ namespace dova::game
 						continue;
 					}
 					specialBefore = Counts(special);
+					specialTypes = ExtraTypes(special);
 					targetSpecialBefore = Counts(SpecialStacks(target, stack->object));
 				}
 			}
@@ -227,9 +247,9 @@ namespace dova::game
 					g_plainUnsafe.insert(stack->object->GetFormID());
 				}
 				putBack = PutBack(source, target, stack->object, targetSpecialBefore);
-				const auto text = std::format("Move of plain {} x{} {} -> {} took a tempered, enchanted, renamed or worn copy; put {} back. "
+				const auto text = std::format("Move of plain {} x{} {} -> {} took a tempered, enchanted, renamed or worn copy (extra data {}); put {} back. "
 											  "Plain copies of it next to such a copy stay where they are for the rest of this session.",
-					Describe(stack->object), move.count, EndpointName(source), EndpointName(target), putBack);
+					Describe(stack->object), move.count, EndpointName(source), EndpointName(target), specialTypes, putBack);
 				if (SpecialCopiesStayed(source, stack->object, specialBefore)) {
 					logger::warn("{}", text);  // every special copy is back where it was
 				} else {

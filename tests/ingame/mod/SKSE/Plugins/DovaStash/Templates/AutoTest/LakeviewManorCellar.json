@@ -1,0 +1,34 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Lakeview Manor Cellar (AutoTest)",
+  "note": "Plan 21 (3.9.6) only: the cellar on its own, as the split templates set it up before the merged Lakeview Manor template; the whole-home template takes such an untouched setup in.",
+  "author": "Dova Stash AutoTest",
+  "version": "1.0.0",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "HearthFires.esm"],
+  "cell": "HearthFires.esm|0x00004849",
+  "master": "HearthFires.esm|0x0000BE8F",
+  "containers": [
+    {"ref": "HearthFires.esm|0x0000BE89", "label": "Cellar chest (by the tanning rack)",              "categories": ["misc.hides_pelts", "misc.animal_parts"]},
+    {"ref": "HearthFires.esm|0x0000E265", "label": "Cellar display table (by the workbench)",         "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "HearthFires.esm|0x0000BE66", "label": "Cellar end table (by the forge)",                 "categories": ["misc.ores_ingots"]},
+    {"ref": "HearthFires.esm|0x0000BE85", "label": "Cellar chest (by the forge)",                     "categories": ["weapons.*"]},
+    {"ref": "HearthFires.esm|0x0000E264", "label": "Cellar end table (by the carpenter's workbench)", "categories": ["misc.building_materials", "misc.tools"]},
+    {"ref": "HearthFires.esm|0x0000BE9A", "label": "Cellar safe bank (by the smelter)",               "categories": ["misc.gems", "misc.curios", "armor.jewelry"]},
+    {"ref": "HearthFires.esm|0x0000BE95", "label": "Cellar safe bank (by the tanning rack)",          "categories": ["misc.dwemer"]}
+  ],
+  "displays": [
+    {"ref": "HearthFires.esm|0x0000BEE0", "label": "Left weapon rack (by the cellar chest)"},
+    {"ref": "HearthFires.esm|0x0000BEE1", "label": "Right weapon rack (by the cellar chest)"},
+    {"ref": "HearthFires.esm|0x0000BEE2", "label": "Shield rack (by the cellar chest)"},
+    {"ref": "HearthFires.esm|0x0000BEE3", "label": "Weapon rack (by the cellar end table)"},
+    {"ref": "HearthFires.esm|0x0000BEE8", "label": "Left weapon rack (by the cellar chest, 2)"},
+    {"ref": "HearthFires.esm|0x0000BEE9", "label": "Right weapon rack (by the cellar chest, 2)"},
+    {"ref": "HearthFires.esm|0x0000BEEA", "label": "Shield rack (by the cellar chest, 2)"},
+    {"ref": "HearthFires.esm|0x0000BEEE", "label": "Weapon rack (by the cellar end table, 2)"},
+    {"ref": "HearthFires.esm|0x0000BEF0", "label": "Weapon rack (by the cellar end table, 3)"},
+    {"ref": "HearthFires.esm|0x0000BEF2", "label": "Weapon rack (by the cellar end table, 4)"},
+    {"ref": "HearthFires.esm|0x0000BEF4", "label": "Weapon rack (by the cellar end table, 5)"},
+    {"ref": "HearthFires.esm|0x0000E291", "label": "Mannequin (by the cellar display table)"}
+  ]
+}

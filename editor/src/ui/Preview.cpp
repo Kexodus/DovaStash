@@ -13,6 +13,7 @@
 #include "Util.h"
 #include "home/Preview.h"
 #include "ui/App.h"
+#include "ui/Common.h"
 
 namespace dova::editor::ui
 {
@@ -139,7 +140,8 @@ namespace dova::editor::ui
 			}
 			w::Swatch(kMasterColour, "master");
 			for (const auto& u : used) {
-				w::Swatch(CategoryColour(u), u.c_str());
+				w::Swatch(CategoryColour(u), CategoryText(u).c_str());
+				w::Tip(u.c_str());
 			}
 			if (used.empty()) {
 				w::Muted("No container has categories yet");
@@ -304,15 +306,12 @@ namespace dova::editor::ui
 			const auto* c = order[k];
 			const auto  it = p.refIndex.find(c->ref);
 			const int   index = it == p.refIndex.end() ? -1 : it->second;
-			std::string name = c->ref.ToString();
-			if (const auto* b = a_cell.layout.FindContainer(c->ref); b && !b->label.empty()) {
-				name = b->label;
-			} else if (index >= 0) {
-				name = RefName(a_cell.info.refs[static_cast<std::size_t>(index)]);
-			}
+			// The name the other panels use (detail::RefLabel: the template's landmark label first).
+			const std::string name =
+				detail::RefLabel(a_cell.layout, c->ref, index >= 0 ? RefName(a_cell.info.refs[static_cast<std::size_t>(index)]) : c->ref.ToString());
 			TableRow row;
 			row.index = static_cast<int>(k);
-			row.cells.resize(4);
+			row.cells.resize(5);  // [4]: not a column; the category ids, for the filter
 			row.cells[0].text = std::format("{}{}", c->master ? "master: " : "", name);
 			// Fill: by its colour (nothing, a few, many, the master), then by items.
 			const int level = c->master ? 3 : c->total == 0 ? 0 : c->total >= kHeavyAt ? 2 : 1;
@@ -328,7 +327,8 @@ namespace dova::editor::ui
 				std::vector<std::pair<std::string, std::int32_t>> per(c->perCategory.begin(), c->perCategory.end());
 				std::ranges::sort(per, [](const auto& a, const auto& b) { return a.second > b.second; });
 				for (const auto& [cat, n] : per) {
-					row.cells[3].text += std::format("{}{} {}", row.cells[3].text.empty() ? "" : ", ", cat.empty() ? "(no category)" : cat, n);
+					row.cells[3].text += std::format("{}{} {}", row.cells[3].text.empty() ? "" : ", ", cat.empty() ? "(no category)" : CategoryText(cat), n);
+					row.cells[4].text += (row.cells[4].text.empty() ? "" : ", ") + cat;
 				}
 			}
 			row.tags = c->master ? kPreviewMaster : c->items.empty() ? kPreviewNothing : kPreviewItems;
@@ -386,7 +386,7 @@ namespace dova::editor::ui
 						for (std::size_t k = 0; k < c->items.size() && k < 25; ++k) {
 							const auto& e = c->items[k];
 							ImGui::Text("%s x%d  (%s%s)", p.items[e.item].name.c_str(), e.count, std::string(core::DestinationReasonName(e.reason)).c_str(),
-								e.category.empty() ? "" : (": " + e.category).c_str());
+								e.category.empty() ? "" : (": " + CategoryText(e.category)).c_str());
 						}
 						if (c->items.size() > 25) {
 							w::Muted(std::format("... {} more", c->items.size() - 25).c_str());
@@ -435,7 +435,8 @@ namespace dova::editor::ui
 		std::vector<std::pair<std::string, std::int32_t>> per(c->perCategory.begin(), c->perCategory.end());
 		std::ranges::sort(per, [](const auto& a, const auto& b) { return a.second > b.second; });
 		for (const auto& [cat, n] : per) {
-			w::Swatch(CategoryColour(cat), cat.empty() ? "(no category)" : cat.c_str());
+			w::Swatch(CategoryColour(cat), cat.empty() ? "(no category)" : CategoryText(cat).c_str());
+			w::Tip(cat.c_str());
 			ImGui::SameLine();
 			w::Muted(std::to_string(n).c_str());
 		}

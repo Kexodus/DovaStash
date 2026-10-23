@@ -8,7 +8,7 @@ Thanks for trying Dova Stash. It's a pre-release, and a good report usually gets
 [*]SE / AE: [i]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log[/i]
 [*]VR: [i]Documents/My Games/Skyrim VR/SKSE/DovaStash.log[/i]
 [/list]
-For the most useful log, set [b]iLogLevel = 1[/b] in [i]Data/SKSE/Plugins/DovaStash.ini[/i], restart, and reproduce the problem. Upload the log to a paste site (Pastebin, GitHub Gist) and post the link. Please don't paste the whole log into a comment.
+For the most useful log, set the log detail to [b]Trace[/b] (Settings page, Log) or [b]iLogLevel = 0[/b] in [i]Data/SKSE/Plugins/DovaStash.ini[/i], then reproduce the problem (no restart needed). Upload the log to a paste site (Pastebin, GitHub Gist) and post the link. Please don't paste the whole log into a comment.
 [*][b]Game version[/b] (SE 1.5.97, AE 1.6.x with the exact number, or VR) and your [b]SKSE version[/b].
 [*][b]The home[/b]: its name, and the mod it comes from if it isn't vanilla. Say whether you used a template or set it up by hand.
 [*][b]UI[/b]: UIExtensions lists, the SKSE Menu Framework panel, or message boxes. Mention QuickLoot IE and Skyrim Souls if you use them.
@@ -32,7 +32,7 @@ Log link:[/code]
 
 [b]Before posting, please check these[/b]
 [list]
-[*]An item that didn't move is usually a keep rule (equipped, favorited, quest, gold, lockpicks, torches), an item with no destination (it stays in the master), or a spare copy of an equipped item. See [i]Why didn't item X move?[/i] in the FAQ.
+[*]An item that didn't move is usually a keep rule (equipped, favorited, quest, gold, lockpicks, torches), an item with no destination (it stays in the master; in a home over several areas, it stays with you while the master's area isn't loaded: "master not here"; "no container here takes them" means its container is in an area that isn't loaded: Deposit there, or give a container here that category), an item a script hands back (the Curators Storage Token), or, rarely, an item Dova Stash holds back for the session after the game once picked a tempered or worn copy of it (the log says so). See [i]Why didn't an item move?[/i] in the FAQ.
 [*]A [i]"not a player home"[/i] message means the cell is owned by someone else and isn't tagged as a player house. Just outside a home (its grounds, its cellar) you can add the area to the home instead: walk out of the home and press the hotkey.
 [*]In a home with several areas, a chest in another area that shows [i]"only reachable in ..."[/i] in the panel is used only while you are in its own area (the game doesn't keep it in memory elsewhere). Say which area you were in when you report a missing move.
 [*][b]VR players:[/b] VR support is experimental, and any report helps, including "it works".

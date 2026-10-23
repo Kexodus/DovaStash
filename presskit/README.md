@@ -29,7 +29,7 @@ for the mod tile in search and browse.
 | [`dovastash-gallery-how-it-works-1920x1080.png`](nexus/dovastash-gallery-how-it-works-1920x1080.png) | 1920×1080 | Gallery: the three steps |
 | [`dovastash-gallery-menu-1920x1080.png`](nexus/dovastash-gallery-menu-1920x1080.png) | 1920×1080 | Gallery: one key, the hotkey lists for the home, a container and a rack (their entries as the plugin shows them) |
 | [`dovastash-gallery-templates-1920x1080.png`](nexus/dovastash-gallery-templates-1920x1080.png) | 1920×1080 | Gallery: a template applied to a home's chests |
-| [`dovastash-gallery-homes-1920x1080.png`](nexus/dovastash-gallery-homes-1920x1080.png) | 1920×1080 | Gallery: the 22 included templates |
+| [`dovastash-gallery-homes-1920x1080.png`](nexus/dovastash-gallery-homes-1920x1080.png) | 1920×1080 | Gallery: the 24 included templates |
 | [`dovastash-gallery-displays-1920x1080.png`](nexus/dovastash-gallery-displays-1920x1080.png) | 1920×1080 | Gallery: displays, mannequins and the workbench |
 | [`dovastash-gallery-categories-1920x1080.png`](nexus/dovastash-gallery-categories-1920x1080.png) | 1920×1080 | Gallery: the default categories |
 | [`dovastash-features-1200x700.png`](nexus/dovastash-features-1200x700.png) | 1200×700 | Gallery (optional): the six key features |

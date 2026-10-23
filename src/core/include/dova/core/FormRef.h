@@ -47,6 +47,11 @@ namespace dova::core
 		[[nodiscard]] std::size_t operator()(const FormRef& a_ref) const noexcept;
 	};
 
+	// Why `a_text` is not a FormRef, for a diagnostic (empty when it parses): 'expected "Plugin.esm|0x00ABCDEF"',
+	// 'not a plugin file name (.esm, .esp or .esl)', or a form id above 0x00FFFFFF with the fix (drop the load-order
+	// byte, or a light plugin's FExxx prefix).
+	[[nodiscard]] std::string FormRefError(std::string_view a_text);
+
 	// Case-insensitive (ASCII) helpers shared by everything that compares plugin names, keywords and
 	// enum spellings.
 	[[nodiscard]] bool        IEquals(std::string_view a_lhs, std::string_view a_rhs) noexcept;

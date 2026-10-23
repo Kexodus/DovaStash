@@ -19,6 +19,7 @@ namespace dova::display
 		constexpr int  kPlaqueTicks = 30;   // wait up to 3 s for a plaque's script
 		constexpr int  kShelfTicks = 30;    // wait up to 3 s for a bookshelf's script to take its books
 		constexpr int  kRefreshTicks = 50;  // wait up to 5 s for it to place them on its markers
+		constexpr int  kSettleTicks = 25;   // then 2.5 s more before the shelf is counted again (a copy that falls off its marker)
 
 		std::atomic<bool>    g_busy{ false };
 		std::atomic<unsigned> g_generation{ 0 };  // bumped by Reset: a Job from another save stops touching the game
@@ -73,6 +74,14 @@ namespace dova::display
 			bool                sent{ false };      // Bookshelf: moved into the shelf
 			bool                accepted{ false };  // Bookshelf: its script put it on a slot
 			std::int32_t        playerAfter{ 0 };   // Bookshelf: the player's count right after the moves
+			bool                returned{ false };  // Bookshelf: it left the shelf after UpdateBooks and went back
+		};
+
+		// A book on a shelf before its UpdateBooks: the shelf's count, and the copies of it already in the world.
+		struct ShelfWatch
+		{
+			std::int32_t         count{ 0 };
+			std::set<RE::FormID> loose;
 		};
 
 		// Where a weapon from a container is dropped before it goes up: in the open in front of the player,
@@ -151,8 +160,12 @@ namespace dova::display
 			{
 				++_placed;
 				g_failed.erase(a_step.display.ref);
-				logger::debug("Display: {} from {} on {} ({})", a_step.item, Holder(a_step.stack.owner), game::Describe(Ref(a_step.display.ref)),
-					core::DisplayKindName(a_step.display.kind));
+				// With its cell: a multi-cell home fills displays in several (the in-game suite checks per cell).
+				auto*       display = Ref(a_step.display.ref);
+				auto*       cell = display ? display->GetParentCell() : nullptr;
+				const char* cellName = cell ? cell->GetFullName() : nullptr;
+				logger::debug("Display: {} from {} on {} ({}) in {}", a_step.item, Holder(a_step.stack.owner), game::Describe(display),
+					core::DisplayKindName(a_step.display.kind), cellName && *cellName ? cellName : "?");
 			}
 
 			// Mannequins and cases: a plain transfer into the display's inventory; its script does the rest.
@@ -549,8 +562,15 @@ namespace dova::display
 				if (!any) {
 					return NextShelf(a_last);
 				}
+				_watch.clear();
+				for (auto i = a_first; i < a_last; ++i) {
+					auto* object = _shelves[i].stack.object;
+					if (_shelves[i].accepted && shelf && !_watch.contains(object)) {
+						_watch[object] = ShelfWatch{ game::LiveCount(shelf, object), game::LooseBooks(display, object) };
+					}
+				}
 				_refresh = game::RefreshBookshelf(display);
-				Later([self = shared_from_this(), a_last]() { self->WaitShelf(a_last, 1); });
+				Later([self = shared_from_this(), a_first, a_last]() { self->WaitShelf(a_first, a_last, 1); });
 			}
 
 			// The shelf's script gave a book back (to the player): it goes back where it came from.
@@ -576,18 +596,108 @@ namespace dova::display
 				}
 			}
 
-			// The books show once the shelf's UpdateBooks ran; it finishes on its own if it takes longer.
-			void WaitShelf(std::size_t a_next, int a_tick)
+			// The books show once the shelf's UpdateBooks ran; it finishes on its own if it takes longer. Then the
+			// shelf is counted again (SettleShelf).
+			void WaitShelf(std::size_t a_first, std::size_t a_next, int a_tick)
 			{
 				if (_refresh && *_refresh == 0 && a_tick < kRefreshTicks) {
-					Later([self = shared_from_this(), a_next, a_tick]() { self->WaitShelf(a_next, a_tick + 1); });
+					Later([self = shared_from_this(), a_first, a_next, a_tick]() { self->WaitShelf(a_first, a_next, a_tick + 1); });
 					return;
 				}
 				if (_refresh && *_refresh == 0) {
 					logger::debug("Display: a bookshelf is still placing its books after {} s; it finishes on its own", kRefreshTicks / 10);
 				}
+				const bool placed = !_refresh || *_refresh != -1;  // -1: UpdateBooks did not run, nothing was replaced
 				_refresh.reset();
+				if (!placed) {
+					_watch.clear();
+					return NextShelf(a_next);
+				}
+				SettleShelf(a_first, a_next, 1);
+			}
+
+			// A copy UpdateBooks put on a marker that leaves the shelf's trigger (it falls off: the marker is
+			// outside the trigger or has nothing under it) makes the trigger take the book out of the shelf's
+			// container, as if the player had picked it up. A moment later the shelf is counted again; a book
+			// that left it goes back where it came from (its loose copy is removed), and Deposit and Sort all
+			// leave the shelf alone for the rest of the session.
+			void SettleShelf(std::size_t a_first, std::size_t a_next, int a_tick)
+			{
+				if (!StillHere()) {
+					return Abort();
+				}
+				if (a_tick < kSettleTicks) {
+					Later([self = shared_from_this(), a_first, a_next, a_tick]() { self->SettleShelf(a_first, a_next, a_tick + 1); });
+					return;
+				}
+				const auto& display = _shelves[a_first].display;
+				auto*       shelf = Ref(display.ref);
+				for (const auto& [object, watch] : _watch) {
+					auto lost = shelf ? watch.count - game::LiveCount(shelf, object) : 0;
+					if (lost <= 0) {
+						continue;
+					}
+					g_failed.insert(display.ref);
+					auto fresh = game::LooseBooks(display, object);
+					std::erase_if(fresh, [&](RE::FormID a_id) { return watch.loose.contains(a_id); });
+					for (auto i = a_next; i-- > a_first && lost > 0;) {
+						auto& s = _shelves[i];
+						if (s.accepted && !s.returned && s.stack.object == object) {
+							s.returned = true;
+							--lost;
+							Returned(s, fresh);
+						}
+					}
+				}
+				_watch.clear();
 				NextShelf(a_next);
+			}
+
+			// A book that left the shelf after its UpdateBooks: its loose copy (if found) is removed and the book
+			// goes back where it came from. If no copy is found and the player's count went up, the player took it.
+			void Returned(const Step& a_step, std::set<RE::FormID>& a_fresh)
+			{
+				--_placed;
+				++_skipped;
+				auto*      player = game::Player();
+				auto*      source = Ref(a_step.stack.owner);
+				const auto shelf = game::Describe(Ref(a_step.display.ref));
+				RE::TESObjectREFR* copy = nullptr;
+				while (!copy && !a_fresh.empty()) {
+					copy = RE::TESForm::LookupByID<RE::TESObjectREFR>(*a_fresh.begin());
+					a_fresh.erase(a_fresh.begin());
+				}
+				if (!copy && player && game::LiveCount(player, a_step.stack.object) > a_step.playerAfter) {
+					logger::info("Display: {} is no longer in {}; you have it", a_step.item, shelf);
+					return;
+				}
+				if (!source) {
+					source = player;
+				}
+				if (copy) {
+					const auto at = copy->GetPosition();
+					logger::warn("Display: {} fell off {} (its copy lies at {:.0f}, {:.0f}, {:.0f}) and its trigger took the book out; Deposit and Sort all "
+								 "leave the shelf alone for the rest of this session",
+						a_step.item, shelf, at.x, at.y, at.z);
+					copy->Disable();
+					copy->SetDelete(true);
+				} else {
+					logger::warn("Display: {} is no longer in {} and no loose copy of it is in the cell; Deposit and Sort all leave the shelf alone for "
+								 "the rest of this session",
+						a_step.item, shelf);
+				}
+				if (!source) {
+					logger::error("Display: {} could not be put back (its container is gone)", a_step.item);
+					return;
+				}
+				game::ItemMover::SuppressScope suppress;
+				const auto before = game::LiveCount(source, a_step.stack.object);
+				source->AddObjectToContainer(a_step.stack.object, nullptr, 1, nullptr);
+				if (game::LiveCount(source, a_step.stack.object) != before + 1) {
+					logger::error("Display: {} could not be put back in {}", a_step.item, Holder(source == player ? game::kPlayerRefID : a_step.stack.owner));
+					return;
+				}
+				logger::info("Display: {} went back to {}", a_step.item, Holder(source == player ? game::kPlayerRefID : a_step.stack.owner));
 			}
 
 			void Abort()
@@ -617,7 +727,7 @@ namespace dova::display
 					if (_takenBack > 0) {
 						message += std::format(" ({} couldn't go up and {} in your inventory)", _takenBack, _takenBack == 1 ? "is" : "are");
 					} else if (_errors > 0) {
-						message += std::format(" ({} failed, see log)", _errors);
+						message += std::format(" ({} failed, see DovaStash.log)", _errors);
 					}
 					Controller::Get().Notify(message);
 				}
@@ -630,6 +740,7 @@ namespace dova::display
 			std::vector<Step> _plaques;
 			std::vector<Step> _shelves;
 			std::shared_ptr<std::atomic<int>> _refresh;  // the bookshelf whose books are being placed (game::RefreshBookshelf)
+			std::map<RE::TESBoundObject*, ShelfWatch> _watch;  // that shelf's books before its UpdateBooks (SettleShelf)
 			std::int32_t      _placed{ 0 };
 			std::int32_t      _skipped{ 0 };
 			std::int32_t      _errors{ 0 };
@@ -681,6 +792,13 @@ namespace dova::display
 				} else {
 					d = b.kind ? game::DeclaredDisplay(ref, *b.kind) : std::nullopt;
 					if (!d) {
+						// Only judged with its 3D, in the player's cell: from another area (the grounds, a cellar) its scripts
+						// reveal nothing, and the once-per-session warning would then hide a genuine one later.
+						auto* player = game::Player();
+						if (!ref->Is3DLoaded() || !player || ref->GetParentCell() != player->GetParentCell()) {
+							logger::debug("Displays: layout entry {} not judged here (not loaded in the player's cell)", b.ref.ToString());
+							continue;
+						}
 						if (log::FirstTime(std::format("display-entry:{:08X}", ref->GetFormID()))) {
 							logger::warn("Displays: layout entry {} ({}) is no display Dova Stash can fill{}", b.ref.ToString(), game::Describe(ref),
 								b.kind ? "" : " (give it a \"kind\")");
@@ -738,6 +856,7 @@ namespace dova::display
 			// Multi-cell homes (DESIGN §6.7): displays need their 3D and their cell's scripts, so only the ones in
 			// the player's cell are filled (a layout entry with `kind` elsewhere in the home waits for its cell).
 			if (const auto* ref = RE::TESForm::LookupByID<RE::TESObjectREFR>(d.ref); !ref || ref->GetParentCell() != a_cell) {
+				logger::debug("Display: {} waits (not in the player's cell)", game::Describe(RE::TESForm::LookupByID(d.ref)));
 				return true;
 			}
 			if (g_failed.contains(d.ref) && !planned(d)) {
@@ -765,6 +884,7 @@ namespace dova::display
 		std::map<core::DisplayKind, std::pair<int, int>> counts;  // kind -> (available, empty)
 		for (auto& d : found) {
 			if (!game::DisplayAvailable(d)) {
+				logger::debug("Display: {} is unavailable (not built, disabled, dead or without 3D)", game::Describe(RE::TESForm::LookupByID(d.ref)));
 				continue;
 			}
 			auto ref = RefOf(d.ref);
@@ -817,6 +937,14 @@ namespace dova::display
 			}
 			shown.insert(spot.holds.begin(), spot.holds.end());
 			spot.reserveOnly = !planned(d);
+			if (spot.full && !spot.reserveOnly) {
+				const auto why = d.kind == core::DisplayKind::Rack      ? "something is on the rack" :
+				                 d.kind == core::DisplayKind::Mannequin ? "it wears something" :
+				                 d.kind == core::DisplayKind::Bookshelf ? "no room for another book" :
+				                 d.kind == core::DisplayKind::Case      ? "it holds all its items" :
+				                                                          "its item is placed";
+				logger::debug("Display: {} takes nothing ({})", game::Describe(RE::TESForm::LookupByID(d.ref)), why);
+			}
 			if (!spot.reserveOnly) {
 				auto& [n, empty] = counts[d.kind];
 				++n;

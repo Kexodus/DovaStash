@@ -1,6 +1,7 @@
 #include "dova/core/FormRef.h"
 
 #include <array>
+#include <format>
 
 namespace dova::core
 {
@@ -127,6 +128,29 @@ namespace dova::core
 			return std::nullopt;
 		}
 		return FormRef{ std::string(plugin), *id };
+	}
+
+	std::string FormRefError(std::string_view a_text)
+	{
+		constexpr std::string_view kShape = "expected \"Plugin.esm|0x00ABCDEF\"";
+		const auto                 bar = a_text.find('|');
+		if (bar == std::string_view::npos || a_text.find('|', bar + 1) != std::string_view::npos) {
+			return std::string(kShape);
+		}
+		if (!IsValidPluginName(Trim(a_text.substr(0, bar)))) {
+			return "not a plugin file name (.esm, .esp or .esl)";
+		}
+		const auto id = ParseHexId(Trim(a_text.substr(bar + 1)));
+		if (!id) {
+			return std::string(kShape);
+		}
+		if (*id > FormRef::kMaxLocalId) {
+			if ((*id >> 24) == 0xFE) {  // a light plugin's runtime id: FE, 3 digits of light index, 3 of local id
+				return std::format("form id above 0x00FFFFFF, drop the light plugin prefix (0x{:08X} -> 0x{:08X})", *id, *id & 0xFFF);
+			}
+			return std::format("form id above 0x00FFFFFF, drop the load-order byte (0x{:08X} -> 0x{:08X})", *id, *id & FormRef::kMaxLocalId);
+		}
+		return {};
 	}
 
 	std::string FormRef::ToString() const

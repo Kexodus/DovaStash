@@ -32,6 +32,10 @@ namespace dova::home
 		// Indices into Templates() (LayoutResolution) are stale afterwards: re-resolve the current home
 		// (HomeRegistry::RefreshTemplates). Main thread.
 		void ReloadTemplates();
+		// AutoTest only (AutoTest.cpp, at each plan's start): Templates/AutoTest/*.json other than `a_keep` (file names,
+		// any case) are left out of Templates() from the next (Re)load on, so a test template only shadows a shipped one
+		// in the plan that declares it. Call ReloadTemplates() after.
+		void ScopeTestTemplates(std::vector<std::string> a_keep);
 
 		[[nodiscard]] const core::CategorySet&                 Categories() const noexcept { return _categories; }
 		[[nodiscard]] std::span<const core::TemplateCandidate> Templates() const noexcept { return _templates; }
@@ -42,7 +46,7 @@ namespace dova::home
 		// Writes the "keep" block of Settings.json (other keys in the file are kept) and makes it current.
 		bool SaveGlobalKeep(core::KeepConfig a_keep);
 
-		// Diagnostics from the last Load() (shown by the Menu Framework UI's Diagnostics page).
+		// Diagnostics from the last Load() (shown under Diagnostics on the Menu Framework UI's About page).
 		[[nodiscard]] const core::Diagnostics& CategoryDiagnostics() const noexcept { return _categoryDiags; }
 		[[nodiscard]] const core::Diagnostics& TemplateDiagnostics() const noexcept { return _templateDiags; }
 		[[nodiscard]] const core::Diagnostics& SettingsDiagnostics() const noexcept { return _settingsDiags; }
@@ -128,6 +132,7 @@ namespace dova::home
 		mutable std::vector<core::HomeCellsEntry> _homeCells;  // player layouts that list extra cells (main thread)
 		core::CategorySet                    _categories;
 		std::vector<core::TemplateCandidate> _templates;
+		std::optional<std::vector<std::string>> _testTemplates;  // ScopeTestTemplates (lower case); nullopt = all
 		core::KeepConfig                     _globalKeep;
 		core::Diagnostics                    _categoryDiags;
 		core::Diagnostics                    _templateDiags;

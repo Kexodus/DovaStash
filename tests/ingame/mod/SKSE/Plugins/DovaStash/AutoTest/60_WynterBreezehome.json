@@ -1,7 +1,8 @@
 {
   "$schema": "dovastash-autotest-1",
-  "name": "Wynter's Breezehome Redux - the vanilla Breezehome cell (WynterBreezehomeRedux.esp rebuilds it: NEEDS THE WYNTER PROFILE, tests/ingame/profile/extra-mods-wynter.txt)",
+  "name": "Wynter's Breezehome Redux - the vanilla Breezehome cell (WynterBreezehomeRedux.esp rebuilds it: the Wynter profile: tests/ingame/profile/extra-mods-wynter.txt; skipped without it)",
   "home": "Skyrim.esm|0x000165A8",
+  "requires": ["WynterBreezehomeRedux.esp"],
   "coc": "WhiterunBreezehome",
   "tests": [
     {

@@ -3,7 +3,6 @@
   "name": "Hydda - Witch hut player home (Eli_WitchyHaus.esp, mod home; tests the template path, a load door, a cauldron-style cooking pot)",
   "home": "Eli_WitchyHaus.esp|0x00005921",
   "coc": "0Hut",
-  "templates": ["55_Hydda.json"],
   "tests": [
     {
       "id": "1.1-hydda", "title": "Template offered on the first visit",
@@ -11,15 +10,16 @@
         {"do": "enter"},
         {"check": "home", "is": true, "layout": false},
         {"check": "log", "since": "plan", "regex": "Cell .*\\(Eli_WitchyHaus\\.esp\\|0x00005921\\): template available"},
-        {"check": "notify", "since": "plan", "regex": "Dova Stash: Hydda \\(AutoTest\\) setup available"}
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Hydda setup available"}
       ]
     },
     {
       "id": "3.6-hydda", "title": "Use template, Deposit spreads potions, food and ingredients",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Hydda (AutoTest) setup enabled"},
-        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/55_Hydda.json@1.0.0"},
+        {"check": "notify", "contains": "Dova Stash: Hydda setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/Hydda.json@"},
+        {"check": "log", "since": "run", "regex": ": template Templates/Mods/Hydda\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "Eli_WitchyHaus.esp|0x00051C1D"},
         {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
         {"do": "additem", "item": "Skyrim.esm|0x00064B41", "count": 1},
@@ -28,7 +28,7 @@
         {"do": "op", "op": "Deposit"},
         {"do": "waitIdle"},
         {"check": "count", "in": "Eli_WitchyHaus.esp|0x00051BFA", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
-        {"check": "count", "in": "Eli_WitchyHaus.esp|0x00051C24", "item": "Skyrim.esm|0x00064B41", "from": "dep", "ge": 1},
+        {"check": "count", "in": "Eli_WitchyHaus.esp|0x0003D633", "item": "Skyrim.esm|0x00064B41", "from": "dep", "ge": 1},
         {"check": "count", "in": "Eli_WitchyHaus.esp|0x00051B5E", "item": "Skyrim.esm|0x00034CDF", "from": "dep", "ge": 2},
         {"check": "conserved", "snapshot": "dep"},
         {"check": "noErrors"}

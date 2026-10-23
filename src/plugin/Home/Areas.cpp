@@ -48,7 +48,10 @@ namespace dova::home
 			if (const char* name = a_owner ? a_owner->GetName() : nullptr; name && *name) {
 				return name;
 			}
-			return a_owner ? std::format("{:08X}", a_owner->GetFormID()) : "nobody"s;
+			if (const char* edid = a_owner ? a_owner->GetFormEditorID() : nullptr; edid && *edid) {
+				return edid;
+			}
+			return !a_owner ? "nobody"s : a_owner->Is(RE::FormType::Faction) ? "a faction"s : "someone"s;
 		}
 
 		std::string Utf8(const std::filesystem::path& a_path)
@@ -87,6 +90,18 @@ namespace dova::home
 			}
 		}
 		return a_ref.ToString();
+	}
+
+	std::string ListedCellName(const Home& a_home, const core::FormRef& a_cell)
+	{
+		if (a_home.layout) {
+			const auto& cells = a_home.layout->cells;
+			if (const auto it = std::ranges::find(cells, a_cell, &core::HomeCell::cell); it != cells.end() && !it->label.empty()) {
+				return it->label;
+			}
+		}
+		auto* form = game::LookupForm(a_cell);
+		return AreaName(form ? form->As<RE::TESObjectCELL>() : nullptr, a_cell);
 	}
 
 	void BuildAreas(Home& a_home)
@@ -185,10 +200,11 @@ namespace dova::home
 			*a_reach = reach;
 		}
 		if (reach == core::Reach::Outside) {
-			return game::Verdict::Reject("container is not in this home");
+			return game::Verdict::Reject("not in this home", "container is not in this home");
 		}
 		if (reach == core::Reach::Unreachable) {
-			return game::Verdict::Reject(std::format("only reachable in {} (not a persistent reference)", area->name));
+			return game::Verdict::Reject(std::format("only reachable in {}", area->name),
+				std::format("only reachable in {} (not a persistent reference)", area->name));
 		}
 		// In the home and reachable: the usual checks, against the container's own cell (its owner, whether it
 		// never resets). A persistent exterior reference in its worldspace's persistent cell has neither, so a
@@ -223,7 +239,7 @@ namespace dova::home
 				!area.interior ? "" : *area.interior ? " interior" : " exterior", area.id == a_home.cellId ? ", you are here" : "");
 		}
 		for (const auto& excluded : a_home.areasExcluded) {
-			logger::debug("  {} is listed but has a setup of its own: not part of {}", excluded.ToString(), a_home.name);
+			logger::debug("  {} [{}] is listed but has a setup of its own: not part of {}", ListedCellName(a_home, excluded), excluded.ToString(), a_home.name);
 		}
 		if (!a_home.layout) {
 			return;

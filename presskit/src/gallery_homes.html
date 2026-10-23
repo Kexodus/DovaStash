@@ -23,13 +23,17 @@
 <body>
 <div class="g-page">
   <div class="g-head">
-    <h1 class="title">22 homes, ready</h1>
-    <div class="g-sub">Templates included. Walk in, press K and use the home&rsquo;s template.</div>
+    <h1 class="title" id="t"></h1>
+    <div class="g-sub" id="s"></div>
   </div>
   <div class="cols" id="c"></div>
 </div>
 <script>
-  var T = DS_DATA.templates;
+  // one row per home (a multi-cell home is one template); mod homes are counted in the line under the title
+  var T = DS_DATA.templates.filter(function (t) { return t.group !== "Mods"; });
+  var mods = DS_DATA.templates.filter(function (t) { return t.group === "Mods"; }).length;
+  document.getElementById("t").textContent = T.length + " homes, ready";
+  document.getElementById("s").textContent = "Templates included, plus " + mods + " mod homes. Walk in and the home is set up.";
   var names = T.map(function (t) { return t.name; });
   function item(t) {
     // grey the suffix of sub-areas ("Cellar", "Gallery") of a listed home

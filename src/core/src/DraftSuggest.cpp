@@ -943,7 +943,7 @@ namespace dova::core
 				                       "though its name says what it holds (every usable container's does)" :
 				                       "though its name says what it holds");
 			}
-			parts.push_back(std::format("{:.0f} x {:.0f} x {:.0f} units{}", o.size[0], o.size[1], o.size[2], best.volume * 2.0f >= fullSize ? "" : ", small"));
+			parts.push_back(std::format("{:.1f} x {:.1f} x {:.1f} m{}", o.size[0] / 70.0f, o.size[1] / 70.0f, o.size[2] / 70.0f, best.volume * 2.0f >= fullSize ? "" : ", small"));  // metres, as DraftMetres
 			if (best.entrance >= 0.0f) {
 				parts.push_back(std::format("{} from the door{}", DraftMetres(best.entrance), best.door.empty() ? std::string{} : " to " + best.door));
 			}
@@ -1072,6 +1072,12 @@ namespace dova::core
 
 		// ---- One container per category ----
 		std::map<std::string, std::size_t> winner;  // pattern -> container index
+		// The categories other than `a_pattern` container `a_ci` is sure of: on a tie, the one with fewer is more about it.
+		const auto othersSure = [&](std::size_t a_ci, const std::string& a_pattern) {
+			return std::ranges::count_if(evidence[a_ci], [&](const auto& a_entry) {
+				return a_entry.first != a_pattern && a_entry.second.confidence + 1e-4f >= a_rules.acceptAt;
+			});
+		};
 		for (std::size_t ci = 0; ci < evidence.size(); ++ci) {
 			for (const auto& [pattern, e] : evidence[ci]) {
 				const auto it = winner.find(pattern);
@@ -1081,11 +1087,23 @@ namespace dova::core
 				}
 				const auto& other = evidence[it->second].at(pattern);
 				// The stronger claim by name wins (named for exactly this category, then a display name that says it as part
-				// of a group, then the rest), when it is sure enough; then confidence, then the nearer station.
+				// of a group, then the rest), when it is sure enough; then confidence. Ties: the container's own name over
+				// stations and items nearby, then the one sure of fewer other categories ("Notes and Letters" over
+				// "Alchemy Recipes"), then the nearer station, then the earlier container.
 				const bool claimWins = e.claim > other.claim && e.confidence + 1e-4f >= a_rules.acceptAt;
 				const bool claimLoses = other.claim > e.claim && other.confidence + 1e-4f >= a_rules.acceptAt;
+				const auto tieWins = [&] {
+					const bool byName = e.source == DraftSource::Name, otherByName = other.source == DraftSource::Name;
+					if (byName != otherByName) {
+						return byName;
+					}
+					if (const auto mine = othersSure(ci, pattern), theirs = othersSure(it->second, pattern); mine != theirs) {
+						return mine < theirs;
+					}
+					return e.stationDistance < other.stationDistance;
+				};
 				if (claimWins ||
-					(!claimLoses && (e.confidence > other.confidence + 1e-4f || (std::abs(e.confidence - other.confidence) <= 1e-4f && e.stationDistance < other.stationDistance)))) {
+					(!claimLoses && (e.confidence > other.confidence + 1e-4f || (std::abs(e.confidence - other.confidence) <= 1e-4f && tieWins())))) {
 					it->second = ci;
 				}
 			}

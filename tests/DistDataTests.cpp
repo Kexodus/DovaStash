@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <set>
 #include <string>
 
 #include <catch2/catch_message.hpp>
@@ -74,7 +75,7 @@ TEST_CASE("Shipped templates parse without errors", "[dist]")
 	Diagnostics diags;
 	const auto  templates = LoadTemplateDirectory(dir, diags);
 	Report(diags);
-	CHECK_FALSE(diags.HasErrors());
+	CHECK(diags.Empty());  // warnings too (ValidateTemplate: pattern typos, forms outside "requires")
 
 	// Every template must round-trip stably and name a cell.
 	for (const auto& t : templates) {
@@ -86,7 +87,7 @@ TEST_CASE("Shipped templates parse without errors", "[dist]")
 		CHECK(SerializeLayout(*reparsed) == SerializeLayout(t.layout));
 	}
 
-	// Cross-check bindings against the shipped categories (warnings only: the data is authored separately).
+	// Cross-check bindings against the shipped categories: a binding no category matches fails the test.
 	Diagnostics catDiags;
 	const auto  categories = CategorySet::Compile(LoadCategoryDirectory(kDist / "Categories", catDiags), {}, catDiags);
 	if (categories.Size() > 0) {
@@ -100,5 +101,19 @@ TEST_CASE("Shipped templates parse without errors", "[dist]")
 			CHECK(displays.Empty());
 		}
 		Report(lint);
+		CHECK(lint.Empty());
+	}
+}
+
+TEST_CASE("Shipped categories: torches have one, every name tells its category apart", "[dist]")
+{
+	Diagnostics diags;
+	const auto  set = CategorySet::Compile(LoadCategoryDirectory(kDist / "Categories", diags), {}, diags);
+	REQUIRE(set.Size() > 0);
+	CHECK(set.Classify(dova::test::MakeItem(dova::test::Sk(0x1D4EC), ItemType::Light)) == "misc.lights");  // Torch
+	std::set<std::string> names;
+	for (const auto& c : set.Categories()) {
+		INFO(c.id << " " << c.name);
+		CHECK(names.insert(c.name).second);  // "Books" and "Other books", never two of one name
 	}
 }

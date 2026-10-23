@@ -148,7 +148,9 @@ TEST_CASE("Draft master: the largest usable chest near the entrance, with the re
 	REQUIRE(plan.master);
 	CHECK(*plan.master == 2);
 	CHECK_THAT(plan.masterReason, Catch::Matchers::ContainsSubstring("named like a chest"));
-	CHECK_THAT(plan.masterReason, Catch::Matchers::ContainsSubstring("door to Whiterun"));
+	CHECK_THAT(plan.masterReason, Catch::Matchers::ContainsSubstring("1.1 x 0.7 x 0.7 m, "));  // one unit: metres, as the door distance
+	CHECK_THAT(plan.masterReason, Catch::Matchers::ContainsSubstring(" m from the door to Whiterun"));
+	CHECK_FALSE(plan.masterReason.contains("units"));
 	CHECK_FALSE(plan.masterRunnersUp.empty());
 	// The master gets no suggestions of its own.
 	CHECK(plan.Find(2)->suggestions.empty());
@@ -439,6 +441,24 @@ TEST_CASE("Draft: a container named for one category beats one that has it as pa
 	CHECK(crate->accepted);                         // ...but the crate is named for poisons
 	CHECK_FALSE(basket->accepted);
 	CHECK(Find(plan, 1, "alchemy.potions")->accepted);
+}
+
+TEST_CASE("Draft: on a tie the container whose name is only about the category wins", "[draft]")
+{
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00001401", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 150, 80, 80 }),
+		Container("Skyrim.esm|0x00001402", "PlayerHouseSatchel", "Alchemy Recipes", { 500, 0, 0 }),  // earlier, also alchemy
+		Container("Skyrim.esm|0x00001403", "PlayerHouseSatchel", "Notes and Letters", { 1000, 0, 0 }),
+	};
+	const auto  plan = SuggestDraft(objects, DefaultDraftRules());
+	const auto* recipes = Find(plan, 1, "books.notes");
+	const auto* notes = Find(plan, 2, "books.notes");
+	REQUIRE(recipes);
+	REQUIRE(notes);
+	CHECK(recipes->confidence == notes->confidence);
+	CHECK(notes->accepted);
+	CHECK_FALSE(recipes->accepted);
+	CHECK(recipes->lostTo == "Skyrim.esm|0x00001403");
 }
 
 TEST_CASE("Draft drops patterns the loaded categories do not know", "[draft]")

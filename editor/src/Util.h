@@ -3,6 +3,7 @@
 // Small helpers shared by the editor: UTF-8 <-> wide strings and paths, text files, a minimal INI
 // reader for MO2's Qt-written files. Windows only (the editor is a Win32 program).
 
+#include <array>
 #include <filesystem>
 #include <map>
 #include <optional>
@@ -43,4 +44,9 @@ namespace dova::editor
 	};
 
 	[[nodiscard]] std::string QtUnescape(std::string_view a_value);
+
+	// The largest group of points chained `a_gap` units apart or closer (the one with the most `a_weighted` points,
+	// then the most points): the home without a prefab or marker a mod parked far away. Indices into `a_points`, in
+	// order. One rule for the 3D overview (render::Scene::SceneBounds) and the plan's Home fit.
+	[[nodiscard]] std::vector<std::size_t> LargestGroup(const std::vector<std::array<float, 3>>& a_points, const std::vector<bool>& a_weighted, float a_gap = 1024.0f);
 }

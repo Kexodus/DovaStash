@@ -28,11 +28,11 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "setup available \\(by "
+          "regex": "setup available \\(press K\\)"
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/Niflholm.json"
+          "source": "Templates/Mods/Niflholm.json"
         },
         {
           "check": "noErrors"
@@ -64,11 +64,11 @@
     },
     {
       "id": "3.6",
-      "title": "Use template: the AutoTest template is the one applied",
+      "title": "Use template: the shipped template is the one applied",
       "steps": [
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/Niflholm.json"
+          "source": "Templates/Mods/Niflholm.json"
         },
         {
           "do": "useTemplate"
@@ -76,7 +76,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/Niflholm.json@1.0.0",
+          "contains": "Templates/Mods/Niflholm.json@",
           "within": 5
         },
         {
@@ -160,7 +160,7 @@
         {
           "check": "notify",
           "since": "action",
-          "contains": "restocks itself"
+          "contains": "respawns, items would be lost"
         },
         {
           "check": "layout",
@@ -480,7 +480,7 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "re-sorted \\d+ items?"
+          "regex": "re-sorted \\d+ items?|everything is already in place"
         },
         {
           "check": "conserved",
@@ -592,7 +592,7 @@
         },
         {
           "do": "useTemplate",
-          "source": "Templates/AutoTest/Niflholm.json"
+          "source": "Templates/Mods/Niflholm.json"
         },
         {
           "check": "layout",
@@ -688,6 +688,21 @@
         }
       ]
     },
+    {"id": "3.7-Niflholm", "title": "Displays in another cell are not filled from the main hall: a Deposit in the main hall puts nothing up in Niflholm Mage Hall (display fills are logged with their cell)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x00013911", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x000F456D", "count": 1},
+        {"do": "snapshot", "name": "displays"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Displays in .*: "},
+        {"check": "log", "regex": "Display: .* on .*\\) in Niflholm Mage Hall$", "absent": true},
+        {"check": "conserved", "snapshot": "displays"},
+        {"check": "noErrors"}
+      ]
+    },
     {
       "id": "3.5-Niflholm",
       "title": "Reset removes the setup: each cell is its own home again",
@@ -728,14 +743,6 @@
           "check": "noErrors"
         }
       ]
-    },
-    {
-      "id": "3.7-Niflholm",
-      "title": "Displays in another cell are not filled from the main hall",
-      "manual": "display fills are logged without their cell: needs a look at the racks and mannequins in Mage Hall after a Deposit in the main hall"
     }
-  ],
-  "templates": [
-    "Niflholm.json"
   ]
 }

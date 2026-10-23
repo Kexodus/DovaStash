@@ -237,7 +237,7 @@ TEST_CASE("Category errors skip the category, not the file", "[categories]")
 			{ "id": "bad.enchanted", "match": { "enchanted": "yes" } },
 			42,
 			{ "id": "ok.two", "description": "fine", "_comment": "fine", "match": { "formTypes": "KEYM" } },
-			{ "id": "ok.three", "colour": "blue" }
+			{ "id": "ok.three", "colour": "blue", "prority": 5 }
 		]
 	})",
 		"cats.json", diags);
@@ -246,9 +246,13 @@ TEST_CASE("Category errors skip the category, not the file", "[categories]")
 	CHECK(defs[1].id == "ok.two");
 	CHECK(defs[2].id == "ok.three");
 	CHECK(HasMessage(diags, Diagnostic::Severity::Error, "unknown predicate \"keywordAny\""));
-	CHECK(HasMessage(diags, Diagnostic::Severity::Error, "unknown value \"Sword\""));
+	CHECK(HasMessage(diags, Diagnostic::Severity::Error, "unknown value \"Sword\" (one of HandToHand, OneHandSword, OneHandDagger, OneHandAxe, OneHandMace, "
+															"TwoHandSword, TwoHandAxe, Bow, Staff, Crossbow)"));
+	CHECK(HasMessage(diags, Diagnostic::Severity::Error, "unknown predicate \"keywordAny\" (one of formTypes, keywordsAny,"));
 	CHECK(HasMessage(diags, Diagnostic::Severity::Error, "unknown value \"WEAPON\""));
-	CHECK(HasMessage(diags, Diagnostic::Severity::Warning, "unknown field \"colour\""));
+	CHECK(HasMessage(diags, Diagnostic::Severity::Warning, "unknown field \"colour\" (ignored)"));
+	CHECK_FALSE(HasMessage(diags, Diagnostic::Severity::Warning, "\"colour\" (ignored); did you mean"));
+	CHECK(HasMessage(diags, Diagnostic::Severity::Warning, "unknown field \"prority\" (ignored); did you mean \"priority\"?"));
 	for (const auto& d : diags.Items()) {
 		CHECK(d.source == "cats.json");
 	}
@@ -280,6 +284,19 @@ TEST_CASE("Category document-level errors", "[categories]")
 		Diagnostics diags;
 		CHECK(ParseCategoryText(R"({ "$schema": "dovastash-categories-1" })", "x.json", diags).empty());
 		CHECK(diags.HasErrors());
+	}
+	SECTION("a misspelt categories array gets its near miss")
+	{
+		Diagnostics diags;
+		CHECK(ParseCategoryText(R"({ "$schema": "dovastash-categories-1", "categorys": [] })", "x.json", diags).empty());
+		CHECK(HasMessage(diags, Diagnostic::Severity::Warning, "unknown top-level field \"categorys\" (ignored); did you mean \"categories\"?"));
+		CHECK(HasMessage(diags, Diagnostic::Severity::Error, "missing \"categories\" array"));
+	}
+	SECTION("a bad form reference says why")
+	{
+		Diagnostics diags;
+		const auto  defs = ParseCategoryText(R"({ "categories": [ { "id": "a", "match": { "forms": ["Skyrim.esm|0x0A0165A7"] } } ] })", "x.json", diags);
+		CHECK(HasMessage(diags, Diagnostic::Severity::Warning, "invalid form reference \"Skyrim.esm|0x0A0165A7\" (ignored): form id above 0x00FFFFFF, drop the load-order byte (0x0A0165A7 -> 0x000165A7)"));
 	}
 	SECTION("ids are lower-cased")
 	{
@@ -403,4 +420,47 @@ TEST_CASE("LoadCategoryDirectory merges *.json in filename order", "[categories]
 	Diagnostics missing;
 	CHECK(LoadCategoryDirectory(dir.Path() / "nope", missing).empty());
 	CHECK_FALSE(missing.HasErrors());
+}
+
+TEST_CASE("Shipped categories: a Welkynd Stone is a curio, never a potion Restock hands out", "[categories][dist]")
+{
+	Diagnostics diags;
+	const auto  set = CategorySet::Compile(LoadCategoryDirectory(std::filesystem::path(DOVA_DIST_DIR) / "Categories", diags), {}, diags);
+	REQUIRE_FALSE(diags.HasErrors());
+
+	for (const auto* ref : { "ccBGSSSE037-Curios.esl|0x00000800", "ccBGSSSE067-DaedInv.esm|0x0020E802" }) {
+		auto stone = Potion(F(ref), 1, 500);
+		INFO(ref);
+		CHECK(set.Classify(stone) == "misc.curios");
+	}
+	CHECK(set.Classify(Potion(Sk(0x0003EADE), 1, 50)) == "alchemy.potions");  // Potion of Minor Healing
+}
+
+TEST_CASE("Unknown predicates and enum values name the near miss", "[categories][diagnostics]")
+{
+	Diagnostics diags;
+	(void)ParseCategoryText(R"({
+		"$schema": "dovastash-categories-1",
+		"categories": [
+			{ "id": "a.one", "match": { "keywordAny": ["X"] } },
+			{ "id": "a.two", "match": { "formType": ["MISC"] } },
+			{ "id": "a.three", "match": { "weaponTypes": ["OneHandedSword"] } },
+			{ "id": "a.four", "match": { "armorTypes": ["HeavyArmor"] } },
+			{ "id": "a.five", "match": { "formTypes": ["Weapon"] } },
+			{ "id": "a.six", "match": { "weaponTypes": ["Sword"] } }
+		]
+	})",
+		"cats.json", diags);
+	const auto error = [&](std::string_view a_text) { return HasMessage(diags, Diagnostic::Severity::Error, a_text); };
+	CHECK(error("unknown predicate \"keywordAny\" (one of formTypes,"));
+	CHECK(error("ammo); did you mean \"keywordsAny\"?"));
+	CHECK(error("ammo); did you mean \"formTypes\"?"));
+	CHECK(error("unknown value \"OneHandedSword\""));
+	CHECK(error("Crossbow); did you mean \"OneHandSword\"?"));
+	CHECK(error("unknown value \"HeavyArmor\" (one of Light, Heavy, Clothing); did you mean \"Heavy\"?"));
+	CHECK(error("unknown value \"Weapon\" (one of WEAP,"));
+	CHECK(error("LIGH); did you mean \"WEAP\"?"));
+	CHECK(error("unknown value \"Sword\" (one of HandToHand,"));
+	CHECK_FALSE(error("\"Sword\" (one of HandToHand, OneHandSword, OneHandDagger, OneHandAxe, OneHandMace, TwoHandSword, TwoHandAxe, Bow, Staff, "
+					  "Crossbow); did you mean"));  // nothing close: no guess
 }

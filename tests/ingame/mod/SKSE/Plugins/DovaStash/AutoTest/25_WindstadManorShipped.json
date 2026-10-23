@@ -1,0 +1,30 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Windstad Manor: the shipped template (no AutoTest copy in this plan): chosen, applied, Deposit loses nothing",
+  "home": "HearthFires.esm|0x00011CB3",
+  "coc": "BYOHHouse2Hjaalmarch",
+  "tests": [
+    {
+      "id": "3.6-windstadmanor-shipped", "title": "The shipped Templates/Vanilla/WindstadManor.json is the one chosen and applied; Deposit keeps every item",
+      "steps": [
+        {"do": "enter"},
+        {"do": "clearInventory"},
+        {"check": "home", "is": true, "name": "Windstad Manor"},
+        {"check": "bestTemplate", "source": "Templates/Vanilla/WindstadManor.json"},
+        {"do": "useTemplate"},
+        {"check": "notify", "regex": "Dova Stash: Windstad Manor setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Vanilla/WindstadManor.json@"},
+        {"check": "layout", "pointer": "/cells", "contains": {"cell": "HearthFires.esm|0x00015154", "label": "Cellar"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 4},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "shipped"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "conserved", "snapshot": "shipped"},
+        {"do": "reset"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

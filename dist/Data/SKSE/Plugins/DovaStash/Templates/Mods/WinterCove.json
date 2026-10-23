@@ -1,0 +1,47 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Winter Cove",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the storage chest. From the main hall it is out of reach: what has no container stays with you.",
+  "author": "Dova Stash",
+  "version": "1.0.2",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "Winter Cove.esp"],
+  "cell": "Winter Cove.esp|0x00000D62",
+  "cells": [
+    {"cell": "Winter Cove.esp|0x0000E30B", "label": "Winter Cove storage"}
+  ],
+  "master": "Winter Cove.esp|0x000216D8",
+  "containers": [
+    {"ref": "Winter Cove.esp|0x00012A70", "label": "Soul gems",                   "categories": ["soulgems.*"]},
+    {"ref": "Winter Cove.esp|0x0001CA30", "label": "Wardrobe (by the soul gems)", "categories": ["armor.clothing"]},
+    {"ref": "Winter Cove.esp|0x0001CA33", "label": "End table (by the wardrobe)", "categories": ["armor.jewelry"]},
+    {"ref": "Winter Cove.esp|0x0000E31B", "label": "Food",                        "categories": ["alchemy.food"]},
+    {"ref": "Winter Cove.esp|0x0000E31C", "label": "Firewood",                    "categories": ["misc.building_materials", "misc.clutter"]},
+    {"ref": "Winter Cove.esp|0x0000E31D", "label": "Books",                       "categories": ["books.*"]},
+    {"ref": "Winter Cove.esp|0x0000E328", "label": "Potions and poisons",         "categories": ["alchemy.poisons", "alchemy.potions"]},
+    {"ref": "Winter Cove.esp|0x0000E329", "label": "Ingredients",                 "categories": ["alchemy.ingredients"]},
+    {"ref": "Winter Cove.esp|0x00012A7C", "label": "Scrolls",                     "categories": ["scrolls", "soulgems.*"]},
+    {"ref": "Winter Cove.esp|0x00012A7D", "label": "Keys",                        "categories": ["keys", "misc.gems", "misc.curios"]},
+    {"ref": "Winter Cove.esp|0x00012A7E", "label": "Armor",                       "categories": ["armor.*"]},
+    {"ref": "Winter Cove.esp|0x00012A7F", "label": "Shields",                     "categories": ["armor.shields"]},
+    {"ref": "Winter Cove.esp|0x000216D3", "label": "Notes and journals",          "categories": ["books.notes"]},
+    {"ref": "Winter Cove.esp|0x000216D4", "label": "Weapons",                     "categories": ["weapons.*", "ammo.*"]},
+    {"ref": "Winter Cove.esp|0x000216D5", "label": "Ingots",                      "categories": ["misc.ores_ingots", "misc.dwemer", "misc.tools"]},
+    {"ref": "Winter Cove.esp|0x000216D7", "label": "Leather and strips",          "categories": ["misc.hides_pelts", "misc.animal_parts"]}
+  ],
+  "displays": [
+    {"ref": "Winter Cove.esp|0x00032489", "label": "Weapon rack (by the shield racks)"},
+    {"ref": "Winter Cove.esp|0x0003248B", "label": "Weapon rack (by the shield racks, 2)"},
+    {"ref": "Winter Cove.esp|0x0003248F", "label": "Weapon rack (by the mannequin)"},
+    {"ref": "Winter Cove.esp|0x00032491", "label": "Weapon rack (by the mannequin, 2)"},
+    {"ref": "Winter Cove.esp|0x000324A7", "label": "Shield rack (by the weapon racks)"},
+    {"ref": "Winter Cove.esp|0x000324A8", "label": "Shield rack (by the weapon racks, 2)"},
+    {"ref": "Winter Cove.esp|0x000324B8", "label": "Weapon rack (by the mannequin, 3)"},
+    {"ref": "Winter Cove.esp|0x000324B9", "label": "Weapon rack (by the shield racks, 3)"},
+    {"ref": "Winter Cove.esp|0x000324BA", "label": "Weapon rack (by the soul gems)"},
+    {"ref": "Winter Cove.esp|0x000324BB", "label": "Weapon rack (by the soul gems, 2)"},
+    {"ref": "Winter Cove.esp|0x00032A21", "label": "Shield rack (by the mannequin)"},
+    {"ref": "Winter Cove.esp|0x00032A22", "label": "Shield rack (by the mannequin, 2)"},
+    {"ref": "Winter Cove.esp|0x00032A25", "label": "Mannequin (by the shield racks)"}
+  ]
+}

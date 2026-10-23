@@ -18,7 +18,10 @@ namespace dova::game
 			if (const char* name = a_owner->GetName(); name && *name) {
 				return name;
 			}
-			return std::format("{:08X}", a_owner->GetFormID());
+			if (const char* edid = a_owner->GetFormEditorID(); edid && *edid) {
+				return edid;  // with po3's Tweaks (or a mod that keeps editor IDs)
+			}
+			return a_owner->Is(RE::FormType::Faction) ? "a faction" : "someone";
 		}
 
 		RE::BGSEncounterZone* EncounterZone(RE::TESObjectCELL* a_cell)
@@ -90,6 +93,20 @@ namespace dova::game
 	bool IsEffectivelyDisabled(RE::TESObjectREFR* a_ref)
 	{
 		return DisabledImpl(a_ref, 0);
+	}
+
+	bool IsUndeletedRef(RE::TESObjectREFR* a_ref)
+	{
+		if (!a_ref) {
+			return false;
+		}
+		const auto* parent = a_ref->extraList.GetByType<RE::ExtraEnableStateParent>();
+		return (parent && parent->parent.get().get() == Player() && (parent->flags & 1) != 0) || a_ref->GetPosition().z < -29000.0f;
+	}
+
+	bool MayBeBuilt(RE::TESObjectREFR* a_ref)
+	{
+		return a_ref && a_ref->extraList.GetByType<RE::ExtraEnableStateParent>() && !IsUndeletedRef(a_ref);
 	}
 
 	bool IsContainerRef(RE::TESObjectREFR* a_ref)
@@ -226,20 +243,23 @@ namespace dova::game
 			}
 		}
 		if (a_ref->GetParentCell() != a_homeCell) {
-			return Verdict::Reject("container is not in this home's cell");
+			return Verdict::Reject("not in this home's cell", "container is not in this home's cell");
 		}
 		if (IsEffectivelyDisabled(a_ref)) {
-			return Verdict::Reject("container is disabled (not built yet?)");
+			auto verdict = Verdict::Reject("not built yet", "container is disabled (not built yet?)");
+			verdict.notBuilt = true;
+			return verdict;
 		}
 		auto verdict = Verdict::Accept();
 		if (auto* owner = a_ref->extraList.GetOwner()) {
 			if (!IsPlayerOwner(owner)) {
-				return Verdict::Reject(std::format("container is owned by {}", OwnerName(owner)));
+				return Verdict::Reject(std::format("owned by {}", OwnerName(owner)), std::format("container is owned by {}", OwnerName(owner)));
 			}
 		} else if (auto* cellOwner = a_homeCell ? a_homeCell->GetOwner() : nullptr; cellOwner && !IsPlayerOwner(cellOwner)) {
 			// The container inherits the cell's owner.
 			if (!IsPlayerHouse(a_homeCell)) {
-				return Verdict::Reject(std::format("container belongs to {} (owner of this place)", OwnerName(cellOwner)));
+				return Verdict::Reject(std::format("belongs to {}", OwnerName(cellOwner)),
+					std::format("container belongs to {} (owner of this place)", OwnerName(cellOwner)));
 			}
 			verdict.AddWarning(std::format("{} is in a player house still owned by {}", Describe(a_ref), OwnerName(cellOwner)));
 		}
@@ -247,7 +267,7 @@ namespace dova::game
 			// A respawning container is emptied when its cell resets. Only a cell whose encounter zone
 			// never resets is safe; being a player house is not a guarantee (DESIGN §9).
 			if (!CellNeverResets(a_homeCell)) {
-				return Verdict::Reject("this container restocks itself when the area resets (items would be lost)");
+				return Verdict::Reject("respawns, items would be lost", "this container restocks itself when the area resets (items would be lost)");
 			}
 			verdict.AddWarning(std::format("{} has the respawn flag; accepted because the cell never resets", Describe(a_ref)));
 		}

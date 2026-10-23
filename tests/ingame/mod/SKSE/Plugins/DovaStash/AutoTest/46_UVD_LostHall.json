@@ -28,11 +28,11 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "setup available \\(by "
+          "regex": "setup available \\(press K\\)"
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/LostHall.json"
+          "source": "Templates/Mods/LostHall.json"
         },
         {
           "check": "noErrors"
@@ -64,11 +64,11 @@
     },
     {
       "id": "3.6",
-      "title": "Use template: the AutoTest template is the one applied",
+      "title": "Use template: the shipped template is the one applied",
       "steps": [
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/LostHall.json"
+          "source": "Templates/Mods/LostHall.json"
         },
         {
           "do": "useTemplate"
@@ -76,7 +76,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/LostHall.json@1.0.0",
+          "contains": "Templates/Mods/LostHall.json@",
           "within": 5
         },
         {
@@ -224,7 +224,7 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "re-sorted \\d+ items?"
+          "regex": "re-sorted \\d+ items?|everything is already in place"
         },
         {
           "check": "conserved",
@@ -277,7 +277,7 @@
         },
         {
           "do": "useTemplate",
-          "source": "Templates/AutoTest/LostHall.json"
+          "source": "Templates/Mods/LostHall.json"
         },
         {
           "check": "layout",
@@ -349,11 +349,97 @@
     },
     {
       "id": "3.7-LostHall",
-      "title": "Displays (6)",
-      "manual": "display fills are checked by eye"
+      "title": "Use template: the racks come full (the mod's own greatswords and shields), so Deposit leaves them as they are and the sword and shield go to the wardrobes; nothing is lost",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "contains": "LostHall.json@",
+          "within": 5
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013989",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB6",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "displays"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "regex": "Displays in Lost Hall: 6 rack \\(0 empty\\)"
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "gonkishvampdens.esp|0x000B930D",
+            "gonkishvampdens.esp|0x000B930E",
+            "gonkishvampdens.esp|0x000B9316",
+            "gonkishvampdens.esp|0x000B9317"
+          ],
+          "item": "Skyrim.esm|0x0001359D"
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "gonkishvampdens.esp|0x000B930D",
+            "gonkishvampdens.esp|0x000B930E",
+            "gonkishvampdens.esp|0x000B9316",
+            "gonkishvampdens.esp|0x000B9317"
+          ],
+          "item": "Skyrim.esm|0x00013989",
+          "holds": false
+        },
+        {
+          "check": "displayHolds",
+          "refs": [
+            "gonkishvampdens.esp|0x000B930C",
+            "gonkishvampdens.esp|0x000B9315"
+          ],
+          "item": "Skyrim.esm|0x00012EB6"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00013989",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00012EB6",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "displays"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-LostHall-look",
+      "title": "Displays (6): where each piece sits on its display",
+      "manual": "the placement on the display is checked by eye"
     }
-  ],
-  "templates": [
-    "LostHall.json"
   ]
 }

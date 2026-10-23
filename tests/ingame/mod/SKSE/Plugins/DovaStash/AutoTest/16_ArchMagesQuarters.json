@@ -1,6 +1,6 @@
 {
   "$schema": "dovastash-autotest-1",
-  "name": "Arch-Mage's Quarters (Winterhold, no template)",
+  "name": "Arch-Mage's Quarters (Winterhold)",
   "home": "Skyrim.esm|0x000CAB92",
   "coc": "WinterholdCollegeArchMageQuarters",
   "tests": [
@@ -22,7 +22,7 @@
     },
     {
       "id": "1.2",
-      "title": "ownCell joins the owning faction; accepted; no shipped template, so no offer and no first-visit notice",
+      "title": "ownCell joins the owning faction; accepted; the shipped template is offered (first-visit notice)",
       "steps": [
         {
           "do": "ownCell"
@@ -39,14 +39,17 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template available",
-          "absent": true
+          "contains": "Cell Arch-Mage's Quarters (Skyrim.esm|0x000CAB92): template available"
         },
         {
           "check": "notify",
           "since": "plan",
-          "contains": "setup available",
-          "absent": true
+          "contains": "Dova Stash: Arch-Mage's Quarters setup available"
+        },
+        {
+          "check": "log",
+          "since": "plan",
+          "regex": "template: Arch-Mage's Quarters v[0-9.]+ by Dova Stash"
         },
         {
           "check": "noErrors"
@@ -293,7 +296,7 @@
         },
         {
           "check": "notify",
-          "regex": "Dwemer Gyro now goes to .* \\(K: undo\\)"
+          "regex": "Dwemer Gyro now goes to .*\\. K: undo"
         },
         {
           "check": "layout",
@@ -472,6 +475,88 @@
         {
           "check": "conserved",
           "snapshot": "reset"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "1.3-archmage",
+      "title": "The shipped template: Use template, then Deposit sorts by it",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "check": "home",
+          "layout": false
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "notify",
+          "contains": "Dova Stash: Arch-Mage's Quarters setup enabled"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "contains": "Templates/Vanilla/ArchMagesQuarters.json@"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "Skyrim.esm|0x00077D7E"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012EB7",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "tpl"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000776B6",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "tpl",
+          "eq": 2
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000776D1",
+          "item": "Skyrim.esm|0x00012EB7",
+          "from": "tpl",
+          "ge": 1
+        },
+        {
+          "check": "conserved",
+          "snapshot": "tpl"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
         },
         {
           "check": "noErrors"

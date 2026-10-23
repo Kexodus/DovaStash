@@ -9,12 +9,12 @@ There are two ways to make one: set the home up in game and save it as a templat
 [list=1]
 [*]Walk into the home, look at the chest you want as the inbox, press [b]K[/b] and make it the [b]master[/b].
 [*]Look at each other container, press [b]K[/b], open [b]Categories...[/b] and pick what goes there. Mark anything you never want used for storage as [b]Ignore[/b].
-[*]Look at each weapon rack, mannequin, bookshelf and plaque you want filled, press [b]K[/b] and choose [b]Use this rack[/b] (or mannequin, bookshelf, display). Press [b]K[/b] again and open [b]Categories...[/b] to pick what a rack, mannequin or bookshelf takes.
+[*]Look at each weapon rack, mannequin, bookshelf and plaque you want filled, press [b]K[/b] and choose [b]Use this rack[/b] (or mannequin, bookshelf, display), then [b]Categories...[/b] in the same menu to pick what a rack, mannequin or bookshelf takes.
 [*]Deposit a full pack and check that everything lands where you expect.
-[*]Press [b]K[/b] at nothing (or at the master) and choose [b]Save as template...[/b]. Type a name (it starts as the home's name) and confirm. Your character is the author. In the SKSE Menu Framework, the [b]Template[/b] tab of [b]Dova Stash > This home[/b] does the same, with fields for the author and version.
+[*]Press [b]K[/b] at nothing (or at the master) and choose [b]Advanced...[/b] > [b]Save as template...[/b]. Type a name (it starts as the home's name) and confirm. Your character is the author. In the SKSE Menu Framework, the [b]Template[/b] tab of [b]Dova Stash > This home[/b] does the same, with fields for the author and version.
 [/list]
 
-The file is written to [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json[/font] and the home offers it at once, no restart. It holds your master, categories, ignored containers, displays, mannequin armor sets and this home's keep rules, and [b]requires[/b] lists every plugin it points into. Your learned items come along as fixed item bindings ([b]forms[/b] on their container), so they go to the same containers for anyone who uses the template; untick [b]Keep learned items[/b] in the panel's Template tab to leave them out of a template you share. Saving again under the same name asks first, keeps a backup of the old file and raises the version. With MO2 the file lands in [b]overwrite[/b]. Move it into a mod of its own before you share it.
+The file is written to [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json[/font] and the home offers it at once, no restart. It holds your master, categories, ignored containers, displays, mannequin armor sets and this home's keep rules, and [b]requires[/b] lists every plugin it points into. Your learned items come along as fixed item bindings ([b]forms[/b] on their container), so they go to the same containers for anyone who uses the template; untick [b]Include where you put things by hand[/b] in the panel's Template tab to leave them out of a template you share. Saving again under the same name asks first, keeps a backup of the old file and raises the version. With MO2 the file lands in [b]overwrite[/b]. Move it into a mod of its own before you share it.
 
 [size=4][b]The file[/b][/size]
 
@@ -25,29 +25,30 @@ A cut-down version of the Breezehome template that ships with the mod. One line 
   "name": "Breezehome",
   "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
   "author": "Dova Stash",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "priority": 0,
   "requires": ["Skyrim.esm", "Update.esm", "HearthFires.esm"],
   "conflicts": ["WynterBreezehomeRedux.esp", "PlayerHouse.esp"],
   "cell": "Skyrim.esm|0x000165A8",
   "master": "Skyrim.esm|0x000F3922",
   "containers": [
-    {"ref": "Skyrim.esm|0x000CB437",      "label": "Loft cupboard (by the weapon plaque)",           "categories": ["weapons.*"]},
-    {"ref": "Skyrim.esm|0x000CB433",      "label": "Housecarl's room dresser",                       "categories": ["armor.heavy", "armor.light", "armor.shields"]},
-    {"ref": "Skyrim.esm|0x0010EB84",      "label": "Alchemy corner chest (next to the alchemy lab)", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
-    {"ref": "HearthFires.esm|0x00004271", "label": "Chest",                                          "ignored": true, "note": "Respawns: what you store here can disappear."},
-    {"ref": "Skyrim.esm|0x00102A59",      "label": "Book Shelf",                                     "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."}
+    {"ref": "Skyrim.esm|0x0010EB84",      "label": "Alchemy corner chest (by the alchemy lab)", "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"]},
+    {"ref": "Skyrim.esm|0x000CB437",      "label": "Loft cupboard (by the weapon plaque)",      "categories": ["weapons.*"]},
+    {"ref": "Skyrim.esm|0x000CB433",      "label": "Housecarl's room dresser",                  "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "Skyrim.esm|0x000CB43A",      "label": "Bedroom night table",                       "categories": ["armor.jewelry", "misc.gems", "misc.curios"]},
+    {"ref": "HearthFires.esm|0x00004271", "label": "Chest (by the housecarl's room end table)", "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "Skyrim.esm|0x00102A59",      "label": "Bookshelf (by the master chest)",           "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."}
   ]
 }[/code]
 
 [list]
 [*][b]cell[/b]: the home's interior cell (its main one, see Homes over several areas). This is how Dova Stash finds the template, so the file name and folder don't matter.
 [*][b]master[/b]: the inbox. Items without a destination wait here, and closing it sorts what's inside. Pick a large chest that is always there.
-[*][b]containers[/b]: every other container you use. [b]ref[/b] is the placed container in the world, never its base object. [b]label[/b] is the name players see for it in the editor, so keep it short and say where it is.
-[*][b]note[/b]: free text for people reading the file, at the top or on any entry. Dova Stash never acts on it; the editor shows a container's note under its name. Use it to say why a container is ignored.
+[*][b]containers[/b]: every other container you use. [b]ref[/b] is the placed container in the world, never its base object. [b]label[/b] is the name players see for it in the game and the panel, so keep it short and say where it is. The shipped templates use one form: [i]<Kind> (by the <landmark>)[/i], [i](by the <landmark>, 2)[/i] for a repeat, [i](second)[/i] or [i](third)[/i] only where there is no landmark, and no "by the" or "next to the" outside the parentheses. Never name a display after itself, and spread repeats over nearby landmarks.
+[*][b]note[/b]: free text for people reading the file, at the top or on any entry. Dova Stash never acts on it; the panel shows a container's note under its name. Use it to say why a container is ignored.
 [*][b]requires[/b]: every plugin the file points into, including the one that owns the cell (display items and armor sets are the exception, see Displays). A template is only offered when all of them are loaded.
 [*][b]conflicts[/b] (optional): mods that rebuild the home, so your containers are no longer where the template says. The template is not offered while one of them is loaded. Even without it, a template whose containers are mostly gone (under 60% there) is only offered, never enabled on its own.
-[*][b]priority[/b] and [b]version[/b]: when several templates exist for one home, the highest priority wins, then the player's own saved templates, then the newest version. A file the editor's Draft all homes saved ([font=Courier New]"autoDraft": true[/font]) always comes after them, whatever its priority; saving it yourself removes the mark. Players can switch to any of a home's templates in the SKSE Menu Framework. Write versions as numbers like [font=Courier New]1.2.0[/font]. Leave priority at 0 unless you are deliberately replacing another template.
+[*][b]priority[/b] and [b]version[/b]: when several templates exist for one home, the highest priority wins, then the player's own saved templates, then the newest version. A template saved by Draft all homes in the Dova Stash Editor (a standalone template editor, in development) is marked [font=Courier New]"autoDraft": true[/font] and always comes after them, whatever its priority; saving it yourself removes the mark. Players can switch to any of a home's templates in the SKSE Menu Framework. Write versions as numbers like [font=Courier New]1.2.0[/font]. Leave priority at 0 unless you are deliberately replacing another template.
 [/list]
 
 Form references are written as [font=Courier New]"Plugin.esp|0x00ABCDEF"[/font]: the file name of the plugin that created the record (not a mod that only edits it) and the [b]local[/b] form ID, with the load-order byte removed. For an ESL-flagged plugin, keep only the last three digits, for example [font=Courier New]"MyHome.esl|0x00000801"[/font]. In xEdit, a form ID such as [font=Courier New]1A0165A8[/font] becomes [font=Courier New]0x000165A8[/font].
@@ -56,7 +57,7 @@ Form references are written as [font=Courier New]"Plugin.esp|0x00ABCDEF"[/font]:
 
 [list]
 [*][font=Courier New]"weapons.*"[/font] covers all weapons, [font=Courier New]"armor.heavy"[/font] only heavy armor, and [font=Courier New]"*"[/font] everything.
-[*]If two containers both take a category, the more exact one wins. A container with [font=Courier New]"weapons.bows"[/font] gets bows ahead of one with [font=Courier New]"weapons.*"[/font]. If both are equally exact, the one listed first wins. The second one is the fallback while the first isn't built yet.
+[*]If two containers both take a category, the more exact one wins. A container with [font=Courier New]"weapons.bows"[/font] gets bows ahead of one with [font=Courier New]"weapons.*"[/font]. If both are equally exact, the one listed first wins (except the sell chest, which wins a tie for its own categories). The second one is the fallback while the first isn't built yet.
 [*]Default ids:
 [list]
 [*][b]weapons.[/b] swords, greatswords, daggers, axes, waraxes, maces, warhammers, bows, crossbows, staves
@@ -65,7 +66,7 @@ Form references are written as [font=Courier New]"Plugin.esp|0x00ABCDEF"[/font]:
 [*][b]alchemy.[/b] potions, poisons, food, ingredients
 [*][b]books.[/b] spelltomes, skill, notes, other
 [*][b]soulgems.[/b] empty, filled
-[*][b]misc.[/b] ores_ingots, gems, hides_pelts, animal_parts, dwemer, clutter, building_materials, tools
+[*][b]misc.[/b] ores_ingots, gems, hides_pelts, animal_parts, dwemer, curios, clutter, building_materials, tools, lights (Torches) (the shipped templates put curios with the gems)
 [*][b]scrolls[/b] and [b]keys[/b] (no sub-categories)
 [/list]
 [/list]
@@ -97,7 +98,7 @@ Every entry has the same fields, in this order; all but [b]ref[/b] are optional:
 [list]
 [*][b]ref[/b]: the rack's activator, the plaque, the mannequin (the actor, not the trigger in front of it), the display case or the bookshelf (its container, not the activator in front of it). Dova Stash recognises the game's own racks, mannequins and bookshelves and most home mods' plaques and shelves by their scripts.
 [*][b]kind[/b]: only for a display Dova Stash doesn't recognise by itself: [font=Courier New]rack[/font], [font=Courier New]mannequin[/font], [font=Courier New]item[/font] (a plaque for one item) or [font=Courier New]case[/font]. ([font=Courier New]bookshelf[/font] is accepted too, but a shelf is only filled when its script is recognised: that is where Dova Stash reads how many books fit.)
-[*][b]categories[/b]: what a rack, mannequin or bookshelf takes, with the same ids as containers. Without it, anything that fits (a bookshelf: any book but notes). Only categories the display can hold count: weapons on a weapon rack, shields on a shield rack, daggers on a dagger display, worn armor on a mannequin, books on a bookshelf. Soul gems on a rack put nothing up; [b]check[/b] and the editor warn about it.
+[*][b]categories[/b]: what a rack, mannequin or bookshelf takes, with the same ids as containers. Without it, anything that fits (a bookshelf: any book but notes). Only categories the display can hold count: weapons on a weapon rack, shields on a shield rack, daggers on a dagger display, worn armor on a mannequin, books on a bookshelf. Soul gems on a rack put nothing up; esm_dump.py [b]check[/b] and the Dova Stash Editor warn about it, and the game logs it once.
 [*][b]items[/b]: the items a rack, mannequin or bookshelf should get first.
 [*][b]only[/b]: [font=Courier New]true[/font] puts nothing but its [b]items[/b] on that rack, mannequin or bookshelf, and no other display takes them (here a rack that waits for the modded sword or Dawnbreaker).
 [*][b]set[/b]: the armor set a mannequin wears, named by any one of its pieces (here the Ebony Armor: the Ebony set). Without it, the mannequin wears the player's best matching set.
@@ -116,10 +117,12 @@ A home can span more cells than its main one: a cellar behind a load door, an up
 "cells": ["HearthFires.esm|0x00004849", {"cell": "Skyrim.esm|0x00009BF7", "label": "Grounds"}],[/code]
 
 [list]
-[*]An entry is a cell ref, or [b]cell[/b] with a [b]label[/b] (the name players see) and a [b]note[/b]. An exterior cell is a cell like any other: only the cells you list belong to the home, never a whole town.
+[*]An entry is a cell ref, or [b]cell[/b] with a [b]label[/b] (the name players see), a [b]master[/b] (the area's own catch-all, used there while the home's master is out of reach) and a [b]note[/b]. An exterior cell is a cell like any other: only the cells you list belong to the home, never a whole town.
 [*]Containers and displays may then be in any of these cells. List the plugins of the cells in [b]requires[/b].
 [*]From another area, a container is used only when it is a persistent reference (the game keeps it in memory); the others only while the player is in their own area. Displays are filled in the area the player is in. [b]cell[/b] in esm_dump shows [b]reachableFromOtherCells[/b] for every container: pick persistent ones for the master and for what a forge outside should bring.
-[*]Optional: a file without [b]cells[/b] works exactly as before, and a cell with a setup or template of its own (the shipped cellar templates) stays its own home for players who use it.
+[*]Optional: a file without [b]cells[/b] works exactly as before, and a cell with a setup of its own stays its own home.
+[*]One template per home: a cell may be in only one shipped template. A template that takes over retired ones lists them in [b]replaces[/b] ([font=Courier New]["Templates/Vanilla/LakeviewManorCellar.json"][/font]), so a cellar set up by the old file joins when untouched.
+[*]Examples: the multi-cell homes (Hearthfire, Tundra Homestead, Myrwatch) as one template each, cellar, gallery and grounds included ([font=Courier New]Vanilla/LakeviewManor.json[/font]), and the mod homes Niflholm, Tel Jerdein, Antennaria and Winter Cove.
 [/list]
 
 [size=4][b]Finding containers without playing[/b][/size]
@@ -143,8 +146,8 @@ For a home from a mod, add its plugin before the command: [font=Courier New]pyth
 [*]Put the file in [font=Courier New]Data/SKSE/Plugins/DovaStash/Templates/<YourName>/[/font].
 [*]Start the game. Templates are read at startup.
 [*]Load a save where you haven't set this home up yet. Your own setup (the home's layout file in [font=Courier New]Layouts/[/font], or its backup copy in Documents) always comes first, so no template is offered over it.
-[*]Enter the home. You should see "is set up" (or "setup available" with [font=Courier New]bAutoEnableTemplates=false[/font]: then press [b]K[/b] at any container to enable it).
-[*]If nothing shows up, open [b]Dova Stash > Templates[/b] and [b]Diagnostics[/b] in the Menu Framework, or check [font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log[/font]. Every problem with a template is listed there, with the file and the entry it is in.
+[*]Enter the home. You should see "is set up (press K)", or "setup available (press K)" with [b]Set up homes from a template on first visit[/b] unticked: then press [b]K[/b] at any container to enable it.
+[*]If nothing shows up, open [b]Dova Stash > This home > Template > All templates[/b] and [b]Dova Stash > About > Diagnostics[/b] in the Menu Framework, or check [font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log[/font]. Every problem with a template is listed there, with the file and the entry it is in.
 [/list]
 
 [size=4][b]Sharing[/b][/size]

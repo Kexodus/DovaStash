@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dova Stash item categories (dovastash-categories-1)",
+  "description": "Categories/*.json: item categories and the predicates that match items (docs/DESIGN.md 7.1). Enum values are the names in src/core/include/dova/core/Item.h, case-insensitive; a single value may replace a list.",
+  "type": "object",
+  "required": ["categories"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {"const": "dovastash-categories-1"},
+    "description": {"type": "string"},
+    "categories": {"type": "array", "items": {"$ref": "#/$defs/category"}}
+  },
+  "patternProperties": {"^_": {}},
+  "$defs": {
+    "formRef": {
+      "type": "string",
+      "pattern": "^\\s*[^|/\\\\:\"<>?*]+\\.[eE][sS][mMpPlL]\\|(0[xX])?0{0,2}[0-9A-Fa-f]{1,6}\\s*$"
+    },
+    "strings": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+    "formRefs": {"anyOf": [{"$ref": "#/$defs/formRef"}, {"type": "array", "items": {"$ref": "#/$defs/formRef"}}]},
+    "enumList": {"anyOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}]},
+    "category": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "patternProperties": {"^[_$]": {}},
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$", "description": "Dot-separated id; a later file with the same id replaces it."},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "priority": {"type": "integer", "description": "Higher wins when an item matches several categories."},
+        "icon": {
+          "description": "A SkyUI icon label, or {label, source, color} (DESIGN 10.3).",
+          "anyOf": [
+            {"type": "string"},
+            {"type": "object", "properties": {"label": {"type": "string"}, "source": {"type": "string"}, "color": {}}}
+          ]
+        },
+        "match": {"$ref": "#/$defs/match"}
+      }
+    },
+    "match": {
+      "description": "Every predicate given must hold (DESIGN 7.1). No match: a group node, matching nothing itself.",
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {"^[_$]": {}},
+      "properties": {
+        "formTypes": {
+          "anyOf": [
+            {"$ref": "#/$defs/formType"},
+            {"type": "array", "items": {"$ref": "#/$defs/formType"}}
+          ]
+        },
+        "keywordsAny": {"$ref": "#/$defs/strings"},
+        "keywordsAll": {"$ref": "#/$defs/strings"},
+        "keywordsNone": {"$ref": "#/$defs/strings"},
+        "forms": {"$ref": "#/$defs/formRefs"},
+        "formLists": {"$ref": "#/$defs/formRefs"},
+        "plugins": {"$ref": "#/$defs/strings"},
+        "weaponTypes": {"$ref": "#/$defs/weaponTypes"},
+        "armorTypes": {"$ref": "#/$defs/armorTypes"},
+        "bookTeaches": {"$ref": "#/$defs/bookTeaches"},
+        "alchemy": {"$ref": "#/$defs/alchemy"},
+        "soulGem": {"$ref": "#/$defs/soulGem"},
+        "enchanted": {"type": "boolean"},
+        "ammo": {"$ref": "#/$defs/ammo"}
+      }
+    },
+    "formType": {"enum": ["WEAP", "ARMO", "AMMO", "ALCH", "INGR", "BOOK", "SCRL", "SLGM", "MISC", "KEYM", "LIGH"]},
+    "weaponTypes": {
+      "description": "Warhammers are TwoHandAxe (with the WeapTypeWarhammer keyword), maces OneHandMace.",
+      "anyOf": [{"$ref": "#/$defs/weaponType"}, {"type": "array", "items": {"$ref": "#/$defs/weaponType"}}]
+    },
+    "weaponType": {"enum": ["HandToHand", "OneHandSword", "OneHandDagger", "OneHandAxe", "OneHandMace", "TwoHandSword", "TwoHandAxe", "Bow", "Staff", "Crossbow"]},
+    "armorTypes": {"anyOf": [{"$ref": "#/$defs/armorType"}, {"type": "array", "items": {"$ref": "#/$defs/armorType"}}]},
+    "armorType": {"enum": ["Light", "Heavy", "Clothing"]},
+    "bookTeaches": {"anyOf": [{"$ref": "#/$defs/bookTeach"}, {"type": "array", "items": {"$ref": "#/$defs/bookTeach"}}]},
+    "bookTeach": {"enum": ["None", "Skill", "Spell"]},
+    "alchemy": {"anyOf": [{"$ref": "#/$defs/alchemyKind"}, {"type": "array", "items": {"$ref": "#/$defs/alchemyKind"}}]},
+    "alchemyKind": {"enum": ["Potion", "Poison", "Food"]},
+    "soulGem": {"anyOf": [{"$ref": "#/$defs/soulGemState"}, {"type": "array", "items": {"$ref": "#/$defs/soulGemState"}}]},
+    "soulGemState": {"enum": ["Empty", "Filled"]},
+    "ammo": {"anyOf": [{"$ref": "#/$defs/ammoKind"}, {"type": "array", "items": {"$ref": "#/$defs/ammoKind"}}]},
+    "ammoKind": {"enum": ["Arrow", "Bolt"]}
+  }
+}

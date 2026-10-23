@@ -269,6 +269,13 @@ namespace dova::editor::home
 
 	bool PlacedRef::IsContainer() const noexcept { return baseType == kCONT; }
 
+	bool UsableContainer(const PlacedRef& a_ref) noexcept
+	{
+		return a_ref.IsContainer() && !a_ref.display && !a_ref.deleted && !a_ref.respawns && !a_ref.ownedByOther && !(a_ref.enableParent && a_ref.enableOpposite);
+	}
+
+	bool UsableDisplay(const PlacedRef& a_ref) noexcept { return a_ref.display && !a_ref.deleted && !(a_ref.enableParent && a_ref.enableOpposite); }
+
 	namespace
 	{
 		// The words of an EditorID, lower case: "FXMistLow01" -> fx mist low, "defaultBlankTrigger" -> default blank
@@ -430,6 +437,11 @@ namespace dova::editor::home
 				info.ownerLabel = RecordLabel(a_lo, *info.owner);
 				const bool skyrim = core::IEquals(a_lo.FileName(info.owner->file), "Skyrim.esm");
 				info.ownedByPlayer = skyrim && (info.owner->id == 0x7 || info.owner->id == 0xDB1);  // Player, PlayerFaction
+				static constexpr const char* kGame[] = { "Skyrim.esm", "Update.esm", "Dawnguard.esm", "HearthFires.esm", "Dragonborn.esm" };
+				const auto&                  ownerFile = a_lo.FileName(info.owner->file);
+				info.ownedByHomeFaction = !info.ownedByPlayer && info.owner->file == a_cell.file &&
+				                          std::ranges::none_of(kGame, [&](const char* g) { return core::IEquals(ownerFile, g); }) &&
+				                          a_lo.Find(*info.owner, MakeSig("FACT")) != nullptr;
 			}
 			if (const auto xlcn = subs.Get(MakeSig("XLCN")); xlcn && xlcn->size() >= 4) {
 				info.location = a_lo.Resolve(entry->rec.plugin, esp::Read<std::uint32_t>(*xlcn, 0));
@@ -455,6 +467,12 @@ namespace dova::editor::home
 			}
 		}
 
+		if (!entry->world) {
+			info.interior = true;  // in the CELL group, not a worldspace's: an override without the DATA flag (USCCCP's Myrwatch) is still inside
+		}
+		if (info.interior && info.name.empty()) {
+			info.name = a_lo.FirstCellName(a_cell);  // an override that dropped the name (Myrwatch under a patch)
+		}
 		if (!info.interior) {
 			info.land = LoadLand(a_lo, a_cell);
 		}
@@ -486,7 +504,8 @@ namespace dova::editor::home
 			if (const auto xown = subs.Get(MakeSig("XOWN")); xown && xown->size() >= 4) {
 				const auto owner = a_lo.Resolve(rec.plugin, esp::Read<std::uint32_t>(*xown, 0));
 				const bool skyrim = core::IEquals(a_lo.FileName(owner.file), "Skyrim.esm");
-				r.ownedByOther = !(skyrim && (owner.id == 0x7 || owner.id == 0xDB1));  // Player, PlayerFaction
+				r.ownedByOther = !(skyrim && (owner.id == 0x7 || owner.id == 0xDB1)) &&  // Player, PlayerFaction
+				                 !(info.ownedByHomeFaction && owner == *info.owner);      // the faction the player joins with the home
 			}
 			if (const auto xesp = subs.Get(MakeSig("XESP")); xesp && xesp->size() >= 4) {
 				r.enableParent = a_lo.Resolve(rec.plugin, esp::Read<std::uint32_t>(*xesp, 0));
@@ -529,7 +548,8 @@ namespace dova::editor::home
 				}
 				if (base->type == kCONT) {
 					if (const auto cd = bs.Get(MakeSig("DATA")); cd && !cd->empty()) {
-						r.respawns = (static_cast<std::uint8_t>((*cd)[0]) & 0x02) != 0;
+						r.respawnFlag = (static_cast<std::uint8_t>((*cd)[0]) & 0x02) != 0;
+						r.respawns = r.respawnFlag && !info.neverResets;
 					}
 				}
 				if (const auto vmad = bs.Get(MakeSig("VMAD"))) {
@@ -697,6 +717,7 @@ namespace dova::editor::home
 		}
 		h.playerHouseKeyword = std::ranges::any_of(a_cell.locationKeywords, [](const std::string& k) { return core::IEquals(k, "LocTypePlayerHouse"); });
 		h.ownedByPlayer = a_cell.ownedByPlayer;
+		h.ownedByHomeFaction = a_cell.ownedByHomeFaction;
 		h.neverResets = a_cell.neverResets;
 		if (h.playerHouseKeyword) {
 			h.score += 4;
@@ -705,6 +726,10 @@ namespace dova::editor::home
 		if (h.ownedByPlayer) {
 			h.score += 3;
 			h.reasons.push_back("owned by the player");
+		}
+		if (h.ownedByHomeFaction) {
+			h.score += 2;
+			h.reasons.push_back("owned by its mod's faction");
 		}
 		if (h.neverResets) {
 			h.score += 1;

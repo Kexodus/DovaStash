@@ -16,6 +16,19 @@ QuickLoot IE, SKSE Menu Framework, KID.
    - `SKSE/Plugins/DovaStash.ini`
    - `SKSE/Plugins/DovaStash/Categories/00_Default.json`
    - `SKSE/Plugins/DovaStash/Templates/...`
+
+   Validate the shipped data against the test profile, which has every home mod the `Templates/Mods` files need:
+   `python -I tools/esm_dump.py --profile "Dova Stash AutoTest" check dist/Data/SKSE/Plugins/DovaStash` (the MO2
+   instance comes from `--mo2 <instance folder>`, else `DOVASTASH_MO2`, else the developer's instance,
+   `E:\modding\Kexodus Skyrim`, so it works in a fresh shell there).
+   **Expected:** `"ok": true`, no errors, and two kinds of warning only: *starts disabled* (the masters of Nchuanthumz
+   and Hjerim, and `cells[0].master` HearthFires.esm|0x0000BE8F / 0x00015189 / 0x00017489 in `LakeviewManor.json`,
+   `WindstadManor.json` and `HeljarchenHall.json`, which the game enables later) and
+   *respawns; accepted because its cell never resets* (Gallows Hall, Black Fur Refuge). Without `--profile` the check reads
+   the plain Data folder: each of the 13 `Templates/Mods` files then also warns *required plugins not in the load order,
+   refs not verified*, and their refs are not checked. The optional
+   OCF set too: `python -I tools/esm_dump.py check dist/Optional/OCF/Data/SKSE/Plugins/DovaStash` (`"ok": true`; its
+   KID keywords come from `tests/data/ocf_keywords.txt`, or `--kid <folder>` for OCF's own `*_KID.ini`).
 2. Set `iLogLevel = 1` (debug) in `DovaStash.ini` to log one line per moved stack, and
    `bAutoEnableTemplates = false` (on by default) so the template notice and *Use template* can be tested;
    §3.6 step 4 turns it back on.
@@ -32,22 +45,40 @@ The default hotkey is **K** (`iHotkey = 37`).
 ### Expected startup log
 
 ```
+Settings: iLogLevel=1 bAutoEnableTemplates=false iHotkey=37 iGamepadHotkey=-1 bDistributeOnMasterClose=true bSortOnArrival=true bLearn=true ...   (every INI key)
 Dova Stash v0.2.4 loaded
-Settings: iLogLevel=1 iHotkey=37 iGamepadHotkey=-1 bAutoEnableTemplates=false bDistributeOnMasterClose=true bLearn=true iMode=0
+Runtime: Skyrim AE 1-6-1170-0 (SKSE 0x2020080, plugin built against CommonLibSSE-NG SE+AE+VR)
+Dova Stash loaded
+SKSE Menu Framework: installed (v3.80)                                   (when installed)
+QuickLoot IE: API V21, item destinations + info bar + button bar         (when installed)
 kDataLoaded: forms are available
 FormUtil: <n> full + <m> light plugins loaded
-Categories: 37 loaded (0 errors, 0 warnings)
-Templates: 22 loaded (0 errors, <w> warnings)
+Icons: SkyUI item icons '...', category icons '...', item icon colours on
+Categories: 46 loaded (0 errors, 0 warnings)
+Templates: 32 loaded (0 errors, <w> warnings)
 Keep defaults: built-in (no Data/SKSE/Plugins/DovaStash/Settings.json)
 Homes that sort themselves: 14 listed, <k> apply in this game (0 errors, 0 warnings)
-  Clockwork (Clockwork.esp): its cells are left alone          (one line per entry whose plugin is loaded)
+  Clockwork (Clockwork.esp): its cells are left alone                    (one line per entry whose plugin is loaded)
 Home backup: copies go to C:/Users/<you>/Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups
-UI: native message boxes                      (with SKSE Menu Framework: "SKSE Menu Framework: stash window and
-                                              "Dova Stash" section registered" + "UI: SKSE Menu Framework panel")
+SKSE Menu Framework: stash window and "Dova Stash" section registered    (when installed)
+UI: in-world menus are UIExtensions list menus                           (or "native message boxes (UIExtensions not installed)")
+UI: editor is the SKSE Menu Framework panel                              (or "native message boxes")
 Events: container-changed and cell-loaded sinks registered
 Events: menu sink registered
 Events: crosshair sink registered
+Events: crafting station sinks registered
+Events: sell chest sinks registered
+Crafting hooks: installed (...)
+Materials at the workbench: craft from storage (auto, game data loaded)
+UIExtensions: installed, list and text-entry menus available
 Input: hotkey sink registered (key 37, gamepad -1)
+Activate prompt: TESObjectCONT and TESObjectACTI GetActivateText hooked
+Overlay: HUDMenu::AdvanceMovie hooked
+Environment:
+  QuickLootIE.dll                  4.1.3.0      (info bar + button bar)  (one line per DLL and plugin Dova Stash works with)
+  ...
+  In-world menus: UIExtensions lists (iMode = 0)
+  Runtime: AE
 kPostLoadGame (success: true)
 Events: player cell sink registered
 ```
@@ -59,15 +90,16 @@ a `requires` plugin that isn't loaded.
 
 | # | Steps | Expected |
 |---|---|---|
-| 1.1 | `coc WhiterunBreezehome` | Log: `Cell Breezehome (Skyrim.esm\|0x000165A8): template available` and `template: Breezehome v1.0.0 by Dova Stash ...`. One HUD line: *Dova Stash: Breezehome setup available (by Dova Stash). Press K at any container to enable.* |
+| 1.1 | `coc WhiterunBreezehome` | Log: `Cell Breezehome (Skyrim.esm\|0x000165A8): template available` and `template: Breezehome v1.0.2 by Dova Stash ...`. One HUD line: *Dova Stash: Breezehome setup available (press K)*. |
 | 1.2 | Leave and re-enter Breezehome in the same session | No second notification. |
 | 1.3 | `coc WhiterunBanneredMare` and press K at nothing | HUD: *Dova Stash: not a player home (owned by ...)*. No menu opens. |
-| 1.4 | `coc BleakFallsBarrow01` (an unowned interior, so the cell passes). Look at a barrel or an urn and press K | HUD: *can't use Barrel (this container respawns its contents (items would be lost))*. No menu opens. |
+| 1.4 | `coc BleakFallsBarrow01` (an unowned interior, so the cell passes). Look at a barrel or an urn and press K | HUD: *can't use Barrel (respawns, items would be lost)*. No menu opens. The log gives the long form. |
 | 1.5 | Go outside (`coc WhiterunOrigin` or any exterior) and press K | HUD: *not a player home (exterior cell not owned by you)*. |
 | 1.6 | In Breezehome, look at Lydia (or a door) and press K | It acts as if nothing were targeted: the setup prompt with only the template option. |
 | 1.7 | Open the console, then the inventory, then a dialogue, and press K in each | Nothing happens. The debug log shows `Hotkey ignored`. |
-| 1.8 | Lakeview Manor (`coc BYOHHouse1Exterior`, then go inside) before building any furniture: look at an unbuilt container spot | Unbuilt (disabled) furniture can't be targeted. After the template is applied, the log lists each one: `Template container ... unavailable: container is disabled (not built yet?)`. |
-| 1.9 | Severin Manor (Dragonborn), after you buy it | The cell is accepted. It is owned by `DLC2RRSeverinManorFaction`, which you join on purchase. Before the purchase: *not a player home (owned by ...)*. |
+| 1.8 | Lakeview Manor (`coc BYOHHouse1Exterior`, then go inside) before building any furniture: look at an unbuilt container spot | Unbuilt (disabled) furniture can't be targeted. After the template is applied, the log lists each one: `Template container ... unavailable: container is disabled (not built yet?)`, and the HUD reads *Dova Stash: &lt;home&gt; setup enabled (N containers unavailable for now)* (*1 container* for one), counting only disabled, missing or refused containers; one in another area that is not loaded yet is logged at debug (*waits for its area*) and not counted (*Tundra Homestead setup enabled*, no count). A Deposit afterwards logs unbuilt furniture at debug, never as a warning. |
+| 1.9 | Severin Manor (Dragonborn), before and after you buy it | The cell is accepted both times: it is a player house (`LocTypePlayerHouse`). It is owned by `DLC2RRSeverinManorFaction`, which you join on purchase; before that, binding a container logs a warning, *... is in a player house still owned by DLC2RRSeverinManorFaction*. |
+| 1.10 | White Lighthouse (`WhiteLighthouseSE.esp`, `coc WLighthouseInterior`) before you own it: press K | HUD *Dova Stash: not a player home (owned by WLightHouseFaction)* with powerofthree's Tweaks (editor IDs), else *(owned by a faction)*; never a form ID. |
 
 ## 2. M1: master, Deposit, keep defaults, extra data
 
@@ -77,7 +109,7 @@ Start from a clean Breezehome (no layout file).
 
 1. `coc WhiterunBreezehome`. Look at the chest next to the alchemy lab and press **K**.
 2. The prompt *Dova Stash: set up Breezehome?* shows these buttons: *Make Chest the master*,
-   *Use template "Breezehome"*, *Cancel*. Choose **Make ... the master**.
+   *Use template "Breezehome"*, *Open panel...* (with the SKSE Menu Framework), *Cancel*. Choose **Make ... the master**.
 3. HUD: *Dova Stash: Chest is now the master container*. The log shows `Saved layout .../Skyrim.esm_000165A8.json`.
    That file contains `"master"` and no containers.
 
@@ -114,10 +146,10 @@ Write down the inventory list, including names, *(Fine)* suffixes, enchantments 
 
 ### 2.3 Deposit (everything goes to the master: no categories bound yet)
 
-1. In Breezehome, press K at nothing. The master menu shows these buttons: *Deposit*, *Sort all*,
-   *Retrieve...*, *Browse containers...*, *Use template "Breezehome"*, *More...*, *Cancel* (message
-   boxes; *More...* has *Save as template...* and *Reset home...*). The UIExtensions list shows them
-   all in one list (§6.2.1).
+1. In Breezehome, press K at nothing. The master menu shows *Deposit*, *Sort all*, *Advanced...* and, with
+   UIExtensions installed, *Rename Chest...* (message boxes add *Cancel*). *Advanced...* has *Retrieve...*,
+   *Browse containers...*, *Use template "Breezehome"*, *Save as template...*, *Reset home...* and, with the SKSE
+   Menu Framework, *Open panel...*. The UIExtensions list shows the same entries (§6.2.1).
 2. Choose **Deposit**.
 3. HUD (one line, no per-item spam): *Dova Stash: deposited N items into 1 container*.
 4. The log shows `Deposit in Breezehome (Skyrim.esm|0x000165A8)` and
@@ -138,7 +170,7 @@ Write down the inventory list, including names, *(Fine)* suffixes, enchantments 
 
 ### 2.4 Round-trip (M1 exit criterion)
 
-1. Master menu → **Retrieve...** → **Everything (N)**. HUD: *retrieved N items from 1 container*.
+1. Master menu → **Advanced...** → **Retrieve...** → **Everything (N)**. HUD: *retrieved N items from 1 container*.
 2. Check the inventory against your list. Every special stack is still special: tempered, enchanted,
    renamed, soul, stolen.
 3. Deposit again, then retrieve again. Nothing changes after a second round-trip.
@@ -191,7 +223,7 @@ an arrow or bolt, its plain copies count as equipped too and stay (the game equi
 
 1. Look at the cupboard in the loft (by the weapon plaque) and press K. The container menu shows
    *Dova Stash: Cupboard* / *Not managed yet ...*.
-2. **Assign categories...** lists category roots with `[ ]` / `[~]` / `[x]` marks.
+2. **Categories...** lists category roots with `[ ]` / `[~]` / `[x]` marks.
    - *Weapons...* → **[ ] All Weapons**. Selecting it toggles the item to `[x]`. The menu reopens and every child shows `[+]`.
 3. Back → Back → **Cancel**. The layout file now has the cupboard with `"categories": ["weapons.*"]`.
 4. Bind the housecarl's dresser to *Armor → Heavy* and *Armor → Light* (individual children show `[x]`).
@@ -226,13 +258,13 @@ Defaults: `iSuggestCategoryAfter = 3`, `iLearnUndoSeconds = 5` (both on the sett
 where you put things by hand*, live).
 
 1. **Undo.** Put a Dwarven Gyro into the end table by hand and close the menu. HUD: *Dova Stash: Dwarven
-   Gyro now goes to End Table (K: undo)*. Press **K** within 5 s (aimed at anything, or at nothing).
+   Gyro now goes to End Table. K: undo*. Press **K** within 5 s (aimed at anything, or at nothing).
    HUD: *Dova Stash: undone, Dwarven Gyro is not learned*; the log has `Learn: 1 learn(s) undone in
    Breezehome`; the layout file has no `learned` entry for it, and the end table is gone from
    `containers` again (it only entered the setup with that learn). Repeat and wait 6 s before pressing K:
    the hotkey opens the usual menu, nothing is undone.
-2. Put three different items in at once and close. HUD: *3 items now go to End Table (Gyro, ...) (K:
-   undo)*. K within 5 s undoes all three.
+2. Put three different items in at once and close. HUD: *3 items now go to End Table. K: undo*
+   (no item list). K within 5 s undoes all three.
 3. **Families.** `help "Iron Sword of" 4 WEAP` lists the enchanted iron swords (made from the Iron Sword,
    `00012EB7`); add one ("of Burning") and one more ("of Scorching"). Put the first into the end table by
    hand. Log: `Learn: Iron Sword of Burning ... -> End Table: recorded (as Iron Sword ...)`; the layout's
@@ -247,7 +279,7 @@ where you put things by hand*, live).
    first; with `iLearnUndoSeconds = 0` right after the close animation) a message box asks *Dova Stash:
    send all Books to End Table?* with **Yes** / **No**. Not while any menu is open; never while a sort
    runs. Log: `Learn: asking whether all books.other go to End Table (3 learned)`.
-   - **Yes.** HUD: *Dova Stash: End Table now takes Books*. The layout: the end table has
+   - **Yes.** HUD: *Dova Stash: End Table now takes Other books*. The layout: the end table has
      `"categories": ["books.other"]` and the three books are gone from `learned` (log: `... (3 learned
      item(s) now covered by it dropped)`). A book put into the master goes to the end table by category.
    - **No** (or Esc). Nothing on the HUD; the layout has `"declined": {"<end table ref>": ["books.other"]}`.
@@ -271,7 +303,7 @@ where you put things by hand*, live).
 1. Unbind the cupboard (Assign → Weapons → All Weapons toggles off), and bind it to *Weapons → Swords* only.
 2. Master menu → **Sort all**. Daggers now sitting in the cupboard move back to the master
    (homeless), and swords stay. HUD: *re-sorted ...*.
-3. Master menu → **Retrieve...**. Only roots with items appear, with counts, e.g. *Weapons... (5)*.
+3. Master menu → **Advanced...** → **Retrieve...**. Only roots with items appear, with counts, e.g. *Weapons... (5)*.
    Choose **Weapons... → Swords (3)**. Only swords come back (*retrieved 3 items from 1 container*).
 4. Retrieve a root with one category, e.g. *Keys*. It retrieves directly, with no submenu.
 
@@ -286,28 +318,34 @@ where you put things by hand*, live).
 2b. Put a book into a container with no categories by hand (learning on), close it and look at it.
    **Expected:** the activate prompt reads e.g. *End Table (Books, learned)*. Then **Categories...**: the
    book's group reads *[ ] Books... (1 learned)* and, inside it, *[ ] Books (1 learned)*.
-3. Container menu on another chest → **Make master**. The old master becomes unmanaged and the new
-   one is the master. The old master's items are not moved.
-4. Master menu → **Reset home...** → *Yes*. HUD: *Breezehome reset (setup backed up)*. The layout
+3. Container menu on another chest → **Make master...**. It asks first, in the hotkey menus as in the panel (*Make X
+   the master? Its categories and learned items are forgotten; the current master becomes an ordinary container. No
+   items are moved.*, without the first clause when the chest has no categories or learned items); **No** returns to
+   the container menu. **Yes**: the old master becomes unmanaged and the new one is the master. The old master's
+   items are not moved.
+4. Master menu → **Advanced...** → **Reset home...** → *Yes* (the question: *Reset Breezehome? Its setup is
+   backed up (.bak). No items are moved.*). HUD: *Breezehome reset (setup backed up)*. The layout
    file is renamed to `<file>.json.<YYYYMMDD-HHMMSS>.bak`; only the newest 5 backups are kept.
    **No items are moved.**
 
 ### 3.6 Templates (zero-touch preview of M3)
 
 1. After a reset, press K at any container and choose **Use template "Breezehome"**.
-   HUD: *Breezehome setup enabled*. The layout file has `"basedOn": "Templates/Vanilla/Breezehome.json@1.0.0"`.
+   HUD: *Breezehome setup enabled*. The layout file has `"basedOn": "Templates/Vanilla/Breezehome.json@1.0.2"`.
 2. Deposit. Loot is spread over the bound containers.
-3. Master menu → **Re-apply template** → *Yes* (the label says Re-apply only for the template the
-   layout is based on; another template reads **Use template**). A timestamped `.bak` copy of the
+3. Master menu → **Advanced...** → **Re-apply template** (the label says Re-apply only for the template the
+   layout is based on; another template reads **Use template**). With no changes of your own it applies at once;
+   bind a category by hand first and it asks *Use the template "Breezehome"? It replaces your changes: ...*
+   (*Yes*). A template that may not fit reads *... (may not fit)* and its question adds *It may not fit this home.* A timestamped `.bak` copy of the
    layout is written first.
    Category bindings come from the template; learned destinations, keep rules, ignored containers,
    explicit forms and containers you added yourself (now without categories) are kept.
 4. Set `bAutoEnableTemplates = true` (the default), start a new session and enter Honeyside (`coc RiftenHoneyside`).
-   HUD: *Dova Stash: Honeyside is set up. Press K anywhere here to put your loot away.* Press K without
+   HUD: *Dova Stash: Honeyside is set up (press K)*. Press K without
    aiming at anything: the master menu opens; Deposit puts the loot away.
 5. **Save as template (hotkey).** In Breezehome with a setup of your own (master, a few containers with
    categories, one ignored container, a rack with categories, a mannequin with an armor set, a keep
-   rule, some learned items): master menu → **Save as template...**. The text box shows *Breezehome*;
+   rule, some learned items): master menu → **Advanced...** → **Save as template...**. The text box shows *Breezehome*;
    type *My Breezehome* and confirm. HUD: *Dova Stash: saved as template "My Breezehome" (incl. N learned
    items)*. The file `Templates/User/My Breezehome.json` (MO2: `overwrite/SKSE/Plugins/DovaStash/`) has
    your character's name as `author`, `"version": "1.0.0"`, the Breezehome `cell`, no `learned` and no
@@ -316,20 +354,20 @@ where you put things by hand*, live).
    `requires` lists every plugin the refs and those items point into. Log: *Exported Breezehome as
    template "My Breezehome" v1.0.0 ... N learned item(s) kept as item bindings ...*, then
    *Templates: N loaded* and the home's template line.
-6. **Offered right away.** Press K again (no restart): the master menu now has
+6. **Offered right away.** Press K again (no restart): the master menu's **Advanced...** now has
    **Use template "My Breezehome"** (the player's own templates rank before the shipped one). The
-   panel's **Actions → Templates for this home** lists it as *(recommended)*, and **Dova Stash → Templates**
+   panel's **Template → Templates** lists it as *(offered first)*, and **Template → All templates**
    lists it.
-7. **Same name again.** **Save as template...** → *My Breezehome* → a box asks *Replace the template
+7. **Same name again.** **Advanced...** → **Save as template...** → *My Breezehome* → a box asks *Replace the template
    "My Breezehome"? Templates/User/My Breezehome.json (v1.0.0) is saved as v1.0.1; the old file is
    backed up.* **No** writes nothing (check the file time). **Yes** writes v1.0.1 and leaves
    `My Breezehome.json.<YYYYMMDD-HHMMSS>.bak` next to it. Save a different home under the same name: the
    box adds *It is the template of another home.*
-8. **Round trip.** Master menu → **Reset home...** → *Yes*, then press K at a container →
+8. **Round trip.** Master menu → **Advanced...** → **Reset home...** → *Yes*, then press K at a container →
    **Use template "My Breezehome"**. The layout file has the same master, categories, ignored
    containers, displays, mannequin set and keep rules as before, an empty `learned`, the learned items
    as `forms` of their containers, and `"basedOn": "Templates/User/My Breezehome.json@1.0.1"`. Deposit
-   sorts as before, learned items included. (Exported from the panel with *Keep learned items* unticked,
+   sorts as before, learned items included. (Exported from the panel with *Include where you put things by hand* unticked,
    the template has no such `forms`, and learned-only items go to the master until you teach them again.)
 9. Esc in the text box saves nothing (debug log: *Save as template: cancelled*). With `iMode = 1`
    (message boxes) the master menu offers the same entry; without UIExtensions it saves under the
@@ -352,11 +390,11 @@ to `DovaStash.log`; MO2 never puts it in `overwrite`.
    restored: ... (date)*. HUD once: *Dova Stash: a saved setup for Breezehome can be restored (press K)*
    (not the template notice; with `bAutoEnableTemplates = true` no template is turned on).
 4. Press K at a container (or at nothing). The setup list starts with *Restore your last setup
-   (2026-10-12 14:03)* (the copy's time), then *Make ... the master container*, *Use template ...*,
-   *Advanced...*. Choose it. HUD: *Dova Stash: Breezehome restored*; the layout file is back with the
+   (2026-10-12 14:03)* (the copy's time), then *Make ... the master*, *Use template ...* and, with the SKSE
+   Menu Framework, *Open panel...*. Choose it. HUD: *Dova Stash: Breezehome restored*; the layout file is back with the
    same master, categories, learned items and displays; Deposit sorts as before. Same with `iMode = 1`
    (message boxes, *Restore your last setup (...)* first).
-5. **Reset keeps it.** Master menu → **Reset home...** → *Yes*. The layout goes to a `.bak` as before;
+5. **Reset keeps it.** Master menu → **Advanced...** → **Reset home...** → *Yes*. The layout goes to a `.bak` as before;
    the copy in `Backups/` stays, and the hotkey offers *Restore your last setup* again. Set the home up
    anew (Make master): the copy from before the reset moves to history first (log line as in 2).
 6. **Broken copy.** Break `Backups/Skyrim.esm_000165A8.json` (delete a brace) and delete the layout file.
@@ -380,14 +418,14 @@ Wynter's Breezehome Redux; `Dova Stash Testing` adds LUFTSHIP K747, Skyfall Esta
 3. **Conflicts (Wynter's Breezehome Redux enabled).** New session, `coc WhiterunBreezehome` with no Breezehome
    layout file. Log: *template Templates/Vanilla/Breezehome.json not offered: WynterBreezehomeRedux.esp rebuilds
    this home (conflicts)*, then *no layout*. No HUD notice; K at a container offers *Make ... the master
-   container* but no *Use template*. Panel → Dova Stash → Templates: Breezehome reads *conflicts:
+   container* but no *Use template*. Panel → This home → Template → *All templates* (untick **Only installed
+   homes** if needed): Breezehome reads *conflicts:
    WynterBreezehomeRedux.esp* (tooltip *Not offered: a mod that rebuilds this home is loaded.*). Disable
    Wynter's: the template is offered again (§1.1).
 4. **The auto-enable guard (Wynter's still enabled).** Copy `Templates/Vanilla/Breezehome.json` to
    `Templates/User/Breezehome test.json` and delete its `"conflicts"` line. With `bAutoEnableTemplates = true`,
    start a new session and enter Breezehome (no layout file). **Expected** (if Wynter's took out most vanilla
-   containers): no setup is enabled; HUD *Dova Stash: Breezehome setup may not fit this home. Press K at any
-   container to enable.*; log, once: *Breezehome: template Templates/User/Breezehome test.json may not fit this
+   containers): no setup is enabled; HUD *Dova Stash: Breezehome setup may not fit (press K)*; log, once: *Breezehome: template Templates/User/Breezehome test.json may not fit this
    home (another mod may have rebuilt it): x of y references there (... disabled or deleted, ... missing ...);
    offered, not enabled automatically*. K at a container: *Use template "Breezehome" (may not fit)* (message
    boxes: *Template available: ..., may not fit this home*). Choosing it still works and reports the
@@ -409,7 +447,7 @@ Wynter's Breezehome Redux; `Dova Stash Testing` adds LUFTSHIP K747, Skyfall Esta
    Containers tab shows the cupboard grey with that reason; the layout keeps its entry. Delete the file and
    restart: all as before.
 7. **Broken files.** Put `{` in `SelfSorting/50_Test.json`: log *[error] Homes that sort themselves: ...
-   50_Test.json ...*, the panel's Diagnostics page lists it under *Homes that sort themselves (SelfSorting)*,
+   50_Test.json ...*, the panel's About page lists it under *Diagnostics*, *Homes that sort themselves (SelfSorting)*,
    and the shipped entries still apply. Rename `00_Default.json` away as well: *[warning] Homes that sort
    themselves: no list loaded; leaving Clockwork and Legacy of the Dragonborn alone*, and step 2 still holds
    for those two. Put the files back.
@@ -429,7 +467,8 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
 2. Deposit before turning anything on. **Expected:** no `Displays in` line; everything is stored, no rack
    gets anything.
 3. Take the gear back out (Retrieve), look at an empty weapon rack, press the hotkey. **Expected:** a menu
-   with *Use this rack*. Choose it. **Expected:** HUD *Weapon Rack is used now*; nothing goes on the rack yet.
+   with *Use this rack*. Choose it. **Expected:** HUD *Weapon Rack is used now*; nothing goes on the rack yet. (A rack that already holds a
+   weapon or shield says *Weapon Rack is used now (full)*, and Deposit leaves it alone.)
 4. Its menu opens again by itself: *Categories... (any weapon)*, *Fill now*, *Stop using this rack*. Open
    *Categories...*, tick *Bows*, go back: the entry reads *Categories... (Bows)*.
 4a. Categories that fit. Open *Categories...* on a plain rack or weapon plaque, a dagger display, the middle and a
@@ -454,7 +493,7 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
      `Skyrim.esm|0x00061CD6`), and nothing else ever goes on them;
    - each weapon sits on its rack like a hand-placed weapon (not on the floor, not floating, not turned
      sideways: a mace hangs upright, as when you place it yourself); the log has
-     `Display: <item> from <player> on <rack> (rack)`;
+     `Display: <item> from <player> on <rack> (rack) in <cell>`;
    - watch the racks while it fills (third person helps): no weapon is ever seen falling in front of you,
      lying on the floor or hanging in the air near a rack; each one just appears on its rack, one after the
      other (plaques: the model appears, nothing moves);
@@ -505,13 +544,15 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
 8c. Choose a set for a mannequin that wears another one (the Daedric mannequin → Ebony). **Expected:** HUD
    *... wears Ebony once you take its armor off*; Deposit puts nothing on it; take the Daedric pieces off by
    hand, Deposit: the Ebony pieces you have go on.
-8d. Armor sets page (SKSE Menu Framework → Dova Stash → *Armor sets*). **Expected:** the first open takes a
-   moment once; the log has one `Armor sets: N sets from M armor pieces in the load order` line. Searching
-   `ebony` lists `Ebony` (Skyrim.esm) and modded Ebony-tagged sets separately; a mod's name or a piece's
-   name finds its set; *Only sets I have* narrows to sets with pieces you carry or store (the *You have*
-   column, e.g. `1/4`); hovering a set lists its pieces, `(have)` on yours. Pick a mannequin, select a set
-   you have no piece of (e.g. Dragonplate), *Assign*: the mannequin's row reads `: Dragonplate`, Deposit
-   puts nothing on it; add a Dragonplate piece, Deposit: it goes on. *Auto* returns it to Auto.
+8d. Armor set picker (SKSE Menu Framework → Dova Stash → *Displays*, select a mannequin, open *Armor set
+   (Auto)*; moved from the former *Armor sets* page). **Expected:** the first open takes a moment once; the log
+   has one `Armor sets: N sets from M armor pieces in the load order` line. The table lists every set, the ones
+   you have first (complete ones first). Searching `ebony` lists `Ebony` (Skyrim.esm) and modded Ebony-tagged
+   sets separately; a mod's name or a piece's name finds its set; *Only sets you have* narrows to sets with
+   pieces you carry or store (the *You have* column, e.g. `1/4`); hovering a set lists its pieces, `(have)` on
+   yours. Click a set you have no piece of (e.g. Dragonplate): the node reads *Armor set (Dragonplate)* and the
+   row *set: Dragonplate*, Deposit puts nothing on it; add a Dragonplate piece, Deposit: it goes on. **Auto**
+   returns it to Auto.
 8e. Displays page (SKSE Menu Framework → Dova Stash → *Displays*), in the home of the steps above.
    **Expected:** one row per rack, mannequin, plaque and case of the cell (the log has one `Displays page: N
    display(s) in 1 loaded cell(s)` debug line when the page first opens, and again only after **Refresh** or a
@@ -523,8 +564,7 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
    reads *used* within a second and the hotkey at it offers *Stop using this rack*. *Categories (any weapon)*:
    tick *Bows*, the hotkey picker shows `[x] Bows`; tick *All Weapons*, *Bows* reads *(via a wider choice)*.
    **Fill now** on an empty used rack puts a weapon up (greyed with a reason on a full one). **Stop using**:
-   *ignored*, the weapon stays. On a mannequin, *Armor set (Auto)*: the list shows the sets you have, most
-   complete first; search `dragonplate`, pick it: *set: Dragonplate*; **Auto** returns it. Under *Use all*,
+   *ignored*, the weapon stays. On a mannequin, *Armor set (Auto)*: the set picker (8d). Under *Use all*,
    *Use all 12 racks...* asks first (*... 1 ignored stay off.*); Yes: HUD *12 displays used now*, the ignored
    rack stays *ignored*, nothing is moved until Deposit. In a home with areas (§3.9), the *Area*
    column names each display's area; displays in the other loaded area show, with **Fill now** greyed
@@ -581,7 +621,7 @@ Whitepeak Tower (77 racks, 6 mannequins, 50 item plaques) or any vanilla home (B
      books' titles first, the spell tome, The Nightingales, then the cheap books by value; never the note,
      the Elder Scroll, or the second Three Thieves; the rest is stored as usual. The log has
      `Display: <shelf> takes 18 more books (its script counts 0 of 18; 18 markers, 0 inside)`, one
-     `Display: <book> from <player> on <shelf> (bookshelf)` per book and `<shelf>: its UpdateBooks placed
+     `Display: <book> from <player> on <shelf> (bookshelf) in <cell>` per book and `<shelf>: its UpdateBooks placed
      the books on their markers`. Activate the shelf: the game says how much room is left (18 minus what went
      up), the menu lists exactly those books; close it: the books stay where they are.
    - Take one book off the shelf by hand (activate it on the shelf). **Expected:** it is in your inventory and
@@ -775,7 +815,8 @@ satchels, barrels and strong boxes are not (`esm_dump.py cell "HearthFires.esm|0
    `Add area: ... named "Grounds"` and, on the next hotkey, `Cell ...: part of Lakeview Manor` with the areas
    and, per container, `reachable from every area (persistent)` or `reachable only in Lakeview Manor (not
    persistent)`. Pressing the hotkey again opens the master menu (UIExtensions list or message boxes) with
-   *Rename Grounds...* (lists only) and *Remove this area from Lakeview Manor...*.
+   *Rename Grounds...* (both UIs, with UIExtensions installed: it needs its text box) and *Remove this area from
+   Lakeview Manor...*.
    **Variants:** cancel the text box, or confirm it unchanged: the area is still added (HUD *this area is now
    part of Lakeview Manor*, `"cells": ["Skyrim.esm|0x00009BF7"]`, no `label`). Without UIExtensions (or with
    `iMode = 1`, which still uses the text box when UIExtensions is installed) the add happens at once.
@@ -788,7 +829,13 @@ satchels, barrels and strong boxes are not (`esm_dump.py cell "HearthFires.esm|0
 4. **Deposit / Retrieve outside.** Outside, hotkey → Deposit: items go into the persistent containers inside
    (log lines name them), anything bound to a sack or satchel stays with you or goes to the master
    (`Container ... unavailable: only reachable in Lakeview Manor (not a persistent reference)` at debug, no
-   warning). Retrieve → Ingots: they come from inside. Browse containers → a main hall chest: its container menu
+   warning). With only non-persistent containers taking what you carry, nothing moves and the HUD reads *Dova
+   Stash: nothing deposited (N items left: no container here takes them)* (*master not here* when the master
+   is inside), not *nothing to deposit* (manual for Tundra Homestead, plan 38's 3.9-tundra-b2, as its cellar has a
+   master of its own). In an area with its own master (`cells[].master`: the Tundra Homestead cellar, the Myrwatch
+   gallery) Deposit puts what has no container there in that chest (plan 38, 3.9-tundra-b: a potion into
+   `ccEEJSSE001-Hstead.esm|0x00000F85`), and the hotkey at nothing there reads *Dova Stash: Tundra Homestead (master
+   not here)* (3.9-tundra-b3). Advanced... → Retrieve → Ingots: they come from inside. Advanced... → Browse containers → a main hall chest: its container menu
    opens (unverified: report if it closes at once or shows nothing).
 5. **Panel.** Outside, open the panel: header *Lakeview Manor in Grounds* (the name you gave it; the cell's own
    name, *BYOHHouse1Exterior*, without one); Actions → **Areas** lists *Lakeview Manor (main)* and *Grounds (you
@@ -796,14 +843,19 @@ satchels, barrels and strong boxes are not (`esm_dump.py cell "HearthFires.esm|0
    *Yard*, Enter (or *Save*): status *Dova Stash: area renamed to "Yard"*, the row and the header follow, the
    file's `label` is *Yard*; an empty box brings the cell's own name back (the entry is written as a plain
    string again). Containers: rows inside show *(Lakeview Manor)* next to *available*, sacks show
-   *unavailable: only reachable in Lakeview Manor (not a persistent reference)* (debug log only, no warning).
+   *unavailable: only reachable in Lakeview Manor* (the debug log says *(not a persistent reference)*; no warning).
    When the panel is opened in a cell that can join a home, the *Add this area to ...* button has a name box
    next to it (hint: the cell's own name); the name typed there becomes the label.
-6. **Cellar with its own setup.** `coc BYOHHouse1FalkreathBasement` with the *Lakeview Manor Cellar* template
-   enabled: the cellar stays its own home (header *Lakeview Manor, Cellar*, its own master). Add
+6. **Cellar with its own setup.** `coc BYOHHouse1FalkreathBasement` with a setup of its own (a master made there,
+   or the retired *Lakeview Manor Cellar* template: plan 21 installs a copy as `Templates/AutoTest/LakeviewManorCellar.json`):
+   the cellar stays its own home (header *Lakeview Manor, Cellar*, its own master). Add
    `"HearthFires.esm|0x00004849"` to the main hall's `cells` by hand: the cellar still stays its own home, and the
-   main hall's panel says *HearthFires.esm|0x00004849 is listed but has a setup of its own, so it is not part
-   of this home*. **Reset home** in the cellar: on the next hotkey there it is part of Lakeview Manor.
+   main hall's panel says *&lt;cellar&gt; has its own setup; Reset it there to make it part of this home.* (the
+   `cells` entry's label, else the cell's name, never a form ref). **Advanced...** → **Reset home...** in the cellar: on the
+   next hotkey there it is part of Lakeview Manor. With a setup made by the old Cellar template and nothing
+   changed, applying *Lakeview Manor* in the hall takes the cellar in (its `replaces` names the old file): log *Lakeview Manor: took in Cellar (untouched template setup)*, the cellar's file goes to a `.bak`, and the
+   next hotkey in the cellar shows it as part of Lakeview Manor. Reset is only needed when the cellar's setup has
+   changes of the player's. Automated in plan 21, test 3.9.6.
 7. **Remove.** Outside, master menu → *Remove this area from Lakeview Manor...* → Yes: HUD *Dova Stash: Grounds
    is no longer part of Lakeview Manor*; the hotkey there says *not a player home (exterior cell not owned by
    you)* or offers the area again right after coming out of the door. `cells` is gone from the file (no empty
@@ -840,7 +892,7 @@ chest. Find two clutter items' ids with `help "Tankard" 4` and `help "Silver Gob
    (send the fBarterSellMax value back).
 2. **Routing.** `player.additem <tankard> 5`, `player.additem <goblet> 2`, `player.additem 0001397E 2` (Iron
    Dagger), Deposit. **Expected:** the tankards and goblets go to the sell chest, the daggers to the weapons chest.
-   Put one Iron Dagger into the sell chest by hand: HUD *Iron Dagger now goes to Sack (K: undo)*; no category
+   Put one Iron Dagger into the sell chest by hand: HUD *Iron Dagger now goes to Sack. K: undo*; no category
    question is ever asked for the sell chest. **Sort all**: the dagger stays in the sell chest. **Retrieve >
    Everything**: nothing comes out of the sell chest. Sit at the forge: nothing comes from the sell chest.
 3. **Never sold.** Into the sell chest by hand: a stolen item (take something from a shop while unseen), an
@@ -852,7 +904,8 @@ chest. Find two clutter items' ids with `help "Tankard" 4` and `help "Silver Gob
    rises to half the value. `player.addperk 000BE128` (Haggling) → 10% more.
 5. **Sell now.** *Sell now (N gold)...* → message box *Sell 8 items for N gold?* with the items (*Silver Goblet
    x2, Tankard x5 +1 more*) and what stays (*13 stay: 1 made by you, 1 customized, 1 stolen, 10 kept by a keep
-   rule*). *No*: nothing happens. *Yes*: HUD *Dova Stash: sold 8 items for N gold*; your gold rose by N; the
+   rule*). *No*: goes back to the menu it came from, and nothing is sold (the same for Buy back's question;
+   automated in plan 18, test 8.8-mb-sell-no). *Yes*: HUD *Dova Stash: sold 8 items for N gold*; your gold rose by N; the
    chest holds only what stays. Log: one `Sell chest: sold <item> xN for G gold (g each) from Sack [...]` per
    stack and `Sell chest (sell now): sold 8 items for N gold in Breezehome` at info.
 6. **Buy back.** Hotkey at the sell chest (or the master) → *Buy back (N gold)...* → *Buy back 8 items for N
@@ -862,7 +915,7 @@ chest. Find two clutter items' ids with `help "Tankard" 4` and `help "Silver Gob
 7. **Changed meanwhile.** Panel → Actions → Sell chest shows *8 items for N gold: ...*. Click *Sell now
    (N gold)...*, then before *Yes* put another tankard into the sell chest via the hotkey's Open (or Deposit).
    **Expected:** *Yes* sells nothing: *the sell chest changed; sell again*. Click again: the new total.
-8. **Panel.** Containers tab: the sell chest is tagged *[Sell]*, its page says what it is, *Not the sell chest*
+8. **Panel.** Containers tab: the sell chest is tagged *[Sell]*, its page says what it is, *Stop selling from it*
    turns it off (HUD), *Make sell chest...* asks inline. Actions tab: *Sales this session* lists each sale (game
    time, chest, items, gold, *(bought back)*); each opens to its items.
 9. **Timed selling.** Settings → *Sell by itself after* = 1 h. Put 3 tankards in the sell chest, close it.
@@ -910,12 +963,13 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 
 1. In Breezehome, look at the chest near the alchemy lab and press **K**. The window **Dova Stash**
    opens and the game pauses. The header shows *Breezehome* and its cell id. The body shows
-   *This home is not set up yet.*, a **Make Chest the master** button, and *Templates for this home*,
-   which lists *Breezehome v1.0.0 by Dova Stash (recommended)* with a **Use** button.
+   *This home is not set up yet.*, a **Make Chest the master** button, and *Templates* (tooltip: which home),
+   which lists *Breezehome v1.0.2 by Dova Stash (offered first)* with a **Use** button. *All templates*
+   (collapsed) is at the bottom.
 2. Click **Make Chest the master**. The view switches to the tabs (Actions, Containers, Learned,
    Keep rules, Template). The header now shows *Setup: Breezehome v1.0.0 by Player*,
-   *Custom setup (not from a template)* and *Master: Chest*. The status line at the bottom reads
-   *Dova Stash: Chest is now the master container*.
+   *Custom setup (not from a template)* and *Master: Chest*. The status line at the top, under the header, reads
+   *Chest is now the master container* (no *Dova Stash:* prefix; red when an action failed).
 3. Close the window with the title-bar **X**, the **Close** button, or Esc. The game unpauses, and the
    HUD shows any queued notifications.
 4. Press K at nothing. The window opens on the **Actions** tab.
@@ -924,10 +978,12 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    as *not managed yet*.
 6. Press K at a respawning container in a dungeon (`coc BleakFallsBarrow01`). No window opens. The HUD
    shows *can't use ...* (same as M2).
-7. Outside a home: open the SKSE Menu Framework menu (its own hotkey) → **Dova Stash → This home**.
-   It shows *You are not in a player home (...)*.
+7. Outside a home: open the SKSE Menu Framework menu (its own hotkey) → **Dova Stash**. The section lists four
+   pages: **This home**, **Displays**, **Settings**, **About**. **This home** shows *You are not in a player home
+   (...)*, then *Templates* with *Go into a player home to use a template there or save its
+   setup.*, then *All templates*, open (5.2 step 9).
 
-### 5.2 Actions tab
+### 5.2 Actions tab (steps 5 to 9b: Template tab, Templates)
 
 1. Build the test inventory from 2.2. Click **Deposit**. The status line and, after you close the
    window, the HUD show *deposited N items into ...*. The **Retrieve** tree refreshes with counts.
@@ -936,45 +992,55 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    **Retrieve** button. Retrieve *Swords*: only swords come back, and the counts drop.
 3. Click **Refresh counts** after moving items by hand. The counts match the containers.
 4. **Sort all** behaves like the M2 menu action (3.4).
-5. **Templates for this home** (after Sort and the sell chest, above Retrieve): *Breezehome v1.0.0 by Dova
-   Stash (recommended)* with a small **Use...**. The setup from 5.1 is your own (*Custom setup*), so it asks
-   first: a yellow *Use the template "Breezehome"? It replaces your changes: ... Your setup is backed up first
-   (Saved setups). No items are moved.* with **Yes**/**No**. **No** leaves things unchanged.
+5. **Template → Templates** (Actions has only **Use or save a template**, which opens the Template
+   tab): *Breezehome v1.0.2 by Dova Stash (offered first)* with a small **Use...**. The setup from 5.1 is your own (*Custom setup*), so it asks
+   first: a yellow *Use the template "Breezehome"? It replaces your changes: ... Your setup is backed up first.
+   No items are moved.* with **Yes**/**No** (the hotkey menus ask the same). **No** leaves things unchanged.
    **Yes** applies the template: the header shows *Based on template:
-   Templates/Vanilla/Breezehome.json@1.0.0*, the row shows *(in use)*, the button becomes **Re-apply**, and
-   the status line reads *Dova Stash: Breezehome setup enabled*.
+   Templates/Vanilla/Breezehome.json@1.0.2*, the row shows *(in use)*, the button becomes **Re-apply**, and
+   the status line reads *Breezehome setup enabled*.
 6. **Switching templates** (DESIGN §6.2 step 4). Copy `Templates/Vanilla/Breezehome.json` to
    `Templates/Test/Breezehome.json`, set its `name` to *Test* and `"priority": -1`, give one container other
    categories and pick another master; restart (debug log level). Both rows are listed, *Breezehome* first
-   with *(recommended)*, then *Test*. Note what each container and display holds. Right after step 5 the
+   with *(offered first)*, then *Test*. Note what each container and display holds. Right after step 5 the
    setup has no changes of your own, so **Use** on *Test* switches at once, with no question: the header
-   says *Based on template: Templates/Test/Breezehome.json@1.0.0* and *(in use)* moves to *Test*. Log:
-   *Breezehome: template switched from Templates/Vanilla/Breezehome.json@1.0.0 to
-   Templates/Test/Breezehome.json@1.0.0*. Nothing moved: every container and display holds what it held;
+   says *Based on template: Templates/Test/Breezehome.json@1.0.1* and *(in use)* moves to *Test*. Log:
+   *Breezehome: template switched from Templates/Vanilla/Breezehome.json@1.0.2 to
+   Templates/Test/Breezehome.json@1.0.1*. Nothing moved: every container and display holds what it held;
    learned items, keep rules and ignored containers are still there (Containers, Learned, Keep rules tabs).
    **Sort all** then follows *Test*. **Use** on *Breezehome* switches back the same way.
 7. **Asks when you changed something.** Tick one more category on a container (Containers tab), back to
-   Actions: the other template's button reads **Use...** and asks first. **Yes** switches; `Layouts/` has a new timestamped
+   the Template tab: the other template's button reads **Use...** and asks first. **Yes** switches; `Layouts/` has a new timestamped
    `.bak`, and **Saved setups** → *Older copies* has a new entry whose **Restore** brings back the setup with
    your extra category. **Re-apply** on the template in use, after no change of yours, does not ask. Leave the
    panel open a minute: no repeated log lines (the check runs only when the setup changes).
 8. **Drafts come last.** Add an auto-draft for the cell: the editor's *Save N drafts...*, or a copy of the
    Breezehome template under `Templates/Breezehome/Unknown.json` with `"autoDraft": true` and
    `"priority": 10`. Restart. It is listed last with *(draft)* (hover: drafted by the editor for many homes
-   at once), never *(recommended)*, priority 10 or not; its **Use** works like the others. Reset the home
+   at once), never *(offered first)*, priority 10 or not; its **Use** works like the others. Reset the home
    with `bAutoEnableTemplates = true` and walk in again: the template someone made is enabled, not the draft,
    and with `false` the notice and the hotkey's *Use template* name it. Remove `Templates/Test/` and the
    Vanilla Breezehome (or add a missing plugin to their `requires`) and restart: the draft is now
-   *(recommended)*, the notice and the hotkey offer it, and a first visit enables it.
-9. **Templates page.** In Breezehome, **Dova Stash → Templates** shows *For Breezehome* above the table, with
-   the same rows and buttons (and the same question when the setup has changes of your own); the table marks
-   the auto-draft *(draft)*. Outside a home the section is not shown.
+   *(offered first)*, the notice and the hotkey offer it, and a first visit enables it.
+9. **All templates** (moved from the former Templates page, which showed the same). In Breezehome, the Template
+   tab ends with *All templates*, collapsed (hover: where templates load from and when one is offered); open
+   it: **Only installed homes** is ticked, and the catalogue's Status says *in use* / *fits this home* for
+   Breezehome's rows, red *missing: ...* for homes whose mods are not loaded once you untick the box (ticked, it
+   hides those rows); the auto-draft reads *(draft)*. Outside a home, **This home** shows *Templates for this
+   home* with *Go into a player home to use a template there or save its setup.*, then *All templates* open.
+9b. **Remove from this home.** On *Test*'s row, **Remove...** asks *Remove Test from this home? ...*; **Yes**:
+   the row moves to the end, dimmed, *(removed)*, with **Add back**; the setup file has `"hiddenTemplates":
+   ["Templates/Test/Breezehome.json"]`; the hotkey's *Advanced...* no longer offers it;
+   `Templates/Test/Breezehome.json` is still on disk; *All templates* says *removed from this home*. Remove the
+   template in use: the header shows *Custom setup (not from a template)*, nothing moved. **Add back** (either
+   place) offers it again. Automated in plan 11 test *5.2.11* (resolution, Remove and Add back through the
+   harness's `hideTemplate`, the setup file, nothing moved).
 10. **Reset home...** → **Yes**. The layout is backed up to `.json.bak` and the window returns to the
    setup view. No items are moved. The setup view shows *Saved setups* with a **Restore your last setup
    (date)** button (no question: there is nothing to replace); it brings the setup back.
 11. **Saved setups** (above Reset; hover its header for where the copies are): **Restore last setup (date)...** →
    *Restore the setup saved (date)? This home's current setup is backed up first (.bak); no items are
-   moved.* **No** changes nothing; **Yes**: status *Dova Stash: Breezehome restored*, and `Layouts/` has a
+   moved.* **No** changes nothing; **Yes**: status line *Breezehome restored* (HUD: *Dova Stash: Breezehome restored*), and `Layouts/` has a
    new timestamped `.bak` of the setup that was there. *Older copies (N)* lists the history copies (one per
    earlier session, newest first), each with **Restore the setup from (date)...**. With a broken layout
    file (4.1) the setup view offers the same buttons above **Reset home...**.
@@ -989,13 +1055,14 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 
 1. The table lists the master first (*[Master] Chest*, *(items without a destination)*), then every
    managed container with its categories, learned count and status. A container that is
-   unavailable, such as unbuilt Hearthfire furniture, shows *unavailable: container is disabled
-   (not built yet?)* in red. Hover the name to see the FormRef. A container with learned items only
+   unavailable, such as unbuilt Hearthfire furniture, shows *unavailable: not built yet* in red (the log keeps
+   *container is disabled (not built yet?)*). Hover the name to see the FormRef. A container with learned items only
    (2b in §3.5) shows *Books, learned* in grey under Categories; selected, its tree shows
    *[ ] Books (1 learned)* and a grey *Learned here: Books. ...* line.
 2. Select the loft cupboard. In the details:
    - Type *Weapons* into the name box (empty, it shows the game's name) and click **Rename** or press
-     Enter. The table shows *Weapons*, and the layout JSON has `"label": "Weapons"`.
+     Enter (hover **Rename**: *Saves the name. Empty: the game's name.*). The table shows *Weapons*, and the
+     layout JSON has `"label": "Weapons"`.
    - **Categories sent here** shows a tree. Expand *[ ] Weapons* and tick **All Weapons (weapons.*)**.
      The node shows *[x]*, and every child shows *(via a wider choice)*. The JSON has `"weapons.*"`.
    - Untick it, then tick only *Swords*. The root shows *[~]*.
@@ -1003,21 +1070,30 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
    - Add `"weapons.swords.*"` by hand in the JSON and re-enter the cell. The pattern is listed under
      *Other patterns (unknown categories)* with a **Remove** button, which works.
 3. **Ignore** → the status shows *ignored* and the category tree shows the ignored note.
-   **Stop ignoring** restores it. **Remove...** → **Yes** takes the container out of the list.
+   **Stop ignoring** (hover: *Lets it receive items and learn again, with its categories.*) restores it.
+   **Remove...** → **Yes** takes the container out of the list.
    **Remove...** is not offered on the master or on a container that is not managed yet.
-4. **Clear categories** empties the list (status line: *categories cleared for ...*).
-5. **Make master...** → **Yes**. The selected container becomes the master (header updates). The old
+4. **Clear categories...** asks first (Yes / No); **Yes** empties the list (status line: *Categories cleared for ...*).
+5. Hover **Make sell chest...** (*Makes it the sell chest: what you put in is sold when you choose Sell now.*) and
+   **Make master...** (*Makes it the master: items without a destination go here.*). **Make master...** → **Yes**.
+   The selected container becomes the master (header updates). The old
    master is no longer listed. No items are moved.
 6. With learned entries pointing at a container (3.3), **Forget learned (n)...** → **Yes** removes
    them. The Learned column drops to 0.
 7. An unavailable container (for example an unbuilt Hearthfire chest bound by a template) shows its
    reason in red, and its category tree is greyed out.
+8. **Aimed container** (new). Look at the loft cupboard and open the framework menu → **This home** →
+   **Containers**: its row's status ends in *(looking at it)*, e.g. *managed (looking at it)* (hover: *The container
+   you are looking at.*), the table is scrolled to it and, with nothing selected, it is selected. A chest not in the
+   setup yet is listed, *not managed yet (looking at it)*. Close the menu, look at another container, open it again: the mark moves and the table
+   scrolls to it once (scrolling away by hand is not undone). Look at nothing: no row is marked. The hotkey's
+   window marks the container it was opened at the same way.
 
 ### 5.4 Learned tab
 
 1. Teach a destination by hand (3.3), then open the window. The tab lists *Item → Container*, sorted
    by item name. Hover a cell to see its FormRef.
-2. **Remove** drops one entry. The layout JSON no longer has it, and the next Distribute uses
+2. **Forget** (the row button; it was *Remove*) drops one entry. The layout JSON no longer has it, and the next Distribute uses
    categories again for that item.
 3. With nothing learned, the tab shows the explanation text.
 4. **Stale entries.** Ignore a container with learned items (3.5): its rows read *<container>
@@ -1032,11 +1108,15 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 1. A home without a `keep` block shows *This home uses the default keep rules only...*. The read-only
    *Default keep rules* list shows equipped, favorited, quest, gold, lockpick and torch, or your
    `Settings.json`.
-2. Add `misc.clutter` under **Never keep** with the *Category...* combo, add `quest` with the text
+2. Add `misc.clutter` under **Never keep** with the *Add category* picker, add `quest` with the text
    field and **Add**, and add a quota: **Add quota**, choose *Potions (alchemy.potions)*, set the
    quota to 3 with the +/- buttons. *Unsaved changes* appears. **Save** is disabled while a quota has
    no category.
-3. **Save** → status *keep rules saved*. The layout JSON has
+2a. The pickers next to the text field: **Add rule** (Equipped, Favorited, Quest items), **Add category** and
+   **Add item** (the items you carry, with a *Search* box: type `iron` and only iron items stay; `zzz` shows *No item
+   matches.*) each add their choice; each button has a tooltip. Type `quets` and click **Add**: a yellow *Not a keep
+   selector.* and nothing is added.
+3. **Save** → status *Keep rules saved*. The layout JSON has
    `"keep": { "inherit": true, "always": ["quest"], "never": ["misc.clutter"], "quotas": [ { "category": "alchemy.potions", "quota": 3 } ] }`
    (key order may differ).
 4. Deposit with 5 Potions of Minor Healing and some clutter. 3 potions stay in the inventory and the
@@ -1048,44 +1128,49 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 7. A layout whose keep block came from JSON with extra keys or `"rules"` instead of `"quotas"` keeps
    them after saving (round-trip).
 
-### 5.6 Template tab (export)
+### 5.6 Template tab
 
+0. The tab starts with *Templates* (5.2 steps 5 to 9b), then **Save as template**, then *All
+   templates* (collapsed, 5.2 step 9).
 1. The name defaults to the home's name; author and version are empty (hints *your character's name*
-   and *automatic*); **Keep learned items (as fixed item bindings)** is ticked (hover: the items go to
+   and *automatic*); **Include where you put things by hand** is ticked (hover: the items go to
    the same containers for anyone using the template). Set the name to *My Breezehome*, then click
-   **Export**.
+   **Save** (Enter in the name field saves too).
 2. The status reads *Saved to Data/SKSE/Plugins/DovaStash/Templates/User/My Breezehome.json. This home
-   offers it now. N learned items kept as fixed item bindings.* and the HUD/status line *Dova Stash:
-   saved as template "My Breezehome" (incl. N learned items)*. Under MO2
+   offers it now. N learned items kept as fixed item bindings.* and the status line *Saved as template "My Breezehome"
+   (incl. N learned items)*; the HUD says the same with the *Dova Stash:* prefix. Under MO2
    the file is in `overwrite/SKSE/Plugins/DovaStash/Templates/User/`. It has your character's name as
    author, version 1.0.0, no `learned` (its items are `forms` of their containers) and no `basedOn`,
    `"cell"` is the Breezehome cell, and
    `"requires"` lists every plugin the refs point into (at least `Skyrim.esm`, and the plugins of
    display refs, plaque items and mannequin sets). Any template lint (for example *no "master"
    container*) is listed in yellow.
-3. Click **Export** again with the same name. *... already exists (v1.0.0). Overwrite saves v1.0.1 and
-   backs up the old file.* appears with **Overwrite** and **Cancel**. **Cancel** writes nothing (check
-   the file timestamp). **Overwrite** writes v1.0.1 and a timestamped `.bak` of the old file. A version
-   typed into the field is used as it is.
+3. Click **Save** again with the same name. The shared yellow question *Replace the template "My Breezehome"?
+   Templates/User/My Breezehome.json (v1.0.0) is saved as v1.0.1; the old file is backed up.* appears with **Yes**
+   and **No**. **No** writes nothing (check the file timestamp). **Yes** writes v1.0.1 and a timestamped `.bak` of
+   the old file. Changing the name withdraws the question. A version typed into the field is used as it is.
 4. A name with `/:*?` characters is written with `_` in their place (the grey line shows the file
    name). An empty name gives *Enter a template name.*
-4b. Untick **Keep learned items** and export under another name: no `forms` from learned items, and the
+4b. Untick **Include where you put things by hand** and save under another name: no `forms` from learned items, and the
    HUD has no *incl. ... learned items*. The box is ticked again in another home.
-5. No restart: **Dova Stash → Templates** lists *My Breezehome*, and in Breezehome the
-   **Actions → Templates for this home** section lists it as *(recommended)* (the player's own templates
+5. No restart: *All templates* lists *My Breezehome*, and in Breezehome the
+   **Template → Templates** section lists it as *(offered first)* (the player's own templates
    rank before the shipped ones of the same priority). The hotkey's **Save as template...** (§3.6) writes the same
    file.
 
-### 5.7 Global pages (SKSE Menu Framework menu → Dova Stash)
+### 5.7 The pages (SKSE Menu Framework menu → Dova Stash)
+
+Four pages, in this order: **This home**, **Displays**, **Settings**, **About**. The former Armor sets,
+Templates and Diagnostics pages are gone; rows 5.7.3 and 5.7.4 keep their ids and say where they moved.
 
 | # | Page | Expected |
 |---|---|---|
-| 5.7.1 | **This home** | The same panel as the window, for the current cell. Actions work from here too. |
-| 5.7.2 | **Settings** | Every `DovaStash.ini` key, applied at once (§6.6), in sections: Hotkey (keyboard *K*, gamepad *Off*), Menus, Sorting, Learning, Crafting, Templates, Sell chest, QuickLoot IE, In the world, Log; then **Reset settings to defaults...** and the *Default keep rules*. Hovering a setting shows what it does and its INI key, also while it is greyed out. |
-| 5.7.3 | **Templates** | In a home: *For &lt;home&gt;* with that home's templates to switch to (5.2 steps 6 to 9). Then every loaded template with name and version (*(draft)* on an auto-draft), author, home name (hover: cell FormRef), requires (green *ok*, or red *missing: ...* when a required plugin is not loaded) and an issue count (hover: the warnings). Templates for DLC or CC homes you don't have show *missing*. |
-| 5.7.4 | **Diagnostics** | Category, template and Settings.json load problems, matching the `[warning]`/`[error]` lines in the log (each listed once), plus *This home's setup* warnings, such as a container pattern that matches no category. Break a category file on purpose (`"formTypes": ["XXXX"]`) and restart: the error is listed in red. |
-| 5.7.5 | **About** | Version, runtime, Menu Framework version, category and template counts. *Dova Stash Editor: installed at ...\Tools\DovaStashEditor.exe* when the build deployed the editor next to the plugin (under MO2 the path may read as the game's `Data\Tools\...`); rename the exe and restart: *Dova Stash Editor: not installed*. |
-| 5.7.6 | **Displays** | See §3.7 Displays, step 8e. |
+| 5.7.1 | **This home** | The same panel as the window, for the current cell. Actions work from here too. Outside a home: 5.1 step 7. |
+| 5.7.2 | **Settings** | Every `DovaStash.ini` key, applied at once (§6.6), in sections: Hotkey (press-to-bind buttons: keyboard *K*, gamepad *Off* with Clear), Menus, Sorting, Learning, Crafting, Templates, Sell chest, QuickLoot IE, In the world, Log; then the *Default keep rules*, and last, under a *Reset* header, **Reset settings to defaults...** (keeps the hotkeys and the default keep rules). Hovering a setting shows what it does and its INI key, also while it is greyed out. The status line sits under the page's note: make `DovaStash.ini` read-only and change a setting: a red *Settings not saved (see DovaStash.log)*. |
+| 5.7.3 | **This home → Template** (moved from the Templates page) | In a home: *Templates* (5.2 steps 5 to 9b) and *Save as template*; outside one, This home shows one dimmed line instead. Then *All templates* (collapsed in a home, open outside one): **Only installed homes** (ticked) and every loaded template with name and version (*(draft)* on an auto-draft), author, home name (hover: cell FormRef), requires, status (*in use*, *fits this home*, *ok*, red *missing: ...* / *conflicts: ...*, dimmed *removed from this home* with **Add back**) and an issue count (hover: the warnings). Untick the box: templates for DLC or CC homes you don't have show *missing*. |
+| 5.7.4 | **About → Diagnostics** (moved from the Diagnostics page) | One line each for *Categories*, *Templates*, *Settings.json (default keep rules)*, *Homes that sort themselves (SelfSorting)* and, in a home with a setup, *This home's setup (&lt;home&gt;)*: green *No problems.*, or the counts with the problems under it, matching the `[warning]`/`[error]` lines in the log (each listed once), such as a container pattern that matches no category. Break a category file on purpose (`"formTypes": ["XXXX"]`) and restart: the error is listed in red. Put `"equiped"` in `Settings.json`'s `keep.always` and restart: *Settings.json (default keep rules)* warns *keep.always: category pattern "equiped" matches no known category; did you mean "equipped"?* (the same in the log; a layout's or template's keep block gets the same hint). |
+| 5.7.5 | **About** | *Dova Stash vX*, *Auto-sorting loot storage for any player home. Look at a container in a player home and press the hotkey to open its menu.*, the hotkey (*Hotkey: K (gamepad: LB)* when a gamepad hotkey is set), *Dova Stash Editor: installed at ...\Tools\DovaStashEditor.exe* when the build deployed the editor next to the plugin (under MO2 the path may read as the game's `Data\Tools\...`; rename the exe and restart: *Dova Stash Editor: not installed*), the license; then *Diagnostics* (5.7.4); then *For bug reports*, collapsed: runtime, Menu Framework version, QuickLoot IE and UIExtensions, category and template counts, where the data, the log and the setup copies are. |
+| 5.7.6 | **Displays** | See §3.7 Displays, step 8e; a mannequin's *Armor set* is step 8d (moved from the Armor sets page). In a home with more than 500 displays (or sets in the picker), the table says *Showing the first 500; search to narrow it down.* The status line sits at the top, under the header, and stays in view while the table scrolls. Filters that match nothing: *No display matches.*; a set search that finds nothing: *No set matches.*. |
 
 ### 5.8 Threading and robustness
 
@@ -1093,7 +1178,7 @@ Start from a clean Breezehome: delete `Skyrim.esm_000165A8.json` from MO2 `overw
 |---|---|---|
 | 5.8.1 | Keep the window open for a minute on each tab | No hitch. The log shows no repeated lines. A light refresh runs every ~2 s, and item counts are only recomputed on open, after actions, and on **Refresh counts**. |
 | 5.8.2 | Click **Deposit**, **Sort all** and **Retrieve** several times quickly | Each runs once, in order. No crash, no duplicated or lost items (check the totals). |
-| 5.8.3 | Open the window in Breezehome, close it, travel to Honeyside, and open the framework menu → **This home** | It shows Honeyside, not Breezehome. Nothing from Breezehome (selection, keep draft) carries over. |
+| 5.8.3 | Open the window in Breezehome, Deposit, close it, travel to Honeyside, and open the framework menu → **This home** | It shows Honeyside, not Breezehome. Nothing from Breezehome (selection, keep draft, the status line) carries over: the status line belongs to the home it was set in and is cleared when the window opens. The header, status line and tabs stay in view; only the tab body scrolls. |
 | 5.8.4 | Open the master by hand (ContainerMenu), close it, then press K | The window shows the distributed result. |
 | 5.8.5 | Save and reload with the window closed | Nothing in the panel survives the reload except the data in the layout JSON. |
 
@@ -1107,28 +1192,32 @@ skin in MO2). Dova Stash must work the same with both.
 
 | # | Steps | Expected |
 |---|---|---|
-| 6.1.1 | Start the game, read `DovaStash.log` | Lines for: QuickLoot IE (`API V21, info bar + button bar` with QuickLoot IE 4.1+), `UIExtensions: installed, list menus available`, `Activate prompt: ... hooked`, `Overlay: HUDMenu::AdvanceMovie hooked`, the I4 rule count, and `UI: in-world menus are UIExtensions list menus`. |
+| 6.1.1 | Start the game, read `DovaStash.log` | Lines for: QuickLoot IE (`API V21, item destinations + info bar + button bar` with QuickLoot IE 4.1+), `UIExtensions: installed, list and text-entry menus available`, `Activate prompt: ... hooked`, `Overlay: HUDMenu::AdvanceMovie hooked`, `Icons: SkyUI item icons '...', category icons '...'`, and `UI: in-world menus are UIExtensions list menus`. |
 | 6.1.2 | Disable QuickLoot IE, UIExtensions and I4 in MO2, start the game | The game starts and the log says each one is not installed. The hotkey opens native message boxes; the overlay uses SkyUI's default icons. |
 
 ### 6.2 UIExtensions lists (hotkey menus)
 
 | # | Steps | Expected |
 |---|---|---|
-| 6.2.1 | In an enabled home, press K at nothing | A top-down list headed `-- <home name> --`: Deposit, Sort all, Retrieve..., Browse containers..., template entry, Save as template..., Advanced..., Reset home... It is drawn by your UIExtensions list menu skin. |
-| 6.2.2 | Press K at a managed container | A list headed `-- <container name> --`: Categories... (with a summary), Open \<name\>, Clear categories, Ignore, Remove..., Make master, Advanced... |
+| 6.2.1 | In an enabled home, press K at nothing | A top-down list headed `-- <home name> --`: Deposit, Restock (when a quota restocks), Sort all, Advanced..., Sell now / Buy back (with a sell chest), Rename \<master\>... / Restore original name, and in an added area Rename \<area\>... / Remove this area from \<home\>... It is drawn by your UIExtensions list menu skin. With `iMode = 1` the message box has the same entries in the same order (body *Dova Stash: \<home\>*). |
+| 6.2.2 | Press K at a managed container | A list headed `-- <container name> --`: Categories... (with a summary), Open \<name\>, Sell now (N gold)... / Buy back (N gold)... (at a sell chest, after Open), Rename..., Learned items (N)..., Clear categories..., Ignore, Make sell chest... / Stop selling from it, Remove..., Make master..., Open panel... (Open panel... only with the SKSE Menu Framework; Learned items (N)..., Restore original name, Clear categories... and Remove... when they apply). Clear categories..., Make sell chest..., Remove... and Make master... ask first; No returns to this list. No Advanced... |
 | 6.2.3 | Categories... -> pick a group -> toggle two categories | The menu stays open: each toggle flips its `[x]` in place, with the selection and scroll position where they were and no close/reopen flash. Debug log: `entry N chosen, list instance M stays open`, then `updated in place`. **< Back** returns to the groups, which show `[x]` / `[~]` / `[ ]`. Esc also goes back. |
-| 6.2.4 | Retrieve... -> a group -> a category | The items move to you. Counts match what was stored. |
-| 6.2.5 | Browse containers... -> pick a container across the room | That container's own menu opens (SkyUI, with your I4 icons). Items you put in are learned like a normal visit. |
-| 6.2.6 | Advanced... | The SKSE Menu Framework panel opens on the same container (or message boxes without the framework). |
+| 6.2.4 | Advanced... -> Retrieve... -> a group -> a category | The items move to you. Counts match what was stored. |
+| 6.2.5 | Advanced... -> Browse containers... -> pick a container across the room | That container's own menu opens (SkyUI, with your I4 icons). Items you put in are learned like a normal visit. |
+| 6.2.6 | Advanced... on the home's list; Open panel... on a container's list and the setup prompt | Advanced... opens a list `-- Advanced --` (message box: *Dova Stash: \<home\>: Advanced*): Retrieve..., Browse containers..., Use / Re-apply template "\<name\>", Save as template..., Reset home..., and with the framework Open panel..., which opens the panel's This home page. Containers and the setup prompt have no Advanced...: their Open panel... (only with the framework) opens the panel on that container. |
 | 6.2.7 | Open the list, press Esc; open it again right away | It reopens. No "close the open menu first" message. |
 | 6.2.8 | Set `iMode = 1`, restart, press K | Native message boxes, as before. |
-| 6.2.9 | Walk through every list: Categories... and a group, Learned items..., Retrieve... and a group, Browse containers..., a display and its Categories... | Each starts with a plain header naming it, then **< Back** on sub-lists: `-- Chest: Categories --`, `-- Chest: Weapons --`, `-- Chest: Learned items --`, `-- Retrieve --`, `-- Retrieve: Weapons --`, `-- Browse containers --`, `-- Weapon Rack --`, `-- Weapon Rack: Categories --`. Choosing a header does nothing (the menu stays open). |
+| 6.2.9 | Walk through every list: Categories... and a group, Learned items..., Advanced..., Retrieve... and a group, Browse containers..., a display and its Categories... | Each starts with a plain header naming it, then **< Back** on sub-lists: `-- Chest: Categories --`, `-- Chest: Weapons --`, `-- Chest: Learned items --`, `-- Advanced --`, `-- Retrieve --`, `-- Retrieve: Weapons --`, `-- Browse containers --`, `-- Weapon Rack --`, `-- Weapon Rack: Categories --`. Choosing a header does nothing (the menu stays open). |
 | 6.2.10 | With "Open the lists in the middle of the screen" on (default), open lists of different lengths and the rename box | No jump: each menu appears already centred, never at the skin's own position first. With the debug log, one `centred (... -> ...) after N tries` line per menu. |
 | 6.2.11 | Turn that setting off in the panel, press K | The list opens where the skin puts it, shown at once. |
 | 6.2.12 | Press K at nothing, then at a container, then open a sub-list | The Dova Stash logo sits centred above every list, clear of the entries, in the same colour as the list text, and the whole menu (logo included) is centred. Debug log: `logo shown`. |
 | 6.2.13 | Categories..., a group, Retrieve..., Browse containers..., a display's Categories... | Each category entry has its icon left of the text (your SkyUI/I4 icons, same as the floating icons and QuickLoot); Browse shows each container's icon; the container menu's Categories... shows the container's icon. Text lines up in one column; the header and `< Back` have a blank icon slot. The master menu's actions have no icons. |
 | 6.2.14 | In a long list (more rows than fit), scroll down and up with the mouse wheel and the keys | Every row keeps the icon of its own entry (rows are reused while scrolling). No stutter. |
 | 6.2.15 | Rename `Interface/DovaStash/logo.dds` in the mod folder, open a list | The list shows after at most ~0.4 s, with an empty space where the logo goes; after ~2 s one warning `did not load` in the log. Restore the file. |
+| 6.2.16 | At a container with learned items: Learned items (N)... -> Forget all N learned items... (*Forget 1 learned item...* with one) | A message box asks *Forget N learned items for X? They go by category again. No items are moved.* (*1 learned item* for one); Yes forgets them and returns to the container's list, No returns to the learned list. |
+| 6.2.17 | In a home over several areas, press K at nothing in an area without the master | The list is headed `-- <home> (master not here) --` (message box: *Dova Stash: \<home\> (master not here)*). |
+| 6.2.18 | Press K at a container nothing is assigned to, in both UIs | The list's *Categories...* reads *(not managed yet)*; the message box body reads *Not managed yet (put items in by hand to teach it, or assign categories)*. |
+| 6.2.19 | Leave another mod's custom menu open (or rename `listmenu.swf`), press K | HUD *Dova Stash: the list menu did not open (see DovaStash.log)*. |
 
 ### 6.3 Activate prompt
 
@@ -1141,8 +1230,8 @@ skin in MO2). Dova Stash must work the same with both.
 
 | # | Steps | Expected |
 |---|---|---|
-| 6.4.1 | Look at a bound container | QuickLoot's info bar shows *Dova Stash: Weapons, Armor*. The button bar shows **Dova Stash** with your hotkey's glyph. |
-| 6.4.2 | Scroll the list in the master | The info bar shows *Goes to: \<container\>* for each item, or *Belongs here*. |
+| 6.4.1 | Look at a bound container | QuickLoot shows the container's category icons bottom-right (their names, without a prefix, when *Show category icons instead of names* is off); the master reads *Master*. The button bar shows **Stash** with your hotkey's glyph. |
+| 6.4.2 | Scroll the list in the master | With *Show where each item goes* on, misplaced items read *Iron Sword  >  Weapon Rack* in the list. With it off, the info bar shows *> \<container\>* for the selected item. |
 | 6.4.3 | Press K while QuickLoot is showing | Dova Stash's container list opens. |
 | 6.4.4 | Bind a new category to the container you're looking at, close the list | QuickLoot's info bar updates. |
 
@@ -1160,7 +1249,9 @@ skin in MO2). Dova Stash must work the same with both.
 
 | # | Steps | Expected |
 |---|---|---|
-| 6.6.1 | Change the keyboard hotkey to L, close the menu, press L in a home | The Dova Stash menu opens; K does nothing. No restart. `DovaStash.ini` now has `iHotkey = 38`, comments intact. |
+| 6.6.1 | Click the keyboard hotkey on the Settings page (it turns yellow, "Press a key..."), press L, close the menu, press L in a home | The Dova Stash menu opens; K does nothing. No restart. `DovaStash.ini` now has `iHotkey = 38`, comments intact. Pressing L while binding opens nothing. |
+| 6.6.1a | Bind the gamepad hotkey to LB, then Clear it; start a binding and press Esc; start one and click the button again | LB shows "Gamepad LB" and `iGamepadHotkey = 274`, the window stays open; Clear sets Off (-1); Esc closes the window and nothing is bound; clicking again cancels; F1/LB open and close the window as before. Binding LB shows a yellow *Gamepad LB is also \<game control\> and the SKSE Menu Framework key.* (*Gamepad LB is also the SKSE Menu Framework key.* when no game control uses it; the framework's keys come from `SKSEMenuFramework.ini`). |
+| 6.6.1b | Bind the keyboard hotkey to E | E is bound, and a yellow line says *E is also Activate.* Bind K again. |
 | 6.6.2 | Untick "Show icons above containers" | Floating icons disappear at once; tick it again and they return. |
 | 6.6.3 | Drag "Icon size", release | Icons resize when you release the slider (one save per release, see the log). |
 | 6.6.4 | Switch "What the hotkey opens" between all four modes, pressing the hotkey after each | Each mode opens its menu immediately (log: `UI rebuilt for iMode=...`). |
@@ -1175,12 +1266,12 @@ skin in MO2). Dova Stash must work the same with both.
 | 6.7.1 | Bind a container to Weapons, put spears, bows, then daggers in it | Its floating icon stays the Weapons category icon the whole time. The master shows SkyUI's "All" icon. |
 | 6.7.2 | Open the master (Skyrim Souls: game keeps running), drop three items in, keep the menu open | ~0.4 s after the last item, they leave the master for their containers; the open menu updates; one notification. |
 | 6.7.3 | Hotkey at a container -> Rename... -> type "Potions" | The activate prompt, the container menu title, QuickLoot's title and the lists all say "Potions". Rename to an empty name: the original name comes back. |
-| 6.7.4 | Put an Iron Sword by hand into a managed container that is not for weapons | Notification "Iron Sword now goes to <container> (K: undo)". Hotkey at it (after the 5 s undo window) -> Learned items (1)... -> Forget Iron Sword removes it. |
+| 6.7.4 | Put an Iron Sword by hand into a managed container that is not for weapons | Notification "Iron Sword now goes to <container>. K: undo". Hotkey at it (after the 5 s undo window) -> Learned items (1)... -> Forget Iron Sword removes it. |
 | 6.7.5 | QuickLoot on a container holding items that belong elsewhere | Those items read "Iron Sword  >  Weapon Rack" in QuickLoot's list; items that belong there are unchanged. |
-| 6.7.6 | Open Advanced... (Menu Framework window), press Esc | The window closes. It always opens centred and fully on screen, with Close at the top. Floating icons hide while it is open. |
+| 6.7.6 | Open the panel (hotkey -> Advanced... -> Open panel...), press Esc | The window closes. It always opens centred and fully on screen, with Close at the top. Floating icons hide while it is open. |
 | 6.7.7 | QuickLoot on the master, then on a container bound to Weapons, Armor and Alchemy | The master shows "Master" bottom-right. The bound container shows three category icons (your SkyUI/I4 art) bottom-right in binding order, no text, clear of the weight readout; with more than 5 categories the rest show as "+N". The button reads "Stash". |
-| 6.7.8 | SKSE Menu Framework -> Dova Stash -> Settings -> Default keep rules: add "category:alchemy.potions" to Always keep, Save | Settings.json is written; Deposit now keeps potions in every home. Hotkey -> Advanced... -> Keep rules shows them under "Default keep rules". |
-| 6.7.9 | Compare SKSE menu "This home" with hotkey -> Advanced... | Same page, same tabs (Actions, Containers, Learned, Keep rules, Template). |
+| 6.7.8 | SKSE Menu Framework -> Dova Stash -> Settings -> Default keep rules: Add category > Potions (alchemy.potions) to Always keep, Save | Settings.json is written; Deposit now keeps potions in every home. Hotkey -> Advanced... -> Open panel... -> Keep rules shows them under "Default keep rules". |
+| 6.7.9 | Compare SKSE menu "This home" with hotkey -> Advanced... -> Open panel... | Same page, same tabs (Actions, Containers, Learned, Keep rules, Template). |
 
 
 ## 7. What to send back
@@ -1195,7 +1286,19 @@ skin in MO2). Dova Stash must work the same with both.
 The editor's one-workspace window (docs/EDITOR.md §2, docs/EDITOR-UX.md). Build it with the `editor` preset
 (docs/BUILDING.md), add it to MO2 (EDITOR.md §9) and run it from there; for repeatable runs use a state file of its
 own: `$env:DOVASTASH_EDITOR_STATE = "$env:TEMP\ds-test-state.json"`. Every row also works from a terminal with
-`--mo2 "<instance>" --gui` and the flags shown; add `--screenshot out.png` to save the window once it has loaded.
+`--mo2 "<instance>" --gui` and the flags shown; add `--screenshot out.png` to save the window once it has loaded
+(a `--screenshot` run keeps its state in memory unless `--state <file>` or `DOVASTASH_EDITOR_STATE` is given). In a
+shell, type `DovaStashEditor` (the `DovaStashEditor.com` next to the exe): it waits for the editor and passes on its
+output and exit code.
+
+Unit tests, no window: `cmake --build --preset editor-release`, then `ctest --preset editor` (or `cmake --workflow
+--preset editor` for configure, build and test). DovaStashEditorTests: the BSA, Assets and DDS readers, hand-built
+NIF meshes (a textured BSTriShape, collision-only, a black card, alpha 0), and `state.json` saved with no `--state`
+and read back (author, instance, home stage, no `.tmp` left). Golden test: `python -I editor/tests/editor_golden.py
+--data <Skyrim Data>` (or set `DOVASTASH_SKYRIM_DATA`) compares the editor's `--cell` with `esm_dump.py cell` on
+every shipped template's cell; a cell whose plugin is not in `--data` (the `Templates/Mods` homes under MO2) prints
+`skip <cell>: <plugin> not in --data` and is not counted. Exit 0 when every checked cell agrees, 1 on any
+difference.
 
 | # | Steps | Expected |
 |---|---|---|
@@ -1221,16 +1324,18 @@ own: `$env:DOVASTASH_EDITOR_STATE = "$env:TEMP\ds-test-state.json"`. Every row a
 | 8.20 | Ctrl+= twice, Ctrl+-, drag `⚙` › *UI size* to 180 %, then its *Auto* link; restart | Every text and control grows 10 % a step, nothing clips; the slider follows and applies when released; Auto reads 125 % on a 1440p monitor at 100 % Windows scaling; the size survives the restart. |
 | 8.21 | `⚙` › *Theme*: pick *Windows10 Dark*, *Light*, then *Dova Stash*; Ctrl+K `theme carbon`; *Export...*; change `accent` in the file it shows, open the list again and pick the theme under *Yours*; restart. Then `--theme "Tablet Light"` | Each pick recolours the window before the next frame (fonts and layout unchanged); text, chips, the Save button, the selected rail row, the status row, popovers and the drawer's tables stay readable; the 3D view and the plan stay dark with their data colours. *Export...* writes `%LOCALAPPDATA%\DovaStashEditor\Themes\My Carbon.json` and selects it in Explorer; a second *Export...* does not overwrite it. The edited theme applies when picked; the pick survives the restart; `--theme` lasts one run (the file keeps the remembered theme). |
 | 8.22 | `--tab preview`, select a chest; double-click *Where items go*, then *Containers*; double-click a row; click the open tab once; double-click *Displays* on the folded drawer; double-click the drawer's, the rail's and the inspector's chevrons (each twice: fold, unfold) | Double-clicking a tab leaves the drawer open on that tab; a row is selected and framed in 3D; a single click on the open tab folds the drawer about a third of a second later; the folded drawer opens on *Displays*. No double click selects or deselects anything other than the row: the selection stays through the chevrons, whose first click folds or unfolds. Ctrl+2 still folds and opens the drawer at once. |
-| 8.23 | Drawer *Containers* (or `--tab containers --sort containers:role --filter chest --quick Ignored`): click *Kind*, Shift+click *Height*, click *Role* until its arrow goes; type `sack` in *Filter rows*, Esc; *Kind* ▾ Barrel; chips *Ignored*, *Respawning*; Ctrl+click two rows, double-click one; the same on *Displays*, *Doors*, *Where items go* | Rows sort by kind, then height; the third click brings the table's order back; *ignored* / *not listed* / *no categories* sort after the categories, the master first. The box and chips hide rows ("N of M" beside them; Esc clears the box); selection, Ctrl+click and double-click (frame; on Doors: open the cell) work on the shown rows. Switching tabs and homes keeps each table's sort and filter until the editor closes. |
+| 8.23 | Drawer *Containers* (or `--tab containers --sort containers:role --filter chest --quick Ignored`): click *Kind*, Shift+click *Height (m)*, click *Role* until its arrow goes; type `sack` in *Filter rows*, Esc; *Kind* ▾ Barrel; chips *Ignored*, *Respawning*; Ctrl+click two rows, double-click one; the same on *Displays*, *Doors*, *Where items go* | Rows sort by kind, then height; the third click brings the table's order back; *ignored* / *not listed* / *no categories* sort after the categories, the master first. The box and chips hide rows ("N of M" beside them; Esc clears the box); selection, Ctrl+click and double-click (frame; on Doors: open the cell) work on the shown rows. Switching tabs and homes keeps each table's sort and filter until the editor closes. |
 | 8.24 | A big home on the plan (`--home "Lakeview Manor" --tab plan --popover layers`, also Heljarchen Hall, Whitepeak Tower): L, tick *Effects*, then *Other*; untick *Structure*, *Furniture*, *People*, *Disabled* one by one; hover and click where a hidden footprint was; Home. Then press 1 and untick *Effects* (or `--layers effects,other`, `--layers -structure`) | The plan opens with *Effects* and *Other* off: no large faint boxes of fog, mist, light beams, Hearthfire's crafting triggers or `defaultBlankTrigger`. *Effects* adds faint blue outlines (dust beams, lights), *Other* grey ones (triggers, markers, room bounds); each untick removes its footprints at once, and nothing hidden shows a tooltip or gets selected (a chest under a trigger is picked first). Before you pan or zoom, each change re-fits the plan to what is shown, never to a fog bank or a trigger. In 3D the *Effects* tick is the 3D view's own (on): unticking it hides the glows and the dust beams; the plan's stays as it was. |
 | 8.26 | Vlindrel Hall, select the *Weapon Plaque* (`--home Vlindrel --select "Skyrim.esm|0x00102D37" --popover categories`), tick *Use this display*, open *+ add*; then add `soulgems.*` by typing it + Enter | The picker lists only *weapons.\** and the weapon categories (crossbows included: the editor can't see the crossbow spot); no armor, soul gems, potions. The typed pattern shows as a warning chip (hover: *Soul gems can't go on a weapon rack*) and Checks has `display Skyrim.esm\|0x00102D37 (Weapon Plaque): Soul gems can't go on a weapon rack; nothing goes on it`, which selects the plaque. A mannequin offers armor but no shields, a bookshelf books only. |
 | 8.25 | `--draft-all --save-to <scratch> --author Tester` twice, with a hand-made `Templates/<Home>/Tester.json` (no `autoDraft`) for one home and another author's file for a second home already in `<scratch>`; then save one auto-draft as a person (`--cell <its cell> --draft --save-to <scratch>`, or open it in the window and Ctrl+S) and run it once more; in the window, `--drafts --popover savedrafts` | The new files start with `"autoDraft": true`; both hand-made files are unchanged (same hash, no `.bak`) and each has a *not saved: ... is a template someone made* line; two homes of the same name: the second says *another home's auto-draft*; the second run says *refreshed the earlier auto-draft* (`.bak`, version raised); the person's save has no mark and the last run leaves it alone. The dialog counts new and refreshed files and lists the homes left alone; a home whose only template is an auto-draft shows the *auto-draft* chip. |
+| 8.27 | `--home "Whitepeak Tower" --text-size 150 --screenshot out.png` | The window's text and controls at 150 % for that run only (the remembered *UI size* is unchanged), nothing clipped in the screenshot. |
+| 8.28 | A home with missing wall or clutter meshes: look at the status row, click *N missing*, then right-click it | Missing-mesh boxes are off at first (`--layers missing` turns them on for one run); the click shows them as see-through boxes that clicks pass through; the right-click copies the list. |
 
 ## 9. Automated in-game tests
 
 Most of sections 1-4 runs unattended: `tools/autotest/run.ps1` starts Skyrim in its own MO2 profile, a test
 harness inside `DovaStash.dll` plays the steps (no input needed) and checks the result, and the game quits by
-itself. A run takes about five minutes. Nothing is saved; the player's profiles, saves and setups are not touched.
+itself. A run of every plan takes about 40 minutes (about a minute per plan), a few minutes per plan with `-Only`. Nothing is saved, and the player's profiles and saves are not touched. The player's setups in overwrite are set aside during a run and put back by the runner, by its watchdog (`run.ps1 -Finish` in a hidden process outside the shell's process tree) if the runner is killed, or by `pwsh -File tools\autotest\run.ps1 -Finish [-WaitMinutes n]` by hand.
 
 ### 9.1 Setup (once)
 
@@ -1257,24 +1362,73 @@ off, Papyrus logging on (`bEnableLogging`, `bEnableTrace`). The *Dova Stash Auto
 pwsh -File tools\autotest\run.ps1                    # the Dova Stash mod's DLL
 pwsh -File tools\autotest\run.ps1 -Build             # build first (deploys as configured, docs/BUILDING.md)
 pwsh -File tools\autotest\run.ps1 -Dll build\plugin\src\plugin\Release\DovaStash.dll   # a DLL of your own
-pwsh -File toolsutotest
-un.ps1 -Only '^(2|3)\d_'                                     # only the plans whose file name matches
+pwsh -File tools\autotest\run.ps1 -Only '^(2|3)\d_'      # only the plans whose file name matches
+pwsh -File tools\autotest\run.ps1 -WaitMinutes 30          # wait for a game to end (leftovers are set aside)
+pwsh -File tools\autotest\run.ps1 -NoQuarantine             # refuse to start while leftovers are in overwrite
+pwsh -File tools\autotest\run.ps1 -Finish -WaitMinutes 30   # clean up after a runner that was killed; starts no run
+pwsh -File tools\autotest\run.ps1 -ListAll                  # the summary lists every test, passed ones too
+pwsh -File tools\autotest\run.ps1 -StallMinutes 15          # a hung game is ended after 15 min without a write (default 10)
 ```
 
-`-Only <regex>` installs only the matching plans (and `_run.json`), so a run of many homes can be split to stay under
-the run timeout (`_run.json` `timeoutMinutes`, `-TimeoutMinutes`).
+`Get-Help tools\autotest\run.ps1 -Parameter *` documents each parameter.
 
-It refuses to start while a Skyrim is running, and starts Steam first when it is not running (the game needs it;
-MO2 would otherwise ask). It launches
+`-Only <regex>` installs only the matching plans (and `_run.json`), so a run of many homes can be split to stay under
+the run timeout (`_run.json` `timeoutMinutes`, `-TimeoutMinutes`). `-Mo2` defaults to `$env:DOVASTASH_MO2`, else the
+developer's instance. The runner and `install.ps1` need pwsh 7 (`#Requires -Version 7`).
+
+One run at a time on the machine: `run.ps1` holds `%TEMP%\DovaStashAutoTest\.lock` and counts a running
+`SkyrimSE.exe` or an MO2 started with `-p "Dova Stash AutoTest"` as busy (exit 2; `-WaitMinutes <n>` checks every 60 s
+instead). Files an earlier run left in MO2's `overwrite\SKSE\Plugins\DovaStash` are moved into that run's
+`written\` folder (or `<run>\earlier\` when the run is unknown), listed, and never put back. The runner knows them
+by the run's game window (the run folders' `results.json` and `%TEMP%\DovaStashAutoTest\runs.json`, which every
+run appends to) or by AutoTest markers (`Templates\User\AutoTest*`, a layout named *... (AutoTest)*). The
+player's own `Layouts\*` and `Backups\*` files go to `<run>\preexisting` for the run and come back afterwards;
+`-NoQuarantine` refuses to start instead (exit 2, one-line list; `-Quarantine` is still accepted, the default).
+`-Build` builds with the `plugin-release` preset (configuring `build/plugin` with the `plugin` preset when it has no
+`CMakeCache.txt`), prints where that build deploys, and stops if `VCPKG_ROOT` is unset and `E:\vcpkg` is missing.
+The player's MO2 profile is remembered in `%TEMP%\DovaStashAutoTest\player-profile.txt` and put back after the run's
+MO2 exits (it waits up to 5 min). When `ModOrganizer.ini` already names the AutoTest profile and no run saved the
+player's, it puts back `-PlayerProfile <name>`, else "Dova Stash Testing" if it exists, else the profile whose
+`modlist.txt` changed last, and says *(guessed; -PlayerProfile sets it)*. `player-profile.txt` marks a guessed
+profile with a second line `guessed`, and every restore says *(guessed; -PlayerProfile sets it)* until a run sees
+another `selected_profile` or gets `-PlayerProfile`. Plans left out because the profile lacks a plugin they need (the
+Wynter plans 60/61) run right after the main run in `<ProfileName> - <suffix>` (`Dova Stash AutoTest - wynter` for
+`extra-mods-wynter.txt`) when that profile exists; a failure there fails the run too. Make it once with
+`pwsh -File tests\ingame\install.ps1 -Profile -ProfileName "Dova Stash AutoTest - wynter" -ExtraMods tests\ingame\profile\extra-mods-wynter.txt`.
+Without it the summary lists them as `[blocked]` with that command, and they fail the run (exit 1) unless
+`-AllowNotRun` is passed. A missing MO2 instance, a missing profile or no `DovaStash.dll` is
+exit 2 with what to do (`install.ps1` stops on a missing instance too). It starts Steam
+first when it is not running (the game needs it; MO2 would otherwise ask) and polls for it for up to 2 minutes.
+It prints `<n> plan(s): about <n> min; timeout <t> min`, then launches
 `ModOrganizer.exe --multiple -p "Dova Stash AutoTest" "moshortcut://:Launch Game"` (a second MO2 process: an MO2
 window that is open stays as it is; the runner puts `selected_profile` in `ModOrganizer.ini` back afterwards),
-waits for the results, ends only the game it started on a timeout (default 25 minutes) or a dialog nobody can
-answer (its text goes to `dialog.txt`), and starts the game again (up to three times) if it ended before the tests
+waits for the results, ends only the game it started on a timeout (default: the installed `_run.json`
+`timeoutMinutes` plus 10), a stall (no write to `results.json` or `DovaStash.log` for `-StallMinutes`, default 10, or
+not responding for 2 min) or a dialog nobody can
+answer (its text goes to `dialog.txt`). A stopped run's summary header reads *NOT finished: stalled &lt;n&gt; min after
+&lt;test id&gt; (game not responding)* or *NOT finished: timeout &lt;t&gt; min*, and the reason is saved to `<run>\stopped.txt`. It starts the game again (up to three times) if it ended before the tests
 began (MO2 sometimes drops its virtual file system when `skse64_loader` exits before the game is up). `-Focus` brings
 the game window to the front once (not needed so far). Everything goes to `build/autotest/<date-time>/`: `results.json`, `DovaStash.log`, `Papyrus.0.log`, the
 run's home backups and, under `written/`, the files the run created in MO2's `overwrite` folder (layouts,
-exported templates; moved out, so other profiles never see them). It prints one line per test and the failed
-checks, and exits 1 when a test failed or the run did not finish.
+exported templates; moved out, so other profiles never see them). It prints only the tests that did not pass (fail,
+xfail, xpass, skip, manual, with their notes and failed checks), the blocked plans and the counts; `-ListAll` prints
+every test. The full summary, every test included, is in `<run folder>\summary.txt`; its first line is `Plans: all`
+or `Plans: -Only '<regex>'`. When plans ran in an extra
+profile, the last line sums both runs: `all: pass N, fail N, xpass N, blocked N, skip N, manual N; exit <code>`. Read
+`summary.txt` or that last line, not the child run's tail. It exits 1 when a test failed, a test passed that expected
+to fail (xpass), a plan was blocked or the run did not finish; xfail alone does not fail the run. It keeps the newest
+20 run folders under `build\autotest`, every run younger than 48 h and the newest full run (`Plans: all`); an older
+one is deleted unless its `preexisting\` still holds files.
+
+Collecting and restoring the profile run in a `finally` block, so Ctrl+C or an error still does them. A run killed
+outright leaves `%TEMP%\DovaStashAutoTest\running.json`. Every run starts a watchdog (`run.ps1 -Finish` in a hidden
+process outside the shell's process tree) that, once the runner is gone, waits for the game the run started, ends it
+at the run's deadline or on the same stall rule (not only at `-WaitMinutes`), and puts the player's setups and profile
+back. A run finished by the watchdog or by the next run gets `summary.txt` and the counts line too. `run.ps1 -Finish [-WaitMinutes n]` does the
+same by hand: it starts no run, ends only the game the stopped run started, and exits 0 when nothing is left to
+finish, 2 while that run's runner is still at work. Failing both, the next run finishes the collect first (`written\`,
+quarantined files, `selected_profile`). A saved `selected_profile` equal to the AutoTest profile is never put back
+(a warning says so).
 
 ### 9.3 How it works
 
@@ -1283,14 +1437,17 @@ checks, and exits 1 when a test failed or the run did not finish.
 
 - **Isolation.** Home backups go to `SKSE/DovaStash/AutoTest/Backups` instead of the player's `Backups`; a plan
   whose home already has a layout file (the player's own, which MO2's overwrite folder shows to every profile) is
-  refused (its tests fail with that reason), so a run only ever changes setups it made itself.
+  refused (its tests are `blocked`, with that reason; the summary counts them), so a run only ever changes setups
+  it made itself.
 - **Start.** At the main menu it waits a few seconds, then `coc <home>` (the console command, through `RE::Script`)
   starts a game in the plan's home. Plans run one after the other in file-name order.
 - **Drive.** Steps call the Controller as the menus do (Make master, Use template, Deposit, Sort all, Retrieve,
   Restock, Sell now's confirmed sale, Buy back, Use this rack, Save as template, Add/Rename/Remove area...), and the
   game as a player would: `player.additem`-like adds (tempered, renamed and stolen copies are placed in the world
   and picked up, so the game builds those stacks), equipping, opening a container's menu and putting items in by
-  hand (Learn), the hotkey, walking through a load door, sitting at a crafting station (the crafting menu opens) and
+  hand (Learn), the hotkey and choosing an entry of its menu (`choose`), a mannequin's armor set (`chooseArmorSet`), walking through a load door, sitting at a
+  crafting station (`sit` waits for the station's 3D, then keeps activating it, 6 s after the last try or 10 s when
+  seated, never moving the player, until the menu opens or `timeout`) and
   consuming a material as that menu does (`PlayerCharacter::RemoveItem`, where the craft-from-storage hook sits).
 - **Wait.** Steps run in SKSE tasks every 100 ms; a step that needs the game (a cell to load, a menu to open, a
   display to fill) waits for it; after a move the next step waits half a second, so the container-changed events
@@ -1298,7 +1455,11 @@ checks, and exits 1 when a test failed or the run did not finish.
 - **Assert.** Checks read inventories (counts per item, also only tempered / renamed / stolen / worn copies),
   gold, the layout file (JSON pointer), exported templates and backups, the log since the test began (the HUD
   lines are in it as `Notify: ...`), `[error]` lines, the crafting session, the item count a crafting menu sees,
-  open menus; "no item lost or gained" compares the player and every container of the cell with a snapshot.
+  open menus, the entries of the open UIExtensions list or the last message box's buttons (`menuEntries`), the
+  panel's view of a template or an item (`panel`); "no item lost or gained" compares the player, every container of
+  the cell, its mannequins and the weapons and shields within a rack trigger's bounds (what racks hold) with a
+  snapshot. Other loose items in the world are left out (NPCs take or eat them). Plan
+  `17_HotkeyLists` runs the hotkey menus with `iMode = 0`.
 - **Message boxes nobody answers.** A box the game or another mod shows by itself blocks every other menu (no
   container or crafting menu opens behind it). `_run.json` lists the ones to answer (`messageBoxes`: text to look
   for, button): the SkyUI build's *MCM-Unlocked.dll* warning and the Survival Mode question (No). Every box is
@@ -1319,15 +1480,33 @@ checks, and exits 1 when a test failed or the run did not finish.
   short grace after Dova Stash's own moves (`ItemMover::IsSuppressing`), during which container events are ignored:
   the harness is faster than a player there. `snapshot`/`conserved` count the home's containers in its other cells
   too (DESIGN §6.7), not only the player's cell; containers that leave the layout (a removed area) leave the comparison.
+- **Home scope.** Home-scoped actions (`reset`, `useTemplate`, `hideTemplate`, `displayUse`, `op`, `bind` ...) fail
+  with *the player is in &lt;home&gt;, not the plan's home (enter it first)* unless the player's home is the plan's
+  home, has it as an area, or is a cell this plan's own `enter` steps reached.
+- **Expected failures.** A test with `"expectFail": "<reason>"` that fails is `xfail` (note: the reason); one that
+  passes is `xpass` and counts as a failure. `results.json`'s summary has `xfail` and `xpass`. No plan uses it now
+  (plan 53, 3.4-wuthrein, did until the Wuth Rein template 1.0.2; §9.5).
+- **Not run.** A failed action ends the test with *N step(s) not run after a failed action*, its detail naming the
+  next step (`next: ...`).
 - **Report.** `SKSE/DovaStash/AutoTest/results.json` after every test, then `qqq`.
 
 ### 9.4 Plans
 
 `tests/ingame/mod/SKSE/Plugins/DovaStash/AutoTest/`: `_run.json` (start delay, run timeout, quit), then one file
-per home. A plan may declare test templates (`"templates": ["LakeviewManor.json"]`, files under
+per home. Plans run on the shipped templates; only `19_TemplateMayNotFit.json` uses a test template
+(`BreezehomeMayNotFit.json`). A plan may declare test templates (`"templates": ["LakeviewManor.json"]`, files under
 `tests/ingame/mod/SKSE/Plugins/DovaStash/Templates/AutoTest/`, typically `"priority": 10` so *Use template* picks them
-over the shipped one): the installer keeps only the templates the installed plans declare, so a plan that needs the
-shipped template alone (`20_LakeviewManor.json`, `30_TundraHomestead.json`) runs without them (`-Only`). A plan:
+over the shipped one). At each plan start the plugin loads only the `Templates/AutoTest/*.json` files that plan
+names in `"templates"` (`Store::ScopeTestTemplates`), so the other plans see the shipped ones; `install.ps1` leaves
+out templates no installed plan declares and warns about a test template no plan in the repository declares. `install.ps1` mirrors `Templates/AutoTest` exactly: a deployed test template no longer in the repository is deleted
+and logged, and one no installed plan declares is left out. Plans 21-23 and 38 use the merged shipped templates
+(plan 21 also declares `LakeviewManorCellar.json`, a copy of the retired cellar template, for 3.9.6), 24 and 25 check that the shipped
+one is chosen and applied, and plans 41-46 and 51-57 use the shipped `Templates/Mods` files; plans 43-46 check display fills automatically (only
+the `-look` placement entries are manual). Shipped-template checks do not pin a version (`/basedOn` contains `"<source>@"`, template log
+lines use a version regex). A plan for a
+mod's version of a home names it: `"requires": ["WynterBreezehomeRedux.esp"]` makes its tests `skip` (*needs X*) in a
+load order without it, and `install.ps1` does not install it when the profile's `plugins.txt` does not enable it. A
+plan:
 
 ```json
 {
@@ -1352,48 +1531,66 @@ shipped template alone (`20_LakeviewManor.json`, `30_TundraHomestead.json`) runs
 | Actions (`do`) | |
 |---|---|
 | `enter` (`coc`, `cell`, `any`) | coc to the plan's home (or another cell) and wait until it is loaded |
+| `aim` (`ref`: the crosshair reports it; `null`: nothing; `"clear": true` gives the crosshair back to the game; cleared at each test start) | what the player looks at |
 | `clearInventory`, `additem` (`extra`: `health`, `name`, `owner`), `additemMany`, `removeitem`, `equip` | the inventory |
-| `buyHome`, `enable`, `require`, `ownCell` | what buying a home and its decorations does; skip when something is missing |
-| `makeMaster`, `useTemplate`, `reset`, `restore`, `bind`, `unbind`, `ignore`, `removeContainer`, `label`, `keep`, `settings` | the setup |
+| `buyHome`, `enable` (the whole enable-parent chain; waits for the 3D attached to the cell), `require`, `ownCell` | what buying a home and its decorations does; skip when something is missing |
+| `makeMaster`, `useTemplate`, `hideTemplate` (`source`, `hidden`: the panel's Remove... / Add back), `reset`, `restore`, `bind`, `unbind`, `ignore`, `removeContainer`, `label`, `keep`, `settings` | the setup |
 | `op` (`Deposit`, `Distribute`, `SortAll`, `Retrieve` + `pattern`, `Restock`) | operations |
 | `sellChest`, `quote`, `sellConfirmed`, `buyBack` | the sell chest (the quote is what the confirmation box shows) |
-| `displayUse`, `displayCategory`, `fill` | displays |
+| `displayUse`, `displayCategory`, `displayCategories` (`ref`, `categories`: a used display's categories, `[]` clears), `fill`, `chooseArmorSet` (`ref`, `set`: a piece of the set, or null = Auto) | displays (the layout stores the set by its indexed piece, e.g. the Iron cuirass `0x00012E49`) |
 | `export` (`expect`: `ok` / `exists`) | Save as template |
 | `exitDoor`, `addArea`, `renameArea`, `removeArea` | homes over several cells |
-| `openContainer`, `store`, `take`, `closeMenu`, `answerMessageBox` (`button`), `hotkey` (`target`), `acceptSuggestion`, `declineSuggestion` | by hand |
-| `sit` (`keyword`), `consume`, `craft` (`uses`, `product`) | crafting (`craft`: through the open recipe menu's own callback) |
-| `writeLayout`, `deleteLayout`, `writeBackup`, `deleteBackup`, `clearContainer` | the plan's own home only |
+| `openContainer` (waits 16 s, past Browse's own retry), `store`, `take`, `closeMenu`, `answerMessageBox` (`button`), `hotkey` (`target`), `choose` (`entry`: its text or start, or `index`; -1 = Esc), `acceptSuggestion`, `declineSuggestion` | by hand |
+| `bindHotkey` (`target`: `keyboard` / `gamepad`; `code`, `cancel` or `clear`), `panelVisible` (`page`), `setCategories` (`ref`, `categories`) | the panel (`bindHotkey` logs `Hotkey capture (test): ...`) |
+| `sit` (`keyword`, `"skipIfClosed": true`: only for a station the plan's own `enable` turned on, skip with *the station opened no menu* after every fallback), `consume`, `craft` (`uses`, `product`) | crafting (`craft`: through the open recipe menu's own callback; plans that craft close `Crafting Menu`, as `closeMenu` with no menu closes `ContainerMenu`) |
+| `writeLayout`, `deleteLayout`, `writeBackup`, `deleteBackup` (`cell`: the plan's home or a cell its `enter` steps reached; never another cell's file this run did not write), `clearContainer` | the plan's own home |
 | `console`, `snapshot`, `wait`, `waitIdle` | |
 
 | Checks (`check`; `within`: seconds to wait for it) | |
 |---|---|
 | `count` (`in`, `item`, `filter`, `from`: change since a snapshot, `eq`/`ge`/`le`/`gt`/`lt`/`ne`), `gold` | inventories |
-| `log`, `notify` (`contains` / `regex`, `absent`, `count`, `max`, `since`) | the log since the test (or `action`: the last action, `plan`, `run`) |
+| `log`, `notify` (`contains` / `regex`, `absent`, `count`, `max`, `since`) | the log since the test (or `action`: the last action, `plan`, `run`); `AutoTest:` lines are skipped |
 | `noErrors` (`except`) | no `[error]` line |
 | `layout`, `templateFile`, `backupFile` (`pointer` + `eq` / `contains` / `lacks` / `absent` / `size`), `layoutFile`, `files` | files |
-| `conserved` (`snapshot`, `ignore`) | no item lost or gained |
-| `home`, `bestTemplate`, `menu`, `quote`, `crafting`, `hookedCount`, `hooks` | state |
+| `conserved` (`snapshot`, `ignore`) | no item lost or gained (containers, mannequins, loose weapons and shields). Snapshots leave out leveled lists (LVLI) on every plan, the harness's own ignore list (`Steps.cpp` `IsEngineToken`): `Skyrim.esm\|0x0010FCFB` is LItemBarrelFoodSame70, a barrel's leveled list the engine resolves into food |
+| `menuEntries` (`contains` / `lacks` / `eq` / `order`: these entries in this order, others between allowed; `body`: the message box's text contains it) | the open UIExtensions list, or the last message box's buttons |
+| `panel` (`template`: a source, with `hidden` / `applied` / `best`; `inventoryHas`: a form ref; `aimed`: a ref or null, with `managed`: bool; `keepEntry`: a ref, with `name`: the name the keep rules show, `""` = not loaded; `displayAimed`: a ref or null, the Displays page's marked display, use `within`; `ownChanges`: bool; `catalogue`: `{"source", "installed"}`; `status`: `{page, contains, empty, error}`) | what the panel shows |
+| `displayHolds` (`ref`, or `refs`: an array, one of them holds the item, none with `holds: false`; `item`, `holds`) | what a display holds |
+| `home`, `bestTemplate` (`source`: null = no template offered), `menu`, `quote`, `crafting`, `hookedCount`, `hooks` | state |
 
 ### 9.5 What is covered, what stays manual
 
 Automated (plan): startup log and the `[error]`-free start (0), 5.0.1/5.0.2; eligibility 1.1-1.5, 1.8; M1 2.1-2.4
-(tempered, renamed, stolen and enchanted copies survive Deposit and two round trips; equipped copies stay), 2.6
+(tempered, renamed, stolen and enchanted copies survive Deposit and two round trips; equipped copies stay; 2.3 checks
+ammo too), 2.6
 (and 2.6b: more arrows of the equipped type);
 M2 3.1-3.5 (bind, Distribute, sort on arrival, Learn, undo, item families, the category suggestion, Sort all,
-Retrieve by category, Ignore / Remove / Make master / Reset); 3.6 (Use and Re-apply template), 3.6.5-3.6.8 (Save as
+Retrieve by category, Ignore / Remove / Make master / Reset); 3.6 (Use and Re-apply template), 5.2.11 (plan
+`11_Hjerim.json`: a template removed from a home is not offered or applied, Remove and Add back), 3.6.5-3.6.8 (Save as
 template, same name, round trip), 3.6a (backup copy, restore, broken copy); 3.6b.5 (Hearthfire not "rebuilt");
-3.7 (a rack takes a weapon on Deposit); 3.8b (hooks installed, a storage session at the cooking pot counts the
+3.7 (a rack takes a weapon on Deposit; 3.7-template in plans 10-15: the template's displays, Deposit puts a book on a
+shelf and a weapon on a rack where empty racks exist; 3.7-armorset in `14_VlindrelHall`; 3.7-hendraheim-soulgems); 3.8b (hooks installed, a storage session at the cooking pot counts the
 stored materials on the menu's thread, a consumption and a craft through the menu's own callback take the
 shortfall from storage); 3.8a (Restock, Restock after Deposit); 3.9 (add,
-rename, Deposit from, remove an area); 3.10 (sell chest routing, quote, sale, never sold, buy back, changed
-meanwhile); 4.1, 4.4; a Creation Club home (Tundra Homestead).
+rename, Deposit from, remove an area; 3.9.6 takes in an untouched cellar; 3.9.7 in the Lakeview and Heljarchen plans
+enables the second grounds chest first; 3.9-myrwatch-whole in plan 31: the home's template from the tower, the
+gallery joins, Deposit conserved; 3.9-tundra-f in plan 38 and 1.1-gallery in plan 31: a merged template is offered
+only in its main cell; 3.9g-WinterCove in plan 44: a Deposit in the main hall sends soul gems to the hall's
+Soulgems container and arrows to the storage room's Weapons chest, conserved); 3.10 (sell chest routing, quote, sale, never sold, buy back, changed
+meanwhile); 4.1, 4.4; a Creation Club home (Tundra Homestead). Hotkey menus and panel: `17_HotkeyLists` (`iMode = 0`:
+6.2.2-lists-order, 6.2.16-lists, Reset home... No and Yes), `18_HotkeyMessageBoxes` (`iMode = 1`: the setup prompt's
+body with a backup, master and Advanced paging, Reset home... No and Yes, the container menu over two pages, a
+Categories group on page 2 and Back, Make master... No), `05_Startup` (6.6.1, 6.6.1a, 6.6.1b), 3.6c's panel status
+line (`10_Breezehome`), 6.2.5-bloodchill (Browse right after a container closed, `33_BloodchillManor`), and 3.7 in
+`41_Niflholm` / `42_TelJerdein` (no display fills in another cell). `24_HeljarchenHallShipped` and
+`25_WindstadManorShipped` check that the shipped template is chosen and applied.
 
 Plans per home (file-name prefix): `1N_` the vanilla and DLC city homes (Hjerim, Honeyside, Proudspire Manor, Vlindrel
-Hall, Severin Manor, the Arch-Mage's Quarters), `2N_` the Hearthfire homes built, each as one home over hall, cellar and
-grounds through a test template with `cells` (3.9 steps 1-11), `3N_` the Creation Club homes (Myrwatch and its gallery,
+Hall, Severin Manor, the Arch-Mage's Quarters; `17_`/`18_` the hotkey menus), `2N_` the Hearthfire homes built, each as
+one home over hall, cellar and grounds through the shipped template (3.9 steps 1-11), `3N_` the Creation Club homes (Myrwatch and its gallery,
 Hendraheim's displays, Bloodchill's Learn paths, Shadowfoot's sell chest, Goldenhills' Restock and cooking pot,
 Nchuanthumz' lever-built containers and the robustness steps, Gallows Hall's template paths, Tundra Homestead with its
-cellar as one home, Dead Man's Dread without a template), `4N_` mod homes over several cells (Niflholm, Tel Jerdein,
+cellar as one home, Dead Man's Dread and its template), `4N_` mod homes over several cells (Niflholm, Tel Jerdein,
 Antennaria, Winter Cove, Unique Vampire Dens), `5N_` single-cell mod homes (Pinegrove Lodge, Bal Ruhn, Wuth Rein,
 Ebongrove, Hydda, Sicarius' Refuge, Black Fur Refuge, White Lighthouse, Mirele Bismath Reborn as a self-sorting
 home) and `6N_` Wynter's Breezehome Redux (its own profile). The mod homes need `tests/ingame/profile/extra-mods.txt`
@@ -1405,3 +1602,14 @@ panel 5.1-5.8, the activate prompt, QuickLoot IE, floating icons: sections 5-6),
 back (2.7), other home mods and the Menu Framework missing (3.6b, 5.0.3), Severin Manor's purchase (1.9), Move mode
 at a forge (3.8; Breezehome has none), built Hearthfire homes (3.9 at Lakeview), timed selling (3.10.9), and the
 Dova Stash Editor (section 8).
+
+Known limitation: Wuth Rein's bookshelf `0x13C5`: a Deposit put a book from chest `0x137D` on it, and about 1 s later
+the shelf held none with no move logged (its marker lies outside the shelf's trigger); the root cause is unknown. The
+shipped template (1.0.2) leaves the scripted shelves out, a book that drops off such a shelf goes back to its container
+(and that shelf is left alone for the session), so 3.4-wuthrein is a plain pass with conservation; 3.7-wuthrein still
+turns `0x13C5` on by hand to exercise Fill now.
+
+The Menu Framework panel's drawn UI (5.1-5.8: tab switching, the yes/no buttons, *Only installed homes*, the set
+picker's rows) has no automated check: the automated panel checks drive the Controller, the panel's snapshot and the
+key capture, not the ImGui code. No manual pass of 5.1-5.8 with the current DLL is recorded yet; record one (date, DLL
+build, pass/fail per row) under §5 when it is done.

@@ -7,8 +7,9 @@
 //
 // Decisions:
 // - Schema: `"cells"` is optional and additive (schema 1 stays "dovastash-layout-1"). Each entry is a cell
-//   form reference, either as a plain string or as an object {"cell", "label", "note"} (unknown keys
-//   preserved). Interior and exterior cells are both named by their CELL record ("Skyrim.esm|0x00009BF7"),
+//   form reference, either as a plain string or as an object {"cell", "label", "master", "note"} (unknown keys
+//   preserved). `master` (optional): the area's own catch-all, used while the home's master is out of reach from
+//   there (SortPlanner step 4): a cellar whose non-persistent containers the hall's master cannot reach. Interior and exterior cells are both named by their CELL record ("Skyrim.esm|0x00009BF7"),
 //   which is stable across load orders; the player's current cell is compared by form id, so an exterior
 //   cell never needs to be in memory to be recognised. A whole worldspace is never a home: only the listed
 //   cells are.
@@ -18,7 +19,8 @@
 //   setup always wins); otherwise a player layout that lists it in `cells` makes it part of that home (the
 //   first by main-cell order when several do; the others are reported); otherwise it is its own home and
 //   templates resolve by `cell` as before. Templates' `cells` take effect once applied (copied into the
-//   player layout), never by themselves, so a shipped `*Cellar.json` keeps working unchanged.
+//   player layout), never by themselves. A home ships as one template (DESIGN §6.7); a template's `replaces` lists the
+//   retired files whose untouched setups it takes in (IsUntouchedTemplateSetup, Template.h).
 // - Reach (JudgeReach): an operation run in one cell can use a container in another cell of the home only
 //   while that cell is loaded (attached) or when the reference is persistent (persistent references stay
 //   in memory, and their inventory changes are kept in the save). Anything else is skipped, never lost.
@@ -44,6 +46,7 @@ namespace dova::core
 	{
 		FormRef        cell;
 		std::string    label;  // what the player sees for this part of the home ("Grounds", "Cellar")
+		std::optional<FormRef> master;  // the area's catch-all while the home's master is out of reach (optional)
 		std::string    note;   // for people reading the file
 		nlohmann::json extra = nlohmann::json::object();  // unknown keys, preserved
 
@@ -60,16 +63,21 @@ namespace dova::core
 	// The "cells" array: an entry with only a cell is written as a plain string. Unparsed entries follow.
 	[[nodiscard]] nlohmann::ordered_json HomeCellsToJson(std::span<const HomeCell> a_cells, const nlohmann::json& a_unparsed);
 
-	// Warnings: the same cell listed twice (the first entry is used), the main cell listed again (ignored).
-	void ValidateHomeCells(const std::optional<FormRef>& a_main, std::span<const HomeCell> a_cells, std::string_view a_source, Diagnostics& a_diags);
+	// Warnings: the same cell listed twice (the first entry is used), the main cell listed again (ignored), an area
+	// master that is the home's master (ignored).
+	void ValidateHomeCells(const std::optional<FormRef>& a_main, std::span<const HomeCell> a_cells, std::string_view a_source, Diagnostics& a_diags,
+		const std::optional<FormRef>& a_homeMaster = std::nullopt);
 
 	// Applying a template over a player layout: the template's entries, then the player's entries the template
-	// does not list; the player's label and note fill a template entry's blanks, and unknown keys are merged.
+	// does not list; the player's label, master and note fill a template entry's blanks, and unknown keys are merged.
 	[[nodiscard]] std::vector<HomeCell> MergeHomeCells(std::span<const HomeCell> a_template, std::span<const HomeCell> a_player);
 
 	// Naming an area in game ("Grounds", "Cellar"): sets the `label` of the entry for `a_cell` (trimmed; empty
 	// clears it, so the cell's own name shows again). False when the cell is not listed (nothing changed).
 	bool SetHomeCellLabel(std::vector<HomeCell>& a_cells, const FormRef& a_cell, std::string_view a_label);
+
+	// The area masters of a home's extra cells, in list order, each once, never the home's own master.
+	[[nodiscard]] std::vector<FormRef> AreaMasters(std::span<const HomeCell> a_cells, const std::optional<FormRef>& a_homeMaster);
 
 	// Every cell of a home: the main cell first, then each listed cell once (the main cell is not repeated).
 	[[nodiscard]] std::vector<FormRef> HomeCellRefs(const FormRef& a_main, std::span<const HomeCell> a_cells);

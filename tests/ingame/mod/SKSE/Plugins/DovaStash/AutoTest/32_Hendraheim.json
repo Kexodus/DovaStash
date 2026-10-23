@@ -20,7 +20,7 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Hendraheim v1.0.0 by Dova Stash"
+          "regex": "template: Hendraheim v[0-9.]+ by Dova Stash"
         },
         {
           "do": "clearInventory"
@@ -31,7 +31,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/CreationClub/Hendraheim.json@1.0.0"
+          "contains": "Templates/CreationClub/Hendraheim.json@"
         },
         {
           "check": "layout",
@@ -224,6 +224,26 @@
       ]
     },
     {
+      "id": "3.7-hendraheim-soulgems",
+      "title": "A soul gem on a weapon rack is ignored, even with soulgems.* as the rack's categories",
+      "steps": [
+        {"do": "displayUse", "ref": "ccEEJSSE004-Hall.esl|0x00000E1B"},
+        {"do": "displayCategories", "ref": "ccEEJSSE004-Hall.esl|0x00000E1B", "categories": ["soulgems.*"]},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "ccEEJSSE004-Hall.esl|0x00000E1B", "categories": ["soulgems.*"]}},
+        {"do": "additem", "item": "Skyrim.esm|0x0002E4E2", "count": 1},
+        {"do": "snapshot", "name": "gem"},
+        {"do": "fill", "ref": "ccEEJSSE004-Hall.esl|0x00000E1B"},
+        {"do": "wait", "seconds": 3},
+        {"do": "waitIdle"},
+        {"check": "log", "since": "test", "absent": true, "regex": "Display: .* on .*0x00000E1B\\] \\(rack\\)"},
+        {"check": "count", "item": "Skyrim.esm|0x0002E4E2", "from": "gem", "eq": 0},
+        {"check": "conserved", "snapshot": "gem"},
+        {"do": "displayCategories", "ref": "ccEEJSSE004-Hall.esl|0x00000E1B", "categories": []},
+        {"do": "removeitem", "item": "Skyrim.esm|0x0002E4E2", "count": 1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
       "id": "3.7d-hendraheim",
       "title": "Fill now on a rack in use puts a dagger up by hand",
       "steps": [
@@ -289,11 +309,6 @@
       "id": "3.7-hendraheim-visual",
       "title": "Display placement looks right",
       "manual": "visual: racks, mannequins and plaques (node, no floating or falling items)"
-    },
-    {
-      "id": "3.7-hendraheim-soulgems",
-      "title": "A soul gem on a weapon rack is ignored",
-      "manual": "needs a used rack with categories soulgems.* in the layout file: no step edits one container's categories (writeLayout replaces the whole file)"
     },
     {
       "id": "3.5-hendraheim-reset",

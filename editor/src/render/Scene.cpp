@@ -1,13 +1,18 @@
 #include "render/Scene.h"
 
 #include <algorithm>
+#include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <format>
 #include <numbers>
 
 #include <d3dcompiler.h>
+#include <dxgi1_4.h>
+#include <psapi.h>
 
+#include "Log.h"
 #include "Util.h"
 #include "data/Assets.h"
 #include "home/Cell.h"
@@ -22,6 +27,7 @@ namespace dova::editor::render
 	{
 		constexpr unsigned kMaxTextureSize = 1024;
 		constexpr bool     kFrontCounterClockwise = true;
+		std::string SourceName(const std::string& a_source);  // below
 
 		// ---- Shaders ---------------------------------------------------------------------------------------
 		constexpr const char* kShader = R"(
@@ -40,6 +46,13 @@ cbuffer Draw : register(b1)
 	float4 highlight;
 	float4 uvTransform;
 	float4 params;  // x: alpha test threshold (< 0: off), y: vertex colors (1 rgb, 2 rgba), z: unlit, w: textured
+	float4 clipZ;   // x: the roof cut, nothing of this draw above it (1e9: none)
+};
+cbuffer Roof : register(b2)
+{
+	float4 roofGrid;  // x, y: the south-west corner, z: 1 / a square's side, w: squares across (0: no grid, clipZ.x everywhere)
+	float4 roofRows;  // x: squares down
+	float4 roofCuts[1024];  // the cut per square, four to an entry
 };
 Texture2D    tex  : register(t0);
 SamplerState samp : register(s0);
@@ -61,6 +74,17 @@ PSIn VS(VSIn i)
 
 float4 PS(PSIn i, bool front : SV_IsFrontFace) : SV_Target
 {
+	float cut = clipZ.x;
+	if (cut < 1e8 && roofGrid.w > 0.5) {
+		int nx = (int)roofGrid.w;
+		int sx = clamp((int)floor((i.wpos.x - roofGrid.x) * roofGrid.z), 0, nx - 1);
+		int sy = clamp((int)floor((i.wpos.y - roofGrid.y) * roofGrid.z), 0, (int)roofRows.x - 1);
+		int k = sy * nx + sx;
+		cut = roofCuts[k >> 2][k & 3];
+	}
+	if (i.wpos.z > cut) {
+		discard;
+	}
 	float4 c = params.w > 0.5 ? tex.Sample(samp, i.uv) : float4(1, 1, 1, 1);
 	if (params.y > 0.5) {
 		c.rgb *= i.col.rgb;
@@ -113,7 +137,15 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			XMFLOAT4   highlight;
 			XMFLOAT4   uv;
 			XMFLOAT4   params;
+			XMFLOAT4   clipZ;
 		};
+		struct RoofCB
+		{
+			XMFLOAT4 grid;
+			XMFLOAT4 rows;
+			float    cuts[RoofGrid::kMaxSquares];
+		};
+		static_assert(sizeof(RoofCB) % 16 == 0);
 
 		struct Vertex
 		{
@@ -522,7 +554,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		ComPtr<ID3D11VertexShader>    vs, lineVs;
 		ComPtr<ID3D11PixelShader>     ps, linePs;
 		ComPtr<ID3D11InputLayout>     layout, lineLayout;
-		ComPtr<ID3D11Buffer>          frameCb, drawCb, lineVb;
+		ComPtr<ID3D11Buffer>          frameCb, drawCb, roofCb, lineVb;
 		std::size_t                   lineCapacity{ 0 };
 		ComPtr<ID3D11RasterizerState> cullBack, cullNone, wire;
 		ComPtr<ID3D11DepthStencilState> depthWrite, depthRead, depthOff;
@@ -722,6 +754,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		p.archivesTotal = _archivesTotal;
 		p.missingModels = _missingModels;
 		p.missingTextures = _missingTextures;
+		p.unreadableModels = _unreadableModels;
+		p.unreadableTextures = _unreadableTextures;
 		p.finished = _finished;
 		switch (_stage.load()) {
 		case 0:
@@ -740,7 +774,9 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 	std::vector<std::string> Scene::Problems() const
 	{
 		std::scoped_lock lock(_mutex);
-		return _problems;
+		auto list = _problems;
+		std::ranges::stable_partition(list, [](const std::string& a_p) { return a_p.starts_with("mesh "); });  // meshes first
+		return list;
 	}
 
 	void Scene::LoaderThread(std::stop_token a_stop)
@@ -752,21 +788,62 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			});
 			_stage = std::max(_stage.load(), 1);
 			BuildTerrain();
-			for (std::size_t slot = _nextModel++; slot < _models.size() && !a_stop.stop_requested(); slot = _nextModel++) {
-				LoadModel(slot);
-				++_modelsDone;
-			}
 		} catch (const std::exception& e) {
-			std::scoped_lock lock(_mutex);
-			_problems.push_back(std::string("loader: ") + e.what());
+			Problem(std::string("loader: ") + e.what());
+		}
+		// One mesh failing (out of memory on a broken file) costs that mesh, not the rest of this worker's share.
+		for (std::size_t slot = _nextModel++; slot < _models.size() && !a_stop.stop_requested(); slot = _nextModel++) {
+			try {
+				LoadModel(slot);
+			} catch (const std::exception& e) {
+				_models[slot]->state = 2;
+				++_unreadableModels;
+				Problem(std::format("mesh {}: {}", _models[slot]->path, e.what()));
+			}
+			++_modelsDone;
 		}
 		if (--_workersLeft == 0) {
 			_stage = 2;
 			_finished = true;
+			LogLoaded();
 		}
 	}
 
-	std::shared_ptr<Scene::Texture> Scene::GetTexture(const std::string& a_path)
+	void Scene::Problem(std::string a_text)
+	{
+		std::scoped_lock lock(_mutex);
+		if (_problems.size() < 200) {
+			_problems.push_back(std::move(a_text));
+		}
+	}
+
+	void Scene::LogLoaded()
+	{
+		PROCESS_MEMORY_COUNTERS_EX mem{};
+		::GetProcessMemoryInfo(::GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&mem), sizeof(mem));
+		DXGI_QUERY_VIDEO_MEMORY_INFO gpu{};
+		ComPtr<IDXGIDevice>          dxgi;
+		ComPtr<IDXGIAdapter>         adapter;
+		ComPtr<IDXGIAdapter3>        adapter3;
+		if (SUCCEEDED(_device.As(&dxgi)) && SUCCEEDED(dxgi->GetAdapter(&adapter)) && SUCCEEDED(adapter.As(&adapter3))) {
+			adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &gpu);
+		}
+		std::scoped_lock lock(_mutex);
+		Log("3D view loaded: {} meshes ({} missing, {} unreadable), {} textures ({} missing, {} unreadable); {} MB private, GPU {} of {} MB",
+			_models.size() - 1, _missingModels.load(), _unreadableModels.load(), _texturesTotal.load(), _missingTextures.load(), _unreadableTextures.load(),
+			mem.PrivateUsage >> 20, gpu.CurrentUsage >> 20, gpu.Budget >> 20);
+		// Every reason (the list keeps the first 200), meshes before textures.
+		auto list = _problems;
+		std::ranges::stable_partition(list, [](const std::string& a_p) { return a_p.starts_with("mesh "); });
+		for (const auto& p : list) {
+			Log("  {}", p);
+		}
+		if (list.size() >= 200) {
+			Log("  (the first 200 only)");
+		}
+	}
+
+	std::shared_ptr<Scene::Texture> Scene::GetTexture(const std::string& a_path, const std::string& a_usedBy)
 	{
 		std::shared_ptr<Texture> tex;
 		{
@@ -780,21 +857,32 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			++_texturesTotal;
 		}
 		std::string error;
-		if (const auto data = _assets->Read(a_path)) {
+		bool        found = false;
+		if (const auto data = _assets->Read(a_path, nullptr, &error)) {
+			found = true;
 			DdsInfo info;
 			tex->srv.Attach(LoadDds(_device.Get(), *data, kMaxTextureSize, info, error));
+			if (!tex->srv && error.starts_with("Direct3D")) {
+				// Refused by the device (memory short for a moment): once more before it counts as unreadable.
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				error.clear();
+				tex->srv.Attach(LoadDds(_device.Get(), *data, kMaxTextureSize, info, error));
+				if (!tex->srv) {
+					Log("texture {}: {} (device {:#x})", a_path, error, static_cast<std::uint32_t>(_device->GetDeviceRemovedReason()));
+				}
+			}
 		} else {
-			error = "not found";
+			found = !error.empty();  // a copy exists but could not be read
+			if (!found) {
+				error = "not found";
+			}
 		}
 		if (tex->srv) {
 			tex->state = 1;
 		} else {
 			tex->state = 2;
-			++_missingTextures;
-			std::scoped_lock lock(_mutex);
-			if (_problems.size() < 200) {
-				_problems.push_back(std::format("texture {}: {}", a_path, error));
-			}
+			++(found ? _unreadableTextures : _missingTextures);
+			Problem(a_usedBy.empty() ? std::format("texture {}: {}", a_path, error) : std::format("texture {}: {} (used by {})", a_path, error, a_usedBy));
 		}
 		++_texturesDone;
 		return tex;
@@ -804,10 +892,13 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 	{
 		auto&       m = *_models[a_slot];
 		std::string error;
-		const auto  data = _assets->Read(m.path);
+		std::string source;
+		const auto  data = _assets->Read(m.path, &source, &error);
 		std::optional<NifModel> nif;
 		if (!data) {
-			error = "not found";
+			if (error.empty()) {
+				error = "not found";
+			}
 		} else {
 			nif = ParseNif(*data, error);
 			if (nif && nif->Empty()) {
@@ -822,11 +913,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		}
 		if (!nif) {
 			m.state = 2;
-			++_missingModels;
-			std::scoped_lock lock(_mutex);
-			if (_problems.size() < 200) {
-				_problems.push_back(std::format("mesh {}: {}", m.path, error));
-			}
+			++(data || error != "not found" ? _unreadableModels : _missingModels);
+			Problem(std::format("mesh {}: {}", m.path, error));
 			return;
 		}
 		if (!nif->warnings.empty()) {
@@ -846,7 +934,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			sub.indexCount = static_cast<std::uint32_t>(s.indices.size());
 			sub.baseVertex = static_cast<std::int32_t>(verts.size());
 			if (!s.diffuse.empty()) {
-				sub.texture = GetTexture(Assets::NormalizeTexture(s.diffuse));
+				sub.texture = GetTexture(Assets::NormalizeTexture(s.diffuse), std::format("{} from {}", m.path, SourceName(source)));
 				sub.textured = true;
 			}
 			sub.alphaRef = s.alphaTest ? static_cast<float>(s.alphaThreshold) / 255.0f : -1.0f;
@@ -900,6 +988,10 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			hr = _device->CreateBuffer(&bd, &init, &m.ib);
 		}
 		m.state = SUCCEEDED(hr) ? 1 : 2;
+		if (FAILED(hr)) {
+			++_unreadableModels;
+			Problem(std::format("mesh {}: Direct3D refused its buffers ({:#x})", m.path, static_cast<std::uint32_t>(hr)));
+		}
 	}
 
 	void Scene::BuildTerrain()
@@ -1004,6 +1096,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		_device->CreateBuffer(&cb, nullptr, &s.frameCb);
 		cb.ByteWidth = sizeof(DrawCB);
 		_device->CreateBuffer(&cb, nullptr, &s.drawCb);
+		cb.ByteWidth = sizeof(RoofCB);
+		_device->CreateBuffer(&cb, nullptr, &s.roofCb);
 
 		D3D11_RASTERIZER_DESC rd{};
 		rd.FillMode = D3D11_FILL_SOLID;
@@ -1041,7 +1135,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 
 		s.white = SolidTexture(_device.Get(), 4, 0xFFFFFFFF, 0xFFFFFFFF);
 		s.checker = SolidTexture(_device.Get(), 16, Rgba(150, 150, 150), Rgba(110, 110, 110));
-		s.ok = s.vs && s.ps && s.layout && s.frameCb && s.drawCb;
+		s.ok = s.vs && s.ps && s.layout && s.frameCb && s.drawCb && s.roofCb;
 	}
 
 	namespace
@@ -1067,6 +1161,32 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 				return o.showOther;
 			}
 		}
+
+		// Where a file came from, in a word the author knows: the MO2 mod of a loose file, an archive's file name,
+		// "overwrite", or "Data" (the game folder).
+		std::string SourceName(const std::string& a_source)
+		{
+			std::string lower = a_source;
+			for (auto& c : lower) {
+				c = c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			}
+			if (const auto at = lower.find("\\mods\\"); at != std::string::npos) {
+				const auto start = at + 6;
+				const auto end = lower.find('\\', start);
+				return a_source.substr(start, end == std::string::npos ? std::string::npos : end - start);
+			}
+			if (lower.find("\\overwrite\\") != std::string::npos) {
+				return "overwrite";
+			}
+			if (lower.ends_with(".bsa") || lower.ends_with(".ba2")) {
+				const auto slash = lower.find_last_of('\\');
+				return slash == std::string::npos ? a_source : a_source.substr(slash + 1);
+			}
+			return "Data";
+		}
+
+		// The roof cut spares what a template binds: a container or display above it still shows (and picks).
+		bool RoofCuts(const SceneRef& a_ref) { return a_ref.kind != RefKind::Container && a_ref.kind != RefKind::Display; }
 
 		bool RefShown(const SceneRef& a_ref, const ViewOptions& o)
 		{
@@ -1126,6 +1246,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		const float b = std::clamp(a_options.brightness, 0.2f, 3.0f);
 		frame.ambient = { 0.42f * b, 0.42f * b, 0.45f * b, 1.0f };
 		frame.lightColor = { 0.55f * b, 0.52f * b, 0.48f * b, 1.0f };
+
 		D3D11_MAPPED_SUBRESOURCE map{};
 		if (SUCCEEDED(a_ctx->Map(s.frameCb.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
 			std::memcpy(map.pData, &frame, sizeof(frame));
@@ -1140,9 +1261,22 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		a_ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		a_ctx->VSSetShader(s.vs.Get(), nullptr, 0);
 		a_ctx->PSSetShader(s.ps.Get(), nullptr, 0);
-		ID3D11Buffer* cbs[2] = { s.frameCb.Get(), s.drawCb.Get() };
+		{
+			// The roof cut per area (RoofGrid), used where a draw's clipZ says the cut applies.
+			auto roof = std::make_unique<RoofCB>();
+			if (const auto& g = a_options.roofGrid; !g.Empty() && g.nx * g.ny <= RoofGrid::kMaxSquares) {
+				roof->grid = { g.x0, g.y0, 1.0f / std::max(g.size, 1.0f), static_cast<float>(g.nx) };
+				roof->rows = { static_cast<float>(g.ny), 0.0f, 0.0f, 0.0f };
+				std::copy(g.cuts.begin(), g.cuts.end(), roof->cuts);
+			}
+			if (SUCCEEDED(a_ctx->Map(s.roofCb.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
+				std::memcpy(map.pData, roof.get(), sizeof(RoofCB));
+				a_ctx->Unmap(s.roofCb.Get(), 0);
+			}
+		}
+		ID3D11Buffer* cbs[3] = { s.frameCb.Get(), s.drawCb.Get(), s.roofCb.Get() };
 		a_ctx->VSSetConstantBuffers(0, 2, cbs);
-		a_ctx->PSSetConstantBuffers(0, 2, cbs);
+		a_ctx->PSSetConstantBuffers(0, 3, cbs);
 		ID3D11SamplerState* samp = s.sampler.Get();
 		a_ctx->PSSetSamplers(0, 1, &samp);
 
@@ -1162,9 +1296,11 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		const XMVECTOR camPos = XMLoadFloat3(&a_camera.position);
 
 		ID3D11Buffer* boundVb = nullptr;
+		float         cut = 1e9f;  // the roof cut of the next draws (RoofCuts)
 		auto draw = [&](const Model& a_model, const Model::Sub& a_sub, const XMFLOAT4X4& a_world, XMFLOAT4 a_tint, XMFLOAT4 a_highlight, bool a_box) {
 			DrawCB d{};
 			d.world = a_world;
+			d.clipZ = { cut, 0.0f, 0.0f, 0.0f };
 			d.tint = a_box ? a_tint : XMFLOAT4{ a_sub.tint.x * a_tint.x, a_sub.tint.y * a_tint.y, a_sub.tint.z * a_tint.z, a_sub.tint.w * a_tint.w };
 			d.highlight = a_highlight;
 			d.uv = a_sub.uv;
@@ -1202,7 +1338,8 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			float             distance;
 		};
 		std::vector<Deferred>    blended;
-		std::vector<std::size_t> ghosts;  // see-through boxes: things invisible in game
+		std::vector<std::size_t> ghosts;   // see-through boxes: things invisible in game
+		std::vector<std::size_t> missing;  // see-through boxes: structure whose mesh is missing (it would hide the rooms)
 		const XMFLOAT4        noHighlight{ 0, 0, 0, 0 };
 		const XMFLOAT4        white{ 1, 1, 1, 1 };
 		auto tintOf = [&](int a_index) -> std::uint32_t {
@@ -1242,6 +1379,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			if (!RefShown(ref, a_options)) {
 				continue;
 			}
+			cut = RoofCuts(ref) ? a_options.roofZ : 1e9f;
 			const auto& inst = _instances[i];
 			const auto& model = *_models[inst.model];
 			const int   state = model.state.load(std::memory_order_acquire);
@@ -1279,6 +1417,12 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 					}
 					continue;
 				}
+				if (ref.kind == RefKind::Structure) {
+					if (a_options.showMissing) {
+						missing.push_back(i);
+					}
+					continue;
+				}
 				a_ctx->RSSetState(a_options.wireframe ? s.wire.Get() : s.cullBack.Get());
 				const auto c = ColorF(ref.color);
 				draw(*_models[0], _models[0]->subs[0], inst.boxWorld, { c.x, c.y, c.z, 1.0f }, highlight, true);
@@ -1302,6 +1446,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		a_ctx->OMSetDepthStencilState(s.depthRead.Get(), 0);
 		for (const auto& d : blended) {
 			const auto& ref = _desc.refs[d.instance];
+			cut = RoofCuts(ref) ? a_options.roofZ : 1e9f;
 			a_ctx->OMSetBlendState(s.Blend(_device.Get(), d.sub->src, d.sub->dst), nullptr, 0xFFFFFFFF);
 			a_ctx->RSSetState(a_options.wireframe ? s.wire.Get() : (d.sub->twoSided ? s.cullNone.Get() : s.cullBack.Get()));
 			draw(*d.model, *d.sub, _instances[d.instance].world, white, highlightOf(ref.index), false);
@@ -1310,6 +1455,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		a_ctx->RSSetState(s.cullBack.Get());
 		for (const auto i : ghosts) {
 			const auto& ref = _desc.refs[i];
+			cut = RoofCuts(ref) ? a_options.roofZ : 1e9f;
 			const auto  t = tintOf(ref.index);
 			const auto  c = ColorF(t ? t : ref.color);
 			XMFLOAT4    highlight = highlightOf(ref.index);
@@ -1320,6 +1466,12 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			if (!big || ref.index == a_options.selected || ref.index == a_options.hovered) {
 				draw(*_models[0], _models[0]->subs[0], _instances[i].boxWorld, { c.x, c.y, c.z, big ? 0.10f : 0.22f }, highlight, true);
 			}
+		}
+		for (const auto i : missing) {
+			const auto& ref = _desc.refs[i];
+			cut = RoofCuts(ref) ? a_options.roofZ : 1e9f;
+			const auto c = ColorF(ref.color);
+			draw(*_models[0], _models[0]->subs[0], _instances[i].boxWorld, { c.x, c.y, c.z, 0.25f }, highlightOf(ref.index), true);
 		}
 		a_ctx->OMSetBlendState(s.opaque.Get(), nullptr, 0xFFFFFFFF);
 
@@ -1405,6 +1557,14 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			float       t;
 		};
 		std::vector<Hit> hits;
+		// The roof cut: what is above it is not drawn, so it cannot be hit either.
+		const float ox = XMVectorGetX(a_origin), oy = XMVectorGetY(a_origin), oz = XMVectorGetZ(a_origin);
+		const float dx = XMVectorGetX(a_dir), dy = XMVectorGetY(a_dir), dz = XMVectorGetZ(a_dir);
+		const bool  grid = a_options.roofZ < 1e8f && !a_options.roofGrid.Empty();
+		auto        underRoof = [&](float a_t) {
+            const float cut = grid ? a_options.roofGrid.At(ox + dx * a_t, oy + dy * a_t) : a_options.roofZ;
+            return oz + dz * a_t <= cut;
+		};
 		for (std::size_t i = 0; i < _instances.size(); ++i) {
 			const auto& ref = _desc.refs[i];
 			if (!RefShown(ref, a_options) || ref.index == a_ignore) {
@@ -1417,8 +1577,12 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			if (!box && state != 1) {
 				continue;
 			}
+			const bool cuts = RoofCuts(ref);
 			if (box && (ref.ghost || model.invisible) && (a_ignore >= 0 || !GhostShown(ref))) {
 				continue;  // see-through boxes do not block the view; invisible things cannot be clicked
+			}
+			if (box && ref.kind == RefKind::Structure && (a_ignore >= 0 || a_selectableOnly || !a_options.showMissing)) {
+				continue;  // a missing mesh's see-through box: never in the way of a container (Pick anything picks it)
 			}
 			const Model&    m = box ? *_models[0] : model;
 			const XMMATRIX  inv = XMLoadFloat4x4(box ? &inst.boxInverse : &inst.inverse);
@@ -1434,7 +1598,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			float best = FLT_MAX;
 			for (std::size_t t = 0; t + 2 < m.cpuIdx.size(); t += 3) {
 				float tt;
-				if (RayTriangle(of, df, m.cpuPos[m.cpuIdx[t]], m.cpuPos[m.cpuIdx[t + 1]], m.cpuPos[m.cpuIdx[t + 2]], tt) && tt < best) {
+				if (RayTriangle(of, df, m.cpuPos[m.cpuIdx[t]], m.cpuPos[m.cpuIdx[t + 1]], m.cpuPos[m.cpuIdx[t + 2]], tt) && tt < best && (!cuts || underRoof(tt))) {
 					best = tt;
 				}
 			}
@@ -1545,19 +1709,107 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		return out;
 	}
 
-	std::pair<XMFLOAT3, XMFLOAT3> Scene::SceneBounds() const
+	float RoofGrid::At(float a_x, float a_y) const
+	{
+		if (Empty()) {
+			return 1e9f;
+		}
+		const int sx = std::clamp(static_cast<int>(std::floor((a_x - x0) / std::max(size, 1.0f))), 0, nx - 1);
+		const int sy = std::clamp(static_cast<int>(std::floor((a_y - y0) / std::max(size, 1.0f))), 0, ny - 1);
+		return cuts[static_cast<std::size_t>(sy) * static_cast<std::size_t>(nx) + static_cast<std::size_t>(sx)];
+	}
+
+	RoofGrid RoofGrid::Build(const std::vector<std::array<float, 3>>& a_floor, float a_top, float a_above)
+	{
+		RoofGrid g;
+		if (a_floor.empty() || a_top >= 1e8f) {
+			return g;
+		}
+		float x0 = FLT_MAX, y0 = FLT_MAX, x1 = -FLT_MAX, y1 = -FLT_MAX;
+		for (const auto& p : a_floor) {
+			x0 = std::min(x0, p[0]);
+			y0 = std::min(y0, p[1]);
+			x1 = std::max(x1, p[0]);
+			y1 = std::max(y1, p[1]);
+		}
+		const auto squares = [&](float a_from, float a_to) { return static_cast<int>(std::floor((a_to - a_from) / g.size)) + 5; };  // two squares of margin
+		while (squares(x0, x1) * squares(y0, y1) > kMaxSquares) {
+			g.size *= 1.5f;
+		}
+		g.nx = squares(x0, x1);
+		g.ny = squares(y0, y1);
+		g.x0 = std::floor(x0 / g.size) * g.size - 2.0f * g.size;
+		g.y0 = std::floor(y0 / g.size) * g.size - 2.0f * g.size;
+		g.cuts.assign(static_cast<std::size_t>(g.nx) * static_cast<std::size_t>(g.ny), FLT_MAX);
+		for (const auto& p : a_floor) {
+			const auto sx = std::clamp(static_cast<int>(std::floor((p[0] - g.x0) / g.size)), 0, g.nx - 1);
+			const auto sy = std::clamp(static_cast<int>(std::floor((p[1] - g.y0) / g.size)), 0, g.ny - 1);
+			auto&      c = g.cuts[static_cast<std::size_t>(sy * g.nx + sx)];
+			c = std::min(c, p[2] + a_above);
+		}
+		for (int ring = 0; ring < 3; ++ring) {
+			auto next = g.cuts;
+			for (int y = 0; y < g.ny; ++y) {
+				for (int x = 0; x < g.nx; ++x) {
+					auto& c = next[static_cast<std::size_t>(y * g.nx + x)];
+					if (c != FLT_MAX) {
+						continue;
+					}
+					for (int dy = -1; dy <= 1; ++dy) {
+						for (int dx = -1; dx <= 1; ++dx) {
+							const int ax = x + dx, ay = y + dy;
+							if (ax >= 0 && ay >= 0 && ax < g.nx && ay < g.ny) {
+								c = std::min(c, g.cuts[static_cast<std::size_t>(ay * g.nx + ax)]);
+							}
+						}
+					}
+				}
+			}
+			g.cuts = std::move(next);
+		}
+		for (auto& c : g.cuts) {
+			c = std::min(c, a_top);
+		}
+		return g;
+	}
+
+	std::pair<XMFLOAT3, XMFLOAT3> Scene::SceneBounds(bool a_withDisabled) const
 	{
 		XMFLOAT3 lo{ FLT_MAX, FLT_MAX, FLT_MAX }, hi{ -FLT_MAX, -FLT_MAX, -FLT_MAX };
 		bool     any = false;
-		// Robust bounds: the 2nd to 98th percentile on each axis (a stray reference far below the cell, a
-		// forgotten marker, must not shrink the home to a dot), padded by a tenth of the span.
-		std::array<std::vector<float>, 3> axes;
+		// Robust bounds, so a stray reference far from the home (a forgotten marker, a prefab stored outside the
+		// rooms) does not shrink the home to a dot: initially disabled references are left out when most of the
+		// home is enabled, then only the largest group of references 1024 units apart or closer counts (the one
+		// with the most containers), and of it the 2nd to 98th percentile on each axis, padded by a tenth of the span.
+		std::vector<const SceneRef*> refs;
+		std::size_t                  enabled = 0;
 		for (const auto& r : _desc.refs) {
 			if (r.kind == RefKind::Other || r.kind == RefKind::Effect || r.index < 0) {
 				continue;  // neighbour cells are not part of the overview, nor fog and light volumes
 			}
+			refs.push_back(&r);
+			enabled += r.initiallyDisabled ? 0 : 1;
+		}
+		if (enabled > 0 && (!a_withDisabled || enabled * 4 >= refs.size())) {
+			std::erase_if(refs, [](const SceneRef* r) { return r->initiallyDisabled; });
+		}
+		if (refs.size() > 1) {
+			std::vector<std::array<float, 3>> points;
+			std::vector<bool>                 containers;
+			for (const auto* r : refs) {
+				points.push_back({ r->position[0], r->position[1], r->position[2] });
+				containers.push_back(r->kind == RefKind::Container);
+			}
+			std::vector<const SceneRef*> kept;
+			for (const auto i : LargestGroup(points, containers)) {
+				kept.push_back(refs[i]);
+			}
+			refs = std::move(kept);
+		}
+		std::array<std::vector<float>, 3> axes;
+		for (const auto* r : refs) {
 			for (std::size_t k = 0; k < 3; ++k) {
-				axes[k].push_back(r.position[k]);
+				axes[k].push_back(r->position[k]);
 			}
 		}
 		if (!axes[0].empty()) {
@@ -1595,9 +1847,10 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		return { lo, hi };
 	}
 
-	Camera Scene::OverviewCamera(float a_aspect) const
+	Camera Scene::OverviewCamera(float a_aspect, float a_roofZ, bool a_withDisabled) const
 	{
-		auto [lo, hi] = SceneBounds();
+		auto [lo, hi] = SceneBounds(a_withDisabled);
+		hi.z = std::max(lo.z, std::min(hi.z, a_roofZ));
 		const XMFLOAT3 c{ (lo.x + hi.x) * 0.5f, (lo.y + hi.y) * 0.5f, (lo.z + hi.z) * 0.5f };
 		const float    radius = std::max(256.0f, 0.5f * std::sqrt((hi.x - lo.x) * (hi.x - lo.x) + (hi.y - lo.y) * (hi.y - lo.y) + (hi.z - lo.z) * (hi.z - lo.z)));
 		Camera         cam;

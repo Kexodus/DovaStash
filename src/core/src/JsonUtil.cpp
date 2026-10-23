@@ -1,11 +1,13 @@
 #include "JsonUtil.h"
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iterator>
 #include <map>
 #include <sstream>
 #include <system_error>
+#include <thread>
 
 namespace dova::core::detail
 {
@@ -38,7 +40,7 @@ namespace dova::core::detail
 		return std::move(ss).str();
 	}
 
-	bool WriteTextFileAtomic(const std::filesystem::path& a_path, std::string_view a_text)
+	bool WriteTextFileAtomic(const std::filesystem::path& a_path, std::string_view a_text, bool a_inPlaceFallback)
 	{
 		std::error_code ec;
 		if (a_path.has_parent_path()) {
@@ -58,11 +60,25 @@ namespace dova::core::detail
 			}
 		}
 		std::filesystem::rename(tmp, a_path, ec);
-		if (ec) {
-			std::filesystem::remove(tmp, ec);
+		for (int retry = 0; ec && retry < 3; ++retry) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			ec.clear();
+			std::filesystem::rename(tmp, a_path, ec);
+		}
+		if (!ec) {
+			return true;
+		}
+		std::filesystem::remove(tmp, ec);
+		if (!a_inPlaceFallback) {
 			return false;
 		}
-		return true;
+		std::ofstream out(a_path, std::ios::binary | std::ios::trunc);
+		if (!out) {
+			return false;
+		}
+		out.write(a_text.data(), static_cast<std::streamsize>(a_text.size()));
+		out.flush();
+		return static_cast<bool>(out);
 	}
 
 	std::string PathToUtf8(const std::filesystem::path& a_path)
@@ -74,6 +90,42 @@ namespace dova::core::detail
 	std::string TypeName(const json& a_value)
 	{
 		return a_value.type_name();
+	}
+
+	std::string DidYouMean(std::string_view a_key, std::initializer_list<std::string_view> a_known)
+	{
+		return DidYouMean(a_key, std::span<const std::string_view>(a_known.begin(), a_known.size()));
+	}
+
+	std::string DidYouMean(std::string_view a_key, std::span<const std::string_view> a_known)
+	{
+		const auto lower = [](char a_c) { return static_cast<char>(a_c >= 'A' && a_c <= 'Z' ? a_c - 'A' + 'a' : a_c); };
+		const auto distance = [&](std::string_view a_a, std::string_view a_b) {
+			std::vector<std::size_t> row(a_b.size() + 1);
+			for (std::size_t j = 0; j <= a_b.size(); ++j) {
+				row[j] = j;
+			}
+			for (std::size_t i = 1; i <= a_a.size(); ++i) {
+				std::size_t diag = row[0];
+				row[0] = i;
+				for (std::size_t j = 1; j <= a_b.size(); ++j) {
+					const auto up = row[j];
+					row[j] = std::min({ row[j] + 1, row[j - 1] + 1, diag + (lower(a_a[i - 1]) == lower(a_b[j - 1]) ? 0 : 1) });
+					diag = up;
+				}
+			}
+			return row[a_b.size()];
+		};
+		std::string_view best;
+		std::size_t      bestDistance = 3;
+		for (const auto known : a_known) {
+			const auto d = distance(a_key, known);
+			if (d < bestDistance && d < a_key.size()) {
+				best = known;
+				bestDistance = d;
+			}
+		}
+		return best.empty() ? std::string() : "; did you mean \"" + std::string(best) + "\"?";
 	}
 
 	std::optional<std::vector<std::string>> ReadStringList(const json& a_value, std::string_view a_source, std::string_view a_where, Diagnostics& a_diags)

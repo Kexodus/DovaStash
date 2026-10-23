@@ -3,7 +3,6 @@
   "name": "Ebongrove - Recall and Teleport SE (Undriel_Ebongrove.esp, mod home; unowned interior, racks, a load door)",
   "home": "Undriel_Ebongrove.esp|0x00026902",
   "coc": "0Ebongrove",
-  "templates": ["54_Ebongrove.json"],
   "tests": [
     {
       "id": "1.1-ebongrove", "title": "Template offered on the first visit (the cell has no owner: accepted as unowned)",
@@ -11,15 +10,16 @@
         {"do": "enter"},
         {"check": "home", "is": true, "layout": false},
         {"check": "log", "since": "plan", "regex": "Cell .*\\(Undriel_Ebongrove\\.esp\\|0x00026902\\): template available"},
-        {"check": "notify", "since": "plan", "regex": "Dova Stash: Ebongrove \\(AutoTest\\) setup available"}
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Ebongrove setup available"}
       ]
     },
     {
       "id": "3.6-ebongrove", "title": "Use template, Deposit spreads weapons, potions and soul gems",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Ebongrove (AutoTest) setup enabled"},
-        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/54_Ebongrove.json@1.0.0"},
+        {"check": "notify", "contains": "Dova Stash: Ebongrove setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/Ebongrove.json@"},
+        {"check": "log", "since": "run", "regex": ": template Templates/Mods/Ebongrove\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "Undriel_Ebongrove.esp|0x0009BB37"},
         {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
         {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},

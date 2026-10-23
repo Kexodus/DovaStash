@@ -1,0 +1,30 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Lost Hall",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest. There is little furniture here: soul gems, scrolls, keys and crafting materials go to the master too.",
+  "author": "Dova Stash",
+  "version": "1.0.1",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "gonkishvampdens.esp"],
+  "cell": "gonkishvampdens.esp|0x000736AA",
+  "master": "gonkishvampdens.esp|0x00082A50",
+  "containers": [
+    {"ref": "gonkishvampdens.esp|0x000739DF", "label": "End table (by the wardrobes)",             "categories": ["books.*"]},
+    {"ref": "gonkishvampdens.esp|0x000739FE", "label": "Wardrobe",                                 "categories": ["armor.clothing"]},
+    {"ref": "gonkishvampdens.esp|0x00082B6A", "label": "Barrel (food)",                            "categories": ["alchemy.food"]},
+    {"ref": "gonkishvampdens.esp|0x00082B6B", "label": "Barrel (ingredients)",                     "categories": ["alchemy.ingredients"]},
+    {"ref": "gonkishvampdens.esp|0x000739F3", "label": "Wardrobe (by the cupboard)",               "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "gonkishvampdens.esp|0x000739F2", "label": "Wardrobe (by the cupboard, 2)",            "categories": ["weapons.*", "ammo.*"]},
+    {"ref": "gonkishvampdens.esp|0x000739F4", "label": "Cupboard (by the wardrobes)",              "categories": ["alchemy.potions", "alchemy.poisons"]},
+    {"ref": "gonkishvampdens.esp|0x000739E0", "label": "End table (by the wardrobes, 2)",          "categories": ["armor.jewelry", "misc.gems", "misc.curios"]},
+    {"ref": "gonkishvampdens.esp|0x000BBABB", "label": "Windhelm den fence chest (by the barrel)", "ignored": true, "note": "Respawns: what you store here can disappear."}
+  ],
+  "displays": [
+    {"ref": "gonkishvampdens.esp|0x000B930C", "label": "Shield rack (by the barrel)"},
+    {"ref": "gonkishvampdens.esp|0x000B930D", "label": "Right weapon rack (by the barrel)"},
+    {"ref": "gonkishvampdens.esp|0x000B930E", "label": "Left weapon rack (by the barrel)"},
+    {"ref": "gonkishvampdens.esp|0x000B9315", "label": "Shield rack (by the barrel, 2)"},
+    {"ref": "gonkishvampdens.esp|0x000B9316", "label": "Right weapon rack (by the barrel, 2)"},
+    {"ref": "gonkishvampdens.esp|0x000B9317", "label": "Left weapon rack (by the barrel, 2)"}
+  ]
+}

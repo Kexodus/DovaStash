@@ -1,5 +1,6 @@
 #include "UI/Panel/DisplaysModel.h"
 
+#include "Events/EventSinks.h"
 #include "Game/ArmorIndex.h"
 #include "Game/FormUtil.h"
 #include "UI/DisplayMenu.h"
@@ -14,6 +15,7 @@ namespace dova::ui::panel
 	{
 		constexpr std::int64_t kRefreshMs = 3000;
 		constexpr std::size_t  kMaxNames = 4;  // item names in one cell before "+N"
+		constexpr float        kAimReach = 250.0f;  // as the hotkey's (Controller kDisplayReach)
 
 		std::int64_t NowMs()
 		{
@@ -366,6 +368,29 @@ namespace dova::ui::panel
 					d = game::DeclaredDisplay(object, *b.kind);
 				}
 				addRow(d, b.ref, object, &b);
+			}
+		}
+
+		// The display the player looks at: resolved like the hotkey's target (DisplayAt reads scripts, so only when the
+		// crosshair target changes); with nothing in the crosshair, an unnamed mannequin in view.
+		const auto handle = events::CrosshairTarget();
+		if (handle != _aimedHandle || !handle) {
+			_aimedHandle = handle;
+			_aimed.reset();
+			auto  hold = game::RefFromHandle(handle);
+			auto* target = hold.get();
+			if (!target && here) {
+				target = game::DisplayInView(here, kAimReach);
+			}
+			if (target && target->GetParentCell() == here) {
+				if (const auto found = game::DisplayAt(target)) {
+					_aimed = game::ToFormRef(RE::TESForm::LookupByID<RE::TESObjectREFR>(found->ref));
+				}
+			}
+		}
+		if (_aimed) {
+			if (const auto it = std::ranges::find(snap->rows, *_aimed, &DisplayRow::ref); it != snap->rows.end()) {
+				snap->aimedRow = static_cast<std::size_t>(it - snap->rows.begin());
 			}
 		}
 

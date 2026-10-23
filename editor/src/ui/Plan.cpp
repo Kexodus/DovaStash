@@ -9,6 +9,7 @@
 
 #include <imgui.h>
 
+#include "Util.h"
 #include "ui/App.h"
 #include "ui/Common.h"
 
@@ -88,10 +89,11 @@ namespace dova::editor::ui
 
 	void EditorApp::FitPlan(const OpenCell& a_cell, ImVec2 a_size)
 	{
-		// The bounds of what is shown, without the few references far from the rest (a marker or a prop left
-		// thousands of units away would shrink the home to a dot): 2 % trimmed on each side. Effects and the
-		// "Other" volumes never count (a fog bank or a trigger can be larger than the home), nor a footprint
-		// larger than 40 % of the home (an exterior backdrop, a room-sized volume).
+		// The bounds of what is shown, without the references far from the rest (a marker or a prop left thousands
+		// of units away would shrink the home to a dot): only the largest group of references 1024 units apart or
+		// closer (the 3D overview's rule, LargestGroup), then 2 % trimmed on each side. Effects and the "Other"
+		// volumes never count (a fog bank or a trigger can be larger than the home), nor a footprint larger than
+		// 40 % of the home (an exterior backdrop, a room-sized volume).
 		_planFitLayers = PlanLayers();
 		std::vector<const home::PlacedRef*> fit;
 		for (const auto& r : a_cell.info.refs) {
@@ -107,6 +109,19 @@ namespace dova::editor::ui
 					fit.push_back(&r);
 				}
 			}
+		}
+		if (fit.size() > 1) {
+			std::vector<std::array<float, 3>> points;
+			std::vector<bool>                 containers;
+			for (const auto* r : fit) {
+				points.push_back(r->position);
+				containers.push_back(LayerOf(*r) == Layer::Container);
+			}
+			std::vector<const home::PlacedRef*> kept;
+			for (const auto i : LargestGroup(points, containers)) {
+				kept.push_back(fit[i]);
+			}
+			fit = std::move(kept);
 		}
 		float minX = -1000.0f, minY = -1000.0f, maxX = 1000.0f, maxY = 1000.0f;
 		auto  trimmedRange = [&] {

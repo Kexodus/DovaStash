@@ -1,5 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <fstream>
+#include <iterator>
+
 #include "TestHelpers.h"
 
 using namespace dova::core;
@@ -278,6 +282,33 @@ TEST_CASE("Unknown fields survive a round-trip", "[layout]")
 	CHECK(SerializeLayout(ParseOk(text)) == text);
 }
 
+TEST_CASE("An unknown key is reported with the near-miss it may be, and kept", "[layout][keep]")
+{
+	Diagnostics diags;
+	const auto  layout = ParseLayoutText(R"({
+		"$schema": "dovastash-layout-1",
+		"cell": "Skyrim.esm|0x1",
+		"containers": [ { "ref": "Skyrim.esm|0x2", "categoreis": ["ammo.*"] } ],
+		"keep": { "quotas": [ { "category": "alchemy.potions", "quota": 5, "restok": true, "note": "mine" } ] }
+	})",
+		"typo.json", diags);
+	REQUIRE(layout);
+	CHECK(diags.ErrorCount() == 0);
+	const auto has = [&](std::string_view a_text) {
+		return std::ranges::any_of(diags.Items(), [&](const Diagnostic& d) { return d.message.find(a_text) != std::string::npos; });
+	};
+	CHECK(has("keep.quotas[0].restok: unknown field (preserved); did you mean \"restock\"?"));
+	CHECK(has("containers[0].categoreis: unknown field (preserved); did you mean \"categories\"?"));
+	CHECK_FALSE(has(".note"));  // a comment
+	REQUIRE(layout->keep);
+	REQUIRE(layout->keep->quotas.size() == 1);
+	CHECK_FALSE(layout->keep->quotas[0].restock);
+
+	const auto text = SerializeLayout(*layout);
+	CHECK(text.find("\"restok\": true") != std::string::npos);
+	CHECK(text.find("\"categoreis\"") != std::string::npos);
+}
+
 TEST_CASE("Malformed entries are reported but never dropped", "[layout]")
 {
 	Diagnostics diags;
@@ -320,6 +351,31 @@ TEST_CASE("Malformed entries are reported but never dropped", "[layout]")
 	const auto  reparsed = ParseLayoutText(text, "bad.json", again);
 	REQUIRE(reparsed);
 	CHECK(SerializeLayout(*reparsed) == text);
+}
+
+TEST_CASE("A bad form reference or display kind says why", "[layout]")
+{
+	Diagnostics diags;
+	const auto  layout = ParseLayoutText(R"({
+		"$schema": "dovastash-layout-1",
+		"cell": "Skyrim.esm|0x1",
+		"master": "Skyrim.esm|0x0A0165A7",
+		"containers": [ { "ref": "Skyrim|0x2" } ],
+		"displays": [ { "ref": "Skyrim.esm|0x3", "kind": "bookcase" }, { "ref": "Skyrim.esm|0x4", "kind": "racks" }, { "ref": "Skyrim.esm|0x5", "kind": 3 } ],
+		"learned": { "Skyrim.esm 0x10": "Skyrim.esm|0x2" }
+	})",
+		"why.json", diags);
+	REQUIRE(layout);
+	const auto has = [&](std::string_view a_text) {
+		return std::ranges::any_of(diags.Items(), [&](const Diagnostic& d) { return d.message.find(a_text) != std::string::npos; });
+	};
+	CHECK(has("master: invalid form reference \"Skyrim.esm|0x0A0165A7\" (kept verbatim): form id above 0x00FFFFFF, drop the load-order byte (0x0A0165A7 -> 0x000165A7)"));
+	CHECK(has("containers[0].ref: invalid form reference \"Skyrim|0x2\" (kept verbatim): not a plugin file name (.esm, .esp or .esl)"));
+	CHECK(has("learned[\"Skyrim.esm 0x10\"]: invalid form reference (kept verbatim): expected \"Plugin.esm|0x00ABCDEF\""));
+	CHECK(has("displays[0].kind: expected one of rack, mannequin, item, case, bookshelf (kept verbatim, ignored); did you mean \"bookshelf\"?"));
+	CHECK(has("displays[1].kind: expected one of rack, mannequin, item, case, bookshelf (kept verbatim, ignored); did you mean \"rack\"?"));
+	CHECK(has("displays[2].kind: expected one of rack, mannequin, item, case, bookshelf (kept verbatim, ignored)"));
+	CHECK_FALSE(has("displays[2].kind: expected one of rack, mannequin, item, case, bookshelf (kept verbatim, ignored);"));
 }
 
 TEST_CASE("Layout document-level validation", "[layout]")
@@ -424,6 +480,35 @@ TEST_CASE("Layout file helpers", "[layout][files]")
 	CHECK(missing.HasErrors());
 }
 
+#ifdef _WIN32
+TEST_CASE("A save over a file another program holds open retries, then writes in place only when asked", "[layout][files]")
+{
+	TempDir    dir;
+	const auto first = ParseOk(kDesignExample);
+	auto       second = first;
+	second.name = "Changed";
+	const auto path = dir.Path() / "Backups" / LayoutFileName(*first.cell);
+	REQUIRE(SaveLayoutFile(path, first));
+	const auto read = [&] {
+		std::ifstream in(path, std::ios::binary);
+		return std::string(std::istreambuf_iterator<char>(in), {});
+	};
+
+	std::ifstream hold(path, std::ios::binary);  // like a sync client: open without delete sharing
+	REQUIRE(hold);
+	if (SaveLayoutFile(path, second)) {
+		SKIP("this file system lets a rename replace an open file");
+	}
+	CHECK_FALSE(std::filesystem::exists(path.string() + ".tmp"));
+	CHECK(read() == SerializeLayout(first));  // the atomic path never half-writes
+
+	CHECK(SaveLayoutFile(path, second, true));
+	CHECK_FALSE(std::filesystem::exists(path.string() + ".tmp"));
+	hold.close();
+	CHECK(read() == SerializeLayout(second));
+}
+#endif
+
 TEST_CASE("Keep config JSON round-trip", "[layout][keep]")
 {
 	const auto  defaults = DefaultKeepConfig();
@@ -513,4 +598,28 @@ TEST_CASE("Wrong-typed name, author, version and priority are kept verbatim, not
 	CHECK(huge->keep->quotas.empty());
 	CHECK(huge->keep->unparsedQuotas.size() == 1);
 	CHECK(SerializeLayout(*huge).find("2147483648") != std::string::npos);
+}
+
+TEST_CASE("A keep entry or declined key that is a broken form reference says what is wrong with it", "[layout][keep][diagnostics]")
+{
+	Diagnostics diags;
+	const auto  layout = ParseLayoutText(R"({
+		"$schema": "dovastash-layout-1",
+		"cell": "Skyrim.esm|0x1",
+		"containers": [ { "ref": "Skyrim.esm|0x2", "categories": ["ammo.*"] } ],
+		"keep": { "always": ["Skyrim.esm|0x0100000F", "notatoken!"] },
+		"declined": { "Skyrim.esm|0x0100000B": ["books.skill"] }
+	})",
+		"refs.json", diags);
+	REQUIRE(layout);
+	const auto has = [&](std::string_view a_text) {
+		return std::ranges::any_of(diags.Items(), [&](const Diagnostic& d) { return d.message.find(a_text) != std::string::npos; });
+	};
+	CHECK(has("keep.always[0]: \"Skyrim.esm|0x0100000F\" is not a token, form reference or category pattern (kept, but ignored): form id above "
+			  "0x00FFFFFF, drop the load-order byte (0x0100000F -> 0x0000000F)"));
+	CHECK(has("keep.always[1]: \"notatoken!\" is not a token, form reference or category pattern (kept, but ignored)"));
+	CHECK_FALSE(has("\"notatoken!\" is not a token, form reference or category pattern (kept, but ignored):"));  // no '|': no form reference meant
+	CHECK(has("declined[\"Skyrim.esm|0x0100000B\"]: expected a container reference and a list of category ids (kept verbatim): form id above "
+			  "0x00FFFFFF, drop the load-order byte"));
+	CHECK(layout->unparsedDeclined.contains("Skyrim.esm|0x0100000B"));
 }

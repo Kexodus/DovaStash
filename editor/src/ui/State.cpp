@@ -8,6 +8,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "Log.h"
 #include "Util.h"
 
 namespace fs = std::filesystem;
@@ -52,7 +53,10 @@ namespace dova::editor::ui
 
 	void EditorState::Load()
 	{
-		const auto text = ReadTextFile(File());
+		if (memoryOnly) {
+			return;
+		}
+		const auto text = ReadTextFile(path.empty() ? File() : path);
 		if (!text) {
 			return;
 		}
@@ -63,6 +67,9 @@ namespace dova::editor::ui
 			}
 			if (j.contains("profile") && j["profile"].is_string()) {
 				profile = j["profile"].get<std::string>();
+			}
+			if (j.contains("data") && j["data"].is_string()) {
+				data = j["data"].get<std::string>();
 			}
 			author = j.value("author", std::string{});
 			saveTarget = j.value("saveTarget", std::string{});
@@ -101,12 +108,18 @@ namespace dova::editor::ui
 
 	void EditorState::Save() const
 	{
+		if (memoryOnly) {
+			return;
+		}
 		nlohmann::ordered_json j;
 		if (mo2) {
 			j["mo2"] = *mo2;
 		}
 		if (profile) {
 			j["profile"] = *profile;
+		}
+		if (data) {
+			j["data"] = *data;
 		}
 		j["author"] = author;
 		if (!saveTarget.empty()) {
@@ -123,9 +136,9 @@ namespace dova::editor::ui
 			hs[cell] = { { "name", r.name }, { "stage", static_cast<int>(r.stage) }, { "saved", r.savedPath }, { "updated", r.updated } };
 		}
 		std::error_code ec;
-		const auto      path = File();
-		fs::create_directories(path.parent_path(), ec);
-		const auto tmp = fs::path(path.native() + L".tmp");
+		const auto      file = path.empty() ? File() : path;
+		fs::create_directories(file.parent_path(), ec);
+		const auto tmp = fs::path(file.native() + L".tmp");
 		{
 			std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
 			if (!out) {
@@ -133,7 +146,16 @@ namespace dova::editor::ui
 			}
 			out << j.dump(1, '\t') << "\n";
 		}
-		fs::rename(tmp, path, ec);
+		fs::rename(tmp, file, ec);
+		if (ec) {
+			// Replacing can fail while another program holds the old file: remove it, then move the new one in.
+			std::error_code ec2;
+			fs::remove(file, ec2);
+			fs::rename(tmp, file, ec2);
+			if (ec2) {
+				Log("state: could not write {}: {}", PathToUtf8(file), ec2.message());
+			}
+		}
 	}
 
 	void EditorState::Advance(const std::string& a_cell, const std::string& a_name, HomeStage a_stage, const std::string& a_savedPath, bool a_force)

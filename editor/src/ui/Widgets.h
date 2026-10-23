@@ -188,7 +188,8 @@ namespace dova::editor::ui::w
 	bool ToolButton(const char* a_label, bool a_active = false, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
 	bool PrimaryButton(const char* a_label, bool a_enabled = true, const char* a_disabledTip = nullptr);  // filled accent (Save)
 	// A ToolButton with a neutral count badge after the label (the drawer's tabs); `a_count` < 0: no badge.
-	bool TabButton(const char* a_label, bool a_active, int a_count, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
+	// `a_of` >= 0 and not `a_count`: the badge reads "count of of" (253 of 297).
+	bool TabButton(const char* a_label, bool a_active, int a_count, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr, int a_of = -1);
 	bool LinkButton(const char* a_label);  // text in accent, underline on hover
 	// Segmented control (3D | Plan, the inspector panels). Returns true when `a_value` changed.
 	bool Segmented(const char* a_id, int& a_value, std::span<const char* const> a_labels, std::span<const char* const> a_tooltips = {});

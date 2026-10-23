@@ -6,6 +6,7 @@
 #include <format>
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include "Util.h"
 #include "ui/App.h"
@@ -65,9 +66,9 @@ namespace dova::editor::ui
 			ImGui::PushStyleColor(ImGuiCol_ChildBg, t.bg2);
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(t.pad * 1.5f, t.pad * 1.5f));
 			ImGui::BeginChild("instancecard", ImVec2(colW, 0), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_Borders);
-			w::Heading("MO2 instance");
+			w::Heading("MO2 instance or Data folder");
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 170.0f * t.scale);
-			const bool enter = ImGui::InputTextWithHint("##mo2card", "Folder with ModOrganizer.ini", _mo2Path, sizeof(_mo2Path), ImGuiInputTextFlags_EnterReturnsTrue);
+			const bool enter = ImGui::InputTextWithHint("##mo2card", "MO2 instance or Skyrim Data folder", _mo2Path, sizeof(_mo2Path), ImGuiInputTextFlags_EnterReturnsTrue);
 			ImGui::SameLine();
 			if (ImGui::Button("Browse...")) {
 				if (auto p = PickFolder()) {
@@ -78,7 +79,9 @@ namespace dova::editor::ui
 			if (w::PrimaryButton("Open", _mo2Path[0] != '\0') || enter) {
 				ApplySetup(_mo2Path[0] ? std::optional(PathFromUtf8(_mo2Path)) : std::nullopt, std::nullopt);
 			}
-			if (!_wsError.empty()) {
+			if (_wsError.starts_with(Workspace::kNoInstance)) {
+				w::MutedWrapped(kPickSetup);  // nothing failed: nothing was given (the command-line wording is for the console)
+			} else if (!_wsError.empty()) {
 				w::ColouredWrapped(w::Kind::Error, _wsError.c_str());
 			}
 			ImGui::EndChild();
@@ -158,14 +161,20 @@ namespace dova::editor::ui
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 					ImGui::PushID(cell.c_str());
-					if (ImGui::Selectable(r->name.empty() ? cell.c_str() : r->name.c_str(), false, ImGuiSelectableFlags_SpanAllColumns) && _homes) {
+					// The name ends in "..." when the column is narrow; the tooltip has all of it.
+					const char*  name = r->name.empty() ? cell.c_str() : r->name.c_str();
+					const ImVec2 np = ImGui::GetCursorScreenPos();
+					const float  nw = ImGui::GetContentRegionAvail().x;
+					if (ImGui::Selectable("##home", false, ImGuiSelectableFlags_SpanAllColumns) && _homes) {
 						for (std::size_t i = 0; i < _homes->homes.size(); ++i) {
 							if (_homes->homes[i].cellRef == cell) {
 								OpenHome(static_cast<int>(i));
 							}
 						}
 					}
-					w::Tip(cell.c_str());
+					const ImVec2 ns = ImGui::CalcTextSize(name);
+					ImGui::RenderTextEllipsis(ImGui::GetWindowDrawList(), np, ImVec2(np.x + nw, np.y + ns.y), np.x + nw, name, nullptr, &ns);
+					w::Tip((r->name.empty() ? cell : r->name + "\n" + cell).c_str());
 					ImGui::PopID();
 					ImGui::TableNextColumn();
 					w::Chip(HomeStageName(r->stage), StageKind(r->stage));

@@ -10,15 +10,20 @@ procedure and the lessons from the first runs. Do not re-read the harness source
 
 ## 0. Preconditions (check, don't assume)
 
-- **One game at a time.** Never run the suite while another agent may be running it. If a `SkyrimSE.exe` is
-  running that you did not start, stop and report; never kill it without the user's OK.
+- **One game at a time.** The runner enforces it: it holds `%TEMP%\DovaStashAutoTest\.lock` and counts a running
+  `SkyrimSE.exe` or an AutoTest MO2 as busy (exit 2). Never kill a `SkyrimSE.exe` you did not start without the
+  user's OK; wait with `-WaitMinutes 30` instead.
 - **The user's MO2 window stays open.** The runner uses `ModOrganizer.exe --multiple` and restores
   `selected_profile`; don't close MO2.
 - **Worktrees share `.git`.** Never `git fetch --depth` / any shallow command (it made the main repo shallow
   once). For CommonLib in a worktree: copy `extern/CommonLibSSE-NG` from the main checkout, then delete the copy's
   `.git`.
-- Profile and AutoTest mod exist? `ls "E:/modding/Kexodus Skyrim/profiles/Dova Stash AutoTest"`. If not:
-  `pwsh -File tests/ingame/install.ps1 -Profile`.
+- Profile and AutoTest mod exist? `ls "$DOVASTASH_MO2/profiles/Dova Stash AutoTest"` (unset: `E:/modding/Kexodus Skyrim`). If not:
+  `pwsh -File tests/ingame/install.ps1 -Profile`. A missing MO2 instance stops `run.ps1` and `install.ps1` with a message.
+- **The player's profile comes back.** When `ModOrganizer.ini` already names the AutoTest profile and no run saved the
+  player's, `run.ps1` puts back `-PlayerProfile <name>`, else "Dova Stash Testing" if it exists, else the profile whose
+  `modlist.txt` changed last, and says "(guessed; -PlayerProfile sets it)". `-Build` uses the `plugin-release` preset
+  and prints where it deploys.
 
 ## 1. Build a DLL without deploying
 
@@ -34,17 +39,30 @@ Only the coordinator deploys to `mods\Dova Stash`. The test DLL goes into the Au
 ## 2. Run (background, then read the summary only)
 
 ```
-pwsh -NoProfile -File tools/autotest/run.ps1 -Dll <path>\DovaStash.dll        # ~5 min; run_in_background
+pwsh -NoProfile -File tools/autotest/run.ps1 -Dll <path>\DovaStash.dll        # ~1 min per plan, ~40 min for all; run_in_background
 pwsh -NoProfile -File tools/autotest/run.ps1 -Dll <dll> -Only '^(21|22)_'      # a subset of the plans (file-name regex)
 ```
 
+Pass `-WaitMinutes 30` instead of a wait loop of your own. Leftover overwrite files are set aside by default (§5).
+Run it in the background if you like, but don't end your turn before its summary line (the pass/fail counts, then
+`Logs and results:`). If a runner was cut off, `pwsh -File tools\autotest\run.ps1 -Finish -WaitMinutes 30` puts the
+player's setups and MO2 profile back (a watchdog normally does it on its own).
+
 Many plans exist (vanilla, Creation Club and mod homes): run the ones your change touches with `-Only`, the whole set
 in a few runs. Mod-added homes need their mods in the profile (`tests/ingame/profile/extra-mods.txt`,
-`install.ps1 -Profile`); the `60_`/`61_` Wynter plans need `install.ps1 -Profile -ExtraMods tests/ingame/profile/extra-mods-wynter.txt`.
+`install.ps1 -Profile`). Plans left out for a missing plugin (the `60_`/`61_` Wynter plans) run right after the main
+run in `<ProfileName> - <suffix>` when that profile exists; make it once with `pwsh -File tests\ingame\install.ps1
+-Profile -ProfileName "Dova Stash AutoTest - wynter" -ExtraMods tests\ingame\profile\extra-mods-wynter.txt`. Without
+it the summary prints that command and the run fails unless `-AllowNotRun`.
 
-Read **only** the tail: one line per test plus `pass N, fail N, skip N, manual N` and the run folder
-(`build/autotest/<date-time>/`). Do not open `DovaStash.log` whole (300+ KB). Exit code 1 = a failure or no
-results.
+Read **only** the summary: the runner prints the tests that did not pass (fail, xfail, xpass, skip, manual, with their
+notes), the blocked plans and `pass N, fail N, xpass N, xfail N, blocked N (N plan(s)), skip N, manual N`, and the run
+folder (`build/autotest/<date-time>/`); `-ListAll` prints every test, and `<run folder>\summary.txt` always lists
+every test. When plans ran in an extra profile, the last line sums both runs (`all: pass N, fail N, xpass N, blocked
+N, skip N, manual N; exit <code>`): read `summary.txt` or that line, not the child run's tail. The runner keeps the
+newest 20 run folders. Never open `DovaStash.log` whole (several MB for a full run); grep the test's slice. Exit codes: 0 green;
+1 a failure, an xpass, a blocked plan (also plans left out for a missing plugin, unless `-AllowNotRun`) or a run that
+did not finish; 2 busy or a setup problem; 3 the game did not start; 4 no results file.
 
 ## 3. A failure: narrow, then read
 
@@ -79,16 +97,26 @@ results.
   container/crafting menus never open; list it in `_run.json` `messageBoxes`. A stuck box looks like a feature bug.
 - **QuickLoot IE needs SkyUI** or it stops the game at the main menu with a dialog (the runner saves `dialog.txt`).
 - **MO2's overwrite folder is shared.** The runner moves the run's files out to `<run>/written/`; a plan whose home
-  already has a layout file is refused, so it never touches the user's setups.
+  already has a layout file is `blocked`, so it never touches the user's setups.
+- **Leftovers from an aborted run** (layouts, backups, `Templates/User/AutoTest*` in overwrite, `selected_profile`
+  still the AutoTest profile in `ModOrganizer.ini`): the next `run.ps1` finishes a killed run's cleanup first
+  (`%TEMP%\DovaStashAutoTest\running.json`: its files go to that run's `written/`, the profile is put back). Files an
+  earlier run wrote (inside a run's game window: run folders' `results.json`, `%TEMP%\DovaStashAutoTest\runs.json`)
+  or marked as AutoTest's (`Templates/User/AutoTest*`, a layout named `... (AutoTest)`) go to that run's `written/`
+  (or `<run>/earlier/`), listed, never put back. Other leftovers (the player's own) are moved to
+  `<run>/preexisting/` and back afterwards (`-NoQuarantine` refuses with a list instead, exit 2). Never delete them
+  by hand.
 - **MO2 may drop the VFS** if `skse64_loader` exits early; the runner retries up to 3 times. A "no results file" with
   no game log usually means that or a DLL without the harness (the deployed one predates it).
 - **A message box left open kills the rest of the run.** The hotkey in `iMode = 1`, a template offer and the category
   question are message boxes; `closeMenu` cannot close them and every later container/crafting menu stays shut. The
   harness fails the test that leaves one open (*left a message box open*): answer it (`answerMessageBox`) or check the
   log/layout instead of pressing the hotkey.
-- **Test templates are per plan.** A plan declares the test templates it needs (`"templates": ["X.json"]`, files in
-  `mod/.../Templates/AutoTest/`); the installer removes the others, so plans on the shipped template of the same cell
-  (20, 30) are not shadowed. Regenerating a plan must keep that key.
+- **Plans run on the shipped templates.** No current plan uses a test template. The option stays: a plan may
+  declare test templates (`"templates": ["X.json"]`, files in `mod/.../Templates/AutoTest/`), loaded only while that
+  plan runs (`Store::ScopeTestTemplates`, `AutoTest.cpp`); `install.ps1` leaves out undeclared ones and warns about a
+  test template no plan declares. Plans 21-23 and 38 use the shipped `*Full.json` templates, plans 41-46 and 51-57
+  the shipped `Templates/Mods` ones.
 - **`layout`/`layoutFile`/`backupFile` checks read the plan's home file**, whatever cell the player stands in: another
   cell's own setup can only be proven through the log ("Applied template ... to <home>") or counts.
 - **`log` checks with `since: "action"`** miss lines the action itself logged; leave the scope off unless needed.

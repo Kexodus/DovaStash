@@ -49,9 +49,11 @@ namespace dova::editor::mo2
 		[[nodiscard]] std::vector<std::string> LoadActivePlugins(const std::string& a_profile) const;
 	};
 
-	// True when this process runs inside MO2's virtual file system (usvfs is loaded): then the game's Data
-	// folder already shows every enabled mod's files, and writes below it go to MO2's overwrite folder (or
-	// the mod chosen in the executable's "Create files in mod" setting).
+	// True when this process runs inside MO2's virtual file system (usvfs is loaded): the game's Data folder
+	// shows the mods of the profile the last MO2 process launched a program with (shared by every MO2 process
+	// of the instance, so it can change under this one), and writes below it go to MO2's overwrite folder (or
+	// the mod chosen in the executable's "Create files in mod" setting). The editor reads the mod folders
+	// itself either way (Workspace::Open).
 	[[nodiscard]] bool RunningUnderMo2Vfs();
 
 	// Finds the MO2 instance this program belongs to, in order: the parent process when it is

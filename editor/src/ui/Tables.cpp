@@ -17,8 +17,8 @@ namespace dova::editor::ui
 {
 	namespace
 	{
-		constexpr const char* kContainerColumns[] = { "Container", "Kind", "Role", "Reference", "Height", "Notes" };
-		constexpr const char* kDisplayColumns[] = { "Display", "Kind", "In the template", "Reference", "Height" };
+		constexpr const char* kContainerColumns[] = { "Container", "Kind", "Role", "Reference", "Height (m)", "Notes" };
+		constexpr const char* kDisplayColumns[] = { "Display", "Kind", "Used", "Reference", "Height (m)" };
 		constexpr const char* kDoorColumns[] = { "Leads to", "Cell", "In the home" };
 		constexpr const char* kPreviewColumns[] = { "Container", "Fill", "Items", "What it receives" };
 
@@ -250,14 +250,20 @@ namespace dova::editor::ui
 		});
 	}
 
-	float FilterBarWidth(const TableView& a_view, DrawerTable a_table)
+	float FilterBarWidth(const TableView& a_view, DrawerTable a_table, bool a_folded)
 	{
 		const auto& t = w::Th();
 		float       width = BoxWidth();
+		int         visible = 0, on = 0;
 		for (const auto& q : TableQuickFilters(a_table)) {
 			if (Visible(q, a_view)) {
-				width += w::ChipWidth(q.label) + ChipGap();
+				++visible;
+				on += (a_view.quick & q.bit) ? 1 : 0;
+				width += a_folded ? 0.0f : w::ChipWidth(q.label) + ChipGap();
 			}
+		}
+		if (a_folded && visible > 0) {
+			width += w::PopoverWidth("Filters", w::Icon::ChevronDown, on) + t.gap;
 		}
 		if (const auto count = CountText(a_view); !count.empty()) {
 			width += w::TextWidth(count.c_str()) + t.gap;
@@ -268,7 +274,7 @@ namespace dova::editor::ui
 		return width + t.gap;  // between the chips and the box
 	}
 
-	void DrawFilterBar(TableView& a_view, DrawerTable a_table)
+	void DrawFilterBar(TableView& a_view, DrawerTable a_table, bool a_folded)
 	{
 		const auto& t = w::Th();
 		ImGui::PushID(TableName(a_table));
@@ -278,17 +284,45 @@ namespace dova::editor::ui
 			ImGui::SameLine(0.0f, t.gap);
 		}
 		bool any = false;
-		for (const auto& q : TableQuickFilters(a_table)) {
-			if (!Visible(q, a_view)) {
-				continue;
+		if (a_folded) {
+			int visible = 0, on = 0;
+			for (const auto& q : TableQuickFilters(a_table)) {
+				if (Visible(q, a_view)) {
+					++visible;
+					on += (a_view.quick & q.bit) ? 1 : 0;
+				}
 			}
-			const bool on = (a_view.quick & q.bit) != 0;
-			if (w::ChipButton(q.label, w::Kind::Neutral, on)) {
-				a_view.quick ^= q.bit;
+			if (visible > 0) {
+				if (w::BeginPopover("quickfilters", "Filters", w::Icon::ChevronDown, on, "Quick filters")) {
+					for (const auto& q : TableQuickFilters(a_table)) {
+						if (!Visible(q, a_view)) {
+							continue;
+						}
+						bool v = (a_view.quick & q.bit) != 0;
+						if (w::Check(q.label, v, q.tip)) {
+							a_view.quick ^= q.bit;
+						}
+					}
+					if (on > 0 && w::LinkButton("Clear")) {
+						a_view.quick = 0;
+					}
+					w::EndPopover();
+				}
+				any = true;
 			}
-			w::Tip(q.tip);
-			ImGui::SameLine(0.0f, ChipGap());
-			any = true;
+		} else {
+			for (const auto& q : TableQuickFilters(a_table)) {
+				if (!Visible(q, a_view)) {
+					continue;
+				}
+				const bool on = (a_view.quick & q.bit) != 0;
+				if (w::ChipButton(q.label, w::Kind::Neutral, on)) {
+					a_view.quick ^= q.bit;
+				}
+				w::Tip(q.tip);
+				ImGui::SameLine(0.0f, ChipGap());
+				any = true;
+			}
 		}
 		if (any) {
 			ImGui::SameLine(0.0f, t.gap);
@@ -366,7 +400,10 @@ namespace dova::editor::ui
 		const auto columns = TableColumns(*table);
 		int        index = -1;
 		for (std::size_t i = 0; i < columns.size(); ++i) {
-			if (!std::string_view(columns[i]).starts_with("##") && core::IEquals(column, columns[i])) {
+			// The header, or the header without its unit: "Height" names "Height (m)".
+			const std::string_view name(columns[i]);
+			const auto             unit = name.find(" (");
+			if (!name.starts_with("##") && (core::IEquals(column, name) || (unit != std::string_view::npos && core::IEquals(column, name.substr(0, unit))))) {
 				index = static_cast<int>(i);
 			}
 		}

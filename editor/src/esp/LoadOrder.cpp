@@ -342,6 +342,20 @@ namespace dova::editor::esp
 		return win;
 	}
 
+	std::string LoadOrder::FirstCellName(const FormKey& a_cell)
+	{
+		for (std::uint32_t i = 0; i < _plugins.size(); ++i) {
+			for (const auto& c : Directory(i).cells) {
+				if (c.key == a_cell) {
+					if (auto name = FullName(c.rec, Read(c.rec)); !name.empty()) {
+						return name;
+					}
+				}
+			}
+		}
+		return {};
+	}
+
 	std::optional<FormKey> LoadOrder::FindCellByEditorId(std::string_view a_editorId)
 	{
 		for (std::uint32_t i = 0; i < _plugins.size(); ++i) {

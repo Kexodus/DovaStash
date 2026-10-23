@@ -60,6 +60,8 @@ namespace dova::home
 
 	// Display name of a cell for the panel and the log: its name, else its editor id, else the form ref.
 	[[nodiscard]] std::string AreaName(RE::TESObjectCELL* a_cell, const core::FormRef& a_ref);
+	// Name of a cell the home's layout lists: its entry's label, else AreaName.
+	[[nodiscard]] std::string ListedCellName(const Home& a_home, const core::FormRef& a_cell);
 
 	// Debug: each container of a multi-cell home with its area and whether the other areas reach it
 	// (persistent). Once per load of the home (a state change), never per frame.

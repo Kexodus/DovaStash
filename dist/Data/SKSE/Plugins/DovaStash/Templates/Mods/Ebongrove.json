@@ -1,0 +1,40 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Ebongrove",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
+  "author": "Dova Stash",
+  "version": "1.0.2",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "Undriel_Ebongrove.esp"],
+  "cell": "Undriel_Ebongrove.esp|0x00026902",
+  "master": "Undriel_Ebongrove.esp|0x0009BB37",
+  "containers": [
+    {"ref": "Undriel_Ebongrove.esp|0x0017ACF8", "label": "Weapons",                            "categories": ["weapons.*", "ammo.*"]},
+    {"ref": "Undriel_Ebongrove.esp|0x0017ACE8", "label": "Armor",                              "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "Undriel_Ebongrove.esp|0x002ECC3B", "label": "Staffs",                             "categories": ["weapons.staves"]},
+    {"ref": "Undriel_Ebongrove.esp|0x000C9604", "label": "Soul gems",                          "categories": ["soulgems.*"]},
+    {"ref": "Undriel_Ebongrove.esp|0x000AFF98", "label": "Scrolls",                            "categories": ["scrolls"]},
+    {"ref": "Undriel_Ebongrove.esp|0x000B50D0", "label": "Ingredients",                        "categories": ["alchemy.ingredients"]},
+    {"ref": "Undriel_Ebongrove.esp|0x000C44B5", "label": "Potions",                            "categories": ["alchemy.potions", "alchemy.poisons"]},
+    {"ref": "Undriel_Ebongrove.esp|0x000C95F9", "label": "Jewelry",                            "categories": ["armor.jewelry", "misc.gems", "misc.curios"]},
+    {"ref": "Undriel_Ebongrove.esp|0x000E7D3E", "label": "Wardrobe",                           "categories": ["armor.clothing"]},
+    {"ref": "Undriel_Ebongrove.esp|0x0017AC77", "label": "Meat",                               "categories": ["alchemy.food"]},
+    {"ref": "Undriel_Ebongrove.esp|0x00259D57", "label": "Pelts and leather",                  "categories": ["misc.hides_pelts", "misc.animal_parts"]},
+    {"ref": "Undriel_Ebongrove.esp|0x00129BA4", "label": "Crafting supplies (by the smelter)", "categories": ["misc.ores_ingots", "misc.dwemer"]},
+    {"ref": "Undriel_Ebongrove.esp|0x00091906", "label": "Crafting supplies",                  "categories": ["misc.building_materials", "misc.tools"]},
+    {"ref": "Undriel_Ebongrove.esp|0x002ECC98", "label": "Misc",                               "categories": ["misc.clutter"]},
+    {"ref": "Undriel_Ebongrove.esp|0x000BF35F", "label": "Bookcase",                           "categories": ["books.*"]},
+    {"ref": "Undriel_Ebongrove.esp|0x00138ECB", "label": "Strong box (by the bed)",            "categories": ["keys"]}
+  ],
+  "displays": [
+    {"ref": "Undriel_Ebongrove.esp|0x0010B4EE", "label": "Mannequin (by the jewelry)"},
+    {"ref": "Undriel_Ebongrove.esp|0x0010B4F7", "label": "Mannequin (by the jewelry, 2)"},
+    {"ref": "Undriel_Ebongrove.esp|0x0010B547", "label": "Weapon plaque (by the bed)"},
+    {"ref": "Undriel_Ebongrove.esp|0x0010B54E", "label": "Weapon plaque (by the bed, 2)"},
+    {"ref": "Undriel_Ebongrove.esp|0x0011F97F", "label": "Shield rack (by the bookcase)"},
+    {"ref": "Undriel_Ebongrove.esp|0x0011F983", "label": "Right weapon rack (by the bookcase)"},
+    {"ref": "Undriel_Ebongrove.esp|0x0011F984", "label": "Left weapon rack (by the bookcase)"},
+    {"ref": "Undriel_Ebongrove.esp|0x00129B8A", "label": "Weapon plaque (by the bed, 3)"},
+    {"ref": "Undriel_Ebongrove.esp|0x0013DFDA", "label": "Weapon plaque (by the scrolls)"}
+  ]
+}

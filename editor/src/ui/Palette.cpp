@@ -49,10 +49,14 @@ namespace dova::editor::ui
 		add("Rescan load order", "F5", _ws != nullptr, [this] { Rescan(); });
 		add("Draft this home", "", cell, [this] { DraftThisHome(); });
 		add("Draft all homes", "Ctrl+D", _ws != nullptr, [this] { StartBulkDraft(); });
-		add("Accept all suggestions", "", cell && idle, [this] { AcceptAll(); });
-		add("Reject the weak suggestions", "", cell && idle, [this] { RejectWeak(); });
-		add("Draft again", "", cell && idle, [this] { DraftAgain(); });
-		add(std::format("Save {} draft{}...", SaveableDrafts(), SaveableDrafts() == 1 ? "" : "s"), "", SaveableDrafts() > 0, [this] { _confirmSaveAll = true; });
+		if (DraftExists()) {  // a draft is made by "Draft this home" or by opening a home without a template
+			add("Accept all suggestions", "", cell && idle, [this] { AcceptAll(); });
+			add("Reject the weak suggestions", "", cell && idle, [this] { RejectWeak(); });
+			add("Draft again", "", cell && idle, [this] { DraftAgain(); });
+		}
+		if (const auto n = SaveableDrafts(); n > 0) {
+			add(std::format("Save {} draft{}...", n, n == 1 ? "" : "s"), "", true, [this] { _confirmSaveAll = true; });
+		}
 		add("Undo", "Ctrl+Z", !_undo.empty(), [this] { Undo(); });
 		add("Redo", "Ctrl+Y", !_redo.empty(), [this] { Redo(); });
 		add("3D view", "1", cell, [this] { _state.ui.view = 0; });
@@ -74,7 +78,7 @@ namespace dova::editor::ui
 		});
 		add("Layers on: everything", "", cell, [this] {
 			_view.showStructure = _view.showContainers = _view.showDisplays = _view.showDoors = _view.showFurniture = _view.showActors = _view.showEffects =
-				_planEffects = true;
+				_planEffects = _view.showMissing = true;
 		});
 		add("Layers...", "L", cell, [this] { w::OpenPopover("layers"); });
 		add("Homes rail", "Ctrl+1", true, [this] { _state.ui.railOpen = !_state.ui.railOpen; });

@@ -72,28 +72,44 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
   template, an *N templates ▾* dropdown listing them.
 - Centre: `3D | Plan` segmented control (keys `1` / `2`).
 - Right: **Draft ▾** (Draft this home, Accept all, Reject the weak ones, Draft again, Draft all homes…),
-  **Save** (Ctrl+S; disabled with a tooltip when the checks have errors), `⚙` **Setup** popover (§2.7).
+  **Save** (Ctrl+S; disabled with a tooltip when the checks have errors; the filled button only when there is
+  something to save, a change or an unsaved draft; an unchanged template is a plain *Save a copy*, or plain *Save*
+  when it is already the file Save writes), `⚙` **Setup** popover (§2.7).
 
 > **Built:** the chip reads *no template* / *yours* / *shipped* / *auto-draft* / *draft* (neutral / ok / info / warn /
-> warn; *auto-draft*: the home's template, or the open file, is one *Save N drafts...* wrote, §2.8) and opens the
-> Template panel; its tooltip says whose it is and the file. *N templates ▾* shows the Template panel's list of the
-> home's templates in the game's order; click one to open it (`--popover templates`). Under
+> warn; *auto-draft*: the home's template, or the open file, is one *Save N drafts...* wrote, §2.8), or *off* (warn)
+> when the open template's `conflicts` names a plugin of the load order: the game does not offer it, and the
+> tooltip says what the in-game list says, *Not offered: a mod that rebuilds this home is loaded.*, with the plugin.
+> The chip opens the
+> Template panel; its tooltip says whose it is and the file. The chip names what is open: a home opens on the
+> template the game offers first (*yours* / *shipped* / *auto-draft*, nothing to save), or on its draft when it has
+> none or the draft has unsaved changes; the Draft panel's *Use the draft* opens the draft in place of the
+> template, and the chip reads *draft* whenever the editor's draft is open (a home without a template too: one
+> rule with the rail's chip). *N templates ▾* shows the Template panel's list of the
+> home's templates in the game's order, the same list and count as the rail's row (every cell of the home: the
+> templates of another cell, a cellar, under that cell's name, *Cellar*); click one to open it
+> (`--popover templates`). Under
 > ~1400 px the title collapses to the emblem, and a long home name ends in "..." (the whole name in its tooltip),
 > so the row never runs into `3D | Plan`.
 
 ### 2.2 Left rail: Homes (Ctrl+1 toggles, remembers width)
 
-- A search box at the top: home or mod name, plugin, Nexus id. Instant filter.
+- A search box at the top: home or mod name, plugin, Nexus id. Instant filter. A hint too wide for the box drops
+  its last part (*Home, mod, plugin*), then reads *Search*.
 - A filter popover (funnel icon, shows a count badge when any filter is active): *Only homes without a
-  template*, *Only enabled mods*, *Likely homes only*, *Exteriors*, *Group by mod* (default on).
+  template*, *Show homes with no containers* (off by default: a cell found as a home with no usable chest and no
+  template is hidden, unless open), *Only enabled mods*, *Likely homes only*, *Exteriors*, *Group by mod* (default on).
 - One list that replaces **By mod**, **Any cell** and the drafts list:
-  - Grouped by mod (MO2 name, Nexus id muted), the game's Data folder last.
+  - Grouped by mod (MO2 name, then `Nexus 65088 · 2 homes` muted), the game's Data folder last.
   - A home row: name, a muted summary in words (`89 chests · 170 displays · 2 cells · 3 templates`; cells and
     templates only when more than one), one status word at the right (*yours* / *shipped* / *auto-draft* / *draft*,
-    a chip; *none* in muted, without a pill), the unsaved dot when it is open and dirty. No "+N" anywhere: counts
-    are words.
-  - A mod group's footer link *All cells…* turns on the scored "any cell" listing for that mod only
-    (what *Any cell* does today), with its evidence in the tooltip and *Likely homes only* respected.
+    a chip; *off* when every template of the home names a loaded plugin under `conflicts`; *none* in muted, without
+    a pill), the unsaved dot when it is open and dirty. No "+N" anywhere: counts are words. A name the chip would
+    cut (a large text size, a narrow rail) keeps its room: the chip becomes a dot of its colour, *none* goes (the
+    row's tooltip has the word).
+  - *All cells…* (a mod group's right-click menu; a footer link only under the open home's group, so the rail stays
+    a list of homes) turns on the scored "any cell" listing for that mod only (what *Any cell* does today), with its
+    evidence in the tooltip and *Likely homes only* respected.
   - Right-click: Open, Draft, Open in Explorer (its template file), Copy form ref.
 - The row of the open home is highlighted; Enter opens the selected row; `↑`/`↓` move.
 - Bottom of the rail: *Rescan (F5)* and the scan summary in one muted line (`124 homes · 302 plugins · 0.9 s`).
@@ -121,7 +137,8 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 
 > **Built:** `S` is not a plain two-state key: in paint mode it leaves paint for select; in select mode it toggles
 > *Pick anything* (3D: walls and clutter too) or *Left drag pans* (plan), also in the Camera popover. The plan
-> fits to its references with 2 % trimmed per side (a stray marker far away no longer shrinks the home), keeping
+> fits as the 3D overview frames: to the largest group of references 1024 units apart or closer (the most
+> containers), then 2 % trimmed per side (a stray marker or a far cluster no longer shrinks the home), keeping
 > the containers, displays and doors near the rest; it re-fits while the viewport settles until the author pans or
 > zooms, and on `Home`.
 
@@ -130,7 +147,18 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 > volumes, markers and room bounds under *Other*. *Effects* is per view: the plan's starts off (their volumes covered
 > the rooms in faint boxes), the 3D view's on; the popover shows the one of the current view. *Other* is the plan's
 > only (off). Hidden layers are not hovered or clicked, and a layer change re-fits the plan, never to an effect or a
-> trigger, until the author pans or zooms. `--layers` sets them for one run.
+> trigger, until the author pans or zooms. `--layers` sets them for one run. The 3D view adds *Missing meshes*
+> (off): walls and clutter whose mesh is not installed (a home overhaul that ships only its plugin) are 25%
+> see-through boxes that clicks pass through; off by default, as a mod's missing roofs still hid half a home. A click
+> on the status row's *N meshes, N textures missing* turns them on (`--layers missing`); a container, display, door or piece of
+> furniture without its mesh stays a solid, clickable box either way.
+
+> **Built:** an interior's 3D view has a roof cut, on by default, per area: 512-unit squares each cut 2 m above
+> their own floor (the lowest container, furniture or door there), never above the highest container + 120 units.
+> Above it only containers and displays are drawn and picked, so the overview shows a cave's rooms instead of its
+> rock shell, the lower cave too (Wuth Rein), and a house's rooms instead of its roof. *Layers* ▾ › *Roof*
+> (interiors, 3D) brings the rest back; `--layers roof` too. A view narrower than 900 px shows the toolbar as icons (*Select*, *Paint*, *Layers*,
+> *Colours*, *Camera*), their names in the tooltips.
 
 ### 2.4 Right inspector (Ctrl+3 toggles, 380 px, remembers width)
 
@@ -141,8 +169,10 @@ A segmented control at the top: **Selection · Template · Draft · Checks**. Ea
   and base record are one muted block with a copy icon, not a form. Empty state: "Click a chest, rack or
   mannequin. `Ctrl+click` adds, drag boxes." plus three buttons: *Make the nearest chest the master*,
   *Draft this home*, *Open the containers list*.
-- **Template**: name, author, version, priority, note; the cells of the home with their labels (join or
-  leave a cell here and from the Doors list); keep rules; the save target; *Save* / *Save as…*.
+- **Template**: name, author, version, priority, note (wrapped, as tall as its text up to 5 lines); the cells of
+  the home with their labels (join or leave a cell here and from the Doors list); keep rules; the save target;
+  *Save* / *Save as…* (*Save* is the title row's button: filled only with something to save, else *Save a copy*
+  or *Save*, the same tooltip).
 - **Draft**: today's draft review for **this** home: the master with its one-line reason and runners-up in a
   tooltip, then per container the suggested categories as chips (green / yellow / orange by confidence,
   reason in the tooltip), tick to accept. *Accept all*, *Reject the weak ones*, *Draft again* at the top.
@@ -150,7 +180,9 @@ A segmented control at the top: **Selection · Template · Draft · Checks**. Ea
   there is no longer anywhere else to go.
 - **Checks**: the problems list (errors first), each one line, click selects the object; *Validate* is
   continuous so there is no button. Also shows what the template still lacks (no master, N containers
-  without a role) as muted suggestions.
+  without a role, N containers not listed) as links. A loaded `conflicts` plugin adds a warning first: *Not
+  offered in game: <plugin> rebuilds this home*, with the template's reference checks under it as information
+  (an *i*, not an error: they describe the rebuild, and *Save a copy* stays open).
 
 The inspector's panel switches automatically when it helps: selecting something switches to Selection;
 *Draft this home* switches to Draft; clicking the status row's problem count switches to Checks.
@@ -158,7 +190,14 @@ The inspector's panel switches automatically when it helps: selecting something 
 > **Built:** the Selection panel shows the object's own mesh (96 px) at the left of its name once the scene has
 > loaded, and its kind with an icon. The Template panel's fields scroll and *Save* / *Save as…* / *Copy JSON*
 > stay pinned at its bottom like a form footer. The Draft panel's colour legend is a tooltip on its *Containers*
-> section head (an info mark).
+> section head (an info mark). A container has one name in every panel (Draft, Where items go, the tables, the
+> Selection heading): the template's label (a landmark, `Barrel (by the grindstone)`) first, else the game's name.
+> Draft rows still of the same name add their height above the cell's floor (`Barrel · 1.3 m`, the tables' rule,
+> §2.5), then a number when that ties too; hovering a row highlights its container in the 3D view. With a template
+> open the panel starts *Showing the template. Accept a chip to change it, or use the whole draft.* The *Not listed*
+> line (`106 containers not listed (174 more come with upgrades)`, upgrades being initially disabled or
+> enable-parented refs) opens the Containers tab on its *Not listed* chip; for a shipped or saved template it sits
+> under its own quieter *Not listed* head instead of *Still to do*.
 
 ### 2.5 Bottom drawer (Ctrl+2 toggles, `L`)
 
@@ -166,11 +205,26 @@ Tabs: **Containers · Displays · Doors · Where items go**, the wide tables of 
 third of the height, drag to resize, remembers. Rows select the same object as the view (and frame it on
 double click). *Where items go* keeps its sample picker and colour buttons in its own tab bar row.
 
-> **Built:** the tabs show their counts as small badges; the tables' first column has the object's icon. Every
+> **Built:** the tabs show their counts as small badges: the usable ones, the rail's count for this cell (not
+> respawning, nobody else's, not removed by an upgrade); in a home of more than one cell `252 of 253`, this cell's
+> of the home's (the tooltip: *252 here · 253 in the home*, and how many more this cell has that are not usable);
+> the Draft panel's *Containers N of M* counts the accepted ones of the same home-wide number; the tables' first
+> column has the object's icon. Every
 > column sorts (header click, Shift+click adds a column, a third click returns to the table's order); the tab row
 > ends with the table's quick filters (toggle chips; Containers also a *Kind* ▾ list and a *Kind* column) and a
-> *Filter rows* box, "N of M" when rows are hidden; per table, for the session. Doors has no *Open* column: a
-> double click on a row opens the cell, a click selects the door.
+> *Filter rows* box, "N of M" when rows are hidden; per table, for the session. A row too narrow for the chips
+> (150 % text at 1366x768) folds them into *Filters* ▾ with a count of those on; *Kind* and the box always show.
+> Containers opens in its own order: the master, with categories, without, ignored, not listed, those that start
+> disabled last in each. Doors has no *Open* column: a
+> double click on a row opens the cell, a click selects the door. The drawer's height is a share of the window's
+> (at most half of it); the rail and inspector together take at most 60% of the width, so at 1280x720 the view
+> keeps its room. Cells speak words: category names (*Swords*, *Books (all)*; ids in the tooltip and the filter),
+> scripts as what they do (*bookshelf*, *Hearthfire build*, *critter spawn*), *Height (m)* in metres above the cell's
+> floor, the unit of the Draft panel's `· 1.3 m`: the lowest containers there from the start that stand together
+> (another within 400 units; one left alone below does not count), leaving out any more than 2000 units from the
+> median (a home overhaul parks the vanilla containers it removes far below; those read `-` and their Notes *out of
+> the home*). *Containers* lists the containers that are not displays (bookshelves and cases are the *Displays*
+> tab's); the Displays table's *Used* column says *yes*, the categories, or *ignored*.
 
 ### 2.6 Start panel
 
@@ -178,7 +232,11 @@ Shown in the viewport area when nothing is open (first launch, or after the embl
 column, centred, in this order:
 
 1. Setup status in one line (instance, profile, mods enabled) with *Change…* opening the Setup popover.
-   When no instance is found: a card with the path field, *Browse…* and *Open*, and nothing else.
+   When no instance is found: a card with the path field (*MO2 instance or Skyrim Data folder*), *Browse…* and
+   *Open*, and a muted hint, *Pick your MO2 instance (the folder with ModOrganizer.ini) or your Skyrim Data folder,
+   or start the editor from MO2.* (the console's error names the flags instead). A folder with `ModOrganizer.ini`
+   opens as the instance, one with `Skyrim.esm` (or a game folder with `Data\Skyrim.esm`) as a plain Data folder,
+   remembered for the next start.
 2. "124 player homes, 17 with templates" and the scan time, muted.
 3. Three cards: *Open a home* (focuses the rail search), *Draft all homes* (Ctrl+D), *Open a template…*
    (Ctrl+O). Short one-line descriptions, no paragraphs.
@@ -208,10 +266,13 @@ homes without a template.
 
 > **Built:** *Save N drafts...* writes auto-drafts: each file is marked `"autoDraft": true` (DESIGN §6.8; a draft
 > the author reviewed first is saved as theirs, unmarked) and never replaces a template someone made. The dialog
-> counts new files and refreshed auto-drafts, then lists the homes left alone by name in `warn` (the file in the way
+> counts new files and refreshed auto-drafts, only those that are not 0 (`78 new, 2 refreshed (backed up as .bak,
+> version raised).`), its folder in the system's slashes, then lists the homes left alone by name in `warn` (the file in the way
 > in the tooltip); an auto-draft is not the author's save, so it does not advance the stage. A home whose only
 > template is an auto-draft shows an *auto-draft* chip (`warn`, like *draft*) in the rail, the title row and the
-> Template panel's list, and still counts as without a template. Saving it (Ctrl+S) drops the mark.
+> Template panel's list, and still counts as without a template. Saving it (Ctrl+S) drops the mark. With no author
+> name yet the dialog asks for it, as the single *Save* does (never "Unknown"): *Save them* waits for it, and it is
+> kept as Setup's *Author*.
 
 ### 2.9 Command palette (Ctrl+K)
 
@@ -219,10 +280,18 @@ One text field over the viewport. Typing matches, in this order: commands ("save
 "layers off"), homes (opens), containers and displays of the open home (selects and frames), categories
 (in paint mode, sets the brush). `Esc` closes. Items show their shortcut on the right.
 
+> **Built:** *Accept all suggestions*, *Reject the weak suggestions* and *Draft again* are offered only while the
+> open home has a draft, *Save N drafts...* only when N is more than 0.
+
 ### 2.10 Status row
 
 Left: home · cell (muted), the unsaved dot. Middle: `0 errors · 2 warnings` (click opens Checks). Right:
 background work (scan, meshes, preview) as `label n/m`, then the one most useful shortcut for the moment.
+
+> **Built:** missing or unreadable meshes and textures as `1 missing`; the tooltip counts them in words (`1 texture
+> missing`) and names, for a texture, the mesh that uses it and the mod or archive that mesh comes from (meshes
+> first). A click shows or hides the missing meshes' boxes (the *Missing meshes* layer), a right-click copies the
+> whole list; `editor.log` has it too.
 
 ---
 
@@ -289,7 +358,8 @@ every machine. DPI: sizes scale with the window's DPI, times a **UI size** (a sl
 5 % steps; Ctrl+= / Ctrl+- step 10 %, Ctrl+0 is *Auto*; remembered in `state.json` as `ui.textScale`). *Auto* is
 125 % on a 1440p and 150 % on a 4K monitor at 100 % Windows scaling, where the text is too small to read at arm's
 length, else 100 %. A new size rebuilds the fonts between frames; moving the window to a monitor with another DPI
-does the same.
+does the same. Screenshots draw at 100 % (the same pixels on every machine) unless `--text-size <percent|auto>`
+sets the size for that run.
 
 ### 3.3 Shapes and ornament
 
@@ -342,7 +412,9 @@ Never read SWF (SkyUI's icons) and never copy art into the repo or the zip.
 
 The command line keeps every flag (`--tab` maps: `3d`/`plan` to the view, `containers`/`displays`/`doors`/
 `preview` to the drawer tab, `template` to the inspector panel; `--drafts` per §2.8). `--screenshot` keeps
-working so the guide's figures can be retaken.
+working so the guide's figures can be retaken. A value the window does not know (`--tab`, `--inspector`,
+`--popover`, `--colours`, `--layers`, `--theme`) is an error (exit 2), and a `--home` that matches no home exits 1
+after its screenshot (EDITOR.md §5.6).
 
 ---
 

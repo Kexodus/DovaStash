@@ -244,7 +244,7 @@ TEST_CASE("Deposit explains every stack: moved where and why, or why it stays", 
 	CHECK(why[3].outcome == Empty);
 	CHECK(why[4].outcome == Kept);
 	CHECK(why[4].kept == 1);
-	CHECK(why[4].keepRule == "always equipped (global)");
+	CHECK(why[4].keepRule == "worn item");
 	CHECK(why[5].outcome == Move);
 	CHECK(why[5].moved == 7);
 	CHECK(why[5].kept == 3);
@@ -627,4 +627,76 @@ TEST_CASE("UndoLearn restores the entry and removes a container the learn added"
 	UndoLearn(layout, undo);
 	CHECK(layout.FindContainer(kUnmanaged));
 	CHECK(layout.learned.at(Sk(0x90)) == kLooseChest);
+}
+
+TEST_CASE("Area masters: the catch-all of an area the home's master cannot be reached from (DESIGN 6.7)", "[planner][cells]")
+{
+	Fixture       f;
+	const FormRef cellar = Sk(0x4849);
+	const FormRef gallery = Sk(0x092C);
+	const FormRef cellarChest = Sk(0xF85);
+	const FormRef galleryWardrobe = Sk(0xE5D);
+	f.layout.cells = { HomeCell{ .cell = cellar, .label = "Cellar", .master = cellarChest }, HomeCell{ .cell = gallery, .master = galleryWardrobe } };
+	const auto book = MakeItem(Sk(0x1234), ItemType::Book);
+	std::set<FormRef> away;
+	const auto        available = [&](const FormRef& a_ref) { return !away.contains(a_ref); };
+
+	SECTION("the home's master in reach: it takes them, as always")
+	{
+		const auto d = f.Dest(book, available);
+		REQUIRE(d);
+		CHECK(d->container == kMaster);
+	}
+	SECTION("out of reach: the first available area master, or the player's area's own")
+	{
+		away = { kMaster };
+		auto d = f.Dest(book, available);
+		REQUIRE(d);
+		CHECK(d->container == cellarChest);
+		CHECK(d->reason == Destination::Reason::Master);
+
+		SortPlanner planner(f.layout, f.categories, available);
+		planner.SetPlayerArea(gallery);
+		d = planner.ResolveDestination(book);
+		REQUIRE(d);
+		CHECK(d->container == galleryWardrobe);
+
+		// A category container in reach still wins over any master.
+		d = f.Dest(Weapon(Sk(0x900), WeaponType::OneHandSword), available);
+		REQUIRE(d);
+		CHECK(d->container == kArmory);
+	}
+	SECTION("an area master that is out of reach too leaves the items with the player")
+	{
+		away = { kMaster, cellarChest, galleryWardrobe };
+		CHECK_FALSE(f.Dest(book, available));
+		const SortPlanner          planner(f.layout, f.categories, available);
+		std::vector<StackDecision> why;
+		const std::vector          inventory{ book };
+		CHECK(planner.Deposit(inventory, NoKeep(), &why).empty());
+		REQUIRE(why.size() == 1);
+		CHECK(why[0].outcome == StackDecision::Outcome::NoDestination);
+	}
+	SECTION("an area master is managed and a Sort all source; the home's master is never an area master")
+	{
+		const SortPlanner planner(f.layout, f.categories);
+		CHECK(planner.IsManaged(cellarChest));
+		CHECK(planner.IsSortSource(cellarChest));
+		f.layout.cells[0].master = kMaster;
+		away = { kMaster };
+		const auto d = f.Dest(book, available);
+		REQUIRE(d);
+		CHECK(d->container == galleryWardrobe);
+	}
+	SECTION("Deposit in the area: homeless items go to its master, no item is left behind")
+	{
+		away = { kMaster };
+		SortPlanner planner(f.layout, f.categories, available);
+		planner.SetPlayerArea(cellar);
+		const std::vector inventory{ book, Weapon(Sk(0x900), WeaponType::OneHandSword) };
+		const auto        moves = planner.Deposit(inventory, NoKeep());
+		REQUIRE(moves.size() == 2);
+		CHECK(moves[0].to == ContainerRef(cellarChest));
+		CHECK(moves[1].to == ContainerRef(kArmory));
+	}
 }

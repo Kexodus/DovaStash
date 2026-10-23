@@ -25,12 +25,12 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Proudspire Manor v1.0.0 by Dova Stash"
+          "regex": "template: Proudspire Manor v[0-9.]+ by Dova Stash"
         },
         {
           "check": "notify",
           "since": "plan",
-          "contains": "Dova Stash: Proudspire Manor setup available (by Dova Stash)"
+          "contains": "Dova Stash: Proudspire Manor setup available (press K)"
         },
         {
           "do": "buyHome"
@@ -226,7 +226,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/Vanilla/ProudspireManor.json@1.0.0"
+          "contains": "Templates/Vanilla/ProudspireManor.json@"
         },
         {
           "check": "layout",
@@ -286,11 +286,9 @@
           "ge": 1
         },
         {
-          "check": "count",
-          "in": "Skyrim.esm|0x000D89D5",
-          "item": "Skyrim.esm|0x0001ACE6",
-          "from": "template",
-          "ge": 1
+          "check": "log",
+          "regex": "Display: Aevar Stone-Singer .* on .*\\(bookshelf\\)",
+          "within": 10
         },
         {
           "check": "conserved",
@@ -607,6 +605,25 @@
         {
           "check": "noErrors"
         }
+      ]
+    },
+    {
+      "id": "3.7-template", "title": "The template lists the home's shelves and racks: Deposit puts a book on a shelf and a weapon on a rack",
+      "steps": [
+        {"do": "buyHome"},
+        {"do": "useTemplate"},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x00102B13"}},
+        {"do": "require", "enabled": "Skyrim.esm|0x00102B13", "why": "the bookshelf comes with a decoration"},
+        {"do": "additem", "item": "Skyrim.esm|0x0001ACEF", "count": 1},
+        {"do": "additem", "item": "Skyrim.esm|0x000139A8", "count": 1},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "log", "regex": "Display: The Lusty Argonian Maid, v1 .* on .*\\(bookshelf\\)", "within": 10},
+        {"check": "log", "regex": "Display: Glass Mace .* on .*\\(rack\\)", "within": 10},
+        {"check": "count", "item": "Skyrim.esm|0x0001ACEF", "eq": 0},
+        {"check": "count", "item": "Skyrim.esm|0x000139A8", "eq": 0},
+        {"check": "log", "absent": true, "regex": "did not take|had no 3D"},
+        {"check": "noErrors"}
       ]
     }
   ]

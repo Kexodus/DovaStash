@@ -3,7 +3,6 @@
   "name": "Wuth Rein - An ancient nordic hideout (WuthRein.esp, mod home; tests the template path, bookshelves, an anvil)",
   "home": "WuthRein.esp|0x00001308",
   "coc": "WuthReinInterior",
-  "templates": ["53_WuthRein.json"],
   "tests": [
     {
       "id": "1.1-wuthrein", "title": "Template offered on the first visit",
@@ -11,15 +10,16 @@
         {"do": "enter"},
         {"check": "home", "is": true, "layout": false},
         {"check": "log", "since": "plan", "regex": "Cell .*\\(WuthRein\\.esp\\|0x00001308\\): template available"},
-        {"check": "notify", "since": "plan", "regex": "Dova Stash: Wuth Rein \\(AutoTest\\) setup available"}
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Wuth Rein setup available"}
       ]
     },
     {
       "id": "3.6-wuthrein", "title": "Use template, Deposit spreads ore, soul gems and potions",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Wuth Rein (AutoTest) setup enabled"},
-        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/53_WuthRein.json@1.0.0"},
+        {"check": "notify", "contains": "Dova Stash: Wuth Rein setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/WuthRein.json@"},
+        {"check": "log", "since": "run", "regex": ": template Templates/Mods/WuthRein\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "WuthRein.esp|0x00001488"},
         {"do": "additem", "item": "Skyrim.esm|0x00071CF3", "count": 4},
         {"do": "additem", "item": "Skyrim.esm|0x0002E4E2", "count": 2},
@@ -27,7 +27,7 @@
         {"do": "snapshot", "name": "dep"},
         {"do": "op", "op": "Deposit"},
         {"do": "waitIdle"},
-        {"check": "count", "in": "WuthRein.esp|0x000013FF", "item": "Skyrim.esm|0x00071CF3", "from": "dep", "ge": 4},
+        {"check": "count", "in": "WuthRein.esp|0x00001409", "item": "Skyrim.esm|0x00071CF3", "from": "dep", "ge": 4},
         {"check": "count", "in": "WuthRein.esp|0x00001388", "item": "Skyrim.esm|0x0002E4E2", "from": "dep", "ge": 2},
         {"check": "count", "in": "WuthRein.esp|0x0002730C", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
         {"check": "conserved", "snapshot": "dep"},
@@ -57,7 +57,7 @@
         {"do": "snapshot", "name": "sortall"},
         {"do": "op", "op": "Deposit"},
         {"do": "waitIdle"},
-        {"check": "count", "in": "WuthRein.esp|0x000013FF", "item": "Skyrim.esm|0x00071CF3", "ge": 2},
+        {"check": "count", "in": "WuthRein.esp|0x00001409", "item": "Skyrim.esm|0x00071CF3", "ge": 2},
         {"do": "op", "op": "SortAll"},
         {"do": "waitIdle"},
         {"do": "op", "op": "Retrieve", "pattern": "misc.ores_ingots"},
@@ -82,13 +82,16 @@
       ]
     },
     {
-      "id": "3.7-wuthrein", "title": "Bookshelf: Fill now puts a book up (a plain book, not a note: notes are refused without categories)",
+      "id": "3.7-wuthrein", "title": "Bookshelf: Fill now puts a book up (a plain book, not a note: notes are refused without categories); a book whose copy falls off the shelf goes back, none is lost",
       "steps": [
         {"do": "displayUse", "ref": "WuthRein.esp|0x000013C5"},
         {"do": "additem", "item": "Skyrim.esm|0x000F456D", "count": 2},
+        {"do": "snapshot", "name": "shelf"},
         {"do": "fill", "ref": "WuthRein.esp|0x000013C5"},
         {"check": "log", "regex": "Display: The Great War .* on .*\\(bookshelf\\)", "within": 10},
         {"check": "count", "in": "WuthRein.esp|0x000013C5", "item": "Skyrim.esm|0x000F456D", "ge": 1, "within": 5},
+        {"do": "waitIdle"},
+        {"check": "conserved", "snapshot": "shelf"},
         {"check": "noErrors"}
       ]
     },

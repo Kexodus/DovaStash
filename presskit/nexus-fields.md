@@ -11,7 +11,7 @@ asked for.
 |---|---|
 | Game | Skyrim Special Edition |
 | Mod name | `Dova Stash` |
-| Version | the current version, e.g. `0.2.3` |
+| Version | the current version, from `CMakeLists.txt` |
 | Author | your Nexus user name (credited as the creator) |
 | Category | **Player Homes** (see below) |
 | Language | English |
@@ -27,7 +27,7 @@ asked for.
 
 ### Category choice: Player Homes
 
-- Everything the mod does happens in a player home. It works in any home, and it ships 22 home
+- Everything the mod does happens in a player home. It works in any home, and it ships 42 home
   templates. People who want better storage in their home browse **Player Homes**.
 - Community template packs for individual homes will naturally go in the same category, so the main
   mod and its add-ons sit next to each other.
@@ -66,7 +66,7 @@ Leave out: Lore-friendly (the mod adds no content), Immersion, Adult.
 |---|---|
 | Address Library for SKSE Plugins (32444) | SE and AE. Required. |
 | VR Address Library for SKSEVR (58101) | VR only. Required on VR instead of Address Library. |
-| SKSE Menu Framework (120352) | Optional. SE and AE only. Adds the full panel. Without it, native message boxes are used. |
+| SKSE Menu Framework (120352) | Optional. SE and AE only. Adds the settings page and the full panel. Without it, settings are in DovaStash.ini. |
 | ImGui Icons (114790) | Only needed by SKSE Menu Framework. Optional for Dova Stash itself. |
 
 **Off-site requirements**
@@ -131,7 +131,7 @@ Page fonts: Cinzel, Jost, Noto Sans Runic (SIL Open Font License)
 | Field | Value |
 |---|---|
 | File name | `Dova Stash` |
-| Version | the current version, e.g. `0.2.3` |
+| Version | the current version, from `CMakeLists.txt` |
 | Category | **Main Files** |
 | Update to an existing file? | No (first upload) |
 | Remove the previous version? | n/a |
@@ -143,15 +143,20 @@ Page fonts: Cinzel, Jost, Noto Sans Runic (SIL Open Font License)
 **Archive layout.** It must map onto `Data/`. Don't wrap it in an extra top-level folder.
 
 ```
+Interface/DovaStash/logo.dds
 SKSE/Plugins/DovaStash.dll
 SKSE/Plugins/DovaStash.ini                     (copy of src/plugin/DovaStash.ini.default)
 SKSE/Plugins/DovaStash/Categories/00_Default.json
-SKSE/Plugins/DovaStash/Templates/Vanilla/*.json        (12 files)
-SKSE/Plugins/DovaStash/Templates/CreationClub/*.json   (10 files)
+SKSE/Plugins/DovaStash/SelfSorting/00_Default.json
+SKSE/Plugins/DovaStash/Templates/Vanilla/*.json        (16 files)
+SKSE/Plugins/DovaStash/Templates/CreationClub/*.json   (13 files)
+SKSE/Plugins/DovaStash/Templates/Mods/*.json           (13 files)
+Tools/DovaStashEditor.exe, Tools/DovaStashEditor.com   (the editor build's deploy)
 LICENSE                                         (optional, but good practice for GPL)
 ```
 
-Ship this one file only: no debug-symbols or optional category downloads. The OCF category set stays
+Everything under `dist/Data` goes in as it is (the build's deploy mirrors it). Ship this one file only: no
+debug-symbols or optional category downloads. The OCF category set stays
 in the repository (`dist/Optional/OCF/`) for anyone who asks.
 
 ## 6. Images
@@ -197,5 +202,5 @@ Title, if one is asked for: `Bug reports: please read before posting`.
 
 ## 8. Articles / Docs (optional)
 
-The description already contains the template-authoring guide. If you'd like a separate article,
-the "Template authoring" spoiler from the description works as one, word for word.
+The template-authoring guide is its own article: post `nexus-article-templates.bbcode.txt` (title:
+`Making a home template`). The description's *Template authoring* section links to `tools/README.md` on GitHub.

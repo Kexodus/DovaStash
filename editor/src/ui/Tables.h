@@ -103,9 +103,10 @@ namespace dova::editor::ui
 	[[nodiscard]] bool MatchesText(const TableRow& a_row, std::string_view a_filter);
 
 	// The tab row's right side: "N of M" when rows are hidden, the quick filters and the box. Width first (to
-	// right-align it), then Draw at the cursor.
-	[[nodiscard]] float FilterBarWidth(const TableView& a_view, DrawerTable a_table);
-	void                DrawFilterBar(TableView& a_view, DrawerTable a_table);
+	// right-align it), then Draw at the cursor. `a_folded`: the quick filters in a "Filters" popover with a count
+	// of those on (a row too narrow for the chips; the Kind list and the box always show).
+	[[nodiscard]] float FilterBarWidth(const TableView& a_view, DrawerTable a_table, bool a_folded = false);
+	void                DrawFilterBar(TableView& a_view, DrawerTable a_table, bool a_folded = false);
 
 	// The command line: "--sort table:column[:desc]" (column by header or number from 1) and "--quick chip".
 	struct SortArg

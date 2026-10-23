@@ -22,8 +22,9 @@ namespace dova::autotest
 		std::string              id;
 		std::string              title;
 		std::string              plan;
-		std::string              status;  // "pass", "fail", "skip", "manual"
-		std::string              note;    // skip / manual: why
+		std::string              status;      // "pass", "fail", "skip", "manual", "xfail", "xpass" (expectFail)
+		std::string              note;        // skip / manual / xfail: why
+		std::string              expectFail;  // the test's "expectFail": a known gap (a fail is "xfail", a pass "xpass")
 		std::vector<CheckRecord> checks;
 		double                   seconds{ 0.0 };
 	};
@@ -53,6 +54,8 @@ namespace dova::autotest
 		std::uint64_t testMark{ 0 };
 		std::uint64_t stepMark{ 0 };
 		std::map<std::string, Snapshot>        snapshots;
+		std::set<RE::FormID>                   planCells;  // cells this plan's `enter` steps arrived in
+		std::set<RE::FormID>                   planEnabled;  // references this plan's `enable` steps turned on (they were off)
 		std::optional<sort::selling::Quote>    quote;
 		std::optional<core::FormRef>           quoteChest;
 		bool          abortTest{ false };  // an action failed: the rest of the test is skipped
@@ -61,6 +64,7 @@ namespace dova::autotest
 		std::uint64_t actionMark{ 0 };     // log mark when the last action began ("since": "action")
 		std::optional<Wait> next;          // set by a finishing wait: the step waits again (a fallback)
 		RE::FormID    simulatedContainer{ 0 };  // a container menu the Controller was told about (none would open)
+		std::set<std::string> writtenLayouts;   // other cells' setup files writeLayout wrote in this run (FormRef text)
 
 		void Record(bool a_ok, std::string a_what, std::string a_detail = {});
 	};

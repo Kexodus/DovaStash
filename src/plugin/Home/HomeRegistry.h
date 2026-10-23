@@ -30,6 +30,9 @@ namespace dova::home
 		std::vector<core::FormRef>  areasFrom;      // the layout's cells the areas were built from
 		std::string                 name;
 		std::optional<core::Layout> layout;  // player layout; nullopt = not set up yet
+		// The name the HUD gives the home in every notice (setup, reset, areas): its setup's name (the template's,
+		// "Tundra Homestead (with cellar)"), else the cell's.
+		[[nodiscard]] const std::string& DisplayName() const noexcept { return layout && !layout->name.empty() ? layout->name : name; }
 		core::LayoutResolution      resolution;
 		bool                        layoutBroken{ false };  // a layout file exists but does not parse: never overwrite
 		bool                        dirty{ false };
@@ -123,6 +126,11 @@ namespace dova::home
 		// Only the setup changes: no item is moved. Refused (false, nothing changed) when the layout file is
 		// broken or the backup fails.
 		bool ApplyTemplate(Home& a_home, const core::TemplateCandidate& a_template);
+		// Removes a template from this home (`a_hidden`) or adds it back: core::HideTemplate / UnhideTemplate on the
+		// setup's hiddenTemplates (DESIGN §6.2), then the home's templates are resolved again and the setup is saved.
+		// Only that list changes (and basedOn, when the removed template is the one in use); the file stays on disk and
+		// no item is moved. False (nothing changed) without a setup, with a broken one, or when there is nothing to do.
+		bool SetTemplateHidden(Home& a_home, std::string_view a_source, bool a_hidden);
 		bool          Reset(Home& a_home);
 		enum class RestoreResult : std::uint8_t
 		{

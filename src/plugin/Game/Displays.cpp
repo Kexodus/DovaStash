@@ -306,29 +306,45 @@ namespace dova::game
 			return form ? form->As<RE::BGSKeyword>() : nullptr;
 		}
 
-		// The book triggers of a shelf that can ignore books: BookShelfTrigger01Ref..04Ref (set on its first cell
-		// load), else its BookShelfTrigger01..04 linked refs.
-		std::vector<ScriptPtr> BookTriggers(RE::TESObjectREFR* a_shelf, const std::vector<Var>& a_vars)
+		struct BookTriggerSet
 		{
+			std::vector<ScriptPtr> ignoring;     // the scripts that can be put in IgnoreBooks
+			bool                   any{ false };  // the script names a trigger (a var or a linked-ref keyword)
+			bool                   stuck{ false };  // one of them can't be put in IgnoreBooks, or was not found
+		};
+
+		// The book triggers of a shelf: BookShelfTrigger01Ref..04Ref (set on its first cell load), else its
+		// BookShelfTrigger01..04 linked refs.
+		BookTriggerSet BookTriggers(RE::TESObjectREFR* a_shelf, const std::vector<Var>& a_vars)
+		{
+			BookTriggerSet out;
 			std::vector<RE::TESObjectREFR*> refs;
 			for (int i = 1; i <= kBookTriggers; ++i) {
 				auto* form = FormOf(FindVar(a_vars, Numbered("BookShelfTrigger", i, "Ref")));
 				auto* ref = form ? form->As<RE::TESObjectREFR>() : nullptr;
+				auto* keyword = KeywordOf(a_vars, Numbered("BookShelfTrigger", i));
 				if (!ref) {
-					auto* keyword = KeywordOf(a_vars, Numbered("BookShelfTrigger", i));
 					ref = keyword ? a_shelf->GetLinkedRef(keyword) : nullptr;
+				}
+				if (form || (keyword && ref)) {
+					out.any = true;
+				}
+				if (form && !ref) {
+					out.stuck = true;  // its var names something that is not a reference
 				}
 				if (ref && std::ranges::find(refs, ref) == refs.end()) {
 					refs.push_back(ref);
 				}
 			}
-			std::vector<ScriptPtr> out;
 			for (auto* ref : refs) {
+				bool ignores = false;
 				for (auto& s : BoundScripts(ref)) {
 					if (HasState(s, kBookTriggerIgnore)) {
-						out.push_back(s);
+						out.ignoring.push_back(s);
+						ignores = true;
 					}
 				}
+				out.stuck = out.stuck || !ignores;
 			}
 			return out;
 		}
@@ -372,6 +388,30 @@ namespace dova::game
 		}
 	}
 
+	namespace
+	{
+		// A copy of the vanilla mannequin (ManakinRace) whose own script, under another name, dresses it when armor
+		// arrives (it defines OnItemAdded itself; inherited empty events do not count). Without such a script,
+		// armor moved into the actor would only sit in an inventory nobody can open: never a display then.
+		bool IsScriptedMannequinCopy(RE::TESObjectREFR* a_ref, const ScriptPtr& a_script)
+		{
+			auto* actor = a_ref ? a_ref->As<RE::Actor>() : nullptr;
+			auto* race = actor ? actor->GetRace() : nullptr;
+			const char* edid = race ? race->GetFormEditorID() : nullptr;
+			if (!edid || !core::IEquals(edid, "ManakinRace")) {
+				return false;
+			}
+			const auto* type = a_script ? a_script->GetTypeInfo() : nullptr;
+			const auto* funcs = type ? type->GetMemberFuncIter() : nullptr;
+			for (std::uint32_t i = 0; funcs && i < type->GetNumMemberFuncs(); ++i) {
+				if (const auto& f = funcs[i].func; f && core::IEquals(f->GetName().c_str(), "OnItemAdded")) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+
 	std::optional<FoundDisplay> InspectDisplay(RE::TESObjectREFR* a_ref)
 	{
 		if (!a_ref || a_ref->IsDeleted()) {
@@ -390,7 +430,7 @@ namespace dova::game
 		for (const auto& script : BoundScripts(a_ref)) {
 			const auto name = ScriptName(script);
 			if (actor) {
-				if (core::IEquals(name, kMannequinScript)) {
+				if (core::IEquals(name, kMannequinScript) || IsScriptedMannequinCopy(a_ref, script)) {
 					return FoundDisplay{ a_ref->GetFormID(), core::DisplayKind::Mannequin, core::RackType::Any, 0, {}, std::nullopt, name };
 				}
 				continue;
@@ -653,6 +693,56 @@ namespace dova::game
 		return true;
 	}
 
+	namespace
+	{
+		// Whether a weapon or shield sits on a rack whose activator is disabled: the one its script recorded
+		// (PlayersDroppedWeapon), else one in the cell within its trigger's bounds (where the pivot nodes are). A
+		// mod can disable the activator of an empty rack (an enable parent, a quest); that rack still takes one.
+		// Without the trigger's 3D the disabled activator decides (when in doubt, nothing goes on it).
+		bool RackHoldsItem(const FoundDisplay& a_rack, RE::TESObjectREFR* a_activator)
+		{
+			auto* trigger = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_rack.trigger);
+			auto* root = trigger ? trigger->Get3D() : nullptr;
+			auto* cell = trigger ? trigger->GetParentCell() : nullptr;
+			if (!root || !cell) {
+				return true;
+			}
+			const bool  bounded = root->worldBound.radius > 1.0f;
+			const auto  center = bounded ? root->worldBound.center : root->world.translate;
+			const float radius = bounded ? std::clamp(root->worldBound.radius, 48.0f, 160.0f) : 96.0f;
+			// What a rack holds: a weapon or a shield (loose armor nearby, a helmet on a shelf, is not on it).
+			const auto onIt = [&](RE::TESObjectREFR* a_ref) {
+				const auto* base = a_ref ? a_ref->GetBaseObject() : nullptr;
+				const auto* armor = base ? base->As<RE::TESObjectARMO>() : nullptr;
+				return base && (base->Is(RE::FormType::Weapon) || (armor && armor->IsShield())) && !a_ref->IsDeleted() &&
+				       !IsEffectivelyDisabled(a_ref) && a_ref->GetParentCell() == cell && a_ref->GetPosition().GetDistance(center) <= radius;
+			};
+			RE::TESObjectREFR* held = nullptr;
+			if (auto script = RackScript(a_activator)) {
+				auto* form = FormOf(script->GetProperty("PlayersDroppedWeapon"));
+				if (auto* dropped = form ? form->As<RE::TESObjectREFR>() : nullptr; onIt(dropped)) {
+					held = dropped;
+				}
+			}
+			if (!held) {
+				cell->ForEachReference([&](RE::TESObjectREFR* a_ref) {
+					if (onIt(a_ref)) {
+						held = a_ref;
+						return RE::BSContainer::ForEachResult::kStop;
+					}
+					return RE::BSContainer::ForEachResult::kContinue;
+				});
+			}
+			if (held) {
+				logger::debug("{}: holds {} ({:.0f} from its trigger's centre, within {:.0f})", Describe(a_activator), Describe(held),
+					held->GetPosition().GetDistance(center), radius);
+			} else {
+				logger::debug("{}: activator disabled but nothing on the rack; it takes one", Describe(a_activator));
+			}
+			return held != nullptr;
+		}
+	}
+
 	bool DisplayFull(const FoundDisplay& a_display)
 	{
 		auto* ref = RE::TESForm::LookupByID<RE::TESObjectREFR>(a_display.ref);
@@ -661,7 +751,7 @@ namespace dova::game
 		}
 		switch (a_display.kind) {
 		case core::DisplayKind::Rack:
-			return ref->IsDisabled();
+			return ref->IsDisabled() && RackHoldsItem(a_display, ref);
 		case core::DisplayKind::Mannequin:
 			return !DisplayHolds(a_display).empty();
 		case core::DisplayKind::Item:
@@ -869,7 +959,14 @@ namespace dova::game
 			*status = -1;
 			return status;
 		}
-		const auto triggers = BookTriggers(shelf, Variables(script));
+		const auto found = BookTriggers(shelf, Variables(script));
+		if (found.stuck) {
+			// A trigger that keeps watching would take the books out of the shelf when UpdateBooks replaces their copies.
+			logger::debug("{}: a book trigger can't be told to ignore books; they show the next time it is opened", name);
+			*status = -1;
+			return status;
+		}
+		const auto& triggers = found.ignoring;
 		// 3. A moment after UpdateBooks returned (the trigger events of the copies it replaced are past), the
 		// triggers watch the books again.
 		const auto restore = [triggers, status, name](int a_status) {
@@ -895,6 +992,7 @@ namespace dova::game
 			}
 		};
 		// 1. The triggers ignore the copies UpdateBooks removes (they would take the books out of the shelf).
+		// A shelf without any trigger has nothing that could.
 		if (triggers.empty()) {
 			update();
 			return status;
@@ -1127,6 +1225,34 @@ namespace dova::game
 			state = kRackTriggerWaiting;
 		}
 		logger::debug("{}: holds {} (activator disabled, trigger state {})", Describe(rack), Describe(a_item), state);
+	}
+
+	std::set<RE::FormID> LooseBooks(const FoundDisplay& a_shelf, RE::TESBoundObject* a_book)
+	{
+		std::set<RE::FormID> out;
+		auto*                shelf = a_shelf.kind == core::DisplayKind::Bookshelf ? RE::TESForm::LookupByID<RE::TESObjectREFR>(a_shelf.ref) : nullptr;
+		auto*                cell = shelf ? shelf->GetParentCell() : nullptr;
+		if (!cell || !a_book) {
+			return out;
+		}
+		std::set<const RE::TESForm*> onSlots;
+		if (const auto script = BookshelfScript(shelf)) {
+			const auto vars = Variables(script);
+			for (int i = 1; i <= kBookSlots; ++i) {
+				if (HoldsObject(FindVar(vars, Numbered("PlacedBook", i)))) {
+					if (auto* copy = FormOf(FindVar(vars, Numbered("PlacedBook", i, "Ref")))) {
+						onSlots.insert(copy);
+					}
+				}
+			}
+		}
+		cell->ForEachReference([&](RE::TESObjectREFR* a_ref) {
+			if (a_ref && a_ref->GetBaseObject() == a_book && !a_ref->IsDeleted() && !IsEffectivelyDisabled(a_ref) && !onSlots.contains(a_ref)) {
+				out.insert(a_ref->GetFormID());
+			}
+			return RE::BSContainer::ForEachResult::kContinue;
+		});
+		return out;
 	}
 
 	std::set<RE::FormID> LooseGear(RE::TESObjectCELL* a_cell)

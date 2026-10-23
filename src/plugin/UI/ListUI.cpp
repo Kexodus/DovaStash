@@ -96,6 +96,13 @@ namespace dova::ui
 				[current](std::int32_t a_index) {
 					const auto list = *current;
 					const auto first = FirstItem(*list);
+					if (a_index == uiext::kNotShown) {
+						// The menu never came up (UIExtensions logged why): say so, never a silent nothing. Not a Back.
+						constexpr auto kMessage = "Dova Stash: the list menu did not open (see DovaStash.log)"sv;
+						logger::info("Notify: {}", kMessage);
+						ShowNotification(kMessage);
+						return;
+					}
 					if (a_index == 0) {
 						logger::info("List: chose the header \"{}\"", list->title);
 						if (!Show(list, 0)) {
@@ -138,11 +145,14 @@ namespace dova::ui
 			return ref ? game::RefName(ref) : a_ref.ToString();
 		}
 
-		void Confirm(std::string a_question, std::function<void()> a_onYes)
+		// Yes runs `a_onYes`; No runs `a_onNo` (the menu the question came from, so the player is not left with none).
+		void Confirm(std::string a_question, std::function<void()> a_onYes, std::function<void()> a_onNo = {})
 		{
-			ShowMessageBox(a_question, { "Yes", "No" }, [onYes = std::move(a_onYes)](std::size_t a_index) {
+			ShowMessageBox(a_question, { "Yes", "No" }, [onYes = std::move(a_onYes), onNo = std::move(a_onNo)](std::size_t a_index) {
 				if (a_index == 0 && onYes) {
 					onYes();
+				} else if (a_index != 0 && onNo) {
+					onNo();
 				}
 			});
 		}
@@ -153,39 +163,33 @@ namespace dova::ui
 			return home && home->layout ? home->layout->FindContainer(a_container) : nullptr;
 		}
 
-		std::int32_t ItemCount(RE::TESObjectREFR* a_ref)
-		{
-			std::int32_t total = 0;
-			if (a_ref) {
-				for (const auto& [object, data] : a_ref->GetInventory()) {
-					if (object && data.first > 0) {
-						total += data.first;
-					}
-				}
-			}
-			return total;
-		}
-
-		// The player renamed it (Controller::SetLabel stores the name on the reference).
-		bool HasCustomName(RE::TESObjectREFR* a_ref)
-		{
-			return a_ref && a_ref->extraList.HasType(RE::ExtraDataType::kTextDisplayData);
-		}
-
 		void ListUnavailable(IStashUI& a_ui)
 		{
-			a_ui.Notify("Dova Stash: close the open menu first");
+			a_ui.Notify("Dova Stash: close the open menu first", true);
+		}
+
+		// A list an earlier press asked for has not closed yet (a quick second press while it opens): nothing,
+		// rather than a message box on top of it.
+		bool ListOpening()
+		{
+			if (!uiext::IsBusy()) {
+				return false;
+			}
+			logger::debug("Hotkey: a list is already opening");
+			return true;
 		}
 	}
 
 	ListUI::ListUI(std::shared_ptr<IStashUI> a_editor, std::shared_ptr<IStashUI> a_fallback) :
 		_editor(std::move(a_editor)),
-		_fallback(std::move(a_fallback))
+		_fallback(std::move(a_fallback)),
+		_editorIsPanel(_editor && _editor != _fallback)
 	{}
 
-	void ListUI::Notify(std::string_view a_message)
+	void ListUI::Notify(std::string_view a_message, bool a_failed)
 	{
 		logger::info("Notify: {}", a_message);
+		(void)a_failed;  // the HUD shows a failure like any other line
 		ShowNotification(a_message);
 	}
 
@@ -236,6 +240,9 @@ namespace dova::ui
 
 	void ListUI::OpenSetupPrompt(home::Home& a_home, RE::TESObjectREFR* a_container)
 	{
+		if (ListOpening()) {
+			return;
+		}
 		const auto        cellId = a_home.cellId;
 		const auto        ref = game::ToFormRef(a_container);
 		std::vector<Item> items;
@@ -244,25 +251,38 @@ namespace dova::ui
 			items.push_back({ std::format(kRestoreLastSetup, a_home.backup->date), [cellId]() { Controller::Get().RestoreBackup(cellId); } });
 		}
 		if (ref) {
-			items.push_back({ std::format("Make {} the master container", game::RefName(a_container)),
+			items.push_back({ std::format(kMakeMasterSetup, game::RefName(a_container)),
 				[cellId, ref = *ref]() { Controller::Get().MakeMaster(cellId, ref); } });
 		}
 		if (const auto* best = a_home.BestTemplate()) {
-			const auto author = best->layout.author.empty() ? "unknown"s : best->layout.author;
+			const auto author = AuthorOf(best->layout);
 			const auto* fit = home::HomeRegistry::Get().BestTemplateFit(a_home);  // the auto-enable guard (DESIGN §9.1)
 			const bool  mayNotFit = fit && !fit->fits;
-			items.push_back({ std::format("Use template \"{}\" ({})", best->layout.name, mayNotFit ? "may not fit"s : "by " + author),
-				[cellId]() { Controller::Get().UseTemplate(cellId); } });
+			// A template the guard doubts asks first, as under Advanced...; No comes back here.
+			items.push_back({ std::format("Use template \"{}\" ({})", best->layout.name, mayNotFit ? std::string(kMayNotFit) : "by " + author),
+				[this, cellId, mayNotFit, question = TemplateQuestion(a_home), ref]() {
+					if (!mayNotFit) {
+						Controller::Get().UseTemplate(cellId);
+						return;
+					}
+					Confirm(question, [cellId]() { Controller::Get().UseTemplate(cellId); }, [this, cellId, ref]() {
+						if (auto* current = home::HomeRegistry::Get().CurrentIf(cellId)) {
+							OpenSetupPrompt(*current, ref ? game::LookupRef(*ref) : nullptr);
+						}
+					});
+				} });
 		}
 		if (const auto offer = home::HomeRegistry::Get().OfferArea()) {
 			// Multi-cell homes (DESIGN §6.7): this cell joins the home the player just came from, named first.
 			items.push_back({ std::format(kAddArea, offer->homeName), [cellId]() { AddAreaNamed(cellId); } });
 		}
 		if (items.empty()) {
-			Notify(std::format("Dova Stash: look at a container and press {} to set up this home", Controller::HotkeyName()));
+			Notify(std::format("Dova Stash: press {} at a container to set up this home", Controller::HotkeyName()));
 			return;
 		}
-		items.push_back({ "Advanced...", [this, cellId, ref]() { OpenEditor(cellId, ref); } });
+		if (_editorIsPanel) {  // without the panel, message boxes would only repeat this list
+			items.push_back({ kOpenPanel, [this, cellId, ref]() { OpenEditor(cellId, ref); } });
+		}
 		if (!ShowList(a_home.name, std::move(items)) && _fallback) {
 			_fallback->OpenSetupPrompt(a_home, a_container);
 		}
@@ -270,6 +290,9 @@ namespace dova::ui
 
 	void ListUI::OpenMasterMenu(home::Home& a_home, RE::TESObjectREFR* a_master)
 	{
+		if (ListOpening()) {
+			return;
+		}
 		const auto cellId = a_home.cellId;
 		const auto masterRef = a_master ? game::ToFormRef(a_master) : std::nullopt;
 
@@ -279,29 +302,18 @@ namespace dova::ui
 			items.push_back({ "Restock", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Restock); } });
 		}
 		items.push_back({ "Sort all", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::SortAll); } });
+		items.push_back({ "Advanced...", [this, cellId]() { OpenAdvanced(cellId); } });  // Retrieve, Browse, the template, save, reset, the panel
 		if (a_home.layout && a_home.layout->HasSellChest()) {
-			for (auto& entry : SellEntries(a_home, std::nullopt)) {
+			for (auto& entry : SellEntries(a_home, std::nullopt, [this, cellId]() { ReopenMaster(cellId); })) {
 				items.push_back({ std::move(entry.first), std::move(entry.second) });
 			}
 		}
-		items.push_back({ "Retrieve...", [this, cellId]() { OpenRetrieve(cellId); } });
-		items.push_back({ "Browse containers...", [this, cellId]() { OpenBrowse(cellId); } });
 		if (masterRef) {
 			items.push_back({ std::format("Rename {}...", game::RefName(a_master)), [this, cellId, ref = *masterRef]() { OpenRename(cellId, ref); } });
 			if (HasCustomName(a_master)) {
 				items.push_back({ "Restore original name", [cellId, ref = *masterRef]() { Controller::Get().SetLabel(cellId, ref, {}); } });
 			}
 		}
-		if (const auto* best = a_home.BestTemplate()) {
-			const bool basedOnTemplate = a_home.layout && a_home.layout->basedOn && a_home.layout->basedOn->starts_with(best->source + "@");
-			const auto name = best->layout.name;
-			items.push_back({ basedOnTemplate ? std::format("Re-apply template \"{}\"", name) : std::format("Use template \"{}\"", name), [cellId, name]() {
-								 Confirm(std::format("Use the template \"{}\"?\nYour learned destinations, keep rules and ignored containers are kept; the master, sell chest and category bindings are replaced by the template's. A backup is saved; no items are moved.", name),
-									 [cellId]() { Controller::Get().UseTemplate(cellId); });
-							 } });
-		}
-		items.push_back({ kSaveAsTemplate, [cellId]() { SaveAsTemplate(cellId); } });
-		items.push_back({ "Advanced...", [this, cellId, masterRef]() { OpenEditor(cellId, masterRef); } });
 		if (const auto* area = a_home.extra ? a_home.HereArea() : nullptr) {
 			// In an extra cell of a multi-cell home (DESIGN §6.7): name it, or take it out of the home.
 			items.push_back({ std::format(kRenameArea, area->name), [this, cellId, cell = area->cell, name = area->name]() {
@@ -309,15 +321,14 @@ namespace dova::ui
 									 ListUnavailable(*this);
 								 }
 							 } });
-			items.push_back({ std::format(kRemoveArea, a_home.name), [cellId, cell = area->cell, question = std::format(kConfirmRemoveArea, area->name, a_home.name)]() {
-								 Confirm(question, [cellId, cell]() { Controller::Get().RemoveArea(cellId, cell); });
+			items.push_back({ std::format(kRemoveArea, a_home.name), [this, cellId, cell = area->cell, question = std::format(kConfirmRemoveArea, area->name, a_home.name)]() {
+								 Confirm(question, [cellId, cell]() { Controller::Get().RemoveArea(cellId, cell); }, [this, cellId]() { ReopenMaster(cellId); });
 							 } });
 		}
-		items.push_back({ "Reset home...", [cellId, name = a_home.name]() {
-							 Confirm(std::format("Reset Dova Stash for {}?\nYour setup is backed up (.bak); no items are moved.", name),
-								 [cellId]() { Controller::Get().ResetHome(cellId); });
-						 } });
-		if (!ShowList(a_home.name, std::move(items)) && _fallback) {
+		// Save as template... and Reset home... are under Advanced... (as in message boxes, whose first page they
+		// would not fit). The master is in another area of the home: Deposit still works where its containers are loaded.
+		const bool masterAway = !a_master && a_home.layout && a_home.layout->master;
+		if (!ShowList(masterAway ? std::format("{} ({})", a_home.name, kMasterNotHere) : a_home.name, std::move(items)) && _fallback) {
 			_fallback->OpenMasterMenu(a_home, a_master);
 		}
 	}
@@ -325,59 +336,35 @@ namespace dova::ui
 	void ListUI::OpenContainerMenu(home::Home& a_home, RE::TESObjectREFR* a_container)
 	{
 		const auto ref = game::ToFormRef(a_container);
-		if (!ref || !a_home.layout) {
+		if (!ref || !a_home.layout || ListOpening()) {
 			return;
 		}
 		const auto  cellId = a_home.cellId;
 		const auto* binding = a_home.layout->FindContainer(*ref);
 		auto        summary = RoleSummary(DescribeContainer(a_container), 3);
 		if (summary.empty()) {
-			summary = binding && binding->ignored ? "ignored" : "nothing assigned";
+			summary = binding && binding->ignored ? "ignored" : kNotManaged;
 		}
 
+		ContainerMenuHooks hooks;
+		hooks.categoriesText = std::format("{} ({})", kCategoriesEntry, summary);
+		hooks.openCategories = [this, cellId, ref = *ref]() { OpenAssignGroups(cellId, ref); };
+		hooks.rename = [this, cellId, ref = *ref]() { OpenRename(cellId, ref); };
+		hooks.openLearned = [this, cellId, ref = *ref]() { OpenLearned(cellId, ref); };
+		if (_editorIsPanel) {
+			hooks.openPanel = [this, cellId, ref = *ref]() { OpenEditor(cellId, ref); };
+		}
+		hooks.confirm = [this, cellId, ref = *ref](std::string a_question, std::function<void()> a_onYes) {
+			Confirm(std::move(a_question), std::move(a_onYes), [this, cellId, ref]() { ReopenContainer(cellId, ref); });
+		};
+		hooks.back = [this, cellId, ref = *ref]() { ReopenContainer(cellId, ref); };
 		std::vector<Item> items;
-		// The container's own icon (what it is for), as the overlay and QuickLoot show it.
-		items.push_back({ std::format("Categories... ({})", summary), [this, cellId, ref = *ref]() { OpenAssignGroups(cellId, ref); },
-			icons::ForContainer(*a_home.layout, a_container) });
-		items.push_back({ std::format("Open {}", game::RefName(a_container)), [cellId, ref = *ref]() { Controller::Get().Browse(cellId, ref); } });
-		const bool sellChest = a_home.layout->IsSellChest(*ref);
-		if (sellChest) {
-			for (auto& entry : SellEntries(a_home, *ref)) {
-				items.push_back({ std::move(entry.first), std::move(entry.second) });
-			}
+		for (auto& entry : ContainerMenuEntries(a_home, a_container, hooks)) {
+			items.push_back({ std::move(entry.text), std::move(entry.action) });
 		}
-		items.push_back({ "Rename...", [this, cellId, ref = *ref]() { OpenRename(cellId, ref); } });
-		if (HasCustomName(a_container)) {
-			items.push_back({ "Restore original name", [cellId, ref = *ref]() { Controller::Get().SetLabel(cellId, ref, {}); } });
+		if (!items.empty()) {
+			items.front().icon = icons::ForContainer(*a_home.layout, a_container);  // what it is for, as the overlay and QuickLoot show it
 		}
-		std::size_t learned = 0;
-		for (const auto& [item, container] : a_home.layout->learned) {
-			if (container == *ref) {
-				++learned;
-			}
-		}
-		if (learned > 0) {
-			items.push_back({ std::format("Learned items ({})...", learned), [this, cellId, ref = *ref]() { OpenLearned(cellId, ref); } });
-		}
-		if (binding && !binding->categories.empty()) {
-			items.push_back({ "Clear categories", [cellId, ref = *ref]() { Controller::Get().ClearCategories(cellId, ref); } });
-		}
-		const bool ignored = binding && binding->ignored;
-		items.push_back({ ignored ? "Stop ignoring" : "Ignore", [cellId, ref = *ref, ignored]() { Controller::Get().SetIgnored(cellId, ref, !ignored); } });
-		if (sellChest) {
-			items.push_back({ kNotSellChest, [cellId, ref = *ref]() { Controller::Get().SetSellChest(cellId, ref, false); } });
-		} else if (!ignored) {
-			items.push_back({ kMakeSellChest, [cellId, ref = *ref, name = game::RefName(a_container)]() {
-								 Confirm(SellChestQuestion(name), [cellId, ref]() { Controller::Get().SetSellChest(cellId, ref, true); });
-							 } });
-		}
-		if (binding || learned > 0) {
-			items.push_back({ "Remove...", [this, cellId, ref = *ref, name = game::RefName(a_container)]() {
-								 Confirm(std::format("Remove {} from Dova Stash?\n{}", name, kRemoveExplained), [cellId, ref]() { Controller::Get().RemoveContainer(cellId, ref); });
-							 } });
-		}
-		items.push_back({ "Make master", [cellId, ref = *ref]() { Controller::Get().MakeMaster(cellId, ref); } });
-		items.push_back({ "Advanced...", [this, cellId, ref = *ref]() { OpenEditor(cellId, ref); } });
 		if (!ShowList(game::RefName(a_container), std::move(items)) && _fallback) {
 			_fallback->OpenContainerMenu(a_home, a_container);
 		}
@@ -385,6 +372,9 @@ namespace dova::ui
 
 	void ListUI::OpenDisplayMenu(const DisplayMenu& a_menu)
 	{
+		if (ListOpening()) {
+			return;  // a quick second press while the first list is on its way: it would fall back to a message box on top
+		}
 		const auto openCategories = [this, cellId = a_menu.cellId, ref = a_menu.ref, fit = a_menu.fit, name = a_menu.name]() { OpenDisplayCategories(cellId, ref, fit, name); };
 		std::vector<Item> list;
 		for (auto& o : DisplayMenuOptions(a_menu, openCategories)) {
@@ -430,7 +420,7 @@ namespace dova::ui
 	void ListUI::OpenAssignGroups(RE::FormID a_cellId, const core::FormRef& a_container)
 	{
 		if (RootCategories().empty()) {
-			Notify("Dova Stash: no categories are loaded (see the log)");
+			Notify("Dova Stash: no categories are loaded (see DovaStash.log)", true);
 			return;
 		}
 		const auto list = Rebuildable([this, a_cellId, a_container]() {
@@ -474,7 +464,8 @@ namespace dova::ui
 			};
 			// [x] bound exactly, [+] covered by a wider pattern, [ ] not routed here.
 			std::vector<Item> items;
-			items.push_back({ std::format("{} All {}", HasPattern(binding, all) ? "[x]" : "[ ]", CategoryName(a_root)), toggle(all), icons::ForCategory(a_root), true });
+			const auto allMark = HasPattern(binding, all) ? "[x]" : Covers(binding, a_root) ? "[+]" : "[ ]";
+			items.push_back({ std::format("{} All {}", allMark, CategoryName(a_root)), toggle(all), icons::ForCategory(a_root), true });
 			for (const auto& id : ChildCategories(a_root)) {
 				const auto mark = HasPattern(binding, id) ? "[x]" : Covers(binding, id) ? "[+]" : "[ ]";
 				items.push_back({ std::format("{} {}{}", mark, CategoryName(id), LearnedSuffix(learned, id + ".*")), toggle(id), icons::ForCategory(id), true });
@@ -483,6 +474,39 @@ namespace dova::ui
 				[this, a_cellId, a_container]() { OpenAssignGroups(a_cellId, a_container); } });
 		});
 		if (!Show(list)) {
+			ListUnavailable(*this);
+		}
+	}
+
+	void ListUI::OpenAdvanced(RE::FormID a_cellId)
+	{
+		auto* home = home::HomeRegistry::Get().CurrentIf(a_cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		// Everyday actions first, the one that asks last.
+		std::vector<Item> items;
+		items.push_back({ "Retrieve...", [this, a_cellId]() { OpenRetrieve(a_cellId); } });
+		items.push_back({ "Browse containers...", [this, a_cellId]() { OpenBrowse(a_cellId); } });
+		if (home->BestTemplate()) {
+			// Asks only when it would replace changes of the player's own, or may not fit (as the panel does).
+			items.push_back({ TemplateEntry(*home), [this, a_cellId, ask = AskBeforeTemplate(*home), question = TemplateQuestion(*home)]() {
+								 if (ask) {
+									 Confirm(question, [a_cellId]() { Controller::Get().UseTemplate(a_cellId); }, [this, a_cellId]() { OpenAdvanced(a_cellId); });
+								 } else {
+									 Controller::Get().UseTemplate(a_cellId);
+								 }
+							 } });
+		}
+		items.push_back({ kSaveAsTemplate, [this, a_cellId]() { SaveAsTemplate(a_cellId, [this, a_cellId]() { OpenAdvanced(a_cellId); }); } });
+		items.push_back({ "Reset home...", [this, a_cellId, name = home->name]() {
+							 Confirm(std::format(kConfirmResetHome, name), [a_cellId]() { Controller::Get().ResetHome(a_cellId); }, [this, a_cellId]() { OpenAdvanced(a_cellId); });
+						 } });
+		if (_editorIsPanel) {
+			// What Advanced... opened before these moved here: the panel's This home page.
+			items.push_back({ kOpenPanel, [this, a_cellId, master = home->layout->master]() { OpenEditor(a_cellId, master); } });
+		}
+		if (!ShowList("Advanced", std::move(items), [this, a_cellId]() { ReopenMaster(a_cellId); })) {
 			ListUnavailable(*this);
 		}
 	}
@@ -520,7 +544,7 @@ namespace dova::ui
 				items.push_back({ std::format("{}... ({})", CategoryName(root), n), [this, a_cellId, root]() { OpenRetrieveGroup(a_cellId, root); }, icons::ForCategory(root) });
 			}
 		}
-		if (!ShowList("Retrieve", std::move(items), [this, a_cellId]() { ReopenMaster(a_cellId); })) {
+		if (!ShowList("Retrieve", std::move(items), [this, a_cellId]() { OpenAdvanced(a_cellId); })) {
 			ListUnavailable(*this);
 		}
 	}
@@ -561,10 +585,8 @@ namespace dova::ui
 			if (!ref || ref->IsDisabled()) {
 				return;
 			}
-			const auto name = game::RefName(ref);
-			items.push_back({ a_what.empty() || core::IEquals(a_what, name) ? std::format("{} ({} items)", name, ItemCount(ref)) :
-			                                                                  std::format("{} - {} ({} items)", name, a_what, ItemCount(ref)),
-				[a_cellId, a_ref]() { Controller::Get().Browse(a_cellId, a_ref); }, icons::ForContainer(*home->layout, ref) });
+			items.push_back({ BrowseEntryText(ref, a_what), [a_cellId, a_ref]() { Controller::Get().Browse(a_cellId, a_ref); },
+				icons::ForContainer(*home->layout, ref) });
 		};
 		if (home->layout->master) {
 			add(*home->layout->master, "master");
@@ -580,25 +602,14 @@ namespace dova::ui
 			Notify("Dova Stash: no containers to open");
 			return;
 		}
-		if (!ShowList("Browse containers", std::move(items), [this, a_cellId]() { ReopenMaster(a_cellId); })) {
+		if (!ShowList("Browse containers", std::move(items), [this, a_cellId]() { OpenAdvanced(a_cellId); })) {
 			ListUnavailable(*this);
 		}
 	}
 
 	void ListUI::OpenRename(RE::FormID a_cellId, const core::FormRef& a_container)
 	{
-		auto* ref = game::LookupRef(a_container);
-		if (!ref) {
-			return;
-		}
-		const bool opened = uiext::OpenTextEntry(game::RefName(ref), [a_cellId, a_container](std::optional<std::string> a_text) {
-			// The text box reports an empty text when it is cancelled: that must never clear a name.
-			// "Restore original name" is a separate list entry.
-			if (a_text && a_text->find_first_not_of(" \t") != std::string::npos) {
-				Controller::Get().SetLabel(a_cellId, a_container, *a_text);
-			}
-		});
-		if (!opened) {
+		if (game::LookupRef(a_container) && !RenameContainerNamed(a_cellId, a_container)) {
 			ListUnavailable(*this);
 		}
 	}
@@ -629,8 +640,13 @@ namespace dova::ui
 			ReopenContainer(a_cellId, a_container);
 			return;
 		}
-		items.insert(items.begin(), Item{ std::format("Forget all {} learned items", count), [a_cellId, a_container]() {
-											 Controller::Get().ForgetLearned(a_cellId, a_container);
+		items.insert(items.begin(), Item{ ForgetAllEntry(count), [this, a_cellId, a_container, count]() {
+											 Confirm(ForgetLearnedQuestion(count, NameOf(a_container)),
+												 [this, a_cellId, a_container]() {
+													 Controller::Get().ForgetLearned(a_cellId, a_container);
+													 ReopenContainer(a_cellId, a_container);
+												 },
+												 [this, a_cellId, a_container]() { OpenLearned(a_cellId, a_container); });
 										 } });
 		if (!ShowList(std::format("{}: Learned items", NameOf(a_container)), std::move(items), [this, a_cellId, a_container]() { ReopenContainer(a_cellId, a_container); })) {
 			ListUnavailable(*this);

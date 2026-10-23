@@ -37,7 +37,10 @@
 //   OnItemAdded writes each into a slot. Once it took them, its own UpdateBooks shows them on its markers
 //   (game::RefreshBookshelf; the script itself only does that when its menu closes). A book its script hands
 //   back (to the player) goes back where it came from; one it does not take within 3 seconds stays in the
-//   shelf (open it to take it); either way Deposit and Sort all leave that shelf alone for the session.
+//   shelf (open it to take it). 2.5 seconds after UpdateBooks the shelf is counted again: a book whose copy
+//   fell off its marker (its trigger then takes the book out of the container) goes back where it came from
+//   and its loose copy is removed (game::LooseBooks). In each case Deposit and Sort all leave that shelf
+//   alone for the session.
 // Nothing is ever taken off a display. If the player leaves the cell, filling stops (a weapon dropped for
 // a rack and not up yet goes into the player's inventory).
 

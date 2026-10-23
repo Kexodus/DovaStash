@@ -6,7 +6,7 @@
 |---|---|
 | VS 2022 Build Tools (MSVC v143, "Desktop development with C++") | Generator `Visual Studio 17 2022`. |
 | CMake ≥ 3.25 | On `PATH`. |
-| vcpkg | At `E:\vcpkg`. `VCPKG_ROOT` must be set **in the shell that runs cmake** (the presets read `$env{VCPKG_ROOT}`). |
+| vcpkg | At `E:\vcpkg`. `VCPKG_ROOT` must be set **in the shell that runs cmake** (the presets read `$env{VCPKG_ROOT}`); without it configure stops with *Set VCPKG_ROOT to your vcpkg folder (docs/BUILDING.md, Prerequisites)*. |
 | Git submodules | `git submodule update --init --recursive` (CommonLibSSE-NG and its `extern/openvr`). |
 
 ```powershell
@@ -19,6 +19,7 @@ $env:VCPKG_ROOT = 'E:\vcpkg'          # Git Bash: export VCPKG_ROOT=E:/vcpkg
 cmake --preset plugin
 cmake --build build/plugin --config Release --target DovaStash --parallel
 # or: cmake --build --preset plugin-release   (this also builds core + tests)
+# or, configure and build in one: cmake --workflow --preset plugin
 ```
 
 Output: `build/plugin/src/plugin/Release/DovaStash.dll` (+ `.pdb`).
@@ -29,14 +30,19 @@ but not the unit tests. Run the `core-tests` preset (below) to test core changes
 ### Deploy to MO2
 
 A post-build step (`src/plugin/cmake/Deploy.cmake`) runs every time the DLL relinks. It copies files into
-`DOVASTASH_DEPLOY_DIR`, which defaults to `E:/modding/Kexodus Skyrim/mods/Dova Stash`:
+`DOVASTASH_DEPLOY_DIR`: the environment variable of that name when it is set, else
+`E:/modding/Kexodus Skyrim/mods/Dova Stash`. It deploys only when the environment variable is set or that folder's
+parent (the MO2 `mods` folder) exists; otherwise configure says *Deploy off: &lt;dir&gt; not found (set
+DOVASTASH_DEPLOY_DIR)* and the build works without the developer's drive. The editor's deploy follows the same rules:
+the plugin build no longer copies `Tools/DovaStashEditor.exe`; the editor build (preset `editor-release`) deploys the
+`.exe` and `.com` itself, so a plugin build never replaces a newer editor with an older one.
 
 | Source | Destination (under the mod folder) |
 |---|---|
 | `DovaStash.dll`, `DovaStash.pdb` | `SKSE/Plugins/` |
-| `src/plugin/DovaStash.ini.default` | `SKSE/Plugins/DovaStash.ini`, **only if that file doesn't exist** (user edits are never overwritten) |
-| `dist/Data/SKSE/Plugins/DovaStash/*` | `SKSE/Plugins/DovaStash/` (skipped when missing or empty) |
-| `dist/Data/Interface/*` | `Interface/` (the hotkey list menu's logo, `Interface/DovaStash/logo.dds`) |
+| `src/plugin/DovaStash.ini.default` | `SKSE/Plugins/DovaStash.ini`: created if missing; otherwise kept, and any `[Section]` it lacks is appended from the default (user values are never overwritten) |
+| `dist/Data/SKSE/Plugins/DovaStash/*` | `SKSE/Plugins/DovaStash/`, an exact mirror: files `dist` no longer has are removed; `Layouts/`, `Backups/`, `Templates/User/` and `AutoTest/` are never touched |
+| `dist/Data/Interface/*` | `Interface/` (the hotkey list menu's logo; `Interface/DovaStash/` is mirrored exactly) |
 
 Options:
 
@@ -44,6 +50,17 @@ Options:
 - `-DDOVASTASH_DEPLOY_DIR=<path>` deploys to a different mod folder.
 - If you only changed `dist/` JSON, redeploy without relinking:
   `cmake --build build/plugin --config Release --target DovaStash_deploy`
+
+The deploy warns about top-level entries in the mod folder that no build writes: today `root/` (the `stress_loot`
+output `ds_*.txt`, `ds_manifest.csv`), which Root Builder copies into the game folder. Remove it by hand.
+
+### Release
+
+`cmake --build --preset plugin-release --target DovaStash_package` stages `build/release/Dova Stash/`
+(`DovaStash.dll`/`.pdb`, `DovaStash.ini` from `DovaStash.ini.default`, the `dist` data, `Interface`,
+`Tools/DovaStashEditor.exe`/`.com` from `build/editor` (build the editor first) and
+`Tools/DovaStashEditor-UserGuide.pdf` from `presskit/guide`) and zips it to `build/release/DovaStash-<version>.zip`.
+The stage is made fresh each time, so nothing a test session wrote gets in.
 
 At runtime the log is written to `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log`
 (on VR the folder is `Skyrim VR`; on GOG it is `Skyrim Special Edition GOG`). On a good load it contains
@@ -67,13 +84,30 @@ test plans in `tests/ingame` and prints the results (exit code 1 on a failure). 
 `DovaStash.dll` (`src/plugin/AutoTest/`) but does nothing unless that profile's *Dova Stash AutoTest* mod provides a
 plan. Set the profile up once with `pwsh -File tests\ingame\install.ps1 -Profile`. Options:
 
-- `-Build`: builds the plugin first (`cmake --build build/plugin --config Release --target DovaStash`; it deploys
-  as configured above).
+- `-Build`: builds the plugin first (`cmake --build --preset plugin-release --target DovaStash`, after
+  `cmake --preset plugin` when `build/plugin` is not configured yet); it prints where the build deploys, as
+  configured above.
 - `-Dll <path>`: tests that DLL (copied into the AutoTest mod, so it overrides the Dova Stash mod's in that profile
   only). Use it to test a branch without deploying it to the mod folder (configure that build with
   `-DDOVASTASH_DEPLOY=OFF`). Without it, the profile loads the Dova Stash mod's DLL.
 
+`run.ps1` and `install.ps1` take `$env:DOVASTASH_MO2` as their `-Mo2` default (the MO2 instance folder).
+
 Details, what is covered and what stays manual: docs/TESTING.md §9.
+
+### Data check
+
+Check the shipped categories and templates against the game data before a release or after editing `dist/`
+(no game needed; Python 3, stdlib only):
+
+```powershell
+python -I tools/esm_dump.py --profile "Dova Stash AutoTest" check dist/Data/SKSE/Plugins/DovaStash
+```
+
+The MO2 instance comes from `--mo2 <instance folder>`, else `$env:DOVASTASH_MO2`, else the developer's instance
+(`E:\modding\Kexodus Skyrim`), so the command works in a fresh shell there; the profile supplies the home mods
+the `Templates/Mods` files need. Expected output and the OCF set's check: docs/TESTING.md §0; options:
+`tools/README.md`.
 
 ## Core logic + unit tests (no CommonLib)
 
@@ -81,6 +115,7 @@ Details, what is covered and what stays manual: docs/TESTING.md §9.
 cmake --preset core-tests
 cmake --build --preset core-tests
 ctest --preset core-tests
+# or all three in one: cmake --workflow --preset core-tests
 ```
 
 ## Dova Stash Editor (DovaStashEditor.exe, no CommonLib)
@@ -94,9 +129,12 @@ needs nothing more: its NIF, DDS and BSA readers are the editor's own, and it li
 ```powershell
 cmake --preset editor
 cmake --build --preset editor-release        # or editor-debug
+ctest --preset editor                        # DovaStashEditorTests
+# or, configure, build and test in one: cmake --workflow --preset editor
 ```
 
-Output: `build/editor/editor/Release/DovaStashEditor.exe`, copied into `<DOVASTASH_DEPLOY_DIR>/Tools/` after each build (the same option and folder as the plugin; `-DDOVASTASH_DEPLOY=OFF` to skip), so the copy MO2 runs is always the latest. Without arguments it
+The editor preset calls `enable_testing()` (root `CMakeLists.txt`). Output: `build/editor/editor/Release/DovaStashEditor.exe`
+and `DovaStashEditor.com`, copied into `<DOVASTASH_DEPLOY_DIR>/Tools/` (the same option and folder as the plugin; `-DDOVASTASH_DEPLOY=OFF` to skip). Only the editor build copies it, when the exe relinks; if the editor was running, close it and run `cmake --build --preset editor-release --target DovaStashEditor_deploy`. Without arguments it
 opens the window (the start panel); commands print to the console instead. The window remembers the instance, the
 author, each home's to-do stage and its layout in `%LOCALAPPDATA%\DovaStashEditor\state.json`; set
 `DOVASTASH_EDITOR_STATE` to another file for test runs and screenshots:

@@ -34,14 +34,16 @@ namespace dova::editor
 		} else if (a_options.data) {
 			_dataDir = *a_options.data;
 		} else {
-			a_error = "no MO2 instance found: pass --mo2 \"<instance folder>\" (the folder with ModOrganizer.ini) or --data \"<Skyrim Data folder>\"";
+			a_error = std::string(kNoInstance) + ": pass --mo2 \"<instance folder>\" (the folder with ModOrganizer.ini) or --data \"<Skyrim Data folder>\"";
 			return false;
 		}
 
-		// Lowest priority first: the game's Data folder, then the enabled mods, then overwrite. Under MO2's
-		// VFS the Data folder already shows all of them.
+		// Lowest priority first: the game's Data folder, then the enabled mods, then overwrite. Also under MO2's
+		// VFS: every MO2 process of an instance shares one virtual Data folder, and another one starting a
+		// program (another profile, the in-game test run) rebuilds it under this process. Mod folders read
+		// directly never change that way (docs/EDITOR.md §4.3).
 		_files.AddRoot(_dataDir);
-		if (_instance && !_underVfs) {
+		if (_instance) {
 			for (const auto& m : _mods) {
 				if (m.enabled && !m.separator && !m.unmanaged) {
 					_files.AddRoot(m.dir);
@@ -156,13 +158,16 @@ namespace dova::editor
 		if (_instance) {
 			const auto enabled = std::ranges::count_if(_mods, [](const mo2::Mod& m) { return m.enabled && !m.separator && !m.unmanaged; });
 			const auto total = std::ranges::count_if(_mods, [](const mo2::Mod& m) { return !m.separator && !m.unmanaged; });
-			s = "MO2 instance " + PathToUtf8(_instance->root) + ", profile \"" + _profile + "\": " + std::to_string(enabled) + " of " +
+			s = "MO2 instance " + PathToUtf8(std::filesystem::path(_instance->root).make_preferred()) + ", profile \"" + _profile + "\": " + std::to_string(enabled) + " of " +
 			    std::to_string(total) + " mods enabled";
 		} else {
 			s = "No MO2 instance";
 		}
-		s += "; Data: " + PathToUtf8(_dataDir);
-		s += _underVfs ? " (MO2 virtual file system)" : (_instance ? " + mod folders read directly" : "");
+		s += "; Data: " + PathToUtf8(std::filesystem::path(_dataDir).make_preferred());
+		s += _instance ? " + mod folders read directly" : "";
+		if (_underVfs) {
+			s += " (started from MO2)";
+		}
 		return s;
 	}
 }

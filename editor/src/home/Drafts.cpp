@@ -61,6 +61,20 @@ namespace dova::editor::home
 
 		std::string GameName(const PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
 
+		// A container no draft lists: initially disabled with no enable parent (only a quest's script brings it), or
+		// a scripted weapon mount (Wynter_WeaponMountPoint: its script shows one weapon, it is no storage).
+		bool LeftOutOfDrafts(const PlacedRef& a_ref)
+		{
+			if (a_ref.initiallyDisabled && !a_ref.enableParent) {
+				return true;
+			}
+			if (a_ref.scripts.empty()) {
+				return false;
+			}
+			auto mount = [](std::string_view a_text) { return IContains(a_text, "WeaponRack") || IContains(a_text, "WeaponMount"); };
+			return mount(a_ref.baseEditorId) || std::ranges::any_of(a_ref.scripts, [&](const std::string& s) { return mount(s); });
+		}
+
 		std::string CellLabel(esp::LoadOrder& a_lo, const FormKey& a_cell)
 		{
 			const auto* e = a_lo.FindCell(a_cell);
@@ -76,6 +90,9 @@ namespace dova::editor::home
 			}
 			const auto subs = a_lo.Read(e->rec);
 			auto       name = a_lo.FullName(e->rec, subs);
+			if (name.empty()) {
+				name = a_lo.FirstCellName(a_cell);  // an override that dropped the name
+			}
 			return name.empty() ? a_lo.EditorId(subs) : name;
 		}
 
@@ -98,8 +115,34 @@ namespace dova::editor::home
 		};
 	}
 
-	std::vector<HomeEntry> FindAllHomes(esp::LoadOrder& a_lo, const ScanProgress& a_progress, const std::atomic<bool>* a_cancel)
+	TemplateCells TemplateCellsOf(esp::LoadOrder& a_lo, const TemplateIndex& a_templates)
 	{
+		TemplateCells out;
+		for (const auto& t : a_templates.templates) {
+			for (const auto& c : t.layout.cells) {
+				if (const auto key = a_lo.ParseFormRef(c.cell.ToString())) {
+					out.try_emplace(*key, false);
+				}
+			}
+			if (t.layout.cell) {
+				if (const auto key = a_lo.ParseFormRef(t.layout.cell->ToString())) {
+					out[*key] = true;
+				}
+			}
+		}
+		return out;
+	}
+
+	std::vector<HomeEntry> FindAllHomes(esp::LoadOrder& a_lo, const ScanProgress& a_progress, const std::atomic<bool>* a_cancel, const TemplateCells* a_templateCells)
+	{
+		auto named = [&](const FormKey& a_cell) { return a_templateCells && a_templateCells->contains(a_cell); };
+		auto namedMain = [&](const FormKey& a_cell) {
+			if (!a_templateCells) {
+				return false;
+			}
+			const auto it = a_templateCells->find(a_cell);
+			return it != a_templateCells->end() && it->second;
+		};
 		struct Seen
 		{
 			HomeCandidate        candidate;
@@ -138,8 +181,11 @@ namespace dova::editor::home
 					continue;
 				}
 				auto h = ScoreHome(*cell, false);
-				if (h.containers == 0 && !h.Likely()) {
+				if (h.containers == 0 && !h.Likely() && !named(c.key)) {
 					continue;
+				}
+				if (named(c.key) && !h.Likely()) {
+					h.reasons.push_back("a template names it");
 				}
 				Seen s;
 				s.lastPlugin = cell->lastOverride;
@@ -157,7 +203,7 @@ namespace dova::editor::home
 
 		std::vector<FormKey> likely;
 		for (const auto& [key, s] : seen) {
-			if (s.candidate.Likely()) {
+			if (s.candidate.Likely() || named(key)) {
 				likely.push_back(key);
 			}
 		}
@@ -208,6 +254,10 @@ namespace dova::editor::home
 		esp::FormKeySet        claimed;  // a storage cell joins one home only
 		for (auto& [root, members] : groups) {
 			std::ranges::stable_sort(members, [&](std::size_t a, std::size_t b) {
+				const bool ta = namedMain(likely[a]), tb = namedMain(likely[b]);
+				if (ta != tb) {
+					return ta;  // the template's main cell, as its author chose it
+				}
 				const auto& ca = seen.at(likely[a]).candidate;
 				const auto& cb = seen.at(likely[b]).candidate;
 				const bool  sa = SubCellName(ca.name, ca.editorId), sb = SubCellName(cb.name, cb.editorId);
@@ -293,6 +343,9 @@ namespace dova::editor::home
 					o.kind = core::DraftObject::Kind::Display;
 					o.keywords.push_back("display:" + std::string(core::DisplayKindName(*r.display)));
 				} else if (r.IsContainer()) {
+					if (LeftOutOfDrafts(r)) {
+						continue;
+					}
 					o.kind = core::DraftObject::Kind::Container;
 					o.respawns = r.respawns;
 					o.removedByUpgrade = r.enableParent && r.enableOpposite;
@@ -504,7 +557,7 @@ namespace dova::editor::home
 			const auto* d = a_draft.FindContainer(t.ref);
 			if (t.ignored) {
 				++r.ignoredInTemplate;
-				r.ignoredAgree += d && d->ignored ? 1 : 0;
+				r.ignoredAgree += (d && d->ignored) || (!d && a_draft.FindDisplay(t.ref)) ? 1 : 0;  // a scripted bookshelf the draft lists as a display only
 				continue;
 			}
 			if (t.categories.empty()) {

@@ -4,15 +4,16 @@
   "home": "HearthFires.esm|0x00002FEC",
   "tests": [
     {
-      "id": "3.6b.5", "title": "Hearthfire is not \"rebuilt\": the template is enabled on entry (auto-enable on)",
+      "id": "3.6b.5", "title": "Hearthfire is not \"rebuilt\": the template (hall, cellar and grounds in one) is enabled on entry (auto-enable on)",
       "steps": [
         {"do": "settings", "set": {"bAutoEnableTemplates": true}},
         {"do": "enter"},
         {"do": "clearInventory"},
         {"check": "home", "is": true, "name": "Lakeview Manor"},
         {"check": "log", "since": "plan", "regex": "Lakeview Manor: template Templates/Vanilla/LakeviewManor\\.json fits: "},
-        {"check": "notify", "since": "plan", "contains": "Dova Stash: Lakeview Manor is set up. Press K anywhere here to put your loot away."},
-        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/Vanilla/LakeviewManor.json@1.0.0", "within": 5},
+        {"check": "notify", "since": "plan", "contains": "Dova Stash: Lakeview Manor is set up (press K)"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Vanilla/LakeviewManor.json@", "within": 5},
+        {"check": "layout", "pointer": "/cells", "contains": {"cell": "HearthFires.esm|0x00004849", "label": "Cellar"}},
         {"do": "settings", "set": {"bAutoEnableTemplates": false}}
       ]
     },
@@ -22,8 +23,9 @@
         {"do": "reset"},
         {"check": "layoutFile", "exists": false},
         {"do": "useTemplate"},
-        {"check": "notify", "regex": "Dova Stash: Lakeview Manor setup enabled \\(\\d+ containers unavailable for now\\)"},
-        {"check": "log", "regex": "Template container .* unavailable: container is disabled \\(not built yet\\?\\)"}
+        {"check": "notify", "regex": "Dova Stash: Lakeview Manor setup enabled \\(\\d+ containers? unavailable for now\\)"},
+        {"check": "log", "regex": "Template container .* unavailable: container is disabled \\(not built yet\\?\\)"},
+        {"check": "log", "absent": true, "regex": "Template container .* unavailable: (only reachable in|not loaded here)"}
       ]
     },
     {

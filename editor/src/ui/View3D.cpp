@@ -51,7 +51,7 @@ namespace dova::editor::ui
 		const float aspect = size.x / size.y;
 		_viewAspect = aspect;
 		if (_cameraPending) {
-			_camera = _scene->OverviewCamera(aspect);
+			_camera = _scene->OverviewCamera(aspect, _view.roofZ, _view.showDisabled);
 			_cameraPending = false;
 		}
 		if (_frameSelection && _selectedRef >= 0 && _scene->Progress().finished) {  // walls must be loaded to look past them
@@ -193,7 +193,7 @@ namespace dova::editor::ui
 			}
 		}
 		_view.selected = _selectedRef;
-		_view.hovered = _hoveredRef;
+		_view.hovered = _hoveredRef >= 0 ? _hoveredRef : _listHoverShown;
 
 		// ---- Draw ----
 		_scene->Render(_context, _target, _camera, _view);

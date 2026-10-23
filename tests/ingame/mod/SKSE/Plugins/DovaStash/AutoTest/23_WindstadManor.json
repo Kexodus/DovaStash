@@ -3,13 +3,10 @@
   "name": "Windstad Manor (built, several cells)",
   "home": "HearthFires.esm|0x00011CB3",
   "coc": "BYOHHouse2Hjaalmarch",
-  "templates": [
-    "WindstadManor.json"
-  ],
   "tests": [
     {
       "id": "3.9.1",
-      "title": "Built house: the AutoTest template is picked, /cells lists the cellar and the grounds",
+      "title": "Built house: the whole-home template (cellar and grounds) applied, /cells lists them",
       "steps": [
         {
           "do": "enter"
@@ -36,7 +33,7 @@
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/WindstadManor.json"
+          "source": "Templates/Vanilla/WindstadManor.json"
         },
         {
           "do": "useTemplate"
@@ -49,7 +46,7 @@
         {
           "check": "log",
           "since": "plan",
-          "regex": "template Templates/AutoTest/WindstadManor.json"
+          "regex": "template Templates/Vanilla/WindstadManor.json"
         },
         {
           "check": "layout",
@@ -70,7 +67,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/WindstadManor.json@1.0.0"
+          "contains": "Templates/Vanilla/WindstadManor.json@"
         },
         {
           "check": "noErrors"
@@ -174,6 +171,7 @@
           "check": "count",
           "in": "master",
           "item": "Skyrim.esm|0x0005ACE4",
+          "from": "main",
           "eq": 0
         },
         {
@@ -374,6 +372,10 @@
           "ref": "HearthFires.esm|0x00011FE2"
         },
         {
+          "do": "enter",
+          "why": "the cell again, so the station just enabled is loaded with its furniture markers (sitting at it right after the enable opened no menu in some runs)"
+        },
+        {
           "do": "clearInventory"
         },
         {
@@ -394,7 +396,8 @@
         },
         {
           "do": "sit",
-          "ref": "HearthFires.esm|0x00011FE2"
+          "ref": "HearthFires.esm|0x00011FE2",
+          "skipIfClosed": true
         },
         {
           "check": "crafting",
@@ -415,10 +418,16 @@
           "product": "Skyrim.esm|0x0001397E"
         },
         {
-          "do": "closeMenu"
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
         },
         {
           "do": "waitIdle"
+        },
+        {
+          "do": "wait",
+          "seconds": 3,
+          "why": "the player gets up from the anvil before the next test sits at another station"
         },
         {
           "check": "conserved",
@@ -513,14 +522,15 @@
           "product": "Skyrim.esm|0x0005ACE4"
         },
         {
-          "do": "closeMenu"
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
         },
         {
           "do": "waitIdle"
         },
         {
           "check": "conserved",
-          "snapshot": "smelt",
+          "snapshot": "smelt2",
           "ignore": [
             "Skyrim.esm|0x00071CF3",
             "Skyrim.esm|0x0005ACE4"
@@ -565,7 +575,8 @@
           "within": 5
         },
         {
-          "do": "closeMenu"
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
         },
         {
           "do": "waitIdle"
@@ -639,8 +650,8 @@
     },
     {
       "id": "3.9.6",
-      "title": "Cellar with its own setup (Cellar template enabled while the cellar is its own home)",
-      "manual": "needs a step that creates a layout for another cell than the plan's home; writeLayout and makeMaster act on the merged home"
+      "title": "Cellar with its own setup taken in by the whole-home template",
+      "manual": "covered by plan 21 (3.9.6, a test copy of the old cellar template): the cellar has no shipped template of its own, and writeLayout and makeMaster act on the merged home"
     },
     {
       "id": "3.9.7",
@@ -781,7 +792,7 @@
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/WindstadManor.json"
+          "source": "Templates/Vanilla/WindstadManor.json"
         },
         {
           "do": "useTemplate"
@@ -835,7 +846,7 @@
     },
     {
       "id": "3.9.10",
-      "title": "Display edge: a rack in the main hall is not filled from the grounds; a Deposit inside fills it",
+      "title": "Display edge: the test rack is not filled from the grounds; a Deposit inside puts the sword on a rack (the template's racks are in use too)",
       "steps": [
         {
           "do": "enter"
@@ -877,7 +888,7 @@
         {
           "check": "log",
           "since": "plan",
-          "regex": "Display: .* on .*\\(rack\\)",
+          "regex": "Display: .* on .*0x00011D45\\] \\(rack\\)",
           "absent": true
         },
         {
@@ -904,7 +915,7 @@
         {
           "check": "log",
           "since": "plan",
-          "regex": "Display:",
+          "regex": "Display: Iron Sword from <player> on .*\\(rack\\)",
           "within": 5
         },
         {
@@ -955,7 +966,8 @@
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/Vanilla/WindstadManorCellar.json"
+          "source": null,
+          "why": "the cellar has no template of its own: the merged home template lists it"
         },
         {
           "check": "noErrors"

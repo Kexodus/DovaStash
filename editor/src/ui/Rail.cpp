@@ -98,6 +98,11 @@ namespace dova::editor::ui
 		if (_onlyWithoutTemplate && !HomeStatus(a_home).empty()) {
 			return false;
 		}
+		// No usable container and no template: nothing to sort into, hidden unless asked for (or open).
+		if (const auto i = static_cast<std::size_t>(&a_home - _homes->homes.data());
+			!_showEmptyHomes && i < _homes->storage.size() && _homes->storage[i].containers == 0 && HomeStatus(a_home).empty() && !IsOpenHome(static_cast<int>(i))) {
+			return false;
+		}
 		return a_search.empty() || a_modMatch || IContains(a_home.name, a_search) || IContains(a_home.editorId, a_search) || IContains(a_home.plugin, a_search) ||
 		       IContains(a_home.cellRef, a_search) ||
 		       std::ranges::any_of(a_home.extra, [&](const home::HomeEntry::Extra& e) { return IContains(e.name, a_search) || IContains(e.editorId, a_search); });
@@ -178,14 +183,20 @@ namespace dova::editor::ui
 		return HomeTemplates(a_home).size();
 	}
 
+	std::string EditorApp::LoadedConflict(const core::Layout& a_layout) const
+	{
+		return a_layout.conflictPlugins.empty() ? std::string{} : Join(core::LoadedConflicts(a_layout, _activePlugins));
+	}
+
 	const char* EditorApp::TemplateWord(const home::KnownTemplate& a_template, w::Kind* a_kind) const
 	{
 		const bool mine = a_template.user || (!_state.saveTarget.empty() && core::IEquals(a_template.origin, _state.saveTarget));
-		const auto kind = a_template.layout.autoDraft ? w::Kind::Warn : mine ? w::Kind::Ok : w::Kind::Info;
+		const bool off = !LoadedConflict(a_template.layout).empty();
+		const auto kind = off || a_template.layout.autoDraft ? w::Kind::Warn : mine ? w::Kind::Ok : w::Kind::Info;
 		if (a_kind) {
 			*a_kind = kind;
 		}
-		return a_template.layout.autoDraft ? "auto-draft" : mine ? "yours" : "shipped";
+		return off ? "off" : a_template.layout.autoDraft ? "auto-draft" : mine ? "yours" : "shipped";
 	}
 
 	std::string EditorApp::HomeChip(int a_index, w::Kind* a_kind) const
@@ -193,7 +204,6 @@ namespace dova::editor::ui
 		// One word from one small vocabulary, the same in the title row and the Template panel. How many templates
 		// and cells a home has is said in words in the row's summary, not on the chip.
 		const auto& h = _homes->homes[static_cast<std::size_t>(a_index)];
-		const auto& e = _homes->entries[static_cast<std::size_t>(a_index)];
 		const auto  stage = _state.StageOf(h.cellRef);
 		bool        user = false;
 		bool        autoDraft = false;
@@ -203,6 +213,11 @@ namespace dova::editor::ui
 				*a_kind = a_k;
 			}
 		};
+		// Every template of the home names a loaded plugin under "conflicts": the game offers none of them.
+		if (const auto list = HomeTemplates(h); !list.empty() && std::ranges::all_of(list, [&](const home::KnownTemplate* tp) { return !LoadedConflict(tp->layout).empty(); })) {
+			set(w::Kind::Warn);
+			return "off";
+		}
 		if (user || stage == HomeStage::Saved) {
 			set(w::Kind::Ok);  // a person's template of yours, or saved this session (it is yours)
 			return "yours";
@@ -215,12 +230,19 @@ namespace dova::editor::ui
 			set(w::Kind::Warn);  // saved by Draft all homes, nobody's yet (DESIGN §6.8)
 			return "auto-draft";
 		}
-		if (e.draft || stage != HomeStage::None) {
+		if (HomeHasDraft(a_index)) {
 			set(w::Kind::Warn);
 			return "draft";
 		}
 		set(w::Kind::Neutral);
 		return "none";
+	}
+
+	bool EditorApp::HomeHasDraft(int a_index) const
+	{
+		// The editor's draft of the home exists (made on opening it or by Draft all homes) or was reviewed.
+		const auto& h = _homes->homes[static_cast<std::size_t>(a_index)];
+		return _homes->entries[static_cast<std::size_t>(a_index)].draft || _state.StageOf(h.cellRef) != HomeStage::None;
 	}
 
 	bool EditorApp::IsOpenHome(int a_index) const
@@ -249,7 +271,7 @@ namespace dova::editor::ui
 
 	int EditorApp::ActiveFilterCount() const
 	{
-		return (_onlyWithoutTemplate ? 1 : 0) + (_onlyEnabled ? 0 : 1) + (_likelyOnly ? 0 : 1) + (_exteriors ? 1 : 0) + (_groupByMod ? 0 : 1);
+		return (_onlyWithoutTemplate ? 1 : 0) + (_showEmptyHomes ? 1 : 0) + (_onlyEnabled ? 0 : 1) + (_likelyOnly ? 0 : 1) + (_exteriors ? 1 : 0) + (_groupByMod ? 0 : 1);
 	}
 
 	void EditorApp::HomeTooltip(const home::HomeEntry& a_home) const
@@ -287,6 +309,9 @@ namespace dova::editor::ui
 				w::Coloured(kind, word);
 				ImGui::SameLine(0.0f, w::Th().gap);
 				w::Muted(std::format("{} · {} · {}", tp->layout.name, tp->layout.author.empty() ? "no author" : tp->layout.author, tp->origin).c_str());
+				if (const auto conflict = LoadedConflict(tp->layout); !conflict.empty()) {
+					w::Muted(("Not offered: a mod that rebuilds this home is loaded (" + conflict + ")").c_str());
+				}
 			}
 			if (list.size() > 1) {
 				w::Muted("In game the first is offered");
@@ -344,12 +369,12 @@ namespace dova::editor::ui
 	{
 		const auto&       t = w::Th();
 		const std::string collapsed = _homes ? std::format("{} homes", _homes->homes.size()) : std::string("Homes");
-		if (!w::BeginRail("rail", w::Side::Left, _state.ui.railWidth, _state.ui.railOpen, 200.0f * t.scale, 560.0f * t.scale, collapsed.c_str())) {
+		if (!w::BeginRail("rail", w::Side::Left, _state.ui.railWidth, _state.ui.railOpen, 200.0f * t.scale, RailMaxWidth(), collapsed.c_str())) {
 			return;
 		}
 		if (w::BeginPadded("railpad", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
 			if (!_ws) {
-				w::EmptyState("No setup", "Point the editor at your MO2 instance (Start).");
+				w::EmptyState("No setup", "Pick your MO2 instance or Data folder in the middle panel.");
 			} else {
 				if (!_homes && !_homesRequested) {
 					ScanHomes();
@@ -377,8 +402,9 @@ namespace dova::editor::ui
 				ImGui::SameLine(0.0f, t.gap);
 				if (w::BeginPopover("filter", nullptr, w::Icon::Filter, filters, "Filter")) {
 					w::Check("Only homes without a template", _onlyWithoutTemplate);
+					w::Check("Show homes with no containers", _showEmptyHomes, "Cells found as homes with no usable chest and no template: nothing to sort into");
 					w::Check("Only enabled mods", _onlyEnabled, "Mods without homes found by the search: only the enabled ones");
-					w::Check("Likely homes only", _likelyOnly, "All cells...: a player-house location, owned by the player, or mannequins where nothing respawns");
+					w::Check("Likely homes only", _likelyOnly, "All cells...: a player-house location, owned by the player or its mod's faction, or mannequins where nothing respawns");
 					if (w::Check("Exteriors", _exteriors, "All cells...: exterior cells with containers too (a balcony, a garden)") && _selectedMod >= -1) {
 						Scan();
 					}
@@ -470,8 +496,13 @@ namespace dova::editor::ui
 				}
 			}
 			if (_railCursor == a_i && (moved || (_railReveal && !a_compact))) {
+				// A home opened: scroll until its row shows (the scroll limit can take a frame or two to settle).
+				const bool seen = ImGui::IsItemVisible() && _railRevealFrames > 0;
 				ImGui::SetScrollHereY(0.5f);
-				_railReveal = a_compact && _railReveal;
+				if (!a_compact && _railReveal && (seen || ++_railRevealFrames > 3)) {
+					_railReveal = false;
+					_railRevealFrames = 0;
+				}
 			}
 			HomeTooltip(h);
 			if (!a_compact) {
@@ -502,7 +533,8 @@ namespace dova::editor::ui
 			}
 			const mo2::Mod* mod = g.mod >= 0 ? &_ws->Mods()[static_cast<std::size_t>(g.mod)] : nullptr;
 			bool            open = !_collapsedGroups.contains(g.mod) || !a_search.empty();
-			const auto      note = mod && mod->nexusId ? std::format("{}  ·  {}", *mod->nexusId, shown.size()) : std::to_string(shown.size());
+			const auto      homes = std::format("{} home{}", shown.size(), shown.size() == 1 ? "" : "s");
+			const auto      note = mod && mod->nexusId ? std::format("Nexus {}  ·  {}", *mod->nexusId, homes) : homes;
 			ImGui::PushID(g.mod);
 			if (w::GroupHeader("group", ModName(*_ws, g.mod).c_str(), note.c_str(), open) && a_search.empty()) {
 				if (open) {
@@ -511,6 +543,17 @@ namespace dova::editor::ui
 					_collapsedGroups.insert(g.mod);
 				}
 			}
+			// "All cells..." (a home the finder misses): in the group's right-click menu, and as a link under the group of
+			// the open home or whose cells are listed, not under every group.
+			const bool cellsMenu = !a_compact && g.mod >= -1;
+			const auto toggleCells = [&] {
+				if (anyCells) {
+					_selectedMod = -2;
+					_scans.clear();
+				} else {
+					SelectMod(g.mod);
+				}
+			};
 			if (ImGui::BeginItemTooltip()) {
 				ImGui::TextUnformatted(ModName(*_ws, g.mod).c_str());
 				if (g.mod != -2) {
@@ -518,22 +561,26 @@ namespace dova::editor::ui
 					w::Muted(Join(mod ? mod->plugins : _ws->BasePlugins()).c_str());
 					ImGui::PopTextWrapPos();
 				}
+				if (cellsMenu) {
+					w::Muted("Right-click: all cells");
+				}
 				ImGui::EndTooltip();
+			}
+			if (cellsMenu && ImGui::BeginPopupContextItem("groupctx")) {
+				if (w::MenuRow(anyCells ? "Hide the other cells" : "All cells...")) {
+					toggleCells();
+				}
+				ImGui::EndPopup();
 			}
 			if (open) {
 				for (const int i : shown) {
 					row(i);
 				}
-				if (!a_compact && g.mod >= -1) {
+				if (cellsMenu && (anyCells || std::ranges::any_of(g.homes, [&](int i) { return IsOpenHome(i); }))) {
 					ImGui::PushFont(t.smallFont);
 					ImGui::Indent(t.pad);
 					if (w::LinkButton(anyCells ? "Hide the other cells" : "All cells...")) {
-						if (anyCells) {
-							_selectedMod = -2;
-							_scans.clear();
-						} else {
-							SelectMod(g.mod);
-						}
+						toggleCells();
 					}
 					w::Tip("Every cell with containers in this mod's plugins, likely homes first: for a home the finder misses");
 					ImGui::Unindent(t.pad);

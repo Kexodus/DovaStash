@@ -5,6 +5,7 @@
 // (+ ValidateLayoutCategories with the loaded categories), the file is written by home::SaveTemplateFile.
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <format>
 #include <fstream>
@@ -23,6 +24,7 @@
 #include "dova/core/Template.h"
 #include "dova/core/Version.h"
 #include "home/DovaData.h"
+#include "home/RefChecks.h"
 #include "home/TemplateFile.h"
 #include "ui/App.h"
 #include "ui/Common.h"
@@ -32,6 +34,19 @@ namespace fs = std::filesystem;
 namespace dova::editor::ui
 {
 	using namespace detail;
+
+	namespace
+	{
+		// A note field that wraps its words, as tall as its wrapped text: 2 to 5 lines, a longer note scrolls.
+		bool NoteField(const char* a_id, std::string& a_text)
+		{
+			const ImGuiStyle& st = ImGui::GetStyle();
+			const float       wrap = std::max(ImGui::GetContentRegionAvail().x - 2.0f * st.FramePadding.x - st.ScrollbarSize, 10.0f);
+			const float       line = ImGui::GetTextLineHeight();
+			const float       lines = std::clamp(std::ceil(ImGui::CalcTextSize(a_text.c_str(), nullptr, false, wrap).y / line), 2.0f, 5.0f);
+			return ImGui::InputTextMultiline(a_id, &a_text, ImVec2(-FLT_MIN, lines * line + 2.0f * st.FramePadding.y), ImGuiInputTextFlags_WordWrap);
+		}
+	}
 
 	void EditorApp::LoadCategories()
 	{
@@ -83,11 +98,64 @@ namespace dova::editor::ui
 			};
 			core::ValidateDisplayCategories(a_cell.layout, *_categorySet, fitOf, "template", diags);
 		}
+		// A loaded plugin under "conflicts" rebuilds the home: the game does not offer the template, so what its
+		// references say about that rebuild is information under the Checks panel's "Not offered in game", never an
+		// error that blocks Save a copy.
+		core::Diagnostics refs;
+		CheckRefs(a_cell, refs);
+		const bool off = !LoadedConflict(a_cell.layout).empty();
+		if (!off) {
+			diags.Append(refs);
+		}
 		a_cell.diagnostics.clear();
 		for (const auto& d : diags.Items()) {
 			a_cell.diagnostics.push_back(d.ToString());
 		}
+		if (off) {
+			for (const auto& d : refs.Items()) {
+				a_cell.diagnostics.push_back("info: " + (d.source.empty() ? std::string{} : d.source + ": ") + d.message);
+			}
+		}
 		a_cell.json = core::SerializeLayout(a_cell.layout);
+	}
+
+	void EditorApp::CheckRefs(const OpenCell& a_cell, core::Diagnostics& a_diags) const
+	{
+		// The game-data checks (home::CheckTemplateRefs) over the home's cells that are read: the open cell, and the
+		// other cells of the home from its draft when it has been made (it is not made here: that is a job).
+		const auto& l = a_cell.layout;
+		auto inHome = [&](const core::FormRef& a_cell) {
+			return (l.cell && *l.cell == a_cell) || std::ranges::any_of(l.cells, [&](const core::HomeCell& c) { return c.cell == a_cell; });
+		};
+		home::RefIndex           refs;
+		std::vector<core::FormRef> read;
+		auto add = [&](const esp::LoadOrder& a_lo, const home::CellInfo& a_info) {
+			const auto key = a_lo.ToFormRef(a_info.key);
+			if (std::ranges::find(read, key) != read.end()) {
+				return;
+			}
+			read.push_back(key);
+			for (const auto& r : a_info.refs) {
+				refs.emplace(a_lo.ToFormRef(r.key), &r);
+			}
+		};
+		if (inHome(a_cell.lo->ToFormRef(a_cell.info.key))) {
+			add(*a_cell.lo, a_cell.info);  // not a cell a door led to that is not part of the home
+		}
+		if (_cellDraft >= 0 && _homes && static_cast<std::size_t>(_cellDraft) < _homes->entries.size()) {
+			if (const auto* d = _homes->entries[static_cast<std::size_t>(_cellDraft)].draft.get()) {
+				for (const auto& c : d->cells) {
+					if (inHome(_homes->lo->ToFormRef(c.key))) {
+						add(*_homes->lo, c);
+					}
+				}
+			}
+		}
+		const bool complete = l.cell && std::ranges::find(read, *l.cell) != read.end() &&
+		                      std::ranges::all_of(l.cells, [&](const core::HomeCell& c) { return std::ranges::find(read, c.cell) != read.end(); });
+		const auto& lo = a_cell.lo;
+		home::CheckTemplateRefs(l, { &refs, complete, !l.cells.empty(), [&lo](std::string_view a_plugin) { return lo->PluginIndex(a_plugin).has_value(); } },
+			"template", a_diags);
 	}
 
 	int EditorApp::ErrorCount(const OpenCell& a_cell) const
@@ -97,7 +165,9 @@ namespace dova::editor::ui
 
 	int EditorApp::WarningCount(const OpenCell& a_cell) const
 	{
-		return static_cast<int>(a_cell.diagnostics.size()) - ErrorCount(a_cell);
+		// The Checks panel's "Not offered in game" line counts too; its information lines do not.
+		return static_cast<int>(std::ranges::count_if(a_cell.diagnostics, [](const std::string& d) { return d.starts_with("warning"); })) +
+		       (LoadedConflict(a_cell.layout).empty() ? 0 : 1);
 	}
 
 	bool EditorApp::CategoryEditor(const char* a_id, std::vector<std::string>& a_patterns, bool a_title, const core::DisplayFit* a_fit)
@@ -343,7 +413,7 @@ namespace dova::editor::ui
 						}
 					}
 					w::FieldLabel("Note");
-					changed |= ImGui::InputTextMultiline("##note", &b->note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
+					changed |= NoteField("##note", b->note);
 					w::Tip("For people reading the file");
 					ImGui::PushFont(w::Th().smallFont);
 					if (w::LinkButton("Remove from the template")) {
@@ -403,7 +473,7 @@ namespace dova::editor::ui
 					}
 				}
 				w::FieldLabel("Note");
-				changed |= ImGui::InputTextMultiline("##note", &d->note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
+				changed |= NoteField("##note", d->note);
 			}
 		} else {
 			for (const auto& door : a_cell.info.doors) {
@@ -466,23 +536,40 @@ namespace dova::editor::ui
 		return home::TemplatePath(SaveBase(), a_cell.layout, HomeNameFor(a_cell));
 	}
 
-	std::string EditorApp::HomeNameFor(const OpenCell& a_cell) const
+	const home::HomeEntry* EditorApp::HomeEntryFor(const OpenCell& a_cell) const
 	{
-		if (_homes) {
-			if (_cellDraft >= 0 && static_cast<std::size_t>(_cellDraft) < _homes->homes.size()) {
-				return _homes->homes[static_cast<std::size_t>(_cellDraft)].name;
-			}
-			// Opened from a file: the rail home whose main cell (or a joined cell) is the template's.
-			if (a_cell.layout.cell) {
-				const auto main = a_cell.layout.cell->ToString();
-				for (const auto& h : _homes->homes) {
-					if (core::IEquals(h.cellRef, main) || std::ranges::any_of(h.extra, [&](const auto& e) { return core::IEquals(e.cellRef, main); })) {
-						return h.name;
-					}
+		if (!_homes) {
+			return nullptr;
+		}
+		if (_cellDraft >= 0 && static_cast<std::size_t>(_cellDraft) < _homes->homes.size()) {
+			return &_homes->homes[static_cast<std::size_t>(_cellDraft)];
+		}
+		// Opened from a file: the rail home whose main cell (or a joined cell) is the template's.
+		if (a_cell.layout.cell) {
+			const auto main = a_cell.layout.cell->ToString();
+			for (const auto& h : _homes->homes) {
+				if (core::IEquals(h.cellRef, main) || std::ranges::any_of(h.extra, [&](const auto& e) { return core::IEquals(e.cellRef, main); })) {
+					return &h;
 				}
 			}
 		}
-		return a_cell.layout.name;
+		return nullptr;
+	}
+
+	std::optional<EditorApp::HomesData::Storage> EditorApp::HomeStorageFor(const OpenCell& a_cell) const
+	{
+		const auto* h = HomeEntryFor(a_cell);
+		if (!h) {
+			return std::nullopt;
+		}
+		const auto i = static_cast<std::size_t>(h - _homes->homes.data());
+		return i < _homes->storage.size() ? std::optional(_homes->storage[i]) : std::nullopt;
+	}
+
+	std::string EditorApp::HomeNameFor(const OpenCell& a_cell) const
+	{
+		const auto* h = HomeEntryFor(a_cell);
+		return h ? h->name : a_cell.layout.name;
 	}
 
 	std::vector<const home::KnownTemplate*> EditorApp::TemplatesFor(const OpenCell& a_cell) const
@@ -490,6 +577,10 @@ namespace dova::editor::ui
 		std::vector<const home::KnownTemplate*> out;
 		if (!_homes || !_homes->lo) {
 			return out;
+		}
+		// A rail home: the rail's list (every cell of the home, HomeTemplates), so the rail and the title row agree.
+		if (const auto* h = HomeEntryFor(a_cell)) {
+			out = HomeTemplates(*h);
 		}
 		auto add = [&](const core::FormRef& a_ref) {
 			for (const auto* t : _homes->templates.ForCell(a_ref)) {
@@ -528,9 +619,50 @@ namespace dova::editor::ui
 		};
 		w::SectionHead(list.size() == 1 ? "This home's template" : std::format("This home's templates  {}", list.size()).c_str(),
 			"Saved in one folder per home. In game the first of this list is offered: one someone made before an auto-draft, then highest priority, then yours, then the newest version");
-		for (std::size_t i = 0; i < list.size(); ++i) {
-			const auto* tp = list[i];
-			const bool  open = same(tp->path, a_cell.filePath) || same(tp->path, a_cell.savedPath);
+		// The templates of the home's other cells (a cellar) under that cell's name, after the main cell's.
+		std::vector<std::pair<std::string, const home::KnownTemplate*>> rows;
+		const auto* homeEntry = HomeEntryFor(a_cell);
+		auto        groupOf = [&](const home::KnownTemplate* a_tp) -> std::string {
+            if (!homeEntry || !a_tp->layout.cell) {
+                return {};
+            }
+            const auto main = a_tp->layout.cell->ToString();
+            for (const auto& e : homeEntry->extra) {
+                if (core::IEquals(e.cellRef, main) && !core::IEquals(homeEntry->cellRef, main)) {
+                    // "Lakeview Manor Cellar" in Lakeview Manor: "Cellar"
+                    std::string name = e.name.empty() ? e.editorId : e.name;
+                    if (name.size() > homeEntry->name.size() && core::IEquals(name.substr(0, homeEntry->name.size()), homeEntry->name)) {
+                        name.erase(0, homeEntry->name.size());
+                        while (!name.empty() && (name.front() == ' ' || name.front() == ',' || name.front() == '-' || name.front() == ':')) {
+                            name.erase(0, 1);
+                        }
+                    }
+                    return name.empty() ? e.editorId : name;
+                }
+            }
+            return {};
+		};
+		for (const auto* tp : list) {
+			if (groupOf(tp).empty()) {
+				rows.emplace_back(std::string{}, tp);
+			}
+		}
+		if (homeEntry) {
+			for (const auto& e : homeEntry->extra) {
+				for (const auto* tp : list) {
+					if (auto g = groupOf(tp); !g.empty() && tp->layout.cell && core::IEquals(tp->layout.cell->ToString(), e.cellRef)) {
+						rows.emplace_back(std::move(g), tp);
+					}
+				}
+			}
+		}
+		for (std::size_t i = 0; i < rows.size(); ++i) {
+			const auto* tp = rows[i].second;
+			if (!rows[i].first.empty() && (i == 0 || rows[i - 1].first != rows[i].first)) {
+				w::Spacer(th.gap * 0.5f);
+				w::Muted(rows[i].first.c_str());
+			}
+			const bool open = same(tp->path, a_cell.filePath) || same(tp->path, a_cell.savedPath);
 			ImGui::PushID(static_cast<int>(i));
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			const float  wdt = ImGui::GetContentRegionAvail().x;
@@ -594,7 +726,8 @@ namespace dova::editor::ui
 		std::error_code ec;
 		const bool      exists = fs::exists(TemplatePath(*_cell), ec);
 		const bool      hasTemplate = _cellDraft >= 0 && _homes && !HomeStatus(_homes->homes[static_cast<std::size_t>(_cellDraft)]).empty() && _cell->filePath.empty();
-		if (exists || hasTemplate) {
+		const bool      noName = _cell->layout.author.empty() && _templateAuthor.empty();  // the dialog asks for one (never "Unknown")
+		if (exists || hasTemplate || noName) {
 			_confirmSave = true;  // asks first (DrawSavePopup)
 		} else {
 			SaveTemplate(*_cell);
@@ -614,8 +747,30 @@ namespace dova::editor::ui
 				return;
 			}
 			std::error_code ec;
-			const auto      path = TemplatePath(*_cell);
-			if (fs::exists(path, ec)) {
+			// No author yet: the name first (the file is named after it), kept as Setup's Author.
+			const bool needName = _cell->layout.author.empty() && _templateAuthor.empty();
+			const bool named = std::ranges::any_of(_saveName, [](char c) { return !std::isspace(static_cast<unsigned char>(c)); });
+			fs::path   path = TemplatePath(*_cell);
+			if (needName) {
+				w::FieldLabel("Your name");
+				if (ImGui::IsWindowAppearing()) {
+					_saveName.clear();
+					ImGui::SetKeyboardFocusHere();
+				}
+				ImGui::SetNextItemWidth(ImGui::GetFontSize() * 18.0f);
+				ImGui::InputTextWithHint("##savename", "The template folder's file name", &_saveName);
+				w::Muted("Kept for later saves (Setup > Author).");
+				w::Spacer();
+				if (named) {
+					core::Layout probe;
+					probe.name = _cell->layout.name;
+					probe.author = _saveName;
+					path = home::TemplatePath(SaveBase(), probe, HomeNameFor(*_cell));
+				}
+			}
+			if (needName && !named) {
+				w::Muted("Save to the home's folder, under your name.");
+			} else if (fs::exists(path, ec)) {
 				w::Coloured(w::Kind::Warn, (PathToUtf8(path) + " exists.").c_str());
 				ImGui::TextUnformatted("Overwrite it? The old file is kept as .bak and the version goes up.");
 				if (_homes && std::ranges::any_of(_homes->templates.templates, [&](const home::KnownTemplate& tp) { return tp.layout.autoDraft && fs::equivalent(tp.path, path, ec); })) {
@@ -637,7 +792,13 @@ namespace dova::editor::ui
 				}
 			}
 			w::Spacer();
-			if (w::PrimaryButton("Save")) {
+			if (w::PrimaryButton("Save", !needName || named, "Type your name first")) {
+				if (needName) {
+					_templateAuthor = _saveName;
+					_state.author = _templateAuthor;
+					_state.Save();
+					_cell->layout.author = _templateAuthor;
+				}
 				_confirmSave = false;
 				ImGui::CloseCurrentPopup();
 				SaveTemplate(*_cell);
@@ -672,7 +833,10 @@ namespace dova::editor::ui
 				_homes->templates = home::LoadTemplateIndex(*_ws);
 				if (_cellDraft >= 0 && static_cast<std::size_t>(_cellDraft) < _homes->entries.size() && _homes->entries[static_cast<std::size_t>(_cellDraft)].draft) {
 					auto& e = _homes->entries[static_cast<std::size_t>(_cellDraft)];
-					e.draft->layout = a_cell.layout;
+					if (a_cell.filePath.empty()) {
+						e.draft->layout = a_cell.layout;  // the draft was open: saved, it has nothing unsaved
+						e.reviewed = false;
+					}
 					e.saveMessage = a_cell.saveMessage;
 				}
 			}
@@ -833,7 +997,7 @@ namespace dova::editor::ui
 		changed |= ImGui::InputInt("##priority", &t.priority, 0);
 		ImGui::EndGroup();
 		w::FieldLabel("Note");
-		changed |= ImGui::InputTextMultiline("##note", &t.note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 3.0f));
+		changed |= NoteField("##note", t.note);
 		{
 			const auto master = std::ranges::find_if(a_cell.info.refs, [&](const home::PlacedRef& p) { return t.master && a_cell.lo->ToFormRef(p.key) == *t.master; });
 			const auto withCategories = std::ranges::count_if(t.containers, [](const core::ContainerBinding& b) { return !b.ignored && !b.categories.empty(); });
@@ -974,13 +1138,7 @@ namespace dova::editor::ui
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + ImGui::GetContentRegionAvail().x, p.y + 1.0f), th.line);
 			ImGui::Dummy(ImVec2(0.0f, th.gap));
-			const int errors = ErrorCount(a_cell);
-			if (w::PrimaryButton("Save", errors == 0, "The checks find errors: see Checks")) {
-				RequestSave();
-			}
-			if (errors == 0) {
-				w::TipShortcut(PathToUtf8(TemplatePath(a_cell)).c_str(), "Ctrl+S");
-			}
+			DrawSaveButton();  // as the title row's: filled only when there is unsaved work, else Save or Save a copy
 			ImGui::SameLine(0.0f, th.gap);
 			if (w::ToolButton("Save as...", false, "A copy anywhere; the template stays where it is saved")) {
 				SaveTemplateAs(a_cell);

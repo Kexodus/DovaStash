@@ -9,12 +9,15 @@
 // - Output is indented with tabs and kept compact so people can read it: a short list or an entry without
 //   nested objects stays on one line (one line per container), and the fields of such lines are lined up
 //   in columns (detail::Dump). Fixed key order: $schema, autoDraft, name, note, author, version, priority, requires,
-//   conflicts, cell, cells, master, containers, displays, keep, learned, declined, basedOn, then any unknown keys
+//   conflicts, replaces, cell, cells, master, containers, displays, keep, learned, declined, hiddenTemplates, basedOn, then any unknown keys
 //   (sorted). `cells` (more cells of a multi-cell home, HomeCells.h) and `declined` (turned-down category
 //   suggestions, Learning.h) are only written when the layout has any.
 //   name/author/version/priority are always written; optional parts only when set (autoDraft only when true).
 // - `conflicts` (templates, DESIGN §6.2): plugins that rebuild the home; a template is not offered while any of them
 //   is loaded (the negative of `requires`). Written only when the layout has any.
+// - `replaces` (templates, DESIGN §6.7): the sources of retired templates this one takes over ("Templates/Vanilla/
+//   LakeviewManorCellar.json"). An untouched setup made from one of them may be taken in when this template is applied
+//   (IsUntouchedTemplateSetup, Template.h). Written only when the layout has any; ApplyTemplate drops it.
 // - `autoDraft` (templates only, DESIGN §6.8): true marks a file written by the editor's bulk "Draft all homes"
 //   that no person has saved since. Such a file may be replaced by the next bulk draft; any other template file
 //   never is (CheckAutoDraftTarget, Template.h). Saving it as a person drops the mark. The game loads it as any
@@ -154,6 +157,7 @@ namespace dova::core
 		std::int32_t                  priority{ 0 };
 		std::vector<std::string>      requiredPlugins;  // JSON "requires": plugin file names
 		std::vector<std::string>      conflictPlugins;  // JSON "conflicts": not offered while any of these is loaded
+		std::vector<std::string>      replaces;  // JSON "replaces" (templates): retired template sources this one takes over
 		std::optional<FormRef>        cell;
 		std::vector<HomeCell>         cells;  // more cells of the same home (DESIGN §6.7); optional
 		std::optional<FormRef>        master;
@@ -164,6 +168,10 @@ namespace dova::core
 		// Category suggestions the player turned down (Learning.h): container ref -> category ids. "Send all
 		// Books to End Table?" is never asked again for a pair listed here. Player layouts only; optional.
 		std::map<FormRef, std::vector<std::string>> declined;
+		// Templates the player removed from this home (DESIGN §6.2): their sources ("Templates/Vanilla/Breezehome.json"),
+		// never offered, chosen or applied here until added back (HideTemplate / UnhideTemplate, Template.h). Player
+		// layouts only; written only when there is one. A value of the wrong shape is kept verbatim in `extra`.
+		std::vector<std::string>      hiddenTemplates;
 		std::optional<std::string>    basedOn;  // "Templates/Vanilla/Breezehome.json@1.0.0"
 
 		nlohmann::json extra = nlohmann::json::object();               // unknown top-level keys
@@ -204,8 +212,10 @@ namespace dova::core
 	[[nodiscard]] bool SameSetup(const Layout& a_lhs, const Layout& a_rhs);
 
 	[[nodiscard]] std::optional<Layout> LoadLayoutFile(const std::filesystem::path& a_path, std::string_view a_source, Diagnostics& a_diags);
-	// Atomic write (temp file + rename). Creates parent directories.
-	[[nodiscard]] bool SaveLayoutFile(const std::filesystem::path& a_path, const Layout& a_layout);
+	// Atomic write (temp file + rename, retried 3 times about 50 ms apart: a sync client such as OneDrive may hold
+	// the target for a moment). Creates parent directories. `a_inPlaceFallback`: when the rename still fails, write
+	// the target in place instead (for copies outside Data, the home backups; a setup file under Data stays atomic).
+	[[nodiscard]] bool SaveLayoutFile(const std::filesystem::path& a_path, const Layout& a_layout, bool a_inPlaceFallback = false);
 
 	// "Skyrim.esm_000165A7.json" — the player layout file name for a cell (DESIGN §6).
 	[[nodiscard]] std::string LayoutFileName(const FormRef& a_cell);

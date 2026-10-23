@@ -20,6 +20,7 @@
 #include "dova/core/DraftSuggest.h"
 #include "dova/core/Layout.h"
 #include "home/Cell.h"
+#include "home/DovaData.h"
 
 namespace dova::editor::home
 {
@@ -54,12 +55,26 @@ namespace dova::editor::home
 		int                displays{ 0 };
 	};
 
+	// The name a home's template file is saved under (TemplatePath's `a_home`): its name, or, when another home of the
+	// same name has that file, the name with its main cell's EditorID ("Keep (YngolKeep02)").
+	[[nodiscard]] inline std::string TemplateHomeName(const HomeEntry& a_home, bool a_clash)
+	{
+		return a_clash && !a_home.editorId.empty() ? a_home.name + " (" + a_home.editorId + ")" : a_home.name;
+	}
+
 	using ScanProgress = std::function<void(std::size_t a_done, std::size_t a_total, const std::string& a_stage)>;
+
+	// The interior cells the known templates name: true for a template's `cell`, false for a `cells` entry only.
+	using TemplateCells = esp::FormKeyMap<bool>;
+	[[nodiscard]] TemplateCells TemplateCellsOf(esp::LoadOrder& a_lo, const TemplateIndex& a_templates);
 
 	// Every likely player home among the interior cells of the loaded plugins (each cell once, as the load order
 	// has it), with the interior cells their doors lead to joined when those are homes too, or storage that
-	// nothing respawns in and nobody else owns. Sorted by plugin load order, then name.
-	[[nodiscard]] std::vector<HomeEntry> FindAllHomes(esp::LoadOrder& a_lo, const ScanProgress& a_progress = {}, const std::atomic<bool>* a_cancel = nullptr);
+	// nothing respawns in and nobody else owns. A cell a template names (`a_templateCells`) is a home whatever
+	// the heuristics say (a later plugin may drop its location or name), and a template's main cell leads its
+	// group. Sorted by plugin load order, then name.
+	[[nodiscard]] std::vector<HomeEntry> FindAllHomes(esp::LoadOrder& a_lo, const ScanProgress& a_progress = {}, const std::atomic<bool>* a_cancel = nullptr,
+		const TemplateCells* a_templateCells = nullptr);
 
 	// Item names of the load order (lower-case) -> their category, for containers named after an item. Names
 	// that mean different categories, and clutter, are left out.

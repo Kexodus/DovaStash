@@ -95,6 +95,20 @@ namespace dova
 			}).detach();
 		}
 
+		// "activate player" on `a_target`, as typed in the console (RE::Script, as ConsoleUtil does): the path that
+		// opens a container when an ActivateRef from a task was dropped (Browse's second try).
+		void ConsoleActivate(RE::TESObjectREFR* a_target)
+		{
+			const auto factory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::Script>();
+			auto*      script = factory ? factory->Create() : nullptr;
+			if (!script || !a_target) {
+				return;
+			}
+			script->SetCommand("activate player");
+			script->CompileAndRun(a_target);
+			delete script;
+		}
+
 		// Writes what each used item plaque and display case is made for (its script's items) into its layout
 		// entry, so the layout shows and keeps exactly what goes on it, and reports the template's display items
 		// that don't exist in this load order (DESIGN §8.4; home::RecordDisplayItems). True if any changed.
@@ -179,18 +193,31 @@ namespace dova
 			return !text.empty() && IsValidUtf8(text) ? text : "Player"s;
 		}
 
-		// Bindings of the home's layout that fail the safety checks right now, or are out of reach from the
-		// player's area of a multi-cell home (logged).
+		// Bindings of the home's layout that fail the safety checks right now (disabled, missing, refused;
+		// logged). One in another area of a multi-cell home only waits for it (logged at debug, not counted).
 		int CountUnavailable(const home::Home& a_home)
 		{
 			const auto& layout = *a_home.layout;
 			int         unavailable = 0;
 			auto        check = [&](const core::FormRef& a_ref) {
-				const auto verdict = home::CheckHomeContainer(game::LookupRef(a_ref), a_home);
-				if (!verdict.ok) {
-					++unavailable;
-					logger::warn("Template container {} unavailable: {}", a_ref.ToString(), verdict.reason);
+				auto* ref = game::LookupRef(a_ref);
+				if (!ref && a_home.MultiCell() && game::FormIdOf(a_ref)) {
+					// Its plugin is loaded, but the reference is not in memory: not persistent, in an area of the home
+					// that is not loaded (a cellar seen from upstairs). It is there when the player is.
+					logger::debug("Template container {} waits for its area: not in memory here", a_ref.ToString());
+					return;
 				}
+				auto       reach = core::Reach::Here;
+				const auto verdict = home::CheckHomeContainer(ref, a_home, &reach);
+				if (verdict.ok) {
+					return;
+				}
+				if (reach == core::Reach::Unreachable) {
+					logger::debug("Template container {} waits for its area: {}", a_ref.ToString(), verdict.LogReason());
+					return;
+				}
+				++unavailable;
+				logger::warn("Template container {} unavailable: {}", a_ref.ToString(), verdict.LogReason());
 			};
 			if (layout.master) {
 				check(*layout.master);
@@ -201,6 +228,14 @@ namespace dova
 				}
 			}
 			return unavailable;
+		}
+
+		std::string SetupEnabledText(const std::string& a_name, int a_unavailable)
+		{
+			if (a_unavailable == 0) {
+				return std::format("Dova Stash: {} setup enabled", a_name);
+			}
+			return std::format("Dova Stash: {} setup enabled ({} container{} unavailable for now)", a_name, a_unavailable, a_unavailable == 1 ? "" : "s");
 		}
 	}
 
@@ -219,9 +254,14 @@ namespace dova
 	void Controller::ApplySettings(Settings::Values a_values)
 	{
 		const auto before = Settings::GetSingleton().Get();
-		const auto changed = Settings::GetSingleton().Update(std::move(a_values));
+		bool       saved = true;
+		const auto changed = Settings::GetSingleton().Update(std::move(a_values), &saved);
 		if (changed.empty()) {
 			return;
+		}
+		if (!saved) {
+			// Applied for this session, but a read-only or locked DovaStash.ini would lose it at the next start.
+			Notify("Dova Stash: settings not saved (see DovaStash.log)", true);
 		}
 		const auto& now = Settings::GetSingleton();
 		if (now.GetGeneral().logLevel != before.general.logLevel) {
@@ -264,13 +304,13 @@ namespace dova
 		return _ui.editor ? *_ui.editor : *_ui.world;
 	}
 
-	void Controller::Notify(std::string_view a_message)
+	void Controller::Notify(std::string_view a_message, bool a_failed)
 	{
 		auto& editor = Editor();
 		if (&editor != &UI() && editor.IsActive()) {
-			editor.Notify(a_message);
+			editor.Notify(a_message, a_failed);
 		} else {
-			UI().Notify(a_message);
+			UI().Notify(a_message, a_failed);
 		}
 	}
 
@@ -301,7 +341,7 @@ namespace dova
 				OpenAreaPrompt(*offer);
 				return;
 			}
-			Notify(std::format("Dova Stash: not a player home ({})", reason));
+			Notify(std::format("Dova Stash: not a player home ({})", reason), true);
 			return;
 		}
 		auto* cell = PlayerCell();
@@ -350,7 +390,8 @@ namespace dova
 			}
 			const auto verdict = targetHere ? game::CheckContainer(target, cell) : home::CheckHomeContainer(target, *home);
 			if (!verdict.ok) {
-				Notify(std::format("Dova Stash: can't use {} ({})", game::RefName(target), verdict.reason));
+				logger::debug("Hotkey: {} refused: {}", game::Describe(target), verdict.LogReason());
+				Notify(std::format("Dova Stash: can't use {} ({})", game::RefName(target), verdict.reason), true);
 				return;
 			}
 			if (!verdict.warning.empty()) {
@@ -361,7 +402,7 @@ namespace dova
 				}
 			}
 			if (home->layoutBroken) {
-				Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+				Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 				return;
 			}
 			if (!home->layout) {
@@ -386,14 +427,14 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		if (home->BestTemplate() || home->backup || Registry().OfferArea()) {
 			UI().OpenSetupPrompt(*home, nullptr);
 			return;
 		}
-		Notify(std::format("Dova Stash: look at a container and press {} to set up {}", HotkeyName(), home->name));
+		Notify(std::format("Dova Stash: press {} at a container to set up {}", HotkeyName(), home->name));
 	}
 
 	void Controller::OpenAreaPrompt(const home::HomeRegistry::AreaOffer& a_offer)
@@ -412,11 +453,11 @@ namespace dova
 	{
 		const auto offer = Registry().OfferArea();
 		if (!offer || offer->cellId != a_cellId) {
-			Notify("Dova Stash: this area can't be added now");
+			Notify("Dova Stash: this area can't be added now", true);
 			return;
 		}
 		if (!Registry().AddArea(*offer, a_label)) {
-			Notify("Dova Stash: could not add this area (see log)");
+			Notify("Dova Stash: could not add this area (see DovaStash.log)", true);
 			return;
 		}
 		integrations::quickloot::Refresh();
@@ -437,11 +478,11 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		if (!Registry().RenameArea(*home, a_area, a_label)) {
-			Notify("Dova Stash: could not rename that area (see log)");
+			Notify("Dova Stash: could not rename that area (see DovaStash.log)", true);
 			return;
 		}
 		integrations::quickloot::Refresh();
@@ -460,14 +501,14 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		const auto area = std::ranges::find(home->areas, a_area, &home::Area::cell);
 		const auto areaName = area != home->areas.end() ? area->name : a_area.ToString();
-		const auto homeName = home->name;
+		const auto homeName = home->DisplayName();
 		if (!Registry().RemoveArea(*home, a_area)) {
-			Notify("Dova Stash: could not remove that area (see log)");
+			Notify("Dova Stash: could not remove that area (see DovaStash.log)", true);
 			return;
 		}
 		// `home` may be loaded again from here on (the player's cell may have left the home): not used below.
@@ -495,11 +536,16 @@ namespace dova
 			}
 		}
 		if (a_home.layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return true;
 		}
 		if (!a_home.layout) {
-			Notify(std::format("Dova Stash: set up {} first: look at a container and press {}", a_home.name, HotkeyName()));
+			// A template, a saved setup or an area to join is on offer: the same prompt as the hotkey at nothing.
+			if (a_home.BestTemplate() || a_home.backup || Registry().OfferArea()) {
+				UI().OpenSetupPrompt(a_home, nullptr);
+				return true;
+			}
+			Notify(std::format("Dova Stash: set up {} first (press {} at a container)", a_home.name, HotkeyName()), true);
 			return true;
 		}
 		const auto*     binding = a_home.layout->FindDisplay(*display);
@@ -561,11 +607,9 @@ namespace dova
 			return;
 		}
 		const auto name = best->layout.name;
-		const auto author = best->layout.author.empty() ? "unknown"s : best->layout.author;
-
 		if (fit && !fit->fits) {
 			// Another mod seems to have rebuilt the home: offer the template, never enable it on its own.
-			Notify(std::format("Dova Stash: {} setup may not fit this home. Press {} at any container to enable.", name, HotkeyName()));
+			Notify(std::format("Dova Stash: {} setup may not fit (press {})", name, HotkeyName()));
 			return;
 		}
 		if (Settings::GetSingleton().GetTemplates().autoEnable) {
@@ -574,16 +618,17 @@ namespace dova
 					SaveLayout(*home);
 				}
 				// First visit: the player did nothing yet, so say what to do (the hotkey anywhere opens the master menu).
-				Notify(std::format("Dova Stash: {} is set up. Press {} anywhere here to put your loot away.", name, HotkeyName()));
+				Notify(std::format("Dova Stash: {} is set up (press {})", name, HotkeyName()));
 			}
 			return;
 		}
-		Notify(std::format("Dova Stash: {} setup available (by {}). Press {} at any container to enable.", name, author, HotkeyName()));
+		Notify(std::format("Dova Stash: {} setup available (press {})", name, HotkeyName()));
 	}
 
 	void Controller::OnContainerMenuOpened(RE::FormID a_target)
 	{
 		_openContainer = a_target;
+		++_containerOpens;
 		logger::debug("ContainerMenu opened on {:08X}", a_target);
 	}
 
@@ -591,6 +636,7 @@ namespace dova
 	{
 		const auto closed = _openContainer;
 		_openContainer = 0;
+		_containerClosedAt = std::chrono::steady_clock::now().time_since_epoch().count();
 		logger::debug("ContainerMenu closed ({:08X})", closed);
 
 		Registry().Flush();  // debounced learned destinations
@@ -685,7 +731,7 @@ namespace dova
 			RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
 		}
 		integrations::quickloot::Refresh();
-		Notify(result.message);
+		Notify(result.message, result.failed);
 	}
 
 	void Controller::ReportLearned(const std::string& a_container, const std::string& a_item)
@@ -697,11 +743,11 @@ namespace dova
 				return;
 			}
 			const bool  undo = _undo && !_undo->learns.empty() && Settings::GetSingleton().GetSorting().learnUndoSeconds > 0;
-			const auto  suffix = undo ? std::format(" ({}: undo)", HotkeyName()) : std::string{};
+			// One parenthetical at most: a container's label may carry its own ("Cupboard (second)").
+			const auto  suffix = undo ? std::format(". {}: undo", HotkeyName()) : std::string{};
 			for (const auto& [container, items] : _learnBatch) {
-				Notify(items.size() == 1 ?
-						   std::format("Dova Stash: {} now goes to {}{}", items.front(), container, suffix) :
-						   std::format("Dova Stash: {} items now go to {} ({}, ...){}", items.size(), container, items.front(), suffix));
+				Notify(items.size() == 1 ? std::format("Dova Stash: {} now goes to {}{}", items.front(), container, suffix) :
+				                           std::format("Dova Stash: {} items now go to {}{}", items.size(), container, suffix));
 			}
 			_learnBatch.clear();
 			if (undo) {
@@ -848,7 +894,7 @@ namespace dova
 		auto* ref = containerForm ? containerForm->AsReference() : nullptr;
 		const auto verdict = home::CheckHomeContainer(ref, *home);  // also a reachable one in another area (opened from Browse)
 		if (!verdict.ok) {
-			logger::debug("Learn: {:08X} not usable ({})", a_container, verdict.reason);
+			logger::debug("Learn: {:08X} not usable ({})", a_container, verdict.LogReason());
 			return;
 		}
 		const auto containerRef = game::ToFormRef(ref);
@@ -952,7 +998,7 @@ namespace dova
 		}
 		if (a_retries <= 0) {
 			logger::warn("Operation dropped: a ContainerMenu stayed open");
-			Notify("Dova Stash: close the container first");
+			Notify("Dova Stash: close the container first", true);
 			return;
 		}
 		// The SKSE task queue drains until empty, so re-queueing directly would spin within one frame.
@@ -975,14 +1021,14 @@ namespace dova
 		RunWhenContainerMenuClosed([this, a_cellId, a_op, pattern = std::move(a_pattern)]() {
 			auto* home = Registry().CurrentIf(a_cellId);
 			if (!home) {
-				Notify("Dova Stash: you are no longer in that home");
+				Notify("Dova Stash: you are no longer in that home", true);
 				return;
 			}
 			const auto result = sort::Run(*home, a_op, pattern);
 			Registry().Flush();
 			integrations::quickloot::Refresh();
 			if (!result.message.empty()) {
-				Notify(result.message);
+				Notify(result.message, result.failed);
 			}
 		});
 	}
@@ -992,7 +1038,8 @@ namespace dova
 		auto*      ref = game::LookupRef(a_container);
 		const auto verdict = home::CheckHomeContainer(ref, a_home);
 		if (!verdict.ok) {
-			Notify(std::format("Dova Stash: can't use this container ({})", verdict.reason));
+			logger::debug("{} refused in {}: {}", a_container.ToString(), a_home.name, verdict.LogReason());
+			Notify(std::format("Dova Stash: can't use this container ({})", verdict.reason), true);
 			return nullptr;
 		}
 		if (!verdict.warning.empty()) {
@@ -1027,7 +1074,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		auto* ref = UsableContainer(*home, a_container);
@@ -1047,16 +1094,21 @@ namespace dova
 	void Controller::UseTemplate(RE::FormID a_cellId)
 	{
 		auto* home = Registry().CurrentIf(a_cellId);
-		if (!home || !home->BestTemplate()) {
+		if (!home) {
+			Notify("Dova Stash: you are no longer in that home", true);
+			return;
+		}
+		if (!home->BestTemplate()) {
+			Notify("Dova Stash: no template for this home", true);  // a stale entry (the templates were scanned again)
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		const auto name = home->BestTemplate()->layout.name;
 		if (!Registry().ApplyBestTemplate(*home)) {
-			Notify("Dova Stash: could not apply the template (see log)");
+			Notify("Dova Stash: could not apply the template (see DovaStash.log)", true);
 			return;
 		}
 		if (RecordDisplayItems(*home->layout)) {
@@ -1064,10 +1116,7 @@ namespace dova
 		}
 
 		// Report bindings that fail the safety checks right now (disabled Hearthfire furniture, etc.).
-		const auto unavailable = CountUnavailable(*home);
-		Notify(unavailable == 0 ?
-						std::format("Dova Stash: {} setup enabled", name) :
-						std::format("Dova Stash: {} setup enabled ({} containers unavailable for now)", name, unavailable));
+		Notify(SetupEnabledText(name, CountUnavailable(*home)));
 	}
 
 	void Controller::ResetHome(RE::FormID a_cellId)
@@ -1076,10 +1125,11 @@ namespace dova
 		if (!home) {
 			return;
 		}
+		const auto name = home->DisplayName();  // the setup's name, as Setup said it: the setup is gone after Reset
 		if (Registry().Reset(*home)) {
-			Notify(std::format("Dova Stash: {} reset (setup backed up)", home->name));
+			Notify(std::format("Dova Stash: {} reset (setup backed up)", name));
 		} else {
-			Notify("Dova Stash: reset failed (see log)");
+			Notify("Dova Stash: reset failed (see DovaStash.log)", true);
 		}
 	}
 
@@ -1095,7 +1145,7 @@ namespace dova
 		                                   std::ranges::find(backups, a_backup, &home::Store::HomeBackup::path);
 		if (it == backups.end()) {
 			logger::warn("Restore: no backup {} for {}", a_backup.empty() ? "(latest)"s : home::Store::PathText(a_backup), home->name);
-			Notify(std::format("Dova Stash: no saved setup for {}", home->name));
+			Notify(std::format("Dova Stash: no saved setup for {}", home->name), true);
 			return;
 		}
 		switch (Registry().RestoreBackup(*home, it->path)) {
@@ -1108,10 +1158,10 @@ namespace dova
 			Notify(std::format("Dova Stash: {} restored", home->name));
 			break;
 		case home::HomeRegistry::RestoreResult::Broken:
-			Notify("Dova Stash: that saved setup is broken (see DovaStash.log)");
+			Notify("Dova Stash: that saved setup is broken (see DovaStash.log)", true);
 			break;
 		default:
-			Notify("Dova Stash: could not restore the setup (see log)");
+			Notify("Dova Stash: could not restore the setup (see DovaStash.log)", true);
 			break;
 		}
 	}
@@ -1182,12 +1232,12 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		auto& layout = *home->layout;
 		if (layout.IsMaster(a_container)) {
-			Notify("Dova Stash: the master can't be removed; make another container the master first");
+			Notify("Dova Stash: the master can't be removed; make another container the master first", true);
 			return;
 		}
 		const auto* binding = layout.FindContainer(a_container);
@@ -1213,7 +1263,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		if (!a_sell) {
@@ -1226,7 +1276,7 @@ namespace dova
 			return;
 		}
 		if (home->layout && home->layout->IsMaster(a_container)) {
-			Notify("Dova Stash: the master can't be the sell chest");
+			Notify("Dova Stash: the master can't be the sell chest", true);
 			return;
 		}
 		auto* ref = UsableContainer(*home, a_container);
@@ -1252,17 +1302,17 @@ namespace dova
 		                      std::format("Dova Stash: {} is now the sell chest ({})", binding->label, junk));
 	}
 
-	void Controller::SellNow(RE::FormID a_cellId, std::optional<core::FormRef> a_chest)
+	void Controller::SellNow(RE::FormID a_cellId, std::optional<core::FormRef> a_chest, std::function<void()> a_onNo)
 	{
-		RunWhenContainerMenuClosed([this, a_cellId, chest = std::move(a_chest)]() {
+		RunWhenContainerMenuClosed([this, a_cellId, chest = std::move(a_chest), onNo = std::move(a_onNo)]() {
 			auto* home = Registry().CurrentIf(a_cellId);
 			if (!home || !home->layout) {
-				Notify("Dova Stash: you are no longer in that home");
+				Notify("Dova Stash: you are no longer in that home", true);
 				return;
 			}
 			const auto quote = sort::selling::QuoteSale(*home, chest);
 			if (quote.chests.empty()) {
-				Notify("Dova Stash: no sell chest can be reached from here");
+				Notify("Dova Stash: no sell chest can be reached from here", true);
 				return;
 			}
 			if (quote.Empty()) {
@@ -1273,9 +1323,11 @@ namespace dova
 			const auto details = quote.stays.empty() ? quote.what : std::format("{}\n({})", quote.what, quote.stays);
 			logger::debug("Sell chest: asking to sell {} for {} gold", items, quote.gold);
 			ui::ShowMessageBox(std::format(ui::kConfirmSell, items, quote.gold, details), { "Yes", "No" },
-				[this, a_cellId, chest, count = quote.items, gold = quote.gold](std::size_t a_button) {
+				[this, a_cellId, chest, count = quote.items, gold = quote.gold, onNo](std::size_t a_button) {
 					if (a_button == 0) {
 						SellConfirmed(a_cellId, chest, count, gold);
+					} else if (onNo) {
+						onNo();  // No goes back to the menu it came from
 					}
 				});
 		});
@@ -1286,7 +1338,7 @@ namespace dova
 		RunWhenContainerMenuClosed([this, a_cellId, chest = std::move(a_chest), a_items, a_gold]() {
 			auto* home = Registry().CurrentIf(a_cellId);
 			if (!home || !home->layout) {
-				Notify("Dova Stash: you are no longer in that home");
+				Notify("Dova Stash: you are no longer in that home", true);
 				return;
 			}
 			const auto result = sort::selling::Sell(*home, chest, a_items, a_gold);
@@ -1295,11 +1347,11 @@ namespace dova
 			if (&Editor() != &UI()) {
 				Editor().OnHomeChanged();
 			}
-			Notify(result.message);
+			Notify(result.message, result.failed);
 		});
 	}
 
-	void Controller::BuyBack(RE::FormID a_cellId)
+	void Controller::BuyBack(RE::FormID a_cellId, std::function<void()> a_onNo)
 	{
 		auto* home = Registry().CurrentIf(a_cellId);
 		if (!home) {
@@ -1307,15 +1359,18 @@ namespace dova
 		}
 		const auto offer = sort::selling::BuyBackOffer(*home);
 		if (!offer) {
-			Notify("Dova Stash: nothing to buy back here");
+			Notify("Dova Stash: nothing to buy back here", true);
 			return;
 		}
 		const auto items = std::format("{} item{}", offer->items, offer->items == 1 ? "" : "s");
-		ui::ShowMessageBox(std::format(ui::kConfirmBuyBack, items, offer->gold, offer->what), { "Yes", "No" }, [this, a_cellId](std::size_t a_button) {
-			if (a_button == 0) {
-				BuyBackConfirmed(a_cellId);
-			}
-		});
+		ui::ShowMessageBox(std::format(ui::kConfirmBuyBack, items, offer->gold, offer->what), { "Yes", "No" },
+			[this, a_cellId, onNo = std::move(a_onNo)](std::size_t a_button) {
+				if (a_button == 0) {
+					BuyBackConfirmed(a_cellId);
+				} else if (onNo) {
+					onNo();  // No goes back to the menu it came from
+				}
+			});
 	}
 
 	void Controller::BuyBackConfirmed(RE::FormID a_cellId)
@@ -1323,12 +1378,12 @@ namespace dova
 		RunWhenContainerMenuClosed([this, a_cellId]() {
 			auto* home = Registry().CurrentIf(a_cellId);
 			if (!home) {
-				Notify("Dova Stash: you are no longer in that home");
+				Notify("Dova Stash: you are no longer in that home", true);
 				return;
 			}
 			const auto result = sort::selling::BuyBack(*home);
 			integrations::quickloot::Refresh();
-			Notify(result.message);
+			Notify(result.message, result.failed);
 		});
 	}
 
@@ -1348,7 +1403,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		auto*      ref = game::LookupRef(a_display);
@@ -1356,6 +1411,39 @@ namespace dova
 		const auto name = found ? DisplayName(ref, found->kind) : game::RefName(ref);
 		auto&      displays = home->layout->displays;
 		const auto it = std::ranges::find(displays, a_display, &core::DisplayBinding::ref);
+		// Nothing can be put on it (no script that shows what it gets, no kind the layout declares that fits): say so
+		// rather than mark it used and have every Deposit skip it without a word. Only judged with its 3D loaded
+		// (scripts of a display in another area may not be bound).
+		if (a_used && ref && ref->Is3DLoaded() && !found && !(it != displays.end() && it->kind && game::DeclaredDisplay(ref, *it->kind))) {
+			logger::info("Display {} in {}: not used (no display script Dova Stash knows)", game::Describe(ref), home->name);
+			Notify(ref->Is(RE::FormType::ActorCharacter) ? "Dova Stash: can't use this mannequin (no mannequin script)"s :
+			                                                "Dova Stash: can't use this (no display script)"s, true);
+			return;
+		}
+		// A mannequin no Deposit can dress as it stands (game::DisplayAvailable): never one that is dead or no actor,
+		// so say so rather than mark it used and have every Deposit skip it without a word. A disabled one with an
+		// enable parent (game::MayBeBuilt: a build marker, like a rack or case of an unbuilt Hearthfire wing, or a marker
+		// the home's mod switches on) may be used ahead of time: it is filled once enabled, and the notice says it is not
+		// built yet. Any other disabled one (no enable parent, or a reference xEdit undeleted) is refused: nothing
+		// enables it.
+		bool notBuilt = false;
+		if (a_used && ref && found && found->kind == core::DisplayKind::Mannequin && !game::DisplayAvailable(*found)) {
+			const auto* actor = ref->As<RE::Actor>();
+			if (!actor || actor->IsDead()) {
+				logger::info("Display {} in {}: not used (mannequin {})", game::Describe(ref), home->name, !actor ? "not an actor" : "dead");
+				Notify("Dova Stash: can't use this mannequin (not active)", true);
+				return;
+			}
+			if (!game::MayBeBuilt(ref)) {
+				logger::info("Display {} in {}: not used (mannequin disabled, nothing builds it)", game::Describe(ref), home->name);
+				Notify("Dova Stash: can't use this mannequin (disabled)", true);
+				return;
+			}
+			notBuilt = true;
+			const auto* parent = ref->extraList.GetByType<RE::ExtraEnableStateParent>();
+			const auto  parentRef = parent ? parent->parent.get() : RE::NiPointer<RE::TESObjectREFR>{};
+			logger::debug("Display {}: disabled, enable parent {} (built with it)", game::Describe(ref), parentRef ? game::Describe(parentRef.get()) : "?"s);
+		}
 		if (a_used) {
 			if (it == displays.end()) {
 				core::DisplayBinding binding;
@@ -1367,6 +1455,7 @@ namespace dova
 			}
 		} else {
 			if (it == displays.end() || it->ignored) {
+				logger::debug("Display {} in {}: not in use, nothing to turn off ({})", game::Describe(ref), home->name, it == displays.end() ? "no entry" : "ignored");
 				return;
 			}
 			// Kept as ignored, so re-applying a template that lists it does not turn it back on.
@@ -1374,8 +1463,13 @@ namespace dova
 		}
 		RecordDisplayItems(*home->layout);
 		SaveLayout(*home);
-		logger::info("Display {} in {}: {}", game::Describe(ref), home->name, a_used ? "used" : "no longer used");
-		Notify(a_used ? std::format("Dova Stash: {} is used now", name) : std::format("Dova Stash: {} won't be filled anymore", name));
+		logger::info("Display {} in {}: {}", game::Describe(ref), home->name, !a_used ? "no longer used" : notBuilt ? "used (disabled: filled once enabled)" : "used");
+		// A display that is already full takes nothing yet: say so, or the next Deposit looks broken.
+		const bool full = a_used && found && game::DisplayFullFor(*found, home->layout->FindDisplay(a_display));
+		Notify(!a_used   ? std::format("Dova Stash: {} won't be filled anymore", name) :
+		       notBuilt ? std::format("Dova Stash: {} is used now (not built yet)", name) :
+		       full     ? std::format("Dova Stash: {} is used now (full)", name) :
+		                   std::format("Dova Stash: {} is used now", name));
 	}
 
 	void Controller::ToggleDisplayCategory(RE::FormID a_cellId, const core::FormRef& a_display, const std::string& a_pattern)
@@ -1406,7 +1500,7 @@ namespace dova
 			}
 			const auto result = sort::FillDisplay(*home, a_display);
 			if (!result.message.empty()) {
-				Notify(result.message);
+				Notify(result.message, result.failed);
 			}
 		});
 	}
@@ -1418,7 +1512,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		auto&       layout = *home->layout;
@@ -1450,18 +1544,105 @@ namespace dova
 	{
 		auto* home = Registry().CurrentIf(a_cellId);
 		if (!home) {
+			Notify("Dova Stash: you are no longer in that home", true);
 			return;
 		}
-		auto* ref = UsableContainer(*home, a_container);
+		auto* ref = UsableContainer(*home, a_container);  // tells the player why it can't be used
 		auto* player = game::Player();
 		if (!ref || !player) {
 			return;
 		}
-		// Default activation of a container by the player opens its ContainerMenu, exactly as if the
-		// player had walked up to it.
-		RunWhenContainerMenuClosed([ref = RE::NiPointer<RE::TESObjectREFR>(ref), player]() {
-			ref->ActivateRef(player, 0, nullptr, 0, false);
-		});
+		// Default activation of a container by the player opens its ContainerMenu, exactly as if the player had
+		// walked up to it. An activation while a ContainerMenu is still closing is dropped by the game, so it waits
+		// for the last close to settle first (BrowseSettled, up to 3 s). Activated on the main thread (a task); if no
+		// ContainerMenu shows 3 s later (a big container can take a few seconds; a paused menu still closing does not
+		// count), it is activated once more the console's way ("activate player"), and if that shows nothing within
+		// 8 s the player is told it did not open instead of nothing happening.
+		using Step = std::function<void(int, int, bool)>;  // (activations left, paused waits left, activate now)
+		auto                 step = std::make_shared<Step>();
+		std::weak_ptr<Step>  weak = step;
+		*step = [this, weak, target = RE::NiPointer<RE::TESObjectREFR>(ref), player, name = game::RefName(ref), load = _loadSerial,
+					opens = _containerOpens.load()](int a_retries, int a_waits, bool a_activate) {
+			auto self = weak.lock();
+			if (!self || load != _loadSerial) {
+				return;
+			}
+			if (!a_activate) {
+				auto* ui = RE::UI::GetSingleton();
+				// It opened (and may have closed again since): never activate a second time.
+				if (!ui || ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) || _containerOpens.load() != opens) {
+					logger::debug("Browse: {} opened ({})", name, a_retries > 0 ? "activated" : "console activation");
+					return;
+				}
+				if (ui->GameIsPaused() && a_waits > 0) {
+					--a_waits;  // another menu still pauses the game: the activation may be waiting for it to close
+				} else if (a_retries > 0) {
+					logger::info("Browse: {} did not open ({}); activating it the console's way", name, ActivationState());
+					--a_retries;
+					a_activate = true;
+				} else {
+					logger::info("Browse: {} did not open ({})", name, ActivationState());
+					Notify(std::format("Dova Stash: {} did not open", name), true);
+					return;
+				}
+			}
+			if (a_activate) {
+				if (a_retries > 0) {
+					target->ActivateRef(player, 0, nullptr, 1, false);  // as the game's own activation and ObjectReference.Activate
+				} else {
+					ConsoleActivate(target.get());
+				}
+			}
+			Later(std::chrono::milliseconds(a_retries > 0 ? 3000 : 8000), [self, a_retries, a_waits]() { (*self)(a_retries, a_waits, false); });
+		};
+		// Settle: no ContainerMenu, nothing pausing the game, activation controls on, 500 ms after the last close.
+		using Settle = std::function<void(int)>;  // (polls left)
+		auto                  settle = std::make_shared<Settle>();
+		std::weak_ptr<Settle> weakSettle = settle;
+		*settle = [this, weakSettle, step, load = _loadSerial](int a_polls) {
+			auto self = weakSettle.lock();
+			if (!self || load != _loadSerial) {
+				return;
+			}
+			if (!BrowseSettled()) {
+				if (a_polls > 0) {
+					Later(std::chrono::milliseconds(100), [self, a_polls]() { (*self)(a_polls - 1); });
+					return;
+				}
+				logger::debug("Browse: activating although the game is not settled ({})", ActivationState());
+			}
+			(*step)(1, 5, true);
+		};
+		RunWhenContainerMenuClosed([settle]() { SKSE::GetTaskInterface()->AddTask([settle]() { (*settle)(30); }); });
+	}
+
+	bool Controller::BrowseSettled() const
+	{
+		auto*       ui = RE::UI::GetSingleton();
+		const auto* controls = RE::ControlMap::GetSingleton();
+		if (!ui || ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME) || ui->GameIsPaused() || (controls && !controls->IsActivateControlsEnabled())) {
+			return false;
+		}
+		const auto closed = std::chrono::steady_clock::time_point(std::chrono::steady_clock::duration(_containerClosedAt.load()));
+		return std::chrono::steady_clock::now() - closed >= std::chrono::milliseconds(500);
+	}
+
+	std::string Controller::ActivationState() const
+	{
+		auto*       ui = RE::UI::GetSingleton();
+		const auto* controls = RE::ControlMap::GetSingleton();
+		std::string menus;
+		if (ui) {
+			for (const auto& [menuName, entry] : ui->menuMap) {
+				if (ui->IsMenuOpen(menuName.c_str())) {
+					menus += (menus.empty() ? "" : ", ") + std::string(menuName.c_str());
+				}
+			}
+		}
+		const auto since = std::chrono::steady_clock::now() - std::chrono::steady_clock::time_point(std::chrono::steady_clock::duration(_containerClosedAt.load()));
+		return std::format("paused {}, activate controls {}, open menus: {}, last container close {} ms ago", ui && ui->GameIsPaused() ? "yes" : "no",
+			controls && controls->IsActivateControlsEnabled() ? "on" : "off", menus.empty() ? "none"s : menus,
+			std::chrono::duration_cast<std::chrono::milliseconds>(since).count());
 	}
 
 	// --- editor actions (M4 panel) -------------------------------------------------------------------
@@ -1470,6 +1651,7 @@ namespace dova
 	{
 		auto* home = Registry().CurrentIf(a_cellId);
 		if (!home) {
+			Notify("Dova Stash: you are no longer in that home", true);
 			return;
 		}
 		if (const auto* best = home->BestTemplate(); best && best->source == a_source) {
@@ -1477,7 +1659,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		// Only templates the resolver found eligible for this cell (cell match + requirements met).
@@ -1490,21 +1672,41 @@ namespace dova
 			}
 		}
 		if (!chosen) {
-			Notify("Dova Stash: that template is not available for this home");
+			Notify("Dova Stash: that template is not available for this home", true);
 			return;
 		}
 		if (!Registry().ApplyTemplate(*home, *chosen)) {
-			Notify("Dova Stash: could not apply the template (see log)");
+			Notify("Dova Stash: could not apply the template (see DovaStash.log)", true);
 			return;
 		}
 		if (RecordDisplayItems(*home->layout)) {
 			SaveLayout(*home);
 		}
-		const auto unavailable = CountUnavailable(*home);
-		const auto name = chosen->layout.name;
-		Notify(unavailable == 0 ?
-						std::format("Dova Stash: {} setup enabled", name) :
-						std::format("Dova Stash: {} setup enabled ({} containers unavailable for now)", name, unavailable));
+		Notify(SetupEnabledText(chosen->layout.name, CountUnavailable(*home)));
+	}
+
+	void Controller::SetTemplateHidden(RE::FormID a_cellId, std::string_view a_source, bool a_hidden)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home || !home->layout) {
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
+			return;
+		}
+		std::string name(a_source);
+		for (const auto& t : home::Store::Get().Templates()) {
+			if (core::IEquals(t.source, a_source)) {
+				name = t.layout.name;
+				break;
+			}
+		}
+		if (!Registry().SetTemplateHidden(*home, a_source, a_hidden)) {
+			Notify("Dova Stash: could not change this home's templates (see DovaStash.log)", true);
+			return;
+		}
+		Notify(a_hidden ? std::format("Dova Stash: {} removed from this home", name) : std::format("Dova Stash: {} added back to this home", name));
 	}
 
 	void Controller::SetLabel(RE::FormID a_cellId, const core::FormRef& a_container, std::string a_label)
@@ -1607,7 +1809,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		const core::ItemLookup lookup = [](const core::FormRef& a_form) -> std::optional<core::ItemInfo> {
@@ -1674,7 +1876,7 @@ namespace dova
 			return;
 		}
 		if (home->layoutBroken) {
-			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)");
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
 			return;
 		}
 		if (!a_keep) {
@@ -1688,12 +1890,12 @@ namespace dova
 		auto              parsed = NormalizeKeep(std::move(*a_keep), diags);
 		home::Store::LogDiagnostics(diags, "Keep rules");
 		if (!parsed) {
-			Notify("Dova Stash: keep rules not saved (see log)");
+			Notify("Dova Stash: keep rules not saved (see DovaStash.log)", true);
 			return;
 		}
 		home->layout->keep = std::move(*parsed);
 		if (!SaveLayout(*home)) {
-			Notify("Dova Stash: keep rules not saved (see log)");
+			Notify("Dova Stash: keep rules not saved (see DovaStash.log)", true);
 			return;
 		}
 		core::Diagnostics catDiags;
@@ -1701,7 +1903,7 @@ namespace dova
 		home::Store::LogDiagnostics(catDiags, "Keep rules");
 		const auto warnings = diags.Items().size() + catDiags.Items().size();
 		Notify(warnings == 0 ? "Dova Stash: keep rules saved"s :
-									std::format("Dova Stash: keep rules saved ({} warning{}, see log)", warnings, warnings == 1 ? "" : "s"));
+									std::format("Dova Stash: keep rules saved ({} warning{}, see DovaStash.log)", warnings, warnings == 1 ? "" : "s"));
 	}
 
 	void Controller::SetGlobalKeep(core::KeepConfig a_keep)
@@ -1710,7 +1912,7 @@ namespace dova
 		auto              parsed = NormalizeKeep(std::move(a_keep), diags);
 		home::Store::LogDiagnostics(diags, "Keep defaults");
 		if (!parsed || !home::Store::Get().SaveGlobalKeep(std::move(*parsed))) {
-			Notify("Dova Stash: default keep rules not saved (see log)");
+			Notify("Dova Stash: default keep rules not saved (see DovaStash.log)", true);
 			return;
 		}
 		Notify("Dova Stash: default keep rules saved (all homes)");
@@ -1760,7 +1962,7 @@ namespace dova
 		const bool      exists = std::filesystem::exists(path, ec);
 		if (ec) {
 			logger::error("Template export: cannot check {}: {}", result.path, ec.message());
-			result.message = std::format("Could not check {} (see log).", result.path);
+			result.message = std::format("Could not check {} (see DovaStash.log).", result.path);
 			return result;
 		}
 		std::optional<core::Layout> existing;
@@ -1782,14 +1984,15 @@ namespace dova
 		}
 		if (exists && !a_request.overwrite) {
 			result.status = ExportResult::Status::Exists;
-			result.message = std::format("{} already exists{}{}. Overwrite saves v{} and backs up the old file.", result.path,
-				result.existingVersion.empty() ? ""s : std::format(" (v{})", result.existingVersion),
-				result.existingOtherHome ? ", for another home"s : ""s, result.version);
+			// The panel's question (Yes / No); the hotkey words its message box the same way (SaveTemplate.cpp).
+			result.message = std::format("Replace the template \"{}\"? {}{} is saved as v{}; the old file is backed up.{}", result.name, result.source,
+				result.existingVersion.empty() ? ""s : std::format(" (v{})", result.existingVersion), result.version,
+				result.existingOtherHome ? " It is the template of another home."s : ""s);
 			logger::debug("Template export: {} exists, asking before replacing it", result.path);
 			return result;
 		}
 		if (exists && !home::Store::BackupFile(path, "Template export")) {
-			result.message = std::format("Could not back up {}; nothing was written (see log).", result.path);
+			result.message = std::format("Could not back up {}; nothing was written (see DovaStash.log).", result.path);
 			return result;
 		}
 
@@ -1808,7 +2011,7 @@ namespace dova
 		}
 		if (!ok) {
 			logger::error("Template export to {} failed", result.path);
-			result.message = std::format("Could not write {} (see log).", result.path);
+			result.message = std::format("Could not write {} (see DovaStash.log).", result.path);
 			return result;
 		}
 
@@ -1854,7 +2057,7 @@ namespace dova
 			extras = std::format("incl. {} learned item{}", result.learnedKept, result.learnedKept == 1 ? "" : "s");
 		}
 		if (warnings > 0) {
-			extras += std::format("{}{} warning{}, see log", extras.empty() ? "" : ", ", warnings, warnings == 1 ? "" : "s");
+			extras += std::format("{}{} warning{}, see DovaStash.log", extras.empty() ? "" : ", ", warnings, warnings == 1 ? "" : "s");
 		}
 		Notify(extras.empty() ? std::format("Dova Stash: saved as template \"{}\"", tpl.name) :
 		                        std::format("Dova Stash: saved as template \"{}\" ({})", tpl.name, extras));

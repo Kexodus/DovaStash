@@ -165,14 +165,14 @@
       <li><b>Filter</b>: only homes without a template, only enabled mods, and more. A number shows how many are on.</li>
       <li><b>The mod</b> with its Nexus id.</li>
       <li><b>The home</b>: its chests and displays, and a chip: <i>none</i>, <i>shipped</i>, <i>yours</i>, <i>drafted</i> or <i>saved</i>. Click it to open it.</li>
-      <li><b>All cells&hellip;</b> of this mod, for a home that is not listed.</li>
+      <li><b>All cells&hellip;</b> of this mod, for a home that is not listed (right-click a mod group; a link under the open home's group).</li>
       <li><b>Rescan</b> (<kbd>F5</kbd>) and what the last scan read.</li>
         </ol>
       </div>
     </div>
     <h2>How the editor finds homes</h2>
     <p>It reads every cell of your load order once and keeps the homes: a player-house location, owned by the player, or mannequins and nothing that respawns. Each sits under the mod whose plugin adds it; base-game and DLC homes sit under <span class="ui">Game Data folder</span>. <span class="ui">Rescan</span> reads it again after you change mods in MO2.</p>
-    <p>A home owned by a faction, or an exterior, is not listed. Click <span class="ui">All cells&hellip;</span> under its mod: every cell of its plugins with containers is ranked, likely homes first. Untick <span class="ui">Likely homes only</span> in the filter to see them all.</p>
+    <p>A home owned by a faction, or an exterior, is not listed. Right-click its mod group and choose <span class="ui">All cells&hellip;</span>: every cell of its plugins with containers is ranked, likely homes first. Untick <span class="ui">Likely homes only</span> in the filter to see them all.</p>
     <p>The rail stays beside the home while you go from one to the next; <kbd>&uarr;</kbd> <kbd>&darr;</kbd> and <kbd>Enter</kbd> work too, and right-click a home for more. <kbd>Ctrl</kbd> <kbd>1</kbd> or its <span class="ui">&lsaquo;</span> folds it to a strip. The home's name in the title row is the same list, for a quick switch.</p>
 
     <h2>Moving around in 3D</h2>
@@ -551,7 +551,7 @@
         <h2>Then</h2>
         <ol class="steps">
           <li>In MO2, press <kbd>F5</kbd> and enable <span class="ui">Dova Stash Templates</span> (first save only).</li>
-          <li>In game, look at a container in that home, press the hotkey and pick the template. In a home that is already set up, switch to it in the SKSE Menu Framework: <span class="ui">Dova Stash</span> &rsaquo; <span class="ui">This home</span> &rsaquo; <span class="ui">Templates for this home</span>.</li>
+          <li>In game, look at a container in that home, press the hotkey and pick the template. In a home that is already set up, switch to it in the SKSE Menu Framework: <span class="ui">Dova Stash</span> &rsaquo; <span class="ui">This home</span> &rsaquo; <span class="ui">Template</span> &rsaquo; <span class="ui">Templates</span>.</li>
         </ol>
         <p class="small muted">Saving over a file asks first, keeps the old one as a <span class="path">.bak</span> and raises the version (1.0.0, 1.0.1&hellip;). <span class="ui">&#9881;</span> Setup picks another mod to save into.</p>
       </div>
@@ -566,7 +566,7 @@
     <div class="faq">
       <div><h3>It says it cannot find my MO2 instance.</h3><p>Type the MO2 folder on the start panel and press <span class="ui">Open</span>, or use <span class="ui">Browse&hellip;</span>. Or add <code>--mo2 "&lt;MO2 folder&gt;"</code> to the executable's arguments.</p></div>
       <div><h3>The wrong profile is loaded.</h3><p>Pick another under <span class="ui">&#9881;</span> Setup &rsaquo; <span class="ui">Profile</span>. The editor reads that profile's mod list and load order.</p></div>
-      <div><h3>My home is not in the list.</h3><p>Check the mod is enabled in the profile, then <span class="ui">Rescan</span>. Still missing: click <span class="ui">All cells&hellip;</span> under its mod, and in the filter untick <span class="ui">Likely homes only</span> or tick <span class="ui">Exteriors</span>.</p></div>
+      <div><h3>My home is not in the list.</h3><p>Check the mod is enabled in the profile, then <span class="ui">Rescan</span>. Still missing: right-click its mod group, choose <span class="ui">All cells&hellip;</span>, and in the filter untick <span class="ui">Likely homes only</span> or tick <span class="ui">Exteriors</span>.</p></div>
       <div><h3>I cannot click a chest.</h3><p>It may be hidden or behind a wall. Select it in the drawer's <span class="ui">Containers</span> tab, or turn off <span class="ui">Structure</span> under <span class="ui">Layers</span>.</p></div>
       <div><h3>Where is that button?</h3><p>Press <kbd>Ctrl</kbd> <kbd>K</kbd> and type what you want: a command, a home, a container.</p></div>
       <div><h3>Some surfaces are a gray checker.</h3><p>The editor could not find that texture. It does not affect the template.</p></div>

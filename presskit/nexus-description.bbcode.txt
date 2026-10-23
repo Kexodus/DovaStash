@@ -13,18 +13,18 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [list]
 [*][b]Any home.[/b] Vanilla, Hearthfire, Creation Club or mod-added. There's no whitelist: a home qualifies when you own it, it's a player house, or nobody owns it.
 [*][b]A master container as your inbox.[/b] [b]Deposit[/b] sends everything you aren't keeping to where it belongs. Items you drop into the master are sorted out of it right away.
-[*][b]37 keyword-driven categories.[/b] Weapons by type, armor by weight class, potions, ingredients, books, soul gems, ores, gems and more, defined in JSON. Items that KID gives vendor keywords sort without a patch.
+[*][b]39 keyword-driven categories.[/b] Weapons by type, armor by weight class, potions, ingredients, books, soul gems, ores, gems and more, defined in JSON. Items that KID gives vendor keywords sort without a patch.
 [*][b]Learns as you go.[/b] Put an item into a container by hand once and that container becomes its home. Enchanted variants count as the item they are made from. Changed your mind? Press [b]K[/b] within a few seconds to undo. After three items of one kind, Dova Stash asks once: "Send all Books to End Table?"
 [*][b]Fills your displays.[/b] Press [b]K[/b] at a weapon rack, mannequin, bookshelf or plaque to use it, and pick what it takes, like a container: a rack for bows, a mannequin for light armor, a shelf for skill books. Your best weapons go up on the racks, your books on the shelves (as many as each holds, never more), and dragon priest masks, claws and Elder Scrolls on the plaques made for them, as if you had placed them by hand. Nothing is taken down. The Menu Framework's [b]Displays[/b] page lists every display in the home and can use all the racks at once.
 [*][b]Dresses your mannequins.[/b] Each one wears your best matching armor set, or the set you pick from a searchable list of every set in your load order, modded sets included.
 [*][b]Restocks you.[/b] Always carry 10 health potions, 50 steel arrows, 5 lockpicks: mark a keep quota [b]Restock[/b] and every Deposit tops you back up to it from the home's containers, the best copies first and never more. [b]Restock[/b] is in the hotkey menu too.
 [*][b]Materials at the workbench.[/b] At a home's forge, smelter, tanning rack, cooking pot or alchemy lab, you craft from what the home's containers hold, as if you carried it. Nothing is moved when you sit down or get up, so even a huge store causes no lag; each craft takes only what you lack, from the container that item belongs in first. Enchanters bring your filled soul gems and put the rest back. Modded recipes and materials work too.
-[*][b]A sell chest for your junk.[/b] Make any container the sell chest: Clutter goes there, plus whatever you put in by hand. Nothing is sold until you choose [b]Sell now[/b] and confirm the total ("Sell 14 items for 862 gold?"), at the price a merchant would pay you. Stolen, improved, quest and favorited items, potions you made and what your keep rules keep never sell, and [b]Buy back[/b] undoes your last sale. Optional: sell by itself after a number of game hours.
-[*][b]Homes over several areas.[/b] Add the cellar or the grounds outside to a home: walk out of it and press [b]K[/b]. The forge outside then crafts from what is stored inside, and Deposit works in every area. Your existing setups don't change.
-[*][b]22 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and Creation Club homes. Save your own from the hotkey menu, learned items included, to share or to restore after a reset.
+[*][b]A sell chest for your junk.[/b] Make any container the sell chest: Clutter goes there, plus whatever you put in by hand. Nothing is sold until you choose [b]Sell now[/b] and confirm the total ("Sell 14 items for 862 gold?"), at the price a merchant would pay you. Stolen, improved (tempered, enchanted by you, renamed), quest, worn or favorited items, soul gems you filled yourself, potions you made and what your keep rules keep never sell, and [b]Buy back[/b] undoes your last sale. Optional: sell by itself after a number of game hours.
+[*][b]Homes over several areas.[/b] Add the cellar or the grounds outside to a home: walk out of it and press [b]K[/b]. The forge outside then crafts from what is stored inside, and Deposit works in every area. The multi-cell homes (Hearthfire, Tundra Homestead, Myrwatch) come as one template each, cellar, gallery and grounds included. A cellar set up by its old template joins the home when you apply the new one.
+[*][b]32 ready-made templates[/b] for vanilla, Hearthfire, Dragonborn and every Creation Club home, plus 13 mod homes. Most also set up the home's racks, mannequins and bookshelves; you can pick your own with the hotkey. Save your own from the hotkey menu ([b]Advanced...[/b]), learned items included, to share or to restore after a reset.
 [*][b]Your setups are backed up.[/b] Every change is also copied outside the Data folder, where cleaning MO2's overwrite folder can't reach it. Walk into a home whose setup is gone and press [b]K[/b]: [b]Restore your last setup[/b] brings it back.
 [*][b]Never loses an item.[/b] Enchantments, tempering, custom names, stolen flags and souls survive every move. Equipped, favorited and quest items stay with you. Containers that empty themselves when the area resets are refused. The only items that ever leave the game are the ones you sell from the sell chest, after you confirm.
-[*][b]Your UI, not ours.[/b] In-world menus are UIExtensions lists (any skin), with the game's message boxes as the fallback. Settings and the full editor live in SKSE Menu Framework.
+[*][b]Your UI, not ours.[/b] In-world menus are UIExtensions lists (any skin), with the game's message boxes as the fallback. Settings and the full in-game panel live in SKSE Menu Framework.
 [*][b]QuickLoot IE support.[/b] A container's categories show as your own SkyUI icons, and items that belong elsewhere read "Iron Sword > Weapon Rack".
 [*][b]Live settings.[/b] Every option changes in game without a restart.
 [/list]
@@ -37,10 +37,11 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 
 [b]Setting up a home[/b]
 [list]
-[*][b]Homes with a template:[/b] walk in and you're told a setup is available. Press [b]K[/b] at any container to turn it on.
+[*][b]Homes with a template:[/b] walk in and it is set up for you. Untick [b]Set up homes from a template on first visit[/b] (Settings > Templates) to be asked first: then press [b]K[/b] at any container to turn it on.
 [*][b]Any other home:[/b] look at a large chest that is always there, press [b]K[/b] and make it the [b]master[/b].
+[*][b]Controller:[/b] no button by default; bind one under Settings > Hotkey > Gamepad.
 [*]Then press [b]K[/b] at each other container and pick its [b]Categories...[/b], or skip that and put items away by hand once. Either way, the container becomes their home.
-[*]Mark anything you never want used (a barrel that respawns, say) as [b]Ignore[/b]: it stays out for good. [b]Remove[/b] just forgets a container you set up by mistake.
+[*]Mark anything you never want used (a display case or a chest you keep for yourself, say) as [b]Ignore[/b]: it stays out for good. [b]Remove[/b] just forgets a container you set up by mistake.
 [*]Forge outside, chests inside? Walk out of the door and press [b]K[/b]: [b]Add this area to Lakeview Manor[/b], and give it a name ("Grounds"). Chests in another area are used when the game keeps them in memory (most Hearthfire chests, wardrobes and safes); sacks and barrels only from their own area.
 [/list]
 
@@ -48,7 +49,7 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 [list]
 [*]Come home, press [b]K[/b] and choose [b]Deposit[/b]. Everything you aren't keeping goes to its container. Items with no destination yet wait in the master.
 [*]Drop things into the master and they leave it for their containers right away, or when you close it.
-[*][b]Retrieve...[/b] at the master brings a category back out, or everything.
+[*][b]Retrieve[/b], under [b]Advanced...[/b] in the hotkey menu, brings a category back out, or everything.
 [*]Quotas marked [b]Restock[/b] refill your potions and arrows on every Deposit; [b]Restock[/b] at the master does it on its own.
 [*][b]Sort all[/b] re-sorts the master and every container after you change what goes where.
 [/list]
@@ -63,21 +64,23 @@ Auto-sorting storage for any player home. One DLL for SE, AE and VR, no ESP.[/ce
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-03-templates.png[/img][/center]
 
-Homes with a template need no setup: they turn on as soon as you walk in. Set [font=Courier New]bAutoEnableTemplates=false[/font] to be asked first.
+Homes with a template need no setup: they turn on as soon as you walk in. Untick [b]Set up homes from a template on first visit[/b] (Settings > Templates) to be asked first.
 
 [list]
-[*][b]Vanilla and DLC:[/b] Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall, Severin Manor, and Lakeview Manor, Heljarchen Hall and Windstad Manor with their cellars.
-[*][b]Creation Club:[/b] Bloodchill Manor, Gallows Hall, Goldenhills Plantation, Hendraheim, Myrwatch and its gallery, Nchuanthumz, Shadowfoot Sanctum, Tundra Homestead and its cellar. Each is offered only if you own that content.
+[*][b]Vanilla and DLC:[/b] Breezehome, Honeyside, Hjerim, Proudspire Manor, Vlindrel Hall, the Arch-Mage's Quarters, Severin Manor, and Lakeview Manor, Heljarchen Hall and Windstad Manor, each one template with cellar and grounds.
+[*][b]Creation Club:[/b] every home: Bloodchill Manor, Dead Man's Dread, Gallows Hall, Goldenhills Plantation, Hendraheim, Myrwatch with its gallery, Nchuanthumz, Shadowfoot Sanctum, Tundra Homestead with its cellar. Each is offered only if you own that content.
+[*][b]Mod homes:[/b] Pinegrove Lodge, Bal Ruhn, Wuth Rein, Ebongrove, Hydda, Black Fur Refuge, Sicarius' Refuge, Niflholm, Tel Jerdein, Antennaria, Winter Cove, and Unique Vampire Dens' Lost Hall and Secret Cellar. Each is offered only with that mod.
 [/list]
-Applying a template copies it into your own setup, so your edits are never overwritten. Re-applying replaces only the master and the category bindings, and writes a backup first. A home with several templates lets you switch between them in the SKSE Menu Framework (This home, or the Templates page): your learned items and keep rules stay, nothing leaves its container, and a template someone made always comes before one the editor drafted in bulk.
+Most templates also set up the home's racks, mannequins and bookshelves (each mannequin picks your best set); you can pick your own with the hotkey. Item plaques and display cases are yours to turn on.
+Applying a template copies it into your own setup, so your edits are never overwritten. Re-applying replaces only the master, the sell chest and the category bindings, and writes a backup first. A home with several templates lets you switch between them in the SKSE Menu Framework (This home > Template): your learned items and keep rules stay, nothing leaves its container, and a template someone made always comes before an automatic draft. You can also remove one you don't want from a home (the file stays; Add back undoes it).
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-04-requirements.png[/img][/center]
 
 [list]
 [*][url=https://skse.silverlock.org/]SKSE64[/url] for your game version (or SKSEVR for VR)
 [*][url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library for SKSE Plugins[/url] (or VR Address Library for SKSEVR)
-[*][i]Optional:[/i] [url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url] for the settings page and the full editor. Without it, settings are in an INI.
-[*][i]Optional:[/i] UIExtensions for the in-world list menus. Without it, the game's message boxes are used.
+[*][i]Optional:[/i] [url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url] for the settings page and the full in-game panel. Without it, settings are in an INI.
+[*][i]Optional:[/i] [url=https://www.nexusmods.com/skyrimspecialedition/mods/17561]UIExtensions[/url] for the in-world list menus. Without it, the game's message boxes are used.
 [*][i]Optional:[/i] [url=https://www.nexusmods.com/skyrimspecialedition/mods/120075]QuickLoot IE[/url]
 [/list]
 Not required: PapyrusUtil, KID, or any patch.
@@ -94,23 +97,28 @@ Not required: PapyrusUtil, KID, or any patch.
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-06-configuration.png[/img][/center]
 
-Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]. Changes apply right away. Hover any option to see its INI key.
+Open [b]SKSE Menu Framework[/b] and go to [b]Dova Stash[/b]: four pages, This home (with templates), Displays (with armor sets), Settings and About (with diagnostics). Changes apply right away. Hover any option to see its INI key.
 [list]
 [*][b]Settings:[/b]
 [list]
-[*]Hotkeys, keyboard and gamepad
-[*]What the hotkey opens: UIExtensions lists, message boxes or the panel
-[*]Sort on arrival, sort when the master closes, learning (undo time, when to suggest a category), filling displays, restock after Deposit
-[*]Enable templates automatically
+[*]Hotkey: click it and press the key, mouse or controller button you want
+[*]Menus: what the hotkey opens (UIExtensions lists, message boxes or the panel), lists in the middle of the screen
+[*]Sorting: sort on arrival, sort when the master closes, fill the displays, restock after Deposit
+[*]Learning: learn where you put things, undo time, when to suggest a category
+[*]Crafting: materials at the workbench (Auto, Craft from storage, Move, Off), weapons and armor as materials
+[*]Templates: set up homes from a template on first visit
 [*]Sell chest: price, and selling by itself after a number of game hours (off)
 [*]QuickLoot IE: item tags and category icons
-[*]Activate prompt and floating icons
-[*]Log detail
+[*]In the world: activate prompt and floating icons
+[*]Log: log detail
 [*]Default keep rules for every home
+[*]Reset: every setting back to its default
 [/list]
 [*][b]This home:[/b] actions, the sell chest and this session's sales, switching between the home's templates, containers and their categories, learned items, this home's keep rules, saving the home as a template, and restoring a saved copy of its setup.
+[*][b]Displays:[/b] every rack, mannequin, plaque and display case of the home, what each takes and holds; use them one by one or all at once, pick a mannequin's armor set.
+[*][b]About:[/b] version and hotkey, and Diagnostics: any problem found loading categories, templates or this home's setup.
 [/list]
-[b]Keep rules[/b] decide what Deposit leaves in your inventory: equipped, favorited and quest items, gold, lockpicks and torches by default. A quota ("keep up to 10 potions") with [b]Restock[/b] ticked also brings you up to that many from the home.
+[b]Keep rules[/b] decide what Deposit leaves in your inventory: equipped, favorited and quest items always, gold, lockpicks and torches by default. A quota ("keep up to 10 potions") with [b]Restock[/b] ticked also brings you up to that many from the home.
 
 No Menu Framework? Every option is in [font=Courier New]Data/SKSE/Plugins/DovaStash.ini[/font], with comments.
 
@@ -124,22 +132,35 @@ No Menu Framework? Every option is in [font=Courier New]Data/SKSE/Plugins/DovaSt
 [*][b]Homes that sort by themselves[/b] (Clockwork, Legacy of the Dragonborn, Mirele Bismath Reborn, LUFTSHIP K747, Skyfall Estate, Riverside Lodge, The Hoarder's Chest, The Dovah Den, Player houses overhaul, Tundra Homestead - LotD Storage): Dova Stash leaves them alone, so the two never move the same items. With Carpenter Storage Chests it leaves out only the building-supply chests. The list is a JSON file, so a patch can add a home without a new DLL.
 [*][b]Rebuilt homes[/b] (Wynter's Breezehome Redux, Player houses overhaul): the shipped template for that home is not offered. For other mods that rebuild a home, a template whose containers are mostly gone is offered, never enabled on its own.
 [*][b]Other crafting-from-storage mods[/b] (Crafting Pulls Resources From Containers, Skyrim Crafting Inventory Extender, Smart Crafting Storage, Linked Crafting Storage, Workbench Containers): Dova Stash turns its own workbench feature off and says so on its Settings page. To use ours instead, pick it there and remove the other mod.
-[*][b]Other large home mods:[/b] no templates yet. Setting one up by hand takes a minute.
+[*][b]Mod homes:[/b] templates for 13 homes the Lux patch hub supports (see Templates above); other homes take a minute to set up by hand.
 [/list]
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-08-template-authoring.png[/img][/center]
 
-A template is a small JSON file that says which container in a home holds which categories, and which racks, mannequins and bookshelves are filled with what, down to one weapon or armor set, even from other mods (a player without that mod still gets the rest of the template). Set a home up in game and choose [b]Save as template...[/b] in the hotkey menu (or the panel's Template tab), or use [font=Courier New]tools/esm_dump.py[/font] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] to find the containers and validate your file. The [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]template guide[/url] walks through it. Good templates for popular homes may be bundled, with credit.
+A template is a small JSON file that says which container in a home holds which categories, and which racks, mannequins and bookshelves are filled with what, down to one weapon or armor set, even from other mods (a player without that mod still gets the rest of the template). Set a home up in game and choose [b]Save as template...[/b] under [b]Advanced...[/b] in the hotkey menu (or the panel's Template tab), or use [font=Courier New]tools/esm_dump.py[/font] from the [url=https://github.com/Kexodus/DovaStash]source repository[/url] to find the containers and validate your file. The [url=https://github.com/Kexodus/DovaStash/blob/main/tools/README.md]template guide[/url] walks through it. Good templates for popular homes may be bundled, with credit.
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-09-faq.png[/img][/center]
 
 [list]
-[*][b]Why didn't an item move?[/b] A keep rule kept it. Or it has no destination yet and waits in the master. Or a tempered or enchanted copy of it stays behind, and the plain copies stay with it rather than risk moving the wrong one.
+[*][b]Why didn't an item move?[/b] A keep rule kept it. Or it has no destination yet and waits in the master. In a home over several areas, items without a container stay with you while the master's area isn't loaded (the HUD says "master not here"). If it says "no container here takes them", their container is in another area of the home that isn't loaded: Deposit there, or give a container in this area that category. Items a script hands back, such as the Curators Storage Token, stay with you. Or, rarely, the game once picked a tempered or worn copy when moving the plain ones: Dova Stash put it back and leaves that item where it is for the rest of the session (the log says so).
+[*][b]The log says 46 categories, not 39?[/b] It counts the 7 groups (Weapons, Armor...) too.
 [*][b]Where are my homes saved?[/b] [font=Courier New]Data/SKSE/Plugins/DovaStash/Layouts/[/font], one file per home, outside your save, with a copy in [font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups/[/font] (plus the copies from your last 5 sessions). A home you set up once works for every character.
-[*][b]Can I share or back up my setup?[/b] Yes: [b]Save as template...[/b] in the hotkey menu writes a template, with your learned items as fixed item bindings (untick [b]Keep learned items[/b] in the panel's Template tab to share one without them). The home offers it at once, so after a reset [b]Use template[/b] brings the setup back. Setups are also backed up by themselves (see above).
+[*][b]Can I share or back up my setup?[/b] Yes: [b]Save as template...[/b] (hotkey menu, [b]Advanced...[/b]) writes a template, with your learned items as fixed item bindings (untick [b]Include where you put things by hand[/b] in the panel's Template tab to share one without them). The home offers it at once, so after a reset [b]Use template[/b] brings the setup back. Setups are also backed up by themselves (see above).
 [/list]
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-12-changelog.png[/img][/center]
+
+[b]Unreleased[/b]
+[list]
+[*]Displays: Deposit fills your weapon racks, mannequins, bookshelves and plaques; mannequins wear your best armor set.
+[*]Restock: keep quotas top you back up from the home on every Deposit.
+[*]Materials at the workbench: craft from what the home's containers hold.
+[*]A sell chest for your junk: nothing sells until you confirm the total; Buy back undoes it.
+[*]Homes over several areas: add the cellar or the grounds to a home.
+[*]32 templates: every vanilla and Creation Club home (one per home, cellars included), plus 13 mod homes.
+[*]Setups are backed up outside the Data folder; Restore your last setup brings one back.
+[*]Set the hotkey by pressing it; a shorter hotkey menu.
+[/list]
 
 [b]0.2.4[/b]
 [list]
@@ -163,7 +184,7 @@ Found a bug? Please include:
 [*][font=Courier New]Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log[/font]
 [*]Which home and container it happened with, and any home or UI mods you use
 [/list]
-For sorting problems, set the log detail to [i]Trace[/i] (Diagnostics on the Menu Framework settings page, or [font=Courier New]iLogLevel = 0[/font] in [font=Courier New]DovaStash.ini[/font]), reproduce the problem, and attach the log. Bug reports go here or in [url=https://github.com/Kexodus/DovaStash/issues]GitHub Issues[/url].
+For sorting problems, set the log detail to [i]Trace[/i] (Log on the Menu Framework Settings page, or [font=Courier New]iLogLevel = 0[/font] in [font=Courier New]DovaStash.ini[/font]), reproduce the problem, and attach the log. Bug reports go here or in [url=https://github.com/Kexodus/DovaStash/issues]GitHub Issues[/url].
 
 [center][img]https://raw.githubusercontent.com/Kexodus/DovaStash/main/presskit/nexus/section-10-permissions.png[/img][/center]
 

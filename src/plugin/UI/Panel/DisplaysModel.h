@@ -83,6 +83,9 @@ namespace dova::ui::panel
 		std::vector<DisplayRow>                                 rows;
 		std::vector<DisplayKindInfo>                            kinds;    // kinds present, in enum order
 		std::map<core::DisplayFit, std::vector<DisplayChoice>> choices;  // category picker per fit (none for plaques, cases)
+		// The display the player looks at, found as the hotkey finds it (the crosshair, else the one in view):
+		// marked "(looking at it)", selected when nothing is, and scrolled into view once each time it changes.
+		std::optional<std::size_t> aimedRow;
 	};
 
 	class DisplaysModel
@@ -115,5 +118,7 @@ namespace dova::ui::panel
 		std::vector<RE::FormID>         _scannedCells;
 		std::vector<game::FoundDisplay> _found;
 		std::map<RE::FormID, core::DisplayFit> _fits;  // what each found display holds (racks: read once per scan)
+		RE::RefHandle                _aimedHandle{ 0 };  // the crosshair target `_aimed` was worked out for
+		std::optional<core::FormRef> _aimed;
 	};
 }

@@ -2,7 +2,9 @@
 
 #include "AutoTest/LogCapture.h"
 #include "AutoTest/Steps.h"
+#include "Events/EventSinks.h"
 #include "Game/FormUtil.h"
+#include "Home/HomeRegistry.h"
 #include "Home/Store.h"
 
 #include <DovaStash/Version.h>
@@ -25,7 +27,8 @@ namespace dova::autotest
 			std::string       id;
 			std::string       title;
 			std::vector<Json> steps;
-			std::string       manual;  // not automated: why (listed in the results as "manual")
+			std::string       manual;      // not automated: why (listed in the results as "manual")
+			std::string       expectFail;  // a known gap: why ("xfail" when it fails, "xpass" when it passes)
 		};
 
 		struct Plan
@@ -35,7 +38,10 @@ namespace dova::autotest
 			std::optional<core::FormRef> home;
 			std::string                  coc;
 			std::vector<Test>            tests;
-			std::string                  refused;  // why the plan does not run
+			std::vector<std::string>     required;   // plugins the plan needs ("requires": ["WynterBreezehomeRedux.esp"])
+			std::vector<std::string>     templates;  // the Templates/AutoTest files it uses ("templates": ["LakeviewManor.json"])
+			std::string                  refused;   // why the plan does not run although it should (status "blocked")
+			std::string                  skipped;   // why it does not run in this load order (a required plugin is missing)
 		};
 
 		struct Options
@@ -123,11 +129,24 @@ namespace dova::autotest
 					}
 				}
 				plan.coc = doc.value("coc", ""s);
+				for (const auto& t : doc.value("templates", Json::array())) {
+					if (t.is_string()) {
+						plan.templates.push_back(t.get<std::string>());
+					}
+				}
+				if (const auto it = doc.find("requires"); it != doc.end()) {
+					for (const auto& r : it->is_array() ? *it : Json::array({ *it })) {
+						if (r.is_string()) {
+							plan.required.push_back(r.get<std::string>());
+						}
+					}
+				}
 				for (const auto& t : doc.value("tests", Json::array())) {
 					Test test;
 					test.id = t.value("id", ""s);
 					test.title = t.value("title", ""s);
 					test.manual = t.value("manual", ""s);
+					test.expectFail = t.value("expectFail", ""s);
 					for (const auto& s : t.value("steps", Json::array())) {
 						test.steps.push_back(s);
 					}
@@ -153,7 +172,7 @@ namespace dova::autotest
 			doc["written"] = Now();
 			doc["finished"] = a_finished;
 			doc["reason"] = a_reason;
-			std::map<std::string, int> summary{ { "pass", 0 }, { "fail", 0 }, { "skip", 0 }, { "manual", 0 } };
+			std::map<std::string, int> summary{ { "pass", 0 }, { "fail", 0 }, { "skip", 0 }, { "manual", 0 }, { "blocked", 0 }, { "xfail", 0 }, { "xpass", 0 } };
 			auto                       tests = nlohmann::ordered_json::array();
 			for (const auto& t : run.results) {
 				++summary[t.status];
@@ -226,12 +245,12 @@ namespace dova::autotest
 				return;
 			}
 			run.phase = Phase::Done;
-			int pass = 0, fail = 0, other = 0;
+			int pass = 0, fail = 0, blocked = 0, xfail = 0, other = 0;
 			for (const auto& t : run.results) {
-				(t.status == "pass" ? pass : t.status == "fail" ? fail : other)++;
+				(t.status == "pass" ? pass : t.status == "fail" || t.status == "xpass" ? fail : t.status == "blocked" ? blocked : t.status == "xfail" ? xfail : other)++;
 			}
-			logger::info("AutoTest: run {} after {:.0f} s: {} passed, {} failed, {} skipped or manual", a_reason,
-				std::chrono::duration<double>(Clock::now() - run.started).count(), pass, fail, other);
+			logger::info("AutoTest: run {} after {:.0f} s: {} passed, {} failed, {} blocked, {} expected to fail, {} skipped or manual", a_reason,
+				std::chrono::duration<double>(Clock::now() - run.started).count(), pass, fail, blocked, xfail, other);
 			WriteResults(true, a_reason);
 			run.stop = true;
 			if (run.options.quit) {
@@ -262,9 +281,14 @@ namespace dova::autotest
 			if (result.status.empty()) {
 				const bool failed = std::ranges::any_of(result.checks, [](const CheckRecord& c) { return !c.ok; });
 				result.status = failed ? "fail" : "pass";
+				if (!result.expectFail.empty()) {
+					// A known gap: its failure does not fail the run; a pass is reported, so the mark gets removed.
+					result.status = failed ? "xfail" : "xpass";
+					result.note = failed ? result.expectFail : "passed although marked expectFail: " + result.expectFail;
+				}
 			}
 			logger::info("AutoTest: [{}] {} {}: {}", result.status, result.id, result.title,
-				result.status == "fail" ? std::format("{} of {} checks failed", std::ranges::count_if(result.checks, [](const CheckRecord& c) { return !c.ok; }),
+				result.status == "fail" || result.status == "xfail" ? std::format("{} of {} checks failed", std::ranges::count_if(result.checks, [](const CheckRecord& c) { return !c.ok; }),
 											  result.checks.size()) :
 											std::format("{} checks", result.checks.size()));
 			run.inTest = false;
@@ -278,13 +302,14 @@ namespace dova::autotest
 		void StartTest(const Plan& a_plan, const Test& a_test)
 		{
 			auto& run = R();
-			run.results.push_back(TestResult{ .id = a_test.id, .title = a_test.title, .plan = a_plan.file });
+			run.results.push_back(TestResult{ .id = a_test.id, .title = a_test.title, .plan = a_plan.file, .expectFail = a_test.expectFail });
 			run.inTest = true;
 			run.testStarted = Clock::now();
 			run.ctx.test = &run.results.back();
 			run.ctx.testMark = logcap::Mark();
 			run.ctx.abortTest = false;
 			run.ctx.skipReason.clear();
+			events::OverrideCrosshair(std::nullopt);  // an "aim" of the last test ends with it
 			logger::info("AutoTest: --- {} {} ({})", a_test.id, a_test.title, a_plan.name);
 		}
 
@@ -305,8 +330,20 @@ namespace dova::autotest
 					run.ctx.planMark = logcap::Mark();
 					run.ctx.abortPlan = false;
 					run.ctx.snapshots.clear();
+					run.ctx.planCells.clear();
+					run.ctx.planEnabled.clear();
 					run.ctx.quote.reset();
 					logger::info("AutoTest: === plan {} ({})", plan.name, plan.file);
+					// Test templates only for the plan that declares them: one with a higher priority would shadow the
+					// shipped template of its home in every other plan of the run.
+					home::Store::Get().ScopeTestTemplates(plan.templates);
+					home::Store::Get().ReloadTemplates();
+					home::HomeRegistry::Get().RefreshTemplates();
+					std::string inUse;
+					for (const auto& t : plan.templates) {
+						inUse += (inUse.empty() ? "" : ", ") + t;
+					}
+					logger::info("AutoTest: test templates in use: {}", inUse.empty() ? "none"s : inUse);
 				}
 				if (run.test >= plan.tests.size()) {
 					++run.plan;
@@ -322,8 +359,12 @@ namespace dova::autotest
 					if (!test.manual.empty()) {
 						result.status = "manual";
 						result.note = test.manual;
+					} else if (!plan.skipped.empty()) {
+						result.status = "skip";
+						result.note = plan.skipped;
 					} else if (!plan.refused.empty()) {
-						result.status = "fail";
+						// Not a failure of the test, but the run is not green either (run.ps1 prints one line per plan).
+						result.status = "blocked";
 						result.note = "plan not run: " + plan.refused;
 					} else if (run.ctx.abortPlan) {
 						result.status = "skip";
@@ -336,7 +377,11 @@ namespace dova::autotest
 				}
 				if (run.step >= test.steps.size() || run.ctx.abortTest) {
 					if (run.ctx.abortTest && run.step < test.steps.size() && run.ctx.skipReason.empty()) {
-						run.ctx.Record(false, std::format("{} step(s) not run after a failed action", test.steps.size() - run.step));
+						auto next = test.steps[run.step].dump();
+						if (next.size() > 160) {
+							next = next.substr(0, 157) + "...";
+						}
+						run.ctx.Record(false, std::format("{} step(s) not run after a failed action", test.steps.size() - run.step), "next: " + next);
 					}
 					EndTest();
 					continue;
@@ -516,7 +561,17 @@ namespace dova::autotest
 			if (!plan) {
 				continue;
 			}
-			if (plan->refused.empty() && plan->home) {
+			if (plan->refused.empty()) {
+				auto* data = RE::TESDataHandler::GetSingleton();
+				for (const auto& name : plan->required) {
+					if (!data || (!data->LookupLoadedModByName(name) && !data->LookupLoadedLightModByName(name))) {
+						plan->skipped = std::format("needs {}", name);
+						logger::info("AutoTest: plan {} is skipped: it needs {} (not in this load order)", plan->file, name);
+						break;
+					}
+				}
+			}
+			if (plan->refused.empty() && plan->skipped.empty() && plan->home) {
 				if (!game::LookupForm(*plan->home)) {
 					plan->refused = std::format("its home {} is not in this load order", plan->home->ToString());
 				} else if (home::Store::Get().HasPlayerLayoutFile(*plan->home)) {

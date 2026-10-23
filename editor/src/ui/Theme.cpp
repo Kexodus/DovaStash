@@ -375,7 +375,7 @@ namespace dova::editor::ui::w
 			c[ImGuiCol_NavCursor] = V4(t.accent);
 			c[ImGuiCol_NavWindowingHighlight] = V4(WithAlpha(t.accent, 0.70f));
 			c[ImGuiCol_NavWindowingDimBg] = ImVec4(0, 0, 0, 0.5f);
-			c[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.55f);
+			c[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.72f);  // reads as a backdrop on the dark themes too
 		}
 	}
 

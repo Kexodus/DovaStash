@@ -1,0 +1,32 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Dead Man's Dread",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
+  "author": "Dova Stash",
+  "version": "1.0.1",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "ccBGSSSE031-AdvCyrus.esm"],
+  "cell": "ccBGSSSE031-AdvCyrus.esm|0x000009D5",
+  "master": "ccBGSSSE031-AdvCyrus.esm|0x00001620",
+  "containers": [
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00001444", "label": "Captain's cabin safe",                 "categories": ["armor.jewelry", "misc.gems", "misc.curios"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x000015FA", "label": "Captain's wardrobe",                   "categories": ["armor.clothing"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00000F43", "label": "Captain's cabin dresser",              "categories": ["books.*"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x000014B6", "label": "Captain's cabin knapsack",             "categories": ["keys"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x000015F9", "label": "Boatswain's wardrobe",                 "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00000A59", "label": "Crew quarters dresser",                "categories": ["weapons.*"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00000B4C", "label": "Cupboard (by the grindstone)",         "categories": ["ammo.*"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x000014F1", "label": "Cupboard (by the anvil)",              "categories": ["misc.tools", "misc.building_materials"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00001512", "label": "Barrel (by the tanning rack)",         "categories": ["misc.ores_ingots", "misc.dwemer"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00001513", "label": "Barrel (by the tanning rack, 2)",      "categories": ["misc.hides_pelts", "misc.animal_parts"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x000014AB", "label": "Satchel (by the alchemy lab)",         "categories": ["alchemy.ingredients"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00001478", "label": "Barrel (by the alchemy lab)",          "categories": ["alchemy.potions", "alchemy.poisons"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00001485", "label": "Cupboard (by the arcane enchanter)",   "categories": ["soulgems.*", "scrolls"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00001269", "label": "Galley cupboard (by the cooking pot)", "categories": ["alchemy.food"]},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x000009F2", "label": "Chest (by the alchemy lab)",           "ignored": true, "note": "The ship's loot chest: the game may change what is in it."}
+  ],
+  "displays": [
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x000009DA", "label": "Weapon plaque (by the grindstone)"},
+    {"ref": "ccBGSSSE031-AdvCyrus.esm|0x00001072", "label": "Mannequin (by the captain's wardrobe)"}
+  ]
+}

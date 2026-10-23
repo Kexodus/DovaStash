@@ -44,12 +44,12 @@ bLearn = true
 ; 0 = never ask.
 iSuggestCategoryAfter = 3
 
-; For this many seconds after something was learned, the hotkey takes it back ("... now goes to
-; End Table (K: undo)"). 0 = no undo.
+; For this many seconds after something was learned, the hotkey takes it back ("Iron Sword now goes
+; to End Table. K: undo"). 0 = no undo.
 iLearnUndoSeconds = 5
 
 ; true = Deposit and Sort all put your gear on the displays you use, as if you had placed it by hand.
-; Turn a display on with the hotkey (look at a weapon rack, mannequin or plaque and choose "Use this
+; Turn a display on with the hotkey (look at a weapon rack, mannequin, bookshelf or plaque and choose "Use this
 ; rack"), and pick what it takes under "Categories...", like a container; templates can turn some on
 ; too. Racks get your best weapons and shields (one of each), mannequins a matching armor set (or the
 ; one you pick under "Armor set..."), and
@@ -84,12 +84,12 @@ iCraftingSupply = 0
 bCraftingSupplyGear = false
 
 [Selling]
-; The sell chest: look at a container, press the hotkey and choose "Make sell chest". Items reach it like
+; The sell chest: look at a container, press the hotkey and choose "Make sell chest...". Items reach it like
 ; any container (its categories, or what you put in by hand), and nothing else is ever taken out of it.
 ; What is in it is sold for gold only when you choose "Sell now" and confirm the total (or with timed
-; selling below). Stolen, improved, enchanted-by-you, renamed, quest and favorited items, potions you
-; made, and what your keep rules always keep (gold, lockpicks, torches) are never sold. Your last sale of
-; the session can be bought back for the same gold.
+; selling below). Stolen, improved (tempered, enchanted by you, renamed), quest, worn or favorited items,
+; soul gems you filled, potions you made, and what your keep rules always keep (gold, lockpicks, torches)
+; are never sold. Your last sale of the session can be bought back for the same gold.
 
 ; What a sale pays, in percent of the game's barter price for you (your Speech, Haggling and Fortify
 ; Barter, as a merchant would pay). 100 = the game's price. 10 - 200.
@@ -104,7 +104,7 @@ iAutoSellHours = 0
 ; What the hotkey opens in the world. Dova Stash draws no menus of its own art: every option below
 ; uses a menu you already have, so whatever UI skin you use applies (any UIExtensions skin, or none).
 ; 0 = auto: UIExtensions list menus when UIExtensions is installed (not on VR), else native
-;     message boxes. The SKSE Menu Framework panel stays available from that framework's menu as the editor.
+;     message boxes. The SKSE Menu Framework panel stays available from that framework's menu.
 ; 1 = always native message boxes
 ; 2 = the SKSE Menu Framework panel (falls back to message boxes if the framework is not loaded)
 ; 3 = always UIExtensions (falls back to message boxes if it is not installed)
@@ -116,7 +116,7 @@ bCenterMenus = true
 
 [Integrations]
 ; QuickLoot IE: show what a container holds and where the selected item would go in QuickLoot's
-; info bar, plus a "Dova Stash" hotkey button in its button bar.
+; info bar, plus a "Stash" button with your hotkey in its button bar.
 bQuickLoot = true
 
 ; QuickLoot IE: show where each item would be sorted to, right in QuickLoot's item list

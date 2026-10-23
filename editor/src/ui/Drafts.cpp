@@ -5,14 +5,19 @@
 // rejected straight on the template being made. Reviewed drafts stay in memory until saved ("Save N drafts...").
 
 #include <algorithm>
+#include <cctype>
 #include <format>
+#include <tuple>
+#include <unordered_map>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
 
 #include <imgui.h>
+#include <imgui_stdlib.h>
 
+#include "Log.h"
 #include "Util.h"
 #include "dova/core/Template.h"
 #include "home/TemplateFile.h"
@@ -75,12 +80,20 @@ namespace dova::editor::ui
 		return (_cell && _cell->dirty) || UnsavedDrafts();
 	}
 
+	bool EditorApp::OpenUnsaved() const
+	{
+		// A home of the rail keeps the changes to its draft (SyncCellToDraft); a template file keeps none.
+		return _cell && _cell->dirty && (_cellDraft < 0 || !_cell->filePath.empty());
+	}
+
 	int EditorApp::SaveableDrafts() const
 	{
+		// As the Save drafts dialog counts: a draft with a master (something to sort into), of a home without a template.
 		int n = 0;
 		if (_homes) {
 			for (std::size_t i = 0; i < _homes->homes.size(); ++i) {
-				n += _homes->entries[i].draft && HomeStatus(_homes->homes[i]).empty() ? 1 : 0;
+				const auto& d = _homes->entries[i].draft;
+				n += d && d->layout.master && HomeStatus(_homes->homes[i]).empty() ? 1 : 0;
 			}
 		}
 		return n;
@@ -114,11 +127,18 @@ namespace dova::editor::ui
 				progress->done = a_done;
 				progress->total = a_total;
 			}));
-			data->homes = home::FindAllHomes(*data->lo, [&](std::size_t a_done, std::size_t a_total, const std::string& a_stage) {
-				progress->done = a_done;
-				progress->total = a_total;
-				setStage(a_stage);
-			});
+			// The templates first: a cell one names is a home whatever the heuristics say.
+			setStage("reading templates");
+			data->templates = home::LoadTemplateIndex(*ws);
+			const auto templateCells = home::TemplateCellsOf(*data->lo, data->templates);
+			data->homes = home::FindAllHomes(
+				*data->lo,
+				[&](std::size_t a_done, std::size_t a_total, const std::string& a_stage) {
+					progress->done = a_done;
+					progress->total = a_total;
+					setStage(a_stage);
+				},
+				nullptr, &templateCells);
 			// The rail's storage summary: the containers and displays a template can use (HomeEntry counts every
 			// container reference, respawning barrels and upgrade leftovers included).
 			setStage("counting storage");
@@ -136,20 +156,13 @@ namespace dova::editor::ui
 						continue;
 					}
 					for (const auto& r : cell->refs) {
-						if (r.deleted || (r.enableParent && r.enableOpposite)) {
-							continue;  // gone, or removed by a house upgrade
-						}
-						if (r.display) {
-							++st.displays;
-						} else if (r.IsContainer() && !r.respawns && !r.ownedByOther) {
-							++st.containers;
-						}
+						st.displays += home::UsableDisplay(r) ? 1 : 0;
+						st.containers += home::UsableContainer(r) ? 1 : 0;
 					}
 				}
 			}
-			setStage("reading templates and items");
+			setStage("reading items");
 			progress->total = 0;
-			data->templates = home::LoadTemplateIndex(*ws);
 			data->catalog = std::make_shared<esp::ItemCatalog>(esp::BuildItemCatalog(*data->lo));
 			if (cats) {
 				data->itemNames = home::BuildItemNameIndex(*data->catalog, *cats);
@@ -179,6 +192,7 @@ namespace dova::editor::ui
 							}
 						}
 						SetStatus("No home matches " + wanted, true);
+						NoHomeMatches(wanted);
 					});
 				}
 			};
@@ -200,6 +214,10 @@ namespace dova::editor::ui
 			return;
 		}
 		SyncCellToDraft();
+		// Meshes and textures are read again too (folders listed afresh, archives indexed again): what changed in
+		// MO2 meanwhile shows the next time a cell opens.
+		_assets.reset();
+		Log("rescan: load order, loose files and archives read again");
 		_homes.reset();
 		_homeGroups.clear();
 		_cellDraft = -1;  // the open cell keeps its template (and its dirty flag)
@@ -310,6 +328,17 @@ namespace dova::editor::ui
 		}
 		_state.Advance(h.cellRef, h.name, HomeStage::Drafted);  // looked at
 		return e;
+	}
+
+	bool EditorApp::DraftExists() const
+	{
+		if (!_cell) {
+			return false;
+		}
+		if (_cellDraft >= 0 && _homes) {
+			return _homes->entries[static_cast<std::size_t>(_cellDraft)].draft != nullptr;
+		}
+		return _localDraft && _localDraftCell == _cell.get();
 	}
 
 	home::HomeDraft* EditorApp::OpenDraft()
@@ -449,8 +478,52 @@ namespace dova::editor::ui
 		_panel = Panel::Draft;
 	}
 
+	void EditorApp::UseDraft()
+	{
+		if (!_cell || Busy()) {
+			return;
+		}
+		if (_cell->dirty && !_confirmUseDraft) {
+			_confirmUseDraft = true;  // DrawDraftAgainPopup asks first
+			return;
+		}
+		_confirmUseDraft = false;
+		auto* d = OpenDraft();
+		if (!d) {
+			return;
+		}
+		_cell->layout = d->layout;
+		if (!_templateAuthor.empty()) {
+			_cell->layout.author = _templateAuthor;
+		}
+		_cell->dirty = _cellDraft >= 0 && _homes && _homes->entries[static_cast<std::size_t>(_cellDraft)].reviewed;
+		_cell->filePath.clear();
+		_cell->savedPath.clear();
+		_cell->saveMessage.clear();
+		Revalidate(*_cell);
+		_panel = Panel::Draft;
+	}
+
 	void EditorApp::DrawDraftAgainPopup()
 	{
+		if (_confirmUseDraft && !ImGui::IsPopupOpen("Use the draft?")) {
+			ImGui::OpenPopup("Use the draft?");
+		}
+		if (ImGui::BeginPopupModal("Use the draft?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+			ImGui::TextUnformatted("The template has changes.");
+			w::Muted("Open the draft and lose them?");
+			w::Spacer();
+			if (ImGui::Button("Use the draft")) {
+				ImGui::CloseCurrentPopup();
+				UseDraft();  // _confirmUseDraft is set: it goes ahead
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Keep my changes##usedraft") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+				_confirmUseDraft = false;
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
 		if (_confirmDraftAgain && !ImGui::IsPopupOpen("Draft again?")) {
 			ImGui::OpenPopup("Draft again?");
 		}
@@ -558,7 +631,7 @@ namespace dova::editor::ui
                 };
             });
 		};
-		if (_cell && _cell->dirty && _cellDraft < 0) {
+		if (OpenUnsaved()) {
 			_pendingOpen = open;
 			return;
 		}
@@ -572,6 +645,9 @@ namespace dova::editor::ui
 			return;
 		}
 		auto& e = _homes->entries[static_cast<std::size_t>(_cellDraft)];
+		if (!_cell->filePath.empty()) {
+			return;  // a template file is open: the draft stays as it is
+		}
 		if (!e.draft || !_cell->layout.cell || !e.draft->layout.cell || *_cell->layout.cell != *e.draft->layout.cell) {
 			return;
 		}
@@ -584,7 +660,7 @@ namespace dova::editor::ui
 		}
 	}
 
-	home::SaveResult EditorApp::SaveDraft(int a_index, bool a_autoDraft)
+	home::SaveResult EditorApp::SaveDraft(int a_index, bool a_autoDraft, const std::string& a_fileHome)
 	{
 		auto&      e = EnsureDraft(a_index);
 		const auto& h = _homes->homes[static_cast<std::size_t>(a_index)];
@@ -593,7 +669,8 @@ namespace dova::editor::ui
 			e.draft->layout.author = _templateAuthor;
 		}
 		// A bulk save never replaces a template someone made; an unreviewed draft goes out marked as an auto-draft.
-		const auto r = home::SaveTemplateFile(SaveBase(), e.draft->layout, { .modMeta = ownMod, .autoDraft = a_autoDraft, .onlyOverAutoDrafts = true }, h.name);
+		const auto r = home::SaveTemplateFile(SaveBase(), e.draft->layout, { .modMeta = ownMod, .autoDraft = a_autoDraft, .onlyOverAutoDrafts = true },
+			a_fileHome.empty() ? h.name : a_fileHome);
 		if (r.ok) {
 			e.saveMessage = std::format("Saved {}version {} to {}{}", a_autoDraft ? "as an auto-draft, " : "", r.version, PathToUtf8(r.path),
 				r.replaced ? " (the old file is kept as .bak)" : "");
@@ -627,19 +704,35 @@ namespace dova::editor::ui
 			if (!e.draft || !HomeStatus(_homes->homes[i]).empty()) {
 				continue;
 			}
+			// Nothing to sort into (no usable container, so no master): no file.
+			if (!e.draft->layout.master) {
+				_bulkSave.push_back({ static_cast<int>(i), {}, e.reviewed, true, {} });
+				continue;
+			}
 			auto copy = e.draft->layout;
 			if (!_templateAuthor.empty()) {
 				copy.author = _templateAuthor;
 			}
-			const auto target = home::TemplatePath(base, copy, _homes->homes[i].name);
-			auto       check = core::CheckAutoDraftTarget(files, target, home::HomeCellRefs(*_homes->lo, _homes->homes[i]));
-			// Two homes with the same name share a file: the first one listed gets it (SaveTemplateFile refuses the second).
-			if (const auto earlier = std::ranges::find_if(planned, [&](const fs::path& p) { return core::IEquals(PathToUtf8(p), PathToUtf8(target)); });
-				earlier != planned.end() && (check.verdict == core::AutoDraftVerdict::New || check.verdict == core::AutoDraftVerdict::Refresh)) {
-				check = { core::AutoDraftVerdict::OtherHome, target };
+			// Two homes with the same name: the first listed keeps the name, the next gets its cell's EditorID added
+			// ("Keep (YngolKeep02)"), and so does one whose name another home's auto-draft already has on disk.
+			const auto& h = _homes->homes[i];
+			const auto  cells = home::HomeCellRefs(*_homes->lo, h);
+			auto        plan = [&](bool a_clash) {
+				auto       name = home::TemplateHomeName(h, a_clash);
+				const auto target = home::TemplatePath(base, copy, name);
+				auto       check = core::CheckAutoDraftTarget(files, target, cells);
+				if (std::ranges::any_of(planned, [&](const fs::path& p) { return core::IEquals(PathToUtf8(p), PathToUtf8(target)); }) &&
+					(check.verdict == core::AutoDraftVerdict::New || check.verdict == core::AutoDraftVerdict::Refresh)) {
+					check = { core::AutoDraftVerdict::OtherHome, target };
+				}
+				return std::tuple{ std::move(name), target, std::move(check) };
+			};
+			auto [name, target, check] = plan(false);
+			if (check.verdict == core::AutoDraftVerdict::OtherHome) {
+				std::tie(name, target, check) = plan(true);
 			}
 			planned.push_back(target);
-			_bulkSave.push_back({ static_cast<int>(i), std::move(check), e.reviewed });
+			_bulkSave.push_back({ static_cast<int>(i), std::move(check), e.reviewed, false, std::move(name) });
 		}
 	}
 
@@ -659,21 +752,31 @@ namespace dova::editor::ui
 			}
 			const auto base = SaveBase();
 			const auto blocked = [](const BulkSaveItem& a_item) {
-				return a_item.check.verdict == core::AutoDraftVerdict::Person || a_item.check.verdict == core::AutoDraftVerdict::OtherHome;
+				return a_item.empty || a_item.check.verdict == core::AutoDraftVerdict::Person || a_item.check.verdict == core::AutoDraftVerdict::OtherHome;
 			};
-			int fresh = 0, refresh = 0, reviewed = 0;
+			int fresh = 0, refresh = 0, reviewed = 0, empty = 0;
 			for (const auto& item : _bulkSave) {
-				fresh += item.check.verdict == core::AutoDraftVerdict::New ? 1 : 0;
-				refresh += item.check.verdict == core::AutoDraftVerdict::Refresh ? 1 : 0;
+				empty += item.empty ? 1 : 0;
+				fresh += !item.empty && item.check.verdict == core::AutoDraftVerdict::New ? 1 : 0;
+				refresh += !item.empty && item.check.verdict == core::AutoDraftVerdict::Refresh ? 1 : 0;
 				reviewed += item.reviewed && !blocked(item) ? 1 : 0;
 			}
-			const int skipped = static_cast<int>(_bulkSave.size()) - fresh - refresh;
+			const int skipped = static_cast<int>(_bulkSave.size()) - fresh - refresh - empty;
 			ImGui::Text("Save %d drafts of homes without a template into", fresh + refresh);
-			w::Mono(PathToUtf8(base).c_str());
-			ImGui::Text("%d new files, %d earlier auto-drafts refreshed (each backed up as .bak first, its version raised).", fresh, refresh);
+			w::Mono(PathToUtf8(std::filesystem::path(base).make_preferred()).c_str());
+			if (refresh == 0) {
+				if (fresh > 0) {
+					ImGui::Text("%d new file%s.", fresh, fresh == 1 ? "" : "s");
+				}
+			} else {
+				ImGui::Text("%s%d refreshed (backed up as .bak, version raised).", fresh > 0 ? std::format("{} new, ", fresh).c_str() : "", refresh);
+			}
 			w::Muted("Marked as auto-drafts: the next Draft all homes may refresh them. Save one (Ctrl+S) to make it yours.");
 			if (reviewed > 0) {
 				w::Muted(std::format("{} reviewed draft{} {} saved as yours, without the mark.", reviewed, reviewed == 1 ? "" : "s", reviewed == 1 ? "is" : "are").c_str());
+			}
+			if (empty > 0) {
+				w::Muted(std::format("{} home{} left alone: no container to sort into.", empty, empty == 1 ? "" : "s").c_str());
 			}
 			if (skipped > 0) {
 				// The homes left alone, by name; the file in the way in the tooltip.
@@ -685,7 +788,7 @@ namespace dova::editor::ui
 											   .c_str());
 				int shown = 0;
 				for (const auto& item : _bulkSave) {
-					if (!blocked(item)) {
+					if (!blocked(item) || item.empty) {
 						continue;
 					}
 					if (++shown > 8) {
@@ -696,17 +799,35 @@ namespace dova::editor::ui
 					w::Tip((PathToUtf8(item.check.blocker) + (item.check.verdict == core::AutoDraftVerdict::Person ? "\na template someone made" : "\nanother home of the same name")).c_str());
 				}
 			}
-			if (_templateAuthor.empty()) {
-				w::Coloured(w::Kind::Warn, "No author name: the files go under \"Unknown\" (Setup).");
+			// No author yet: the name first, as the single Save asks (never "Unknown"), kept as Setup's Author.
+			const bool needName = _templateAuthor.empty();
+			const bool named = std::ranges::any_of(_saveName, [](char c) { return !std::isspace(static_cast<unsigned char>(c)); });
+			if (needName) {
+				w::Spacer();
+				w::FieldLabel("Your name");
+				if (ImGui::IsWindowAppearing()) {
+					_saveName.clear();
+					ImGui::SetKeyboardFocusHere();
+				}
+				ImGui::SetNextItemWidth(ImGui::GetFontSize() * 18.0f);
+				ImGui::InputTextWithHint("##author", "Your name (the template folder)", &_saveName);
+				w::Muted("Kept for later saves (Setup > Author).");
 			}
 			w::Spacer();
-			if (w::PrimaryButton("Save them", fresh + refresh > 0)) {
-				int saved = 0, left = skipped, failed = 0;
+			if (w::PrimaryButton("Save them", fresh + refresh > 0 && (!needName || named), needName && !named ? "Type your name first" : nullptr)) {
+				if (needName) {
+					_templateAuthor = _saveName;
+					_state.author = _templateAuthor;
+					_state.Save();
+					PlanBulkSave();  // the files go under the name: check them again
+				}
+				int saved = 0, left = 0, failed = 0;
 				for (const auto& item : _bulkSave) {
 					if (blocked(item)) {
+						++left;
 						continue;
 					}
-					const auto r = SaveDraft(item.home, !item.reviewed);
+					const auto r = SaveDraft(item.home, !item.reviewed, item.fileHome);
 					(r.ok ? saved : r.skipped ? left : failed) += 1;
 				}
 				_homes->templates = home::LoadTemplateIndex(*_ws);
@@ -735,6 +856,19 @@ namespace dova::editor::ui
 		}
 		const bool busy = Busy();
 		ImGui::BeginDisabled(busy);
+		// A template file is open (a home opens on its template): the draft is one click away.
+		if (!a_cell.filePath.empty()) {
+			ImGui::PushFont(t.smallFont);
+			ImGui::PushTextWrapPos(0.0f);
+			w::MutedWrapped("Showing the template. Accept a chip to change it, or use the whole draft.");
+			ImGui::PopTextWrapPos();
+			ImGui::PopFont();
+			if (w::PrimaryButton("Use the draft")) {
+				UseDraft();
+			}
+			w::Tip("Open this draft in place of the template (Save writes it as yours)");
+			w::Spacer(t.gap);
+		}
 		const float rowRight = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 		if (w::ToolButton("Accept all", false, "Every suggestion no other container has a stronger claim on")) {
 			AcceptAll();
@@ -758,12 +892,20 @@ namespace dova::editor::ui
 				if (!tp->layout.cell || !a_cell.layout.cell || *tp->layout.cell != *a_cell.layout.cell) {
 					continue;
 				}
-				const auto cmp = home::CompareToTemplate(a_cell.layout, tp->layout, *_categorySet);
+				std::error_code ec;
+				if (!a_cell.filePath.empty() && fs::equivalent(tp->path, PathFromUtf8(a_cell.filePath), ec)) {
+					continue;  // the open one
+				}
+				// The draft against it (or, a template open, that template against the other): the word of the rail and its mod.
+				const auto  cmp = home::CompareToTemplate(a_cell.layout, tp->layout, *_categorySet);
+				w::Kind     kind = w::Kind::Neutral;
+				std::string word = TemplateWord(*tp, &kind);
+				word[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(word[0])));
 				ImGui::PushFont(t.smallFont);
 				ImGui::PushTextWrapPos(0.0f);
-				w::ColouredWrapped(tp->layout.autoDraft ? w::Kind::Warn : tp->user ? w::Kind::Ok : w::Kind::Info,
-					std::format("{}: {} of {} categories agree, master {}", tp->layout.autoDraft ? "An auto-draft" : tp->user ? "Your template" : "A template", cmp.sameDestination,
-						cmp.categories, cmp.sameMaster ? "the same" : "differs").c_str());
+				w::ColouredWrapped(kind, std::format("{} ({}): {} of {} categories agree, master {}", word, tp->origin, cmp.sameDestination, cmp.categories,
+											 cmp.sameMaster ? "the same" : "differs")
+											 .c_str());
 				ImGui::PopTextWrapPos();
 				ImGui::PopFont();
 				if (ImGui::BeginItemTooltip()) {
@@ -835,13 +977,18 @@ namespace dova::editor::ui
 		}
 
 		// Containers and their suggestions, accepted or not on the template being made.
-		int accepted = 0;
+		// Of the usable ones over the home's cells, the rail's and the drawer's number (else the draft's own).
+		int accepted = 0, usable = 0;
 		for (const auto& c : d->plan.containers) {
 			const auto  ref = core::FormRef::Parse(d->objects[c.object].id);
 			const auto* b = ref ? a_cell.layout.FindContainer(*ref) : nullptr;
 			accepted += b && !b->ignored && !b->categories.empty() ? 1 : 0;
+			usable += c.ignored ? 0 : 1;
 		}
-		w::SectionHead(std::format("Containers  {} of {}", accepted, d->plan.containers.size()).c_str(),
+		if (const auto st = HomeStorageFor(a_cell)) {
+			usable = st->containers;
+		}
+		w::SectionHead(std::format("Containers  {} of {}", accepted, usable).c_str(),
 			"Suggested categories, coloured by where they come from:\n  green: the container's name says so\n  yellow: a station or items nearby\n  orange: a hint\nClick a chip to accept or reject it; hover it for the reason.");
 
 		std::vector<std::size_t> order(d->plan.containers.size());
@@ -859,6 +1006,41 @@ namespace dova::editor::ui
 			return c.suggestions.empty() ? 2 : 1;
 		};
 		std::ranges::stable_sort(order, [&](std::size_t a, std::size_t b) { return rank(a) < rank(b); });
+		// The names the other panels use (RefLabel: the template's landmark label first). Rows still of the same name
+		// ("Barrel", "Barrel") get their height above the cell's floor (FloorOf, as the tables), then a number.
+		std::vector<std::string>                            rowLabels(d->plan.containers.size());
+		std::unordered_map<std::string, std::vector<float>> heights, allHeights;  // per cell: the containers there from the start, all
+		std::unordered_map<std::string, Floor>              floors;
+		std::unordered_map<std::string, int>                named, seen;
+		auto labelOf = [&](const core::DraftObject& a_o) {
+			const auto ref = core::FormRef::Parse(a_o.id);
+			return ref ? RefLabel(a_cell.layout, *ref, Label(a_o)) : Label(a_o);
+		};
+		for (const auto& c : d->plan.containers) {
+			const auto& o = d->objects[c.object];
+			if (!o.appearsLater) {
+				heights[o.cell].push_back(o.center[2]);
+			}
+			allHeights[o.cell].push_back(o.center[2]);
+			++named[labelOf(o)];
+		}
+		for (auto& [cell, z] : allHeights) {
+			auto& start = heights[cell];
+			floors[cell] = FloorOf(start.empty() ? std::move(z) : std::move(start));
+		}
+		for (const auto ci : order) {
+			const auto& o = d->objects[d->plan.containers[ci].object];
+			rowLabels[ci] = labelOf(o);
+			if (named[rowLabels[ci]] > 1) {
+				const auto& f = floors[o.cell];
+				rowLabels[ci] += f.Outside(o.center[2]) ? std::string(" · out of the home") : std::format(" · {:.1f} m", f.Metres(o.center[2]));
+			}
+		}
+		for (const auto ci : order) {
+			if (std::ranges::count(rowLabels, rowLabels[ci]) > 1) {
+				rowLabels[ci] += std::format(" ({})", ++seen[rowLabels[ci]]);
+			}
+		}
 		bool changed = false;
 		for (const auto ci : order) {
 			auto&       c = d->plan.containers[ci];
@@ -871,13 +1053,16 @@ namespace dova::editor::ui
 				ImGui::PushStyleColor(ImGuiCol_Text, t.muted);
 			}
 			const std::string where = index < 0 && o.cell != a_cell.cellText ? "  (other cell)" : "";
-			if (ImGui::Selectable((Label(o) + where).c_str(), index >= 0 && IsSelected(index))) {
+			if (ImGui::Selectable((rowLabels[ci] + where).c_str(), index >= 0 && IsSelected(index))) {
 				selectObject(c.object);
 			}
 			if (c.ignored) {
 				ImGui::PopStyleColor();
 			}
-			w::Tip((o.id + "\n" + o.editorId).c_str());
+			if (index >= 0 && ImGui::IsItemHovered()) {
+				_listHoveredRef = index;  // highlighted in the 3D view
+			}
+			w::Tip((o.id + "\n" + o.editorId + (named[labelOf(o)] > 1 ? "\nThe height: above the cell's floor" : "")).c_str());
 			ImGui::Indent(t.pad);
 			const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 			const auto* b = ref ? a_cell.layout.FindContainer(*ref) : nullptr;
@@ -896,7 +1081,7 @@ namespace dova::editor::ui
 			for (std::size_t si = 0; si < c.suggestions.size() && !c.ignored && !master; ++si) {
 				auto&      s = c.suggestions[si];
 				const bool on = b && std::ranges::find(b->categories, s.pattern) != b->categories.end();
-				const auto text = std::format("{} {:.0f}%", s.pattern, s.confidence * 100.0f);
+				const auto text = std::format("{} {:.0f}%", CategoryText(s.pattern), s.confidence * 100.0f);
 				ImGui::PushID(static_cast<int>(si));
 				if (si > 0) {
 					w::FlowNext(w::ChipWidth(text.c_str()), rightX);
@@ -905,7 +1090,7 @@ namespace dova::editor::ui
 					SetSuggestionOn(a_cell, *d, ci, si, !on);
 					changed = true;
 				}
-				std::string tip = std::format("{} ({}, {:.0f}%)\n\n{}", on ? "Accepted" : "Not accepted", core::DraftSourceName(s.source), s.confidence * 100.0f, s.reason);
+				std::string tip = std::format("{}: {} ({}, {:.0f}%)\n\n{}", s.pattern, on ? "accepted" : "not accepted", core::DraftSourceName(s.source), s.confidence * 100.0f, s.reason);
 				if (!s.lostTo.empty()) {
 					tip += "\n\nAnother container has a stronger claim; accepting it here too is allowed (the first one listed wins in game).";
 				}
@@ -931,7 +1116,7 @@ namespace dova::editor::ui
 			for (const auto& disp : d->layout.displays) {
 				std::string what = disp.kind ? std::string(core::DisplayKindName(*disp.kind)) : std::string("?");
 				if (!disp.categories.empty()) {
-					what += " for " + disp.categories.front();
+					what += " for " + CategoryText(disp.categories.front());
 				}
 				if (!disp.items.empty()) {
 					what += std::format(", {} items from its script", disp.items.size());

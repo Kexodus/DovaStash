@@ -1,6 +1,8 @@
 #include "UI/Panel/PanelModel.h"
 
 #include "Controller.h"
+#include "Events/EventSinks.h"
+#include "Game/Displays.h"
 #include "Game/Eligibility.h"
 #include "Game/FormUtil.h"
 #include "Home/HomeRegistry.h"
@@ -13,6 +15,7 @@
 #include "Sort/CraftingStorage.h"
 #include "Sort/SortEngine.h"
 #include "UI/MenuFramework.h"
+#include "UI/Panel/KeyCapture.h"
 #include "UI/Panel/Strings.h"
 
 #include <DovaStash/Version.h>
@@ -105,10 +108,13 @@ namespace dova::ui::panel
 		return _global;
 	}
 
-	std::string PanelModel::Status() const
+	std::string PanelModel::Status(Page a_page) const
 	{
 		std::scoped_lock lock(_lock);
-		return _status;
+		// Nothing from another home carries over (the page shows the player's current one), nor from another page
+		// (a Deposit's line is not about Settings).
+		const std::uint32_t cell = _home ? _home->cellId : 0;
+		return cell == _statusCell && a_page == _statusPage ? _status : std::string{};
 	}
 
 	ExportState PanelModel::Export() const
@@ -117,10 +123,11 @@ namespace dova::ui::panel
 		return _export;
 	}
 
-	void PanelModel::BeginExport()
+	void PanelModel::BeginExport(std::uint32_t a_cell)
 	{
 		std::scoped_lock lock(_lock);
 		_export = ExportState{};
+		_export.cell = a_cell;
 		_export.pending = true;
 	}
 
@@ -157,8 +164,9 @@ namespace dova::ui::panel
 		});
 	}
 
-	void PanelModel::MarkRendered()
+	void PanelModel::MarkRendered(Page a_page)
 	{
+		_renderPage = a_page;
 		const auto now = NowMs();
 		_lastRenderMs = now;
 		if (now - _lastAutoRefreshMs.load() >= kAutoRefreshMs) {
@@ -172,10 +180,26 @@ namespace dova::ui::panel
 		return NowMs() - _lastRenderMs.load() < kVisibleMs;
 	}
 
-	void PanelModel::SetStatus(std::string a_message)
+	void PanelModel::SetStatus(std::string a_message, bool a_error, std::uint32_t a_cellId)
 	{
 		std::scoped_lock lock(_lock);
 		_status = std::move(a_message);
+		_statusError = a_error;
+		_statusCell = a_cellId;
+		_statusPage = _renderPage.load();
+	}
+
+	void PanelModel::ClearStatus()
+	{
+		std::scoped_lock lock(_lock);
+		_status.clear();
+		_statusError = false;
+	}
+
+	bool PanelModel::StatusIsError() const
+	{
+		std::scoped_lock lock(_lock);
+		return _statusError;
 	}
 
 	void PanelModel::SetExport(ExportState a_state)
@@ -193,6 +217,7 @@ namespace dova::ui::panel
 		_focus = std::move(a_container);
 		_focusTab = a_tab;
 		++_focusSerial;
+		ClearStatus();  // the window opens: what happened before it is on the HUD already
 		Rebuild(Refresh::Full);
 	}
 
@@ -237,6 +262,31 @@ namespace dova::ui::panel
 		snap->focusSerial = _focusSerial;
 		snap->focusTab = _focusTab;
 		snap->globalKeep = home::Store::Get().GlobalKeep();
+		if (auto* player = game::Player()) {
+			std::set<std::string> seen;
+			for (const auto& [object, count] : player->GetInventoryCounts()) {
+				const char* name = object && count > 0 ? object->GetName() : nullptr;
+				const auto  ref = name && *name ? game::ToFormRef(object) : std::nullopt;
+				if (ref && seen.insert(ref->ToString()).second) {
+					snap->inventory.push_back(InventoryEntry{ name, ref->ToString() });
+				}
+			}
+			std::ranges::sort(snap->inventory, {}, &InventoryEntry::name);
+		}
+		auto nameKeep = [&](const core::KeepConfig& a_keep) {
+			for (const auto* list : { &a_keep.always, &a_keep.never }) {
+				for (const auto& entry : *list) {
+					const auto selector = core::KeepSelector::Parse(entry);
+					if (selector.kind != core::KeepSelector::Kind::Form) {
+						continue;
+					}
+					const auto* form = game::LookupForm(selector.form);
+					const char* name = form ? form->GetName() : nullptr;
+					snap->keepNames.try_emplace(selector.form.ToString(), name && *name ? name : (form ? selector.form.ToString() : ""s));
+				}
+			}
+		};
+		nameKeep(snap->globalKeep);
 
 		const auto previous = Home();
 		auto       publish = [&]() {
@@ -274,7 +324,7 @@ namespace dova::ui::panel
 			}
 		}
 		for (const auto& excluded : home->areasExcluded) {
-			snap->areasExcluded.push_back(excluded.ToString());
+			snap->areasExcluded.push_back(home::ListedCellName(*home, excluded));
 		}
 
 		const auto* layout = home->layout ? &*home->layout : nullptr;
@@ -287,6 +337,7 @@ namespace dova::ui::panel
 			snap->basedOn = layout->basedOn;
 			snap->keep = layout->keep;
 			if (layout->keep) {
+				nameKeep(*layout->keep);
 				snap->keepJson = core::KeepConfigToJson(*layout->keep).dump();
 			}
 			for (const auto& [item, container] : layout->learned) {
@@ -384,6 +435,33 @@ namespace dova::ui::panel
 			}
 		}
 
+		// The container in the crosshair (the panel as an in-game editor): resolved like the hotkey's target, only
+		// when the target changes. A container of the player's cell that is not in the setup yet gets a row.
+		if (const auto handle = events::CrosshairTarget(); handle != _aimedHandle) {
+			_aimedHandle = handle;
+			_aimed.reset();
+			auto  hold = game::RefFromHandle(handle);
+			auto* target = hold.get();
+			if (target && target->GetParentCell() == RE::PlayerCharacter::GetSingleton()->GetParentCell()) {
+				if (auto* behind = game::ContainerBehind(target); behind && behind != target) {
+					target = behind;
+				} else if (auto* shelf = game::BookshelfAt(target); shelf && shelf != target) {
+					target = shelf;
+				}
+				if (game::IsContainerRef(target)) {
+					_aimed = game::ToFormRef(target);
+				}
+			}
+		}
+		if (_aimed) {
+			auto it = std::ranges::find(snap->containers, *_aimed, &ContainerRow::ref);
+			if (it == snap->containers.end()) {
+				addRow(*_aimed, nullptr, false);
+				it = std::prev(snap->containers.end());
+			}
+			snap->aimedRow = static_cast<std::size_t>(it - snap->containers.begin());
+		}
+
 		// The sell chest (DESIGN §8.8): what Sell now would do (one look into the sell chests), the buy-back, the log.
 		if (layout && !home->layoutBroken && layout->HasSellChest()) {
 			auto& sell = snap->sell;
@@ -464,7 +542,7 @@ namespace dova::ui::panel
 
 		// Eligible templates for this cell: best first, then the alternatives (already ranked).
 		const auto templates = home::Store::Get().Templates();
-		auto       addTemplate = [&](std::size_t a_index, bool a_best) {
+		auto       addTemplate = [&](std::size_t a_index, bool a_best, bool a_hidden = false) {
 			if (a_index >= templates.size()) {
 				return;
 			}
@@ -478,6 +556,7 @@ namespace dova::ui::panel
 			option.best = a_best;
 			option.applied = layout && layout->basedOn && *layout->basedOn == core::MakeBasedOn(t.source, t.layout.version);
 			option.autoDraft = t.layout.autoDraft;
+			option.hidden = a_hidden;
 			snap->templates.push_back(std::move(option));
 		};
 		if (home->resolution.chosen) {
@@ -485,6 +564,9 @@ namespace dova::ui::panel
 		}
 		for (const auto index : home->resolution.alternatives) {
 			addTemplate(index, false);
+		}
+		for (const auto index : home->resolution.hidden) {
+			addTemplate(index, false, true);
 		}
 		// Would switching templates replace something the player did? Re-applies the template the setup is based on
 		// to a copy, with the step every apply is followed by (what plaques and cases are made for, read from their
@@ -551,6 +633,7 @@ namespace dova::ui::panel
 			global->craftingFromStorage = crafting.hooksAvailable;
 		}
 		global->hotkeyName = Controller::HotkeyName();
+		key_capture::RefreshClashes(global->settings.input.hotkey, global->settings.input.gamepadHotkey);  // main thread
 		global->globalKeep = home::Store::Get().GlobalKeep();
 		global->globalKeepJson = core::KeepConfigToJson(global->globalKeep).dump();
 
@@ -575,6 +658,7 @@ namespace dova::ui::panel
 				auto* form = game::LookupForm(*t.layout.cell);
 				auto* cell = form ? form->As<RE::TESObjectCELL>() : nullptr;
 				info.cellName = cell ? game::CellName(cell) : std::string{};
+				info.homeLoaded = cell != nullptr;
 			}
 			info.required = t.layout.requiredPlugins;
 			info.missing = core::MissingRequirements(t.layout, loaded);

@@ -55,11 +55,13 @@ namespace dova::editor::ui
 	{
 		std::optional<std::string> mod;         // preselect a mod (name or Nexus id): the rail's search
 		std::optional<std::string> cell;        // and open one of its cells (EditorID or form ref)
-		std::optional<std::string> screenshot;  // save the window once loading is done, then exit
+		std::optional<std::string> screenshot;  // save the window once loading is done, then exit (an in-memory state)
+		std::optional<std::string> state;       // the state file instead of state.json
 		std::optional<std::string> tab;         // 3d, plan (the view); containers, displays, doors, preview (the drawer); template (the inspector)
 		std::optional<std::string> select;      // a reference to select once the cell is open
 		bool                       drafts{ false };  // start "Draft all homes" and show the homes without a template
 		std::optional<std::string> home;        // open the first home whose name contains it
+		std::vector<std::string>   moreHomes;   // then these, each once the previous home's 3D view has loaded (tests)
 		std::optional<std::string> colours;     // "category" or "fill": colour the containers in 3D and on the plan
 		std::optional<std::string> paint;       // turn paint mode on with this category
 		std::vector<std::string>   multi;       // more references to select (multi-select)
@@ -68,6 +70,7 @@ namespace dova::editor::ui
 		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat, savedrafts (a dialog), categories (the selection's category picker)
 		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
 		std::optional<std::string> theme;     // a colour theme for this run (ui/Themes.h); the remembered one stays
+		std::optional<float>       textSize;  // the text size for this run (1.5: 150 %, 0: Auto), screenshots too; the remembered one stays
 		std::optional<std::string> layers;    // Layers popover toggles for this run: "effects,-structure" (names, - turns off)
 		std::vector<std::string>   sort;      // drawer tables' sort for this run: "table:column[:desc]" (ui/Tables.h)
 		std::optional<std::string> filter;    // the drawer tab's filter box
@@ -95,6 +98,8 @@ namespace dova::editor::ui
 		// The window's close button: asks first when there are unsaved changes.
 		void               RequestClose();
 		[[nodiscard]] bool ShouldQuit() const noexcept { return _quit; }
+		// A --home matched no home (a screenshot run then exits 1, still writing its image).
+		[[nodiscard]] bool HomeMissing() const noexcept { return _homeMissing; }
 
 	private:
 		enum class Panel
@@ -226,7 +231,11 @@ namespace dova::editor::ui
 		// otherwise the cell starts a new draft (a home picked from the list).
 		void OpenCellAsync(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell, bool a_remember = true, bool a_keepTemplate = false);
 		void RequestNewHome(std::shared_ptr<esp::LoadOrder> a_lo, esp::FormKey a_cell);  // asks first when the template has unsaved changes
-		void OpenHome(int a_index, std::optional<esp::FormKey> a_cell = std::nullopt);  // a home of the rail, with its draft
+		// A home of the rail: on the template the game offers first (HomeTemplates' order), or on its draft when it
+		// has none, when its draft has unsaved changes, or with `a_draft`.
+		void OpenHome(int a_index, std::optional<esp::FormKey> a_cell = std::nullopt, bool a_draft = false);
+		void UseDraft();  // the Draft panel's "Use the draft": the open template gives way to the home's draft
+		[[nodiscard]] bool OpenUnsaved() const;  // the open template has changes no draft keeps (opening another home asks first)
 		void ResolvePendingCell();   // --cell once the homes are known
 		void DrawDiscardPopup();
 		[[nodiscard]] bool CellInHome(const OpenCell& a_cell) const;  // the open cell is the template's main cell or one of its `cells`
@@ -251,7 +260,14 @@ namespace dova::editor::ui
 		void DrawSetupConfirm();  // TitleBar.cpp
 		void DrawHelpPopups();    // TitleBar.cpp: Shortcuts..., About
 		void ApplySetup(std::optional<std::filesystem::path> a_mo2, std::optional<std::string> a_profile);
+		// The folder picked in the start card or Setup: an MO2 instance (ModOrganizer.ini), else a Skyrim Data folder
+		// (Skyrim.esm) or the game's folder holding one; anything else is tried as an instance (its error says why).
+		void SetSetupFolder(std::optional<std::filesystem::path> a_folder);
 		void DrawViewport(ImVec2 a_size);  // App.cpp
+		// The panels' bounds: the view keeps at least 40% of the window's width and half its height.
+		[[nodiscard]] float RailMaxWidth() const;
+		[[nodiscard]] float InspectorMaxWidth() const;
+		float _drawerMinH{ 0.0f }, _drawerMaxH{ 0.0f }, _layoutH{ 0.0f };  // this frame's (the drawer's splitter)
 		void DrawOverlay(OpenCell& a_cell, ImVec2 a_min, ImVec2 a_max);  // App.cpp: the floating toolbar and the hint line
 		void DrawLayersPopover(OpenCell& a_cell);
 		void DrawCameraPopover(OpenCell& a_cell);
@@ -265,7 +281,10 @@ namespace dova::editor::ui
 		[[nodiscard]] std::vector<int> VisibleHomes(const std::string& a_search) const;  // rows in list order (keyboard)
 		[[nodiscard]] bool HomeMatches(const home::HomeEntry& a_home, const std::string& a_search, bool a_modMatch) const;
 		[[nodiscard]] std::string HomeChip(int a_index, w::Kind* a_kind) const;  // yours / shipped / auto-draft / draft / none
+		[[nodiscard]] bool        HomeHasDraft(int a_index) const;              // the rail's and the title row's "draft"
+		[[nodiscard]] bool        DraftExists() const;                          // the open cell's draft is made (OpenDraft makes it)
 		[[nodiscard]] bool IsOpenHome(int a_index) const;
+		void               CheckRefs(const OpenCell& a_cell, core::Diagnostics& a_diags) const;  // Roles.cpp: home::CheckTemplateRefs on the home's cells
 		[[nodiscard]] bool HomeUnsaved(int a_index) const;
 		[[nodiscard]] int  ActiveFilterCount() const;
 		void HomeTooltip(const home::HomeEntry& a_home) const;
@@ -306,12 +325,15 @@ namespace dova::editor::ui
 		void LoadCategories();
 		void Revalidate(OpenCell& a_cell);
 		void RequestSave();  // Save / Ctrl+S: asks first when the file exists or the home has a template
+		void DrawSaveButton();  // the title row's and the Template panel's (TitleBar.cpp): filled only with unsaved work
 		void SaveTemplate(OpenCell& a_cell);
 		void SaveTemplateAs(OpenCell& a_cell);
 		void DrawSavePopup();
 		[[nodiscard]] std::filesystem::path SaveBase() const;  // the chosen save target
 		[[nodiscard]] std::vector<std::string> SaveTargets() const;  // "" (Dova Stash Templates) and mods with templates
 		[[nodiscard]] std::filesystem::path TemplatePath(const OpenCell& a_cell) const;
+		[[nodiscard]] const home::HomeEntry* HomeEntryFor(const OpenCell& a_cell) const;  // the rail home of the open cell, else null
+		[[nodiscard]] std::optional<HomesData::Storage> HomeStorageFor(const OpenCell& a_cell) const;  // the rail's usable counts over the home's cells
 		[[nodiscard]] std::string           HomeNameFor(const OpenCell& a_cell) const;  // the rail home's name (the template folder), else the template's
 		[[nodiscard]] std::vector<const home::KnownTemplate*> TemplatesFor(const OpenCell& a_cell) const;  // every known template of the home (all its cells)
 		void                                DrawTemplateList(OpenCell& a_cell);  // Roles.cpp: the home's templates, the open one marked
@@ -329,6 +351,8 @@ namespace dova::editor::ui
 
 		WorkspaceOptions           _options;
 		std::unique_ptr<Workspace> _ws;
+		std::vector<std::string>   _activePlugins;  // the workspace's load order (Workspace::ActivePlugins), read on opening it
+		bool                       _dataPicked{ false };  // the Data folder was picked in the window: remembered (state.json "data")
 		std::string                _wsError;
 		char                       _mo2Path[1024]{};
 
@@ -342,6 +366,7 @@ namespace dova::editor::ui
 		bool _likelyOnly{ true };
 		bool _onlyEnabled{ true };
 		bool _onlyWithoutTemplate{ false };
+		bool _showEmptyHomes{ false };  // the rail's "Show homes with no containers" (no template, no usable chest: hidden)
 		bool _groupByMod{ true };
 		std::string               _railSearch;
 		std::string               _switcherSearch;
@@ -349,6 +374,7 @@ namespace dova::editor::ui
 		bool                      _railFocusSearch{ false };
 		bool                      _railKeys{ false };  // the rail has the keyboard
 		bool                      _railReveal{ false };  // scroll the rail to the cursor (a home was opened)
+		int                       _railRevealFrames{ 0 };  // frames spent scrolling to it (the scroll limit settles over a few)
 		std::set<int>             _collapsedGroups;  // mod indices
 		std::vector<HomeModGroup> _homeGroups;
 		std::vector<PluginScan>   _scans;
@@ -359,6 +385,7 @@ namespace dova::editor::ui
 		std::optional<std::string> _pendingSelect;  // --select: selected when the cell opens
 		std::vector<std::string>   _pendingMulti;   // --multi: also selected when the cell opens
 		std::optional<std::string> _pendingHome;    // --home: opened once the homes are known
+		std::vector<std::string>   _homeQueue;      // --home given again: the next homes, in turn
 		std::optional<Panel>       _pendingPanel;   // --inspector: shown once the home is open
 		bool                       _pendingDrafts{ false };  // --drafts: the bulk draft once the homes are known
 		std::optional<std::string> _pendingPopover;
@@ -422,6 +449,11 @@ namespace dova::editor::ui
 		bool                           _cameraPending{ true };
 		bool                           _frameSelection{ false };
 		bool                           _heightCut{ false };  // both views
+		// The roof cut (3D view, interiors): about 3 m above each area's floor, never above the highest container + 120
+		// units (`_roofZ`; _view.roofGrid has the areas), only containers and displays are drawn, so an overview shows
+		// the rooms and a cave below them, not the rock or a house's roof. Layers > Roof brings it back.
+		bool                           _showRoof{ false };
+		float                          _roofZ{ 1e9f };
 		float                          _flySpeed{ 500.0f };  // units per second
 		float                          _viewAspect{ 16.0f / 9.0f };
 		ImVec2                         _viewportMin{}, _viewportMax{};
@@ -438,6 +470,10 @@ namespace dova::editor::ui
 		bool                            _categoriesLoaded{ false };
 		std::vector<core::CategoryDef>  _categories;
 		std::optional<core::CategorySet> _categorySet;
+		// A category pattern in words: its name ("Swords"), a group's name + " (all)" ("Books (all)" for books.*),
+		// the id when the categories do not know it. Tables and chips show this; their tooltips keep the id.
+		[[nodiscard]] std::string CategoryText(std::string_view a_pattern) const;
+		[[nodiscard]] std::string CategoryTexts(const std::vector<std::string>& a_patterns) const;  // joined with ", "
 		std::string                     _categorySource;
 		core::DraftRules                _draftRules;
 		std::string                     _draftRulesSource;
@@ -445,6 +481,7 @@ namespace dova::editor::ui
 		std::string                     _conflictsEdit;  // the Template panel's "Conflicts" field while it is being typed in
 		bool                            _conflictsActive{ false };
 		bool                            _confirmSave{ false };
+		std::string                     _saveName;  // the save dialog's "Your name" (no author yet)
 		mutable std::optional<std::vector<std::string>> _saveTargets;  // per workspace
 		std::function<void()>           _pendingOpen;  // another home, waiting for "drop the changes?"
 		std::optional<std::pair<std::optional<std::filesystem::path>, std::optional<std::string>>> _pendingSetup;  // waiting for "drop changes?"
@@ -461,10 +498,13 @@ namespace dova::editor::ui
 			int                  home{ -1 };
 			core::AutoDraftCheck check;              // New / Refresh: saved; Person / OtherHome: left alone
 			bool                 reviewed{ false };  // the author changed it: saved as theirs, without the auto-draft mark
+			bool                 empty{ false };     // no container to sort into (no master): left alone
+			std::string          fileHome;           // the name its file is saved under (home::TemplateHomeName)
 		};
 		std::vector<BulkSaveItem>   _bulkSave;
 		bool                        _confirmRescan{ false };
 		bool                        _confirmDraftAgain{ false };
+		bool                        _confirmUseDraft{ false };
 		bool                        _bulkDone{ false };       // "Draft all homes" finished: the banner offers to save
 		bool                        _bannerClosed{ false };
 		int                         _cellDraft{ -1 };  // the rail home whose draft is open (index into HomesData)
@@ -474,6 +514,10 @@ namespace dova::editor::ui
 		bool                        _pendingLayoutDirty{ true };  // false: an opened template file (nothing to save yet)
 		std::string                 _pendingFilePath;
 		bool                        _quit{ false };
+		bool                        _homeMissing{ false };
+		int                         _listHoveredRef{ -1 };   // a row hovered in a panel this frame (the Draft panel's)
+		int                         _listHoverShown{ -1 };   // last frame's: the 3D view highlights it
+		void                        NoHomeMatches(const std::string& a_wanted);
 		bool                        _confirmQuit{ false };
 		void ScanHomes();
 		void Rescan();
@@ -486,7 +530,9 @@ namespace dova::editor::ui
 		void RejectWeak();
 		void SetSuggestionOn(OpenCell& a_cell, home::HomeDraft& a_draft, std::size_t a_container, std::size_t a_suggestion, bool a_on);
 		void PlanBulkSave();  // _bulkSave for the drafts *Save N drafts...* covers
-		home::SaveResult SaveDraft(int a_index, bool a_autoDraft);  // the bulk save of one draft (never over a template someone made)
+		// The bulk save of one draft (never over a template someone made); `a_fileHome`: the name its file goes under
+		// (empty: the home's name).
+		home::SaveResult SaveDraft(int a_index, bool a_autoDraft, const std::string& a_fileHome = {});
 		[[nodiscard]] int SaveableDrafts() const;
 		void SyncCellToDraft();
 		void OpenTemplateFile();
@@ -504,7 +550,10 @@ namespace dova::editor::ui
 		// One template's word, the same in the rail, the title row and the Template panel: auto-draft (Draft all homes
 		// saved it, nobody since), yours (Templates/User, the Dova Stash Templates mod or the mod picked under Save to)
 		// or shipped (with Dova Stash or another mod).
+		// "off" instead when a plugin in its "conflicts" is in the load order (the game does not offer it).
 		[[nodiscard]] const char* TemplateWord(const home::KnownTemplate& a_template, w::Kind* a_kind = nullptr) const;
+		// The template's "conflicts" plugins that the workspace loads, joined ("" when none): the game does not offer it.
+		[[nodiscard]] std::string LoadedConflict(const core::Layout& a_layout) const;
 		[[nodiscard]] bool AnyUnsaved() const;
 		[[nodiscard]] bool UnsavedDrafts() const;
 

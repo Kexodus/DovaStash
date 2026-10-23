@@ -2,7 +2,8 @@
 
 // A small stand-in for MO2's virtual Data folder (docs/EDITOR.md §4.3): roots are added lowest priority
 // first (the game's Data folder, then each enabled mod, then overwrite), and a later root wins a file
-// conflict, as in MO2. Under MO2's VFS the game's Data folder alone already is the merged view.
+// conflict, as in MO2. The same under MO2's VFS: its merged Data folder is shared by every MO2 process and
+// changes when another one launches a program, so the mod folders are read directly.
 //
 // M1 indexes what plugin reading needs: the files in each root and its Strings folder. M2 adds meshes and
 // textures (loose files, then archives in plugin order).

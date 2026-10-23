@@ -1,0 +1,198 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Tel Jerdein",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
+  "author": "Dova Stash",
+  "version": "1.0.1",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "rmp_telvannihearthfires.esp"],
+  "cell": "rmp_telvannihearthfires.esp|0x00014D76",
+  "cells": [
+    {"cell": "rmp_telvannihearthfires.esp|0x0000AABB", "label": "Tel Jerdein - Foyer"},
+    {"cell": "rmp_telvannihearthfires.esp|0x0008EADA", "label": "Tel Jerdein - Root Cellar"}
+  ],
+  "master": "rmp_telvannihearthfires.esp|0x00084894",
+  "containers": [
+    {"ref": "rmp_telvannihearthfires.esp|0x000899C1", "label": "Ingredients",                             "categories": ["alchemy.ingredients"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x000AD226", "label": "Potions",                                 "categories": ["alchemy.potions", "alchemy.poisons"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x000AD229", "label": "Soul gems",                               "categories": ["soulgems.*"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x0011CDEB", "label": "Foyer sack",                              "categories": ["misc.clutter"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x00121F43", "label": "Root cellar dresser",                     "categories": ["misc.ores_ingots", "misc.hides_pelts"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x001730CB", "label": "Bedroom bookcase",                        "categories": ["books.*"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x001730CC", "label": "Bedroom wardrobe",                        "categories": ["armor.clothing"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x001781D7", "label": "Foyer cupboard",                          "categories": ["alchemy.food"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x001730C5", "label": "Bedroom chest of drawers",                "categories": ["weapons.*", "ammo.*", "armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x001730C9", "label": "Bedroom end table",                       "categories": ["armor.jewelry", "misc.gems", "misc.curios"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x001730C3", "label": "Bedroom knapsack",                        "categories": ["keys"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x0011CDDB", "label": "Foyer dresser",                           "categories": ["scrolls"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x0011CDE1", "label": "Foyer large sack",                        "categories": ["misc.dwemer"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x000A3004", "label": "Root cellar wardrobe",                    "categories": ["misc.building_materials", "misc.tools"]},
+    {"ref": "rmp_telvannihearthfires.esp|0x00127090", "label": "Root cellar chest",                       "categories": ["misc.animal_parts"]},
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000D0A67",
+      "label": "Bookshelf (by the foyer large sack)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000D0A7A",
+      "label": "Bookshelf (by the foyer large sack, 2)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000D0A7D",
+      "label": "Bookshelf (by the foyer large sack, 3)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AA0", "label": "Bookshelf (by the foyer sack)",           "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AA1", "label": "Bookshelf (by the foyer sack, 2)",        "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AA2", "label": "Bookshelf (by the foyer sack, 3)",        "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AC5", "label": "Bookshelf (by the ingredients)",          "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AC6", "label": "Bookshelf (by the foyer dresser)",        "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000D0AC7",
+      "label": "Bookshelf (by the foyer dresser, 2)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AF4", "label": "Bookshelf (by the ingredients, 2)",       "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D5C18", "label": "Bookshelf (by the ingredients, 3)",       "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF245",
+      "label": "Bookshelf (by the root cellar chest)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF246",
+      "label": "Bookshelf (by the root cellar chest, 2)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF247",
+      "label": "Bookshelf (by the root cellar chest, 3)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF27A",
+      "label": "Bookshelf (by the root cellar wardrobe)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF27B",
+      "label": "Bookshelf (by the root cellar wardrobe, 2)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF27C",
+      "label": "Bookshelf (by the root cellar wardrobe, 3)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF2AF",
+      "label": "Bookshelf (by the root cellar dresser)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF2B0",
+      "label": "Bookshelf (by the root cellar dresser, 2)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF2B1",
+      "label": "Bookshelf (by the root cellar dresser, 3)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF2E4",
+      "label": "Bookshelf (by the root cellar dresser, 4)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF2E5",
+      "label": "Bookshelf (by the root cellar dresser, 5)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF2E6",
+      "label": "Bookshelf (by the root cellar dresser, 6)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF319",
+      "label": "Bookshelf (by the bedroom knapsack)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF31A",
+      "label": "Bookshelf (by the bedroom knapsack, 2)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "rmp_telvannihearthfires.esp|0x000EF31B",
+      "label": "Bookshelf (by the bedroom knapsack, 3)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {"ref": "rmp_telvannihearthfires.esp|0x0011CDE9", "label": "Large sack (by the foyer cupboard)",      "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "rmp_telvannihearthfires.esp|0x00121F49", "label": "Large sack (by the root cellar dresser)", "ignored": true, "note": "Respawns: what you store here can disappear."},
+    {"ref": "rmp_telvannihearthfires.esp|0x001781F8", "label": "Large sack (by the foyer dresser)",       "ignored": true, "note": "Respawns: what you store here can disappear."}
+  ],
+  "displays": [
+    {"ref": "rmp_telvannihearthfires.esp|0x000E4FE7", "label": "Mannequin (by the bedroom bookcase)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF319", "label": "Bookshelf (by the bedroom knapsack)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF31A", "label": "Bookshelf (by the bedroom knapsack, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF31B", "label": "Bookshelf (by the bedroom knapsack, 3)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0A3F", "label": "Weapon plaque (by the foyer sack)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0A41", "label": "Weapon plaque (by the foyer sack, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0A67", "label": "Bookshelf (by the foyer large sack)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0A7A", "label": "Bookshelf (by the foyer large sack, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0A7D", "label": "Bookshelf (by the foyer large sack, 3)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AA0", "label": "Bookshelf (by the foyer sack)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AA1", "label": "Bookshelf (by the foyer sack, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AA2", "label": "Bookshelf (by the foyer sack, 3)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AC5", "label": "Bookshelf (by the ingredients)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AC6", "label": "Bookshelf (by the foyer dresser)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AC7", "label": "Bookshelf (by the foyer dresser, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D0AF4", "label": "Bookshelf (by the ingredients, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000D5C18", "label": "Bookshelf (by the ingredients, 3)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000E4FE3", "label": "Mannequin (by the foyer large sack)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x0010382E", "label": "Left weapon rack (by the foyer cupboard)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x0010382F", "label": "Shield rack (by the foyer cupboard)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x00103830", "label": "Right weapon rack (by the foyer cupboard)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x00103831", "label": "Right weapon rack (by the foyer cupboard, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x00103832", "label": "Shield rack (by the foyer cupboard, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x00103833", "label": "Left weapon rack (by the foyer cupboard, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x001A0A6F", "label": "Weapon plaque (by the foyer sack, 3)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x001A0A73", "label": "Weapon plaque (by the foyer large sack)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x001A0A79", "label": "Dagger rack (by the foyer sack)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x001A0A7C", "label": "Dagger rack (by the foyer sack, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF245", "label": "Bookshelf (by the root cellar chest)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF246", "label": "Bookshelf (by the root cellar chest, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF247", "label": "Bookshelf (by the root cellar chest, 3)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF27A", "label": "Bookshelf (by the root cellar wardrobe)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF27B", "label": "Bookshelf (by the root cellar wardrobe, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF27C", "label": "Bookshelf (by the root cellar wardrobe, 3)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF2AF", "label": "Bookshelf (by the root cellar dresser)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF2B0", "label": "Bookshelf (by the root cellar dresser, 2)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF2B1", "label": "Bookshelf (by the root cellar dresser, 3)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF2E4", "label": "Bookshelf (by the root cellar dresser, 4)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF2E5", "label": "Bookshelf (by the root cellar dresser, 5)"},
+    {"ref": "rmp_telvannihearthfires.esp|0x000EF2E6", "label": "Bookshelf (by the root cellar dresser, 6)"}
+  ]
+}

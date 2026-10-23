@@ -5,7 +5,8 @@
 // Decisions:
 // - A player layout for the cell always wins (Kind::Player); eligible templates are still ranked and
 //   returned as `alternatives` so the UI can offer "re-apply / switch template".
-// - A template is a candidate when its `cell` equals the requested cell. It is eligible when every
+// - A template is a candidate when its `cell` equals the requested cell (a cell another template lists in `cells` only:
+//   LayoutResolution::partOf). It is eligible when every
 //   plugin in `requires` is loaded and none in `conflicts` is (case-insensitive): `conflicts` names the mods
 //   that rebuild the home (Wynter's Breezehome Redux for Breezehome), where its references no longer fit. The
 //   cell's own plugin is implied by the cell match, so it is not checked separately.
@@ -34,11 +35,15 @@
 //   items learned for the master or for an ignored container (the planner never uses those), and items
 //   some container already binds explicitly (that binding wins over learned, so nothing changes). A
 //   container the layout does not list gets a plain entry. Their plugins join `requires` like any form.
+// - Templates the player removed from a home (Layout::hiddenTemplates) are left out of the candidates for that
+//   home (LayoutResolution::hidden), before requirements are checked.
 // - ApplyTemplate copies the template, sets basedOn = "<source>@<version>" and drops any learned data
-//   carried by the template, and its `autoDraft` mark (a player layout is the player's). When applied over an existing player layout, only the category bindings
+//   carried by the template, and its `autoDraft` mark (a player layout is the player's). The player's
+//   hiddenTemplates are kept, without the template being applied (using it adds it back). When applied over an existing player layout, only the category bindings
 //   (and master, name, requires, conflicts) come from the template; the player's data is merged in, never dropped:
 //     * containers in both: template categories; ignored = template OR player; explicit forms are
-//       united; the player's label is used when the template has none; unknown keys merged;
+//       united (not into a container the template makes the sell chest: those items would be sold); the
+//       player's label is used when the template has none; unknown keys merged;
 //     * containers only in the player layout: kept with NO categories (ignored flag, label, forms and
 //       unknown keys kept), so learned destinations to them stay valid; a previous master that the
 //       template does not use is kept the same way;
@@ -46,8 +51,8 @@
 //       kind/label/note/categories/items (with their `only`)/set where the template gives none; displays
 //       only in the player layout: kept. (An item plaque's or case's items from a template are replaced by
 //       what its script is made for, in the plugin: TemplateDisplays.h.)
-//     * every learned entry whose container is in the merged layout (and is not the master), and the
-//       declined suggestions of those containers;
+//     * every learned entry whose container is in the merged layout (and is not the master, nor a container
+//       the template makes the sell chest), and the declined suggestions of those containers;
 //     * the home's extra `cells` (HomeCells.h): the template's, then the player's (MergeHomeCells);
 //     * the player's keep block (replaces the template's), unparsed learned entries, unparsed
 //       container entries and unknown top-level keys.
@@ -93,7 +98,8 @@ namespace dova::core
 	// template could never be offered), and the display entry lint (ValidateDisplays, TemplateDisplays.h).
 	void ValidateTemplate(const Layout& a_template, std::string_view a_source, Diagnostics& a_diags);
 
-	// Warns about container patterns / keep patterns that match no known category (likely typos).
+	// Warns about container, display (not ignored) and keep patterns that match no known category (likely typos),
+	// with a near-miss hint ("; did you mean \"weapons.swords\"?") when one is close.
 	void ValidateLayoutCategories(const Layout& a_layout, const CategorySet& a_categories, std::string_view a_source, Diagnostics& a_diags);
 
 	struct LayoutResolution
@@ -116,6 +122,13 @@ namespace dova::core
 		std::optional<std::size_t> chosen;        // best eligible template (set even for Kind::Player when one exists)
 		std::vector<std::size_t>   alternatives;  // the other eligible templates, best first
 		std::vector<Rejected>      rejected;      // templates for this cell whose requirements are not met, or that conflict
+		// Templates for this cell the player removed from the home (Layout::hiddenTemplates), in rank order, whatever
+		// their requirements: never chosen, never an alternative, never rejected. Only with a player layout.
+		std::vector<std::size_t>   hidden;
+		// No player layout and no eligible template for the cell itself: the best eligible template that lists the cell in
+		// its `cells` (DESIGN §6.7: the cellar of a home that ships as one template). Kind stays None: the home is set up
+		// from its main cell ("Part of Lakeview Manor: set it up there").
+		std::optional<std::size_t> partOf;
 	};
 
 	// The order the templates of one home are offered in (ResolveLayout, DESIGN §6.2; see the ranking above):
@@ -126,6 +139,20 @@ namespace dova::core
 
 	[[nodiscard]] LayoutResolution ResolveLayout(const Layout* a_playerLayout, std::span<const TemplateCandidate> a_templates, const FormRef& a_cell,
 		std::span<const std::string> a_loadedPlugins);
+
+	// --- Templates removed from a home (DESIGN §6.2, Layout::hiddenTemplates) -------------------------------
+	// The player can remove a template from one home: it stays on disk and in every other home, but this home's
+	// setup lists its source, so ResolveLayout never offers, chooses or applies it here. Sources compare
+	// case-insensitively. Nothing in the setup changes but the list (and `basedOn`, below); no item is moved.
+
+	// `a_source` is in the layout's hiddenTemplates.
+	[[nodiscard]] bool IsTemplateHidden(const Layout& a_layout, std::string_view a_source);
+	// Adds `a_source` to hiddenTemplates. When the setup is based on that template (`basedOn` names it, any version),
+	// `basedOn` is cleared: the setup stays as it is, now a custom one. False (nothing changed) when it is hidden
+	// already, `a_source` is empty, or the file's own hiddenTemplates could not be read (kept verbatim in `extra`).
+	bool HideTemplate(Layout& a_layout, std::string_view a_source);
+	// Takes `a_source` out of hiddenTemplates (it is offered here again). False when it was not hidden.
+	bool UnhideTemplate(Layout& a_layout, std::string_view a_source);
 
 	// Plugins from `requires` that are not in `a_loadedPlugins` (case-insensitive).
 	[[nodiscard]] std::vector<std::string> MissingRequirements(const Layout& a_layout, std::span<const std::string> a_loadedPlugins);
@@ -138,6 +165,13 @@ namespace dova::core
 	// The template a player layout's `basedOn` names, exactly ("<source>@<version>", MakeBasedOn), or nullptr: no
 	// `basedOn`, or that template is gone or now has another version.
 	[[nodiscard]] const TemplateCandidate* FindBasedOn(const Layout& a_layout, std::span<const TemplateCandidate> a_templates);
+	// The template whose source a player layout's `basedOn` names, whatever its version now, or nullptr (no `basedOn`, or
+	// gone). Sources compare case-insensitively.
+	[[nodiscard]] const TemplateCandidate* FindBasedOnSource(const Layout& a_layout, std::span<const TemplateCandidate> a_templates);
+	// The template the setup was made from now has a higher version (FindBasedOnSource; DESIGN §6.2): offer to update.
+	// Updating applies it over the setup (ApplyTemplate with `a_existing`), which keeps learned items, keep rules and
+	// bindings.
+	[[nodiscard]] bool TemplateUpdated(const Layout& a_layout, std::span<const TemplateCandidate> a_templates);
 
 	// The player layout has changes of their own that applying a template replaces (DESIGN §6.2, switching
 	// templates): it is a custom setup (no `basedOn`), `a_basedOn` is not the template it names (nullptr: gone, or
@@ -148,6 +182,35 @@ namespace dova::core
 	// records what item plaques and display cases are made for).
 	[[nodiscard]] bool HasOwnChanges(const Layout& a_layout, const TemplateCandidate* a_basedOn,
 		const std::function<void(Layout&)>& a_afterApply = {});
+
+	// --- Taking in a cell that has a setup of its own (DESIGN §6.7) -----------------------------------------
+	// A cell with a layout file of its own is its own home (ResolveCellMembership), so a whole-home template that lists
+	// it (Lakeview Manor, with its cellar and grounds) cannot use it while that file is there. When the file is only what a
+	// template made by itself (auto-enable on the first visit: the retired Lakeview Manor Cellar template, which the home's
+	// template `replaces`), nothing of the player's is in it, and applying the whole-home template may back it up and
+	// remove it, so the cell joins the home.
+
+	// The setup is exactly what applying the template its `basedOn` names makes, fresh (that template still there at
+	// that version): nothing learned, no declined suggestions, no template removed, no keep block, ignored flag, label,
+	// item binding or container of the player's. `a_afterApply` as for HasOwnChanges. A setup made from an older
+	// version of that template (TemplateUpdated) is judged by its structure instead, the old file being gone: nothing
+	// learned or declined, no template removed, keep and master as the template has them, every container and display
+	// one of the template's with its label and ignored/sell flags and no explicit items. A setup made from a retired
+	// template (FindReplacement) is judged the same way against the template that replaces it, where the master may
+	// also be the area master its cell has there. Anything else: false (in doubt, the cell keeps its own setup).
+	[[nodiscard]] bool IsUntouchedTemplateSetup(const Layout& a_layout, std::span<const TemplateCandidate> a_templates,
+		const std::function<void(Layout&)>& a_afterApply = {});
+
+	// The template that took over the retired template a setup's `basedOn` names: that source is gone, and the template
+	// lists it in `replaces` and the setup's cell in `cells` (the best ranked when several do). nullptr otherwise.
+	[[nodiscard]] const TemplateCandidate* FindReplacement(const Layout& a_layout, std::span<const TemplateCandidate> a_templates);
+
+	// The cells `a_home` lists in `cells` (not its main cell; each once) whose own player layout is an untouched
+	// template setup (IsUntouchedTemplateSetup): applying `a_home` may take them in. `a_cellLayout` gives a cell's
+	// layout, nullptr when it has none or its file could not be read; such a cell is never listed (one without a file
+	// joins anyway, a broken file is never removed).
+	[[nodiscard]] std::vector<FormRef> AbsorbableCells(const Layout& a_home, const std::function<const Layout*(const FormRef&)>& a_cellLayout,
+		std::span<const TemplateCandidate> a_templates, const std::function<void(Layout&)>& a_afterApply = {});
 
 	// Every plugin the layout's form references point into: cell, cells, master, containers and their explicit
 	// forms, displays (not their items or set: soft references, TemplateDisplays.h), and FormRefs in keep

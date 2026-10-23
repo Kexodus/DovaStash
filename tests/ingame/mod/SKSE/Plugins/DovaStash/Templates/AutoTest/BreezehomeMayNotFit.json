@@ -1,0 +1,17 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Breezehome (AutoTest, may not fit)",
+  "note": "Plan 19 only: four of its five references do not exist in Skyrim.esm, so the auto-enable guard doubts it (DESIGN §9.1) and Use template asks first.",
+  "author": "Dova Stash AutoTest",
+  "version": "1.0.0",
+  "priority": 100,
+  "requires": ["Skyrim.esm"],
+  "cell": "Skyrim.esm|0x000165A8",
+  "master": "Skyrim.esm|0x000F3922",
+  "containers": [
+    {"ref": "Skyrim.esm|0x00FFFF01", "label": "Gone 1", "categories": ["books.*"]},
+    {"ref": "Skyrim.esm|0x00FFFF02", "label": "Gone 2", "categories": ["weapons.*"]},
+    {"ref": "Skyrim.esm|0x00FFFF03", "label": "Gone 3", "categories": ["armor.*"]},
+    {"ref": "Skyrim.esm|0x00FFFF04", "label": "Gone 4", "categories": ["alchemy.*"]}
+  ]
+}

@@ -5,8 +5,10 @@
 //
 // Loading is asynchronous: Scene::Start reads meshes and textures on worker threads (Direct3D 11 devices
 // create resources from any thread) and the view fills in as models arrive; Progress() tells how far it
-// got. A missing or unreadable mesh is drawn as a box of the object's bounds, a missing texture as a gray
-// checker. Rendering and picking run on the UI thread.
+// got. A missing or unreadable mesh is drawn as a box of the object's bounds, a missing or unreadable
+// texture as a gray checker. "Missing" is a file no loose folder and no archive has; "unreadable" one that
+// was found but could not be read or used (a broken file, Direct3D refusing it). Rendering and picking run
+// on the UI thread.
 
 #include <array>
 #include <atomic>
@@ -134,9 +136,28 @@ namespace dova::editor::render
 		std::size_t modelsDone{ 0 }, modelsTotal{ 0 };
 		std::size_t texturesDone{ 0 }, texturesTotal{ 0 };
 		std::size_t archivesDone{ 0 }, archivesTotal{ 0 };
-		std::size_t missingModels{ 0 }, missingTextures{ 0 };
+		std::size_t missingModels{ 0 }, missingTextures{ 0 };        // in no loose folder and no archive
+		std::size_t unreadableModels{ 0 }, unreadableTextures{ 0 };  // found, but broken or refused by Direct3D
 		bool        finished{ false };
 		std::string stage;
+	};
+
+	// The roof cut per area of an interior (ViewOptions::roofGrid): squares over the home, each cut at its own floor
+	// + about 3 m, so a cave below the built rooms opens from above too, not only the highest rooms.
+	struct RoofGrid
+	{
+		static constexpr int kMaxSquares = 4096;  // the shader's table
+		float                x0{ 0.0f }, y0{ 0.0f }, size{ 512.0f };  // the south-west corner, a square's side
+		int                  nx{ 0 }, ny{ 0 };
+		std::vector<float>   cuts;  // nx * ny, row by row from the south
+
+		[[nodiscard]] bool  Empty() const noexcept { return nx <= 0 || ny <= 0 || cuts.size() != static_cast<std::size_t>(nx) * static_cast<std::size_t>(ny); }
+		[[nodiscard]] float At(float a_x, float a_y) const;  // outside: the nearest edge square
+
+		// 512-unit squares over `a_floor` (where things stand: x, y and the height they stand at), each cut `a_above`
+		// units over its lowest point; a square without one takes its neighbours' lowest cut (three squares out), else
+		// `a_top`. Never above `a_top` (ui::detail::RoofTop): a cave below the built rooms opens, the rooms as before.
+		[[nodiscard]] static RoofGrid Build(const std::vector<std::array<float, 3>>& a_floor, float a_top, float a_above);
 	};
 
 	struct ViewOptions
@@ -148,9 +169,12 @@ namespace dova::editor::render
 		bool  showDisabled{ true };   // initially disabled references (upgrades, quest items)
 		bool  showTerrain{ true };
 		bool  showEffects{ true };    // glows, flames, fog and light rays (effect shaders and home::RefLayer::Effect references)
+		bool  showMissing{ false };   // structure whose mesh is missing or unreadable: a see-through box (containers and displays stay solid)
 		bool  showMarkers{ false };   // boxes around every selectable object
 		bool  heightCut{ false };     // only references between zLo and zHi
 		float zLo{ -1e9f }, zHi{ 1e9f };
+		float roofZ{ 1e9f };          // the roof cut: nothing above this height is drawn or picked but containers and displays (an interior's 3D view)
+		RoofGrid roofGrid;            // with roofZ below 1e9: the cut per area instead (empty: roofZ everywhere)
 		bool  wireframe{ false };
 		float brightness{ 1.0f };  // scales the editor's light (Skyrim's textures are made for darker, HDR lighting)
 		// Colour overlay per reference (indexed by SceneRef::index; RGBA8, 0 = none): category colours, the preview's
@@ -191,7 +215,9 @@ namespace dova::editor::render
 
 		// World-space bounds of a reference (its mesh, or its OBND box) / of everything.
 		[[nodiscard]] std::optional<std::pair<DirectX::XMFLOAT3, DirectX::XMFLOAT3>> Bounds(int a_index) const;
-		[[nodiscard]] std::pair<DirectX::XMFLOAT3, DirectX::XMFLOAT3>                SceneBounds() const;
+		// `a_withDisabled` false: initially disabled references never count (they are left out anyway when they are
+		// fewer than three in four).
+		[[nodiscard]] std::pair<DirectX::XMFLOAT3, DirectX::XMFLOAT3>                SceneBounds(bool a_withDisabled = true) const;
 
 		[[nodiscard]] const SceneDesc& Desc() const noexcept { return _desc; }
 
@@ -201,7 +227,7 @@ namespace dova::editor::render
 		[[nodiscard]] std::size_t      DrawCalls() const noexcept { return _drawCalls; }
 
 		// A camera looking at the whole scene from above at an angle (interiors: through the culled ceilings).
-		[[nodiscard]] Camera OverviewCamera(float a_aspect) const;
+		[[nodiscard]] Camera OverviewCamera(float a_aspect, float a_roofZ = 1e9f, bool a_withDisabled = true) const;  // framed below the roof cut
 		// A camera looking at one reference from where nothing stands in between (tries several directions,
 		// starting with the current one; moves closer when every side is walled in).
 		[[nodiscard]] Camera FrameCamera(const Camera& a_from, int a_index, float a_aspect, const ViewOptions& a_options) const;
@@ -214,7 +240,10 @@ namespace dova::editor::render
 
 		void LoaderThread(std::stop_token a_stop);
 		void LoadModel(std::size_t a_slot);
-		std::shared_ptr<Texture> GetTexture(const std::string& a_path);
+		void Problem(std::string a_text);
+		void LogLoaded();
+		// `a_usedBy`: the mesh asking and where it comes from ("meshes\x.nif from <mod>"), for the problem list.
+		std::shared_ptr<Texture> GetTexture(const std::string& a_path, const std::string& a_usedBy = {});
 		void BuildTerrain();
 		void EnsurePipeline();
 
@@ -233,7 +262,7 @@ namespace dova::editor::render
 
 		std::atomic<std::size_t> _nextModel{ 1 };
 		std::atomic<std::size_t> _modelsDone{ 0 }, _texturesDone{ 0 }, _texturesTotal{ 0 }, _archivesDone{ 0 }, _archivesTotal{ 0 };
-		std::atomic<std::size_t> _missingModels{ 0 }, _missingTextures{ 0 };
+		std::atomic<std::size_t> _missingModels{ 0 }, _missingTextures{ 0 }, _unreadableModels{ 0 }, _unreadableTextures{ 0 };
 		std::atomic<int>         _workersLeft{ 0 };
 		std::atomic<bool>        _finished{ false };
 		std::atomic<int>         _stage{ 0 };  // 0 archives, 1 models, 2 done

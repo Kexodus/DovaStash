@@ -3,19 +3,16 @@
   "name": "Tundra Homestead with its cellar (multi-cell)",
   "home": "ccEEJSSE001-Hstead.esm|0x0000087F",
   "coc": "0EEJSSE001House",
-  "templates": [
-    "TundraHomesteadFull.json"
-  ],
   "tests": [
     {
       "id": "3.9-tundra-a",
-      "title": "Use template: the AutoTest template (priority 10) is picked; its cells join the home",
+      "title": "Use the whole-home template (with cellar): its cells join the home",
       "steps": [
         {
-          "do": "reset"
+          "do": "enter"
         },
         {
-          "do": "enter"
+          "do": "reset"
         },
         {
           "check": "home",
@@ -25,15 +22,25 @@
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/TundraHomesteadFull.json"
+          "source": "Templates/CreationClub/TundraHomestead.json"
         },
         {
           "do": "useTemplate"
         },
         {
+          "check": "notify",
+          "regex": "Dova Stash: Tundra Homestead setup enabled$",
+          "why": "the cellar's containers wait for their area (not in memory from the hall): no count of unavailable ones"
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "regex": "Template container .* unavailable: nothing targeted"
+        },
+        {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/TundraHomesteadFull.json@1.0.0"
+          "contains": "Templates/CreationClub/TundraHomestead.json@"
         },
         {
           "check": "layout",
@@ -54,7 +61,7 @@
     },
     {
       "id": "3.9-tundra-b",
-      "title": "Deposit in the cellar: its own weapons and armor go to its own containers; the potion has no cellar container and stays (the hall's master is not loaded)",
+      "title": "Deposit in the cellar: its own weapons and armor go to its own containers and displays; the potion has no cellar container and goes to the cellar's chest (the area's own master: the hall's is not loaded)",
       "steps": [
         {
           "do": "enter",
@@ -91,19 +98,61 @@
           "in": "ccEEJSSE001-Hstead.esm|0x00000F87",
           "item": "Skyrim.esm|0x00012EB7",
           "from": "cellar",
-          "eq": 2
+          "ge": 1
         },
         {
           "check": "count",
-          "in": "ccEEJSSE001-Hstead.esm|0x00000D5C",
           "item": "Skyrim.esm|0x00013911",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE001-Hstead.esm|0x00000F85",
+          "item": "Skyrim.esm|0x0003EADD",
           "from": "cellar",
-          "eq": 1
+          "ge": 3
         },
         {
           "check": "count",
           "item": "Skyrim.esm|0x0003EADD",
-          "eq": 3
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-b2",
+      "title": "Deposit in an area without a master of its own: the HUD says it waits for the master, not 'nothing to deposit'",
+      "manual": "the merged Tundra Homestead template gives the cellar its own master (cells[].master), so this home has no such area now; the hotkey title '(master not here)' is checked in 3.9-tundra-b3"
+    },
+    {
+      "id": "3.9-tundra-b3",
+      "title": "Hotkey in the cellar at nothing: the master menu is titled '(master not here)'",
+      "steps": [
+        {
+          "do": "aim",
+          "ref": null
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Deposit"
+          ],
+          "body": "Dova Stash: Tundra Homestead (master not here)",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "index": -1
+        },
+        {
+          "do": "aim",
+          "clear": true
         },
         {
           "check": "noErrors"
@@ -112,7 +161,7 @@
     },
     {
       "id": "3.9-tundra-c",
-      "title": "Deposit in the cellar reaches a persistent container of the hall (book to the hall bookshelf)",
+      "title": "Deposit in the cellar: books go to the cellar's bookcase and bookshelves (the hall's book cupboard is not loaded there)",
       "steps": [
         {
           "do": "additem",
@@ -132,10 +181,10 @@
         },
         {
           "check": "count",
-          "in": "ccEEJSSE001-Hstead.esm|0x0000089B",
+          "in": "ccEEJSSE001-Hstead.esm|0x00000D1B",
           "item": "Skyrim.esm|0x0001ACE6",
           "from": "books",
-          "eq": 2,
+          "ge": 1,
           "within": 5
         },
         {
@@ -213,7 +262,7 @@
     },
     {
       "id": "3.9-tundra-f",
-      "title": "Reset in the cellar removes the whole home's layout; the cellar is its own home again",
+      "title": "Reset in the cellar removes the whole home's layout; the cellar is its own home again, with no template of its own (the hall offers the merged one)",
       "steps": [
         {
           "do": "enter",
@@ -236,7 +285,8 @@
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/CreationClub/TundraHomesteadCellar.json"
+          "source": null,
+          "why": "the cellar has no template of its own: the merged Tundra Homestead template lists it, and only its main cell offers it"
         },
         {
           "check": "noErrors"

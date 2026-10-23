@@ -20,7 +20,7 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Gallows Hall v1.0.0 by Dova Stash"
+          "regex": "template: Gallows Hall v[0-9.]+ by Dova Stash"
         },
         {
           "do": "clearInventory"
@@ -31,7 +31,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/CreationClub/GallowsHall.json@1.0.0"
+          "contains": "Templates/CreationClub/GallowsHall.json@"
         },
         {
           "check": "layout",

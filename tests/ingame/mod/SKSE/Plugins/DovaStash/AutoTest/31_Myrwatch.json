@@ -20,7 +20,7 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Myrwatch v1.0.0 by Dova Stash"
+          "regex": "template: Myrwatch v[0-9.]+ by Dova Stash"
         },
         {
           "check": "noErrors"
@@ -29,7 +29,7 @@
     },
     {
       "id": "3.6-myrwatch",
-      "title": "Use template; Deposit sorts by category; the bookshelves (ignored) get nothing",
+      "title": "Use template; Deposit sorts by category; the bookshelves (ignored as storage, listed as displays) get one copy of a book, the mannequin the armor",
       "steps": [
         {
           "do": "clearInventory"
@@ -44,7 +44,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/CreationClub/Myrwatch.json@1.0.0"
+          "contains": "Templates/CreationClub/Myrwatch.json@"
         },
         {
           "check": "layout",
@@ -99,21 +99,24 @@
           "in": "ccEEJSSE002-Tower.esl|0x00000BC6",
           "item": "Skyrim.esm|0x0001ACE6",
           "from": "myr",
-          "eq": 2
+          "eq": 1
+        },
+        {
+          "check": "log",
+          "regex": "Display: Aevar Stone-Singer .* on .*\\(bookshelf\\)",
+          "within": 10
         },
         {
           "check": "count",
           "in": "ccEEJSSE002-Tower.esl|0x00000B2D",
           "item": "Skyrim.esm|0x00013911",
           "from": "myr",
-          "eq": 1
+          "eq": 0
         },
         {
-          "check": "count",
-          "in": "ccEEJSSE002-Tower.esl|0x00000A0E",
-          "item": "Skyrim.esm|0x0001ACE6",
-          "from": "myr",
-          "eq": 0
+          "check": "log",
+          "regex": "Display: Hide Armor .* on .*\\(mannequin\\)",
+          "within": 10
         },
         {
           "check": "count",
@@ -228,6 +231,10 @@
       "title": "Displays: a rack in use takes a weapon on Deposit",
       "steps": [
         {
+          "do": "enable",
+          "ref": "ccEEJSSE002-Tower.esl|0x00000C57"
+        },
+        {
           "do": "require",
           "enabled": "ccEEJSSE002-Tower.esl|0x00000C57",
           "why": "Myrwatch's weapon rack comes with the decoration"
@@ -322,7 +329,7 @@
     },
     {
       "id": "1.1-gallery",
-      "title": "Myrwatch Gallery (cell 0x92C) is its own home, with its own template",
+      "title": "Myrwatch Gallery (cell 0x92C) is part of Myrwatch: the merged template lists it, so it offers no template of its own",
       "steps": [
         {
           "do": "enter",
@@ -331,17 +338,14 @@
         {
           "check": "home",
           "is": true,
-          "name": "Myrwatch Gallery",
-          "layout": false
-        },
-        {
-          "check": "bestTemplate",
-          "source": "Templates/CreationClub/MyrwatchGallery.json"
+          "name": "Myrwatch",
+          "layout": true
         },
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Myrwatch Gallery v1.0.0 by Dova Stash"
+          "regex": "Cell .* \\(ccEEJSSE002-Tower\\.esl\\|0x0000092C\\): part of Myrwatch",
+          "within": 5
         },
         {
           "check": "noErrors"
@@ -350,15 +354,8 @@
     },
     {
       "id": "3.6-gallery",
-      "title": "Gallery: use its template; Deposit goes to its own master",
+      "title": "Gallery: Deposit puts potions in the gallery's own alchemy cupboard",
       "steps": [
-        {
-          "do": "useTemplate"
-        },
-        {
-          "check": "log",
-          "contains": "Applied template Templates/CreationClub/MyrwatchGallery.json v1.0.0 to Myrwatch Gallery"
-        },
         {
           "do": "additem",
           "item": "Skyrim.esm|0x0003EADD",
@@ -456,6 +453,92 @@
         {
           "check": "bestTemplate",
           "source": "Templates/User/AutoTest Myrwatch.json"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-myrwatch-whole",
+      "title": "The whole-home template (with gallery) applied from the tower: the gallery joins the home; Deposit keeps every item",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "ccEEJSSE002MageTowerSecond"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "do": "enter",
+          "coc": "ccEEJSSE002MageTowerMain"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "layout": false
+        },
+        {
+          "do": "useTemplate",
+          "source": "Templates/CreationClub/Myrwatch.json",
+          "why": "3.6.5-myrwatch saved \"AutoTest Myrwatch\" for this home, which is offered first now"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: Myrwatch setup enabled"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "contains": "Templates/CreationClub/Myrwatch.json@"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {
+            "cell": "ccEEJSSE002-Tower.esl|0x0000092C",
+            "label": "Gallery"
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccEEJSSE002-Tower.esl|0x00000B3A"
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0005ACE4",
+          "count": 4
+        },
+        {
+          "do": "snapshot",
+          "name": "whole"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "whole"
+        },
+        {
+          "do": "reset"
         },
         {
           "check": "noErrors"

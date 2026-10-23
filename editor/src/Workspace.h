@@ -31,13 +31,16 @@ namespace dova::editor
 	class Workspace
 	{
 	public:
+		// The start of Open's error when no instance is given or found (the window shows a hint instead).
+		static constexpr std::string_view kNoInstance = "no MO2 instance found";
+
 		bool Open(const WorkspaceOptions& a_options, std::string& a_error);
 
 		[[nodiscard]] const std::optional<mo2::Instance>& Instance() const noexcept { return _instance; }
 		[[nodiscard]] const std::string&                  Profile() const noexcept { return _profile; }
 		[[nodiscard]] const std::vector<mo2::Mod>&        Mods() const noexcept { return _mods; }
 		[[nodiscard]] const DataFiles&                    Files() const noexcept { return _files; }
-		[[nodiscard]] bool                                UnderVfs() const noexcept { return _underVfs; }
+		[[nodiscard]] bool                                UnderVfs() const noexcept { return _underVfs; }  // started from MO2 (files are still read from the mod folders)
 		[[nodiscard]] const std::filesystem::path&        DataDir() const noexcept { return _dataDir; }
 		[[nodiscard]] const std::string&                  Language() const noexcept { return _language; }
 

@@ -3,7 +3,6 @@
   "name": "Bal Ruhn SE (mtBalRuhn.esp, mod home; tests the template path, respawning containers in a cell that never resets)",
   "home": "mtBalRuhn.esp|0x00000D64",
   "coc": "111gqapt",
-  "templates": ["52_BalRuhn.json"],
   "tests": [
     {
       "id": "1.1-balruhn", "title": "Template offered on the first visit",
@@ -11,15 +10,16 @@
         {"do": "enter"},
         {"check": "home", "is": true, "layout": false},
         {"check": "log", "since": "plan", "regex": "Cell .*\\(mtBalRuhn\\.esp\\|0x00000D64\\): template available"},
-        {"check": "notify", "since": "plan", "regex": "Dova Stash: Bal Ruhn \\(AutoTest\\) setup available"}
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Bal Ruhn setup available"}
       ]
     },
     {
       "id": "3.6-balruhn", "title": "Use template, Deposit spreads the loot",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Bal Ruhn (AutoTest) setup enabled"},
-        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/52_BalRuhn.json@1.0.0"},
+        {"check": "notify", "contains": "Dova Stash: Bal Ruhn setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/BalRuhn.json@"},
+        {"check": "log", "since": "run", "regex": ": template Templates/Mods/BalRuhn\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "mtBalRuhn.esp|0x000018DC"},
         {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 3},
         {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
@@ -55,7 +55,7 @@
         {"do": "wait", "seconds": 1},
         {"do": "closeMenu"},
         {"check": "log", "regex": "Learn: Aevar Stone-Singer .* -> .*: recorded"},
-        {"check": "notify", "regex": "now goes to .* \\(K: undo\\)"},
+        {"check": "notify", "regex": "now goes to .*\\. K: undo"},
         {"do": "wait", "seconds": 0.5},
         {"do": "hotkey"},
         {"check": "notify", "regex": "Dova Stash: undone, .* is not learned"},
@@ -64,17 +64,18 @@
       ]
     },
     {
-      "id": "3.4-balruhn", "title": "Sort all and Retrieve by category (weapons and armour chest)",
+      "id": "3.4-balruhn", "title": "Sort all and Retrieve by category (weapons and armour chest; one sword goes on the shipped rack 0x00001E93 and stays there)",
       "steps": [
         {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
         {"do": "snapshot", "name": "sortall"},
         {"do": "op", "op": "Deposit"},
         {"do": "waitIdle"},
-        {"check": "count", "in": "mtBalRuhn.esp|0x000044CB", "item": "Skyrim.esm|0x00012EB7", "ge": 2},
+        {"check": "count", "in": "mtBalRuhn.esp|0x000044CB", "item": "Skyrim.esm|0x00012EB7", "ge": 1},
+        {"check": "displayHolds", "ref": "mtBalRuhn.esp|0x00001E93", "item": "Skyrim.esm|0x00012EB7", "within": 5},
         {"do": "op", "op": "SortAll"},
         {"do": "waitIdle"},
         {"do": "op", "op": "Retrieve", "pattern": "weapons.*"},
-        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "ge": 2},
+        {"check": "count", "item": "Skyrim.esm|0x00012EB7", "ge": 1},
         {"check": "conserved", "snapshot": "sortall"},
         {"do": "op", "op": "Deposit"},
         {"check": "noErrors"}

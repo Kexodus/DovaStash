@@ -133,12 +133,19 @@ namespace dova::ui::panel::widgets
 		bool _first;
 	};
 
-	// The page's status line: what the last action did (PanelModel::Status()), under a separator.
-	inline void StatusLine(const std::string& a_status)
+	// The page's status line: what the last action did (PanelModel::Status()), at the top of the page under its
+	// header, above a separator. Red when it reports a failure. What comes after it (a tab's body, the Displays
+	// page's content) is drawn in a child window that scrolls on its own, so the line stays in view of the button
+	// pressed.
+	inline void StatusLine(const std::string& a_status, bool a_error = false)
 	{
 		if (!a_status.empty()) {
+			if (a_error) {
+				ColoredWrapped(kRed, a_status);
+			} else {
+				Wrapped(a_status);
+			}
 			ImGui::Separator();
-			Disabled(a_status);
 		}
 	}
 

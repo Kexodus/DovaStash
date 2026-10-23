@@ -208,9 +208,10 @@ namespace dova::editor::ui
 				fixedScale = true;
 			}
 		}
-		// Text size: the remembered setting (ui.textScale in state.json), or Auto from the monitor. Screenshots
-		// and DOVASTASH_UI_SCALE runs keep 100 % so their pixels mean the same on every machine.
-		w::SetAutoTextScale(a_screenshot || fixedScale ? 1.0f : AutoTextScaleFor(primary, g_dpi));
+		// Text size: --text-size for this run, else the remembered setting (ui.textScale in state.json), or Auto from
+		// the monitor. Screenshots and DOVASTASH_UI_SCALE runs keep 100 % (unless --text-size) so their pixels mean the
+		// same on every machine.
+		w::SetAutoTextScale((a_screenshot && !a_gui.textSize) || fixedScale ? 1.0f : AutoTextScaleFor(primary, g_dpi));
 		// The theme: --theme for this run, else the remembered one (screenshots: Dova Stash unless --theme).
 		float       textSetting = 0.0f;
 		std::string theme = a_gui.theme.value_or(std::string{});
@@ -223,6 +224,9 @@ namespace dova::editor::ui
 			if (!a_gui.theme) {
 				theme = saved.ui.theme;
 			}
+		}
+		if (a_gui.textSize) {
+			textSetting = *a_gui.textSize;
 		}
 		w::SetTheme(theme);
 		w::RequestTextScale(textSetting);
@@ -256,6 +260,7 @@ namespace dova::editor::ui
 		ImGui_ImplWin32_Init(hwnd);
 		ImGui_ImplDX11_Init(g_device, g_context);
 
+		int rc = 0;
 		{
 			EditorApp app(a_options, a_gui, g_device, g_context);
 			g_app = &app;
@@ -360,6 +365,7 @@ namespace dova::editor::ui
 					done = true;
 				}
 			}
+			rc = a_screenshot && app.HomeMissing() ? 1 : 0;
 			g_app = nullptr;
 			if (demoLoad.joinable()) {
 				demoLoad.join();
@@ -374,6 +380,6 @@ namespace dova::editor::ui
 		CleanupDevice();
 		::DestroyWindow(hwnd);
 		::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-		return 0;
+		return rc;
 	}
 }

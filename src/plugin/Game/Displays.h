@@ -84,12 +84,18 @@ namespace dova::game
 	[[nodiscard]] std::vector<RE::FormID> BookshelfSlots(const FoundDisplay& a_shelf);
 	// Shows the books its script has on its slots, the way the script does when the player closes its menu:
 	// its triggers go to IgnoreBooks, the script's own UpdateBooks replaces the copies on the markers, and a
-	// moment after it returned the triggers go back to WaitForBooks. Runs on its own over the next frames
+	// moment after it returned the triggers go back to WaitForBooks. A shelf without triggers runs UpdateBooks
+	// as it is; one whose triggers can't all be put in IgnoreBooks (or are not found) is left alone (-1).
+	// Runs on its own over the next frames
 	// (also if the player leaves): the status turns 1 when done, -1 if the script has no UpdateBooks or the VM
 	// can't be asked (the books then show the next time the player opens the shelf). While UpdateBooks has not
 	// returned the triggers stay in IgnoreBooks: then a book taken off the shelf stays counted (never a book
 	// destroyed because its copy was replaced).
 	[[nodiscard]] std::shared_ptr<std::atomic<int>> RefreshBookshelf(const FoundDisplay& a_shelf);
+	// The copies of `a_book` in the world of the shelf's cell (enabled, not deleted) that are not on one of
+	// its slots (a PlacedBookNNRef whose PlacedBookNN still holds a book). A copy that left the shelf's trigger
+	// (it fell off its marker) is one of these: the trigger then took the book out of the shelf's container.
+	[[nodiscard]] std::set<RE::FormID> LooseBooks(const FoundDisplay& a_shelf, RE::TESBoundObject* a_book);
 
 	// What a rack takes beyond its RackType, from the Unofficial Patch's WeaponRackActivateSCRIPT and its
 	// trigger's nodes (nothing with the vanilla script): crossbows where the trigger has CrossbowPivot01;

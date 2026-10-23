@@ -20,7 +20,7 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Shadowfoot Sanctum v1.0.0 by Dova Stash"
+          "regex": "template: Shadowfoot Sanctum v[0-9.]+ by Dova Stash"
         },
         {
           "do": "clearInventory"
@@ -31,7 +31,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/CreationClub/ShadowfootSanctum.json@1.0.0"
+          "contains": "Templates/CreationClub/ShadowfootSanctum.json@"
         },
         {
           "check": "layout",

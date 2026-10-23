@@ -128,7 +128,8 @@ namespace dova::input
 
 	std::span<const KeyChoice> KeyboardChoices()
 	{
-		// DirectInput scan codes. Letters/digits/F-keys/navigation first, then the rest.
+		// DirectInput scan codes. Letters/digits/F-keys/navigation first, then the rest. Keys missing here still
+		// bind (Settings > Hotkey takes any key pressed); they show as "key 123".
 		static constexpr std::array kKeys{
 			KeyChoice{ 0x10, "Q" }, KeyChoice{ 0x11, "W" }, KeyChoice{ 0x12, "E" }, KeyChoice{ 0x13, "R" }, KeyChoice{ 0x14, "T" },
 			KeyChoice{ 0x15, "Y" }, KeyChoice{ 0x16, "U" }, KeyChoice{ 0x17, "I" }, KeyChoice{ 0x18, "O" }, KeyChoice{ 0x19, "P" },
@@ -151,6 +152,7 @@ namespace dova::input
 			KeyChoice{ 0x0F, "Tab" }, KeyChoice{ 0x3A, "Caps Lock" }, KeyChoice{ 0x2A, "Left Shift" }, KeyChoice{ 0x36, "Right Shift" },
 			KeyChoice{ 0x1D, "Left Ctrl" }, KeyChoice{ 0x9D, "Right Ctrl" }, KeyChoice{ 0x38, "Left Alt" }, KeyChoice{ 0xB8, "Right Alt" },
 			KeyChoice{ 0x39, "Space" }, KeyChoice{ 0x1C, "Enter" }, KeyChoice{ 0x0E, "Backspace" }, KeyChoice{ 0x29, "~" },
+			KeyChoice{ 0x45, "Num Lock" }, KeyChoice{ 0x46, "Scroll Lock" }, KeyChoice{ 0xC5, "Pause" }, KeyChoice{ 0xB7, "Print Screen" },
 			KeyChoice{ 258, "Middle mouse" }, KeyChoice{ 259, "Mouse 4" }, KeyChoice{ 260, "Mouse 5" }, KeyChoice{ 261, "Mouse 6" },
 			KeyChoice{ 262, "Mouse 7" }, KeyChoice{ 263, "Mouse 8" },
 		};

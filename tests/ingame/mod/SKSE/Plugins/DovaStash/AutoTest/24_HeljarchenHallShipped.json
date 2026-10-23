@@ -1,0 +1,30 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Heljarchen Hall: the shipped template (no AutoTest copy in this plan): chosen, applied, Deposit loses nothing",
+  "home": "HearthFires.esm|0x00016A56",
+  "coc": "BYOHHouse3Pale",
+  "tests": [
+    {
+      "id": "3.6-heljarchenhall-shipped", "title": "The shipped Templates/Vanilla/HeljarchenHall.json is the one chosen and applied; Deposit keeps every item",
+      "steps": [
+        {"do": "enter"},
+        {"do": "clearInventory"},
+        {"check": "home", "is": true, "name": "Heljarchen Hall"},
+        {"check": "bestTemplate", "source": "Templates/Vanilla/HeljarchenHall.json"},
+        {"do": "useTemplate"},
+        {"check": "notify", "regex": "Dova Stash: Heljarchen Hall setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Vanilla/HeljarchenHall.json@"},
+        {"check": "layout", "pointer": "/cells", "contains": {"cell": "HearthFires.esm|0x00016A55", "label": "Cellar"}},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 4},
+        {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
+        {"do": "snapshot", "name": "shipped"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "conserved", "snapshot": "shipped"},
+        {"do": "reset"},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

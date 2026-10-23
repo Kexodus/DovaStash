@@ -13,6 +13,7 @@
 #include <Windows.h>
 
 #include "Cli.h"
+#include "Log.h"
 #include "Util.h"
 #include "ui/App.h"
 
@@ -44,6 +45,9 @@ int wmain(int argc, wchar_t** argv)
 		args.push_back(dova::editor::Narrow(argv[i]));
 	}
 	const auto parsed = dova::editor::ParseArgs(args);
+	if (parsed.Headless() || parsed.screenshot) {
+		dova::editor::UseRunLog();  // the author's editor.log keeps their last session
+	}
 	if (parsed.Headless()) {
 		ConnectConsole();
 		const int rc = dova::editor::RunCli(parsed);
@@ -55,14 +59,17 @@ int wmain(int argc, wchar_t** argv)
 	gui.mod = parsed.mod;
 	gui.cell = parsed.cell;
 	gui.screenshot = parsed.screenshot;
+	gui.state = parsed.state;
 	gui.tab = parsed.tab;
 	gui.select = parsed.select;
 	gui.drafts = parsed.drafts;
 	gui.home = parsed.home ? parsed.home : parsed.only;
+	gui.moreHomes = parsed.moreHomes;
 	gui.inspector = parsed.inspector;
 	gui.palette = parsed.palette;
 	gui.popover = parsed.popover;
 	gui.theme = parsed.theme;
+	gui.textSize = parsed.textSize;
 	gui.layers = parsed.layers;
 	gui.sort = parsed.sort;
 	gui.filter = parsed.tableFilter;

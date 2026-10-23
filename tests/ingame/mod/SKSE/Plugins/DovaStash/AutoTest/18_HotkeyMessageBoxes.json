@@ -1,0 +1,628 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Hotkey menus as native message boxes (iMode = 1): bodies, entries, paging (More... / Back), the questions and their No",
+  "home": "Skyrim.esm|0x000165A8",
+  "coc": "WhiterunBreezehome",
+  "tests": [
+    {
+      "id": "6.2-mb-setup", "title": "Setup prompt with a backup and no container aimed at: one question, the template line, Use template sets the home up",
+      "steps": [
+        {"do": "settings", "set": {"iMode": 1}},
+        {"do": "enter"},
+        {"do": "reset"},
+        {"do": "hotkey"},
+        {"check": "menuEntries", "contains": ["Use template \""], "body": "Dova Stash: set up Breezehome?", "within": 5},
+        {"check": "menuEntries", "contains": ["Use template \""], "body": "Template available: "},
+        {"do": "choose", "entry": "Use template \""},
+        {"check": "home", "layout": true},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Breezehome"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-mb-master", "title": "Master menu (Advanced... before the sell entries), Advanced (Reset home... on page 1), Retrieve and Back",
+      "steps": [
+        {"do": "hotkey"},
+        {"check": "menuEntries", "order": ["Deposit", "Sort all", "Advanced..."], "body": "Dova Stash: Breezehome", "within": 5},
+        {"do": "choose", "entry": "Advanced..."},
+        {"check": "menuEntries", "order": ["Retrieve...", "Browse containers...", "Re-apply template \"", "Save as template...", "Reset home...", "More...", "Back", "Cancel"], "body": "Dova Stash: Breezehome: Advanced"},
+        {"do": "choose", "entry": "Reset home..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "Reset Breezehome?"},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["Reset home..."], "body": "Dova Stash: Breezehome: Advanced", "within": 5},
+        {"check": "layoutFile", "exists": true},
+        {"do": "choose", "entry": "Back"},
+        {"check": "menuEntries", "contains": ["Deposit"], "body": "Dova Stash: Breezehome", "within": 5},
+        {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-mb-container", "title": "Container menu: the shared order over two pages; Categories (named body, two pages), a group on page 2 and Back to page 2; a toggle reopens the same page",
+      "steps": [
+        {"do": "enable", "ref": "Skyrim.esm|0x0010EB84"},
+        {"do": "require", "enabled": "Skyrim.esm|0x0010EB84", "why": "the alchemy corner chest comes with Breezehome's alchemy laboratory"},
+        {"do": "setCategories", "ref": "Skyrim.esm|0x0010EB84", "categories": ["weapons.*"]},
+        {"do": "hotkey", "target": "Skyrim.esm|0x0010EB84"},
+        {"check": "menuEntries", "order": ["Categories...", "Open ", "Rename...", "Clear categories...", "Ignore", "More...", "Cancel"], "body": "Dova Stash: ", "within": 5},
+        {"do": "choose", "entry": "Categories..."},
+        {"check": "menuEntries", "contains": ["[x] Weapons...", "More..."], "body": ": Categories"},
+        {"do": "choose", "entry": "More..."},
+        {"check": "menuEntries", "contains": ["[ ] Miscellaneous...", "Back"], "body": "(page 2/2)", "within": 5},
+        {"do": "choose", "entry": "[ ] Miscellaneous..."},
+        {"check": "menuEntries", "contains": ["[ ] All Miscellaneous"], "body": ": Miscellaneous", "within": 5},
+        {"do": "choose", "entry": "[ ] All Miscellaneous"},
+        {"check": "menuEntries", "contains": ["[x] All Miscellaneous"], "body": ": Miscellaneous", "within": 5},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x0010EB84", "categories": ["weapons.*", "misc.*"]}},
+        {"do": "choose", "entry": "Back"},
+        {"check": "menuEntries", "contains": ["[x] Miscellaneous..."], "body": "(page 2/2)", "within": 5},
+        {"do": "choose", "entry": "Back"},
+        {"check": "menuEntries", "contains": ["[x] Weapons..."], "body": "(page 1/2)", "within": 5},
+        {"do": "choose", "entry": "Back"},
+        {"check": "menuEntries", "contains": ["Categories...", "More..."], "within": 5},
+        {"do": "choose", "entry": "More..."},
+        {"check": "menuEntries", "order": ["Make sell chest...", "Remove...", "Make master...", "Open panel...", "Back", "Cancel"], "within": 5},
+        {"do": "choose", "entry": "Make master..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "Its categories and learned items are forgotten"},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["Categories..."], "within": 5},
+        {"check": "layout", "pointer": "/containers", "contains": {"ref": "Skyrim.esm|0x0010EB84"}},
+        {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-mb-asks",
+      "title": "The questions and their No: Forget 1 learned item... (No back to the learned box, Yes back to the container), Make sell chest... (No, Yes), Remove... (No, Yes), Re-apply template with changes of the player's own (No back to Advanced, Yes: the template's categories come back, the old setup is backed up)",
+      "steps": [
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x0010EB84",
+          "why": "the alchemy corner chest comes with Breezehome's alchemy laboratory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 1
+        },
+        {
+          "do": "openContainer",
+          "ref": "Skyrim.esm|0x0010EB84"
+        },
+        {
+          "do": "store",
+          "to": "Skyrim.esm|0x0010EB84",
+          "item": "Skyrim.esm|0x0001ACE6",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x0001ACE6",
+          "eq": "Skyrim.esm|0x0010EB84",
+          "within": 5
+        },
+        {
+          "do": "wait",
+          "seconds": 7
+        },
+        {
+          "do": "hotkey",
+          "target": "Skyrim.esm|0x0010EB84"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Learned items (1)..."
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Learned items (1)..."
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Forget 1 learned item...",
+            "Forget Aevar Stone-Singer",
+            "Back",
+            "Cancel"
+          ],
+          "body": ": Learned items",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Forget 1 learned item..."
+        },
+        {
+          "check": "menuEntries",
+          "eq": [
+            "Yes",
+            "No"
+          ],
+          "body": "Forget 1 learned item for"
+        },
+        {
+          "do": "choose",
+          "entry": "No"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Forget 1 learned item..."
+          ],
+          "body": ": Learned items",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Forget 1 learned item..."
+        },
+        {
+          "do": "choose",
+          "entry": "Yes"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Categories..."
+          ],
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x0001ACE6",
+          "absent": true
+        },
+        {
+          "do": "choose",
+          "entry": "More..."
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Make sell chest...",
+            "Remove..."
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Make sell chest..."
+        },
+        {
+          "check": "menuEntries",
+          "eq": [
+            "Yes",
+            "No"
+          ],
+          "body": "the sell chest?"
+        },
+        {
+          "do": "choose",
+          "entry": "No"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Categories..."
+          ],
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "lacks": {
+            "ref": "Skyrim.esm|0x0010EB84",
+            "sell": true
+          }
+        },
+        {
+          "do": "choose",
+          "entry": "More..."
+        },
+        {
+          "do": "choose",
+          "entry": "Make sell chest..."
+        },
+        {
+          "do": "choose",
+          "entry": "Yes"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x0010EB84",
+            "sell": true
+          },
+          "within": 5
+        },
+        {
+          "do": "sellChest",
+          "ref": "Skyrim.esm|0x0010EB84",
+          "on": false
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "lacks": {
+            "ref": "Skyrim.esm|0x0010EB84",
+            "sell": true
+          },
+          "within": 5
+        },
+        {
+          "do": "hotkey",
+          "target": "Skyrim.esm|0x0010EB84"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Categories...",
+            "More..."
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "More..."
+        },
+        {
+          "do": "choose",
+          "entry": "Remove..."
+        },
+        {
+          "check": "menuEntries",
+          "eq": [
+            "Yes",
+            "No"
+          ],
+          "body": "from Dova Stash?"
+        },
+        {
+          "do": "choose",
+          "entry": "No"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Categories..."
+          ],
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x0010EB84"
+          }
+        },
+        {
+          "do": "choose",
+          "entry": "More..."
+        },
+        {
+          "do": "choose",
+          "entry": "Remove..."
+        },
+        {
+          "do": "choose",
+          "entry": "Yes"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "lacks": {
+            "ref": "Skyrim.esm|0x0010EB84"
+          },
+          "within": 5
+        },
+        {
+          "do": "setCategories",
+          "ref": "Skyrim.esm|0x0010EB84",
+          "categories": [
+            "books.*"
+          ]
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Advanced..."
+          ],
+          "body": "Dova Stash: Breezehome",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Advanced..."
+        },
+        {
+          "do": "choose",
+          "entry": "Re-apply template \""
+        },
+        {
+          "check": "menuEntries",
+          "eq": [
+            "Yes",
+            "No"
+          ],
+          "body": "It undoes your changes"
+        },
+        {
+          "do": "choose",
+          "entry": "No"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Re-apply template \""
+          ],
+          "body": "Dova Stash: Breezehome: Advanced",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x0010EB84",
+            "categories": [
+              "books.*"
+            ]
+          }
+        },
+        {
+          "do": "choose",
+          "entry": "Re-apply template \""
+        },
+        {
+          "check": "menuEntries",
+          "eq": [
+            "Yes",
+            "No"
+          ],
+          "body": "It undoes your changes"
+        },
+        {
+          "do": "choose",
+          "entry": "Yes"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "lacks": {
+            "ref": "Skyrim.esm|0x0010EB84",
+            "categories": [
+              "books.*"
+            ]
+          },
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x0010EB84",
+            "categories": [
+              "alchemy.ingredients",
+              "alchemy.potions",
+              "alchemy.poisons"
+            ]
+          }
+        },
+        {
+          "check": "files",
+          "dir": "Layouts",
+          "regex": "Skyrim\\.esm_000165A8\\.json\\.\\d{8}-\\d{6}(-\\d+)?\\.bak",
+          "ge": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "8.8-mb-sell-no",
+      "title": "Sell now... and Buy back... from the home's menu: No goes back to that menu and nothing is sold or bought",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x000CB45E",
+          "why": "the chest comes with a Breezehome decoration"
+        },
+        {
+          "do": "clearContainer",
+          "ref": "Skyrim.esm|0x000CB45E"
+        },
+        {
+          "do": "sellChest",
+          "ref": "Skyrim.esm|0x000CB45E"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "contains": {
+            "ref": "Skyrim.esm|0x000CB45E",
+            "sell": true
+          },
+          "within": 5
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 2
+        },
+        {
+          "do": "store",
+          "to": "Skyrim.esm|0x000CB45E",
+          "item": "Skyrim.esm|0x000319E3",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "sellno"
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Sell now ("
+          ],
+          "body": "Dova Stash: Breezehome",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Sell now ("
+        },
+        {
+          "check": "menuEntries",
+          "eq": [
+            "Yes",
+            "No"
+          ],
+          "body": "Sell 2 items for",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "No"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Sell now ("
+          ],
+          "body": "Dova Stash: Breezehome",
+          "within": 5
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000CB45E",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 2
+        },
+        {
+          "check": "gold",
+          "snapshot": "sellno"
+        },
+        {
+          "do": "choose",
+          "index": -1
+        },
+        {
+          "do": "quote",
+          "chest": "Skyrim.esm|0x000CB45E"
+        },
+        {
+          "do": "sellConfirmed"
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: sold 2 items for \\d+ gold",
+          "within": 5
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Buy back ("
+          ],
+          "body": "Dova Stash: Breezehome",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Buy back ("
+        },
+        {
+          "check": "menuEntries",
+          "eq": [
+            "Yes",
+            "No"
+          ],
+          "body": "Buy back 2 items for",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "No"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Buy back ("
+          ],
+          "body": "Dova Stash: Breezehome",
+          "within": 5
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000CB45E",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 0
+        },
+        {
+          "do": "choose",
+          "index": -1
+        },
+        {
+          "do": "buyBack"
+        },
+        {
+          "check": "count",
+          "in": "Skyrim.esm|0x000CB45E",
+          "item": "Skyrim.esm|0x000319E3",
+          "eq": 2,
+          "within": 5
+        },
+        {
+          "check": "conserved",
+          "snapshot": "sellno"
+        },
+        {
+          "do": "sellChest",
+          "ref": "Skyrim.esm|0x000CB45E",
+          "on": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "6.2-mb-reset", "title": "Reset home... > Yes from Advanced (last): the setup file goes, a backup is kept",
+      "steps": [
+        {"do": "enter"},
+        {"do": "hotkey"},
+        {"do": "choose", "entry": "Advanced..."},
+        {"do": "choose", "entry": "Reset home..."},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "notify", "contains": "reset (setup backed up)", "within": 5},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors"}
+      ]
+    }
+  ]
+}

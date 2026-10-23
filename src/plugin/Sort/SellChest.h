@@ -28,6 +28,7 @@ namespace dova::sort::selling
 	{
 		bool        done{ false };
 		std::string message;  // one HUD line
+		bool        failed{ false };  // could not be done (the panel shows `message` red)
 	};
 
 	// Sells what QuoteSale says now, if that is still what the player confirmed (`a_items`, `a_gold`): a chest that

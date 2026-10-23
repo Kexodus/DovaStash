@@ -5,11 +5,11 @@
   "coc": "WLighthouseInterior",
   "tests": [
     {
-      "id": "1.3-whitelighthouse", "title": "Not a home before the player is in the owning faction (the editor scan missed this home; the HUD names the faction by id, 1D02F86F)",
+      "id": "1.3-whitelighthouse", "title": "Not a home before the player is in the owning faction (the editor scan missed this home; the faction has no name: the HUD names its editor ID, else 'a faction', never a form id)",
       "steps": [
         {"do": "enter"},
         {"do": "hotkey"},
-        {"check": "notify", "contains": "not a player home (owned by"},
+        {"check": "notify", "regex": "not a player home \\(owned by (a faction|WLightHouseFaction)\\)"},
         {"check": "home", "is": false},
         {"check": "layoutFile", "exists": false},
         {"check": "noErrors"}
@@ -69,14 +69,18 @@
       ]
     },
     {
-      "id": "3.7-whitelighthouse", "title": "Weapon rack in use takes a weapon on Deposit",
+      "id": "3.7-whitelighthouse", "title": "A weapon rack that already holds something (the mod places a Staff of Paralysis, 0x000296FB, on 0x000286A6; its activator is disabled for that reason): marked used, it says it is full and Deposit leaves it alone, the sword goes to the master",
       "steps": [
         {"do": "displayUse", "ref": "WhiteLighthouseSE.esp|0x000286A6"},
+        {"check": "notify", "contains": "is used now (full)"},
         {"do": "additem", "item": "Skyrim.esm|0x000139B9", "count": 1},
         {"do": "op", "op": "Deposit"},
         {"do": "waitIdle"},
-        {"check": "log", "regex": "Display: Daedric Sword .* on .*\\(rack\\)", "within": 10},
+        {"check": "log", "regex": "0x000286A6.*holds Staff of Paralysis"},
+        {"check": "log", "regex": "Display: .*0x000286A6.* takes nothing \\(something is on the rack\\)"},
+        {"check": "log", "absent": true, "regex": "Display: Daedric Sword .* on .*\\(rack\\)"},
         {"check": "count", "item": "Skyrim.esm|0x000139B9", "eq": 0},
+        {"check": "count", "in": "master", "item": "Skyrim.esm|0x000139B9", "eq": 1},
         {"check": "noErrors"}
       ]
     },

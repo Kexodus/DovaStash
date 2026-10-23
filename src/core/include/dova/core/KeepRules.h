@@ -4,7 +4,8 @@
 // Restock brings back (§8.7).
 //
 // Semantics (decisions):
-// - Hard rule: quest items and non-playable items are always kept, whatever the configuration.
+// - Hard rules: quest, non-playable, worn, favorited and comes-back-when-stored stacks are always kept, whatever a
+//   keep block says (the equipped and favorited tokens stay valid but are redundant).
 // - Layers: the layout's keep block (if any) is consulted first; the global defaults are consulted
 //   after it when the layout has no keep block or its `inherit` is true (the default). The first layer
 //   with an applicable rule decides, so a layout can override a global keep with `never`.
@@ -65,8 +66,9 @@ namespace dova::core
 		[[nodiscard]] static KeepRules Compile(const KeepConfig& a_global, const KeepConfig* a_layoutKeep, Diagnostics& a_diags);
 
 		// Number of items to keep for each stack, parallel to `a_inventory` (0 .. count). When `a_why` is
-		// given it receives, parallel too, the rule that kept items of each stack ("always equipped
-		// (global)", "quota alchemy.potions 5 (layout)", "quest item"...), empty where nothing is kept.
+		// given it receives, parallel too, the rule that kept items of each stack ("always Skyrim.esm|0x0000000F
+		// (global)", "quota alchemy.potions 5 (layout)", "quest item", "worn item"...), empty where nothing is kept.
+		// Quest, non-playable, worn and favorited stacks and those that come back when stored are always kept.
 		[[nodiscard]] std::vector<std::int32_t> ComputeKeepCounts(std::span<const ItemInfo> a_inventory, const CategorySet& a_categories,
 			std::vector<std::string>* a_why = nullptr) const;
 

@@ -28,6 +28,13 @@ namespace dova::ui::panel
 		std::vector<std::size_t> children;  // indices into CategoryTree::nodes, definition order
 	};
 
+	// An item the player carries, for the keep rules' Item... picker.
+	struct InventoryEntry
+	{
+		std::string name;
+		std::string refText;  // "Skyrim.esm|0x0001C4E6": what the keep rule stores
+	};
+
 	struct CategoryTree
 	{
 		std::vector<CategoryNode> nodes;
@@ -101,6 +108,7 @@ namespace dova::ui::panel
 		bool         best{ false };
 		bool         applied{ false };    // the layout's basedOn points at this template
 		bool         autoDraft{ false };  // "autoDraft": true (DESIGN §6.8): offered only when no template someone made fits
+		bool         hidden{ false };     // removed from this home (Layout::hiddenTemplates): listed last, with Add back
 	};
 
 	// A copy of this home's setup kept outside Data (Store::HomeBackups, DESIGN §6.6).
@@ -144,6 +152,9 @@ namespace dova::ui::panel
 
 		bool        inHome{ false };
 		std::string notHomeReason;
+		// What the player carries (named, from a plugin), sorted by name: the keep rules' Item... picker. Also
+		// outside a home (the Settings page's default keep rules).
+		std::vector<InventoryEntry> inventory;
 		// The player's cell can join the home they just came from (HomeRegistry::OfferArea): its name, and the
 		// cell id Controller::AddArea takes. Also set on the setup page of a cell with no setup.
 		std::optional<std::string> addAreaTo;
@@ -174,7 +185,7 @@ namespace dova::ui::panel
 		std::vector<LearnedRow>    learned;
 		std::size_t                learnedUnused{ 0 };  // rows with `unused`
 		std::size_t                learnedStale{ 0 };   // rows with a `stale` reason (unused ones included)
-		std::vector<TemplateOption> templates;  // eligible templates for this cell, best first (core::ResolveLayout's order)
+		std::vector<TemplateOption> templates;  // eligible templates for this cell, best first (core::ResolveLayout's order), then the removed ones
 		std::vector<std::string>   layoutWarnings;  // ValidateLayoutCategories on the current layout
 		// Saved setups outside Data: the latest copy first, then history, newest first. Listed on a full
 		// refresh (and when the home changes); carried over otherwise.
@@ -185,6 +196,9 @@ namespace dova::ui::panel
 		std::optional<core::KeepConfig> keep;  // the layout's keep block
 		std::string                     keepJson;  // serialized keep block ("" = none): change detection for the editor draft
 		core::KeepConfig                globalKeep;
+		// Names of the items the keep rules (this home's and the defaults) name by form ref, resolved on each rebuild:
+		// "Skyrim.esm|0x00012EB7" -> "Iron Sword"; "" when the form is not loaded.
+		std::map<std::string, std::string> keepNames;
 
 		// Retrieve counts (managed, available containers). Only refreshed on open / after actions.
 		bool                                countsValid{ false };
@@ -197,6 +211,10 @@ namespace dova::ui::panel
 		std::uint64_t              focusSerial{ 0 };
 		std::optional<std::size_t> focusRow;
 		Tab                        focusTab{ Tab::None };
+
+		// The container the player looks at (the crosshair target, or the chest a front or bookshelf stands for):
+		// marked "(looking at it)" in the Containers table and scrolled into view. An unmanaged one is added as a row.
+		std::optional<std::size_t> aimedRow;
 	};
 
 	struct TemplateInfo
@@ -213,6 +231,10 @@ namespace dova::ui::panel
 		std::vector<std::string> missing;
 		std::vector<std::string> conflicting;  // JSON "conflicts" that are loaded: not offered
 		std::vector<std::string> diagnostics;
+		bool                     homeLoaded{ true };  // its cell is in the load order (false: the home's mod is not loaded)
+
+		// The home is installed: its cell is there and every required plugin is loaded (the Templates page's filter).
+		[[nodiscard]] bool Installed() const { return homeLoaded && missing.empty(); }
 	};
 
 	struct GlobalSnapshot
@@ -249,9 +271,11 @@ namespace dova::ui::panel
 	struct ExportState
 	{
 		std::uint64_t            serial{ 0 };
+		std::uint32_t            cell{ 0 };  // the home it was saved from: another home's result is not shown
 		bool                     pending{ false };
 		bool                     ok{ false };
 		bool                     exists{ false };  // waiting for an overwrite confirmation
+		std::string              name;             // the name it was saved (or asked about) under
 		std::string              path;
 		std::string              message;
 		std::vector<std::string> warnings;

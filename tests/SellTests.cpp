@@ -384,6 +384,50 @@ TEST_CASE("Sell chest and the sort planner", "[sell][planner]")
 		const LearnedCategories counts{ { "weapons.swords", 5 } };
 		CHECK_FALSE(SuggestCategory(copy, kSellChest, counts, 3));
 	}
+	SECTION("a variant learned into it sends neither its root nor the root's other variants")
+	{
+		auto copy = layout;
+		auto root = Weapon(Sk(0x406), WeaponType::OneHandSword);
+		auto debilitation = Weapon(Sk(0x407), WeaponType::OneHandSword);
+		debilitation.family = root.form;
+		auto burning = Weapon(Sk(0x408), WeaponType::OneHandSword);
+		burning.family = root.form;
+		CHECK(Learn(copy, debilitation, kSellChest, set) == LearnResult::Recorded);
+		CHECK(copy.learned.contains(debilitation.form));
+		CHECK_FALSE(copy.learned.contains(root.form));
+		const SortPlanner learned(copy, set);
+		CHECK(learned.ResolveDestination(debilitation)->container == kSellChest);
+		CHECK(learned.ResolveDestination(root)->container == kChest);
+		CHECK(learned.ResolveDestination(burning)->container == kChest);
+	}
+	SECTION("a variant learned into it leaves the family's entry alone")
+	{
+		auto copy = layout;
+		auto root = Weapon(Sk(0x409), WeaponType::OneHandSword);
+		auto variant = Weapon(Sk(0x40A), WeaponType::OneHandSword);
+		variant.family = root.form;
+		copy.learned.emplace(root.form, kMaster);
+		CHECK(Learn(copy, variant, kSellChest, set) == LearnResult::Recorded);
+		CHECK(copy.learned.at(root.form) == kMaster);
+		CHECK(copy.learned.at(variant.form) == kSellChest);
+	}
+	SECTION("a root learned or bound into it does not send its variants")
+	{
+		auto copy = layout;
+		auto root = Weapon(Sk(0x40B), WeaponType::OneHandSword);
+		auto variant = Weapon(Sk(0x40C), WeaponType::OneHandSword);
+		variant.family = root.form;
+		CHECK(Learn(copy, root, kSellChest, set) == LearnResult::Recorded);
+		const SortPlanner learned(copy, set);
+		CHECK(learned.ResolveDestination(root)->container == kSellChest);
+		CHECK(learned.ResolveDestination(variant)->container == kChest);
+
+		auto bound = layout;
+		bound.containers[1].forms.push_back(root.form);
+		const SortPlanner explicitly(bound, set);
+		CHECK(explicitly.ResolveDestination(root)->container == kSellChest);
+		CHECK(explicitly.ResolveDestination(variant)->container == kChest);
+	}
 }
 
 TEST_CASE("Sell chest and templates", "[sell][template]")

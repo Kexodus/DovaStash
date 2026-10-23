@@ -71,7 +71,7 @@ TEST_CASE("Shipped templates load and behave exactly as released", "[dist][templ
 {
 	const auto dir = std::filesystem::path(DOVA_DIST_DIR) / "Templates";
 	const auto snapshot = Snapshot();
-	REQUIRE(snapshot.size() == 22);
+	REQUIRE(snapshot.size() == 32);
 
 	// The same files: none added, removed or edited.
 	std::map<std::string, std::filesystem::path> files;
@@ -117,11 +117,13 @@ TEST_CASE("Shipped templates load and behave exactly as released", "[dist][templ
 			CHECK(std::ranges::any_of(t.layout.requiredPlugins, [&](const std::string& r) { return IEquals(r, plugin); }));
 		}
 
-		// Applying it to a home without a layout gives the template itself (plus basedOn): the display rules have
-		// nothing to change, and nothing is reported missing even with every mod's forms absent.
+		// Applying it to a home without a layout gives the template itself (plus basedOn, without `replaces`: which retired
+		// files it takes over is the template's business): the display rules have nothing to change, and nothing is
+		// reported missing even with every mod's forms absent.
 		const auto applied = ApplyTemplate(t);
 		Layout     expected = t.layout;
 		expected.basedOn = MakeBasedOn(t.source, t.layout.version);
+		expected.replaces.clear();
 		CHECK(SerializeLayout(applied) == SerializeLayout(expected));
 		CHECK(MissingTemplateItems(t.layout, t.layout, {}, [](const FormRef&) { return false; }).empty());
 		const auto everyKind = [](const FormRef&) -> std::optional<DisplayKind> { return DisplayKind::Rack; };

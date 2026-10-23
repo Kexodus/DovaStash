@@ -1,0 +1,38 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Hydda",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
+  "author": "Dova Stash",
+  "version": "1.0.0",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "Eli_WitchyHaus.esp"],
+  "cell": "Eli_WitchyHaus.esp|0x00005921",
+  "master": "Eli_WitchyHaus.esp|0x00051C1D",
+  "containers": [
+    {"ref": "Eli_WitchyHaus.esp|0x0001EF0A", "label": "Dresser (by the bed)",                    "categories": ["armor.clothing"]},
+    {"ref": "Eli_WitchyHaus.esp|0x0001EF13", "label": "Dresser (by the cooking pot)",            "categories": ["weapons.*", "ammo.*", "armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "Eli_WitchyHaus.esp|0x00056D8A", "label": "Staves",                                  "categories": ["weapons.staves"]},
+    {"ref": "Eli_WitchyHaus.esp|0x0004CA0C", "label": "Key box",                                 "categories": ["keys"]},
+    {"ref": "Eli_WitchyHaus.esp|0x0005BEAF", "label": "Strongbox",                               "categories": ["armor.jewelry", "misc.gems", "misc.curios"]},
+    {"ref": "Eli_WitchyHaus.esp|0x00051C62", "label": "Soul gems",                               "categories": ["soulgems.*"]},
+    {"ref": "Eli_WitchyHaus.esp|0x00051B5E", "label": "Ingredients basket (by the alchemy lab)", "categories": ["alchemy.ingredients"]},
+    {"ref": "Eli_WitchyHaus.esp|0x00051BFA", "label": "Potions",                                 "categories": ["alchemy.potions"]},
+    {"ref": "Eli_WitchyHaus.esp|0x00051BD9", "label": "Poisons",                                 "categories": ["alchemy.poisons"]},
+    {"ref": "Eli_WitchyHaus.esp|0x0003D633", "label": "Bottom shelf (by the cooking pot)",       "categories": ["alchemy.food"]},
+    {"ref": "Eli_WitchyHaus.esp|0x0004CA3A", "label": "Bookcase",                                "categories": ["books.*"]},
+    {"ref": "Eli_WitchyHaus.esp|0x0004CA3C", "label": "Bookcase (second)",                       "categories": ["scrolls"]},
+    {"ref": "Eli_WitchyHaus.esp|0x0001EF76", "label": "Large sack (by the cooking pot)",         "categories": ["misc.clutter"]},
+    {
+      "ref": "Eli_WitchyHaus.esp|0x00051C02",
+      "label": "Large sack (by the alchemy lab)",
+      "categories": ["misc.ores_ingots", "misc.hides_pelts", "misc.animal_parts", "misc.building_materials", "misc.tools", "misc.dwemer"]
+    },
+    {"ref": "Eli_WitchyHaus.esp|0x0001EF2A", "label": "Bookshelf (by the strongbox)",            "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Eli_WitchyHaus.esp|0x0004CA02", "label": "Bookshelf (by the strongbox, 2)",         "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Eli_WitchyHaus.esp|0x00051B72", "label": "Disenchanter (by the soul gems)",         "ignored": true, "note": "Disenchanter: its script takes the enchantment off what you put in."}
+  ],
+  "displays": [
+    {"ref": "Eli_WitchyHaus.esp|0x0001EF2A", "label": "Bookshelf (by the strongbox)"},
+    {"ref": "Eli_WitchyHaus.esp|0x0004CA02", "label": "Bookshelf (by the strongbox, 2)"}
+  ]
+}

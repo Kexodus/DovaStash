@@ -147,11 +147,27 @@ namespace dova::home
 		logger::debug("Templates: rescanned ({} before, {} now)", before, _templates.size());
 	}
 
+	void Store::ScopeTestTemplates(std::vector<std::string> a_keep)
+	{
+		for (auto& name : a_keep) {
+			std::ranges::transform(name, name.begin(), [](unsigned char a_c) { return static_cast<char>(std::tolower(a_c)); });
+		}
+		_testTemplates = std::move(a_keep);
+	}
+
 	void Store::LoadTemplates()
 	{
 		core::Diagnostics diags;
 		try {
 			_templates = core::LoadTemplateDirectory(Root() / "Templates", diags);
+			if (_testTemplates) {
+				constexpr auto kTestDir = "templates/autotest/"sv;
+				std::erase_if(_templates, [&](const core::TemplateCandidate& a_t) {
+					std::string source = a_t.source;
+					std::ranges::transform(source, source.begin(), [](unsigned char a_c) { return static_cast<char>(std::tolower(a_c)); });
+					return source.starts_with(kTestDir) && std::ranges::find(*_testTemplates, source.substr(kTestDir.size())) == _testTemplates->end();
+				});
+			}
 			// LoadTemplateDirectory already ran ValidateTemplate; only the category check is left.
 			for (const auto& t : _templates) {
 				core::ValidateLayoutCategories(t.layout, _categories, t.source, diags);
@@ -236,6 +252,13 @@ namespace dova::home
 			}
 			core::Diagnostics diags;
 			auto              keep = core::ParseKeepConfig(doc.at("keep"), "Settings.json", diags);
+			if (keep) {
+				// Category patterns that match nothing (a typo makes a rule do nothing): the layouts' check, on a
+				// layout that holds only this keep block. The categories are loaded first (Load()).
+				core::Layout keepOnly;
+				keepOnly.keep = *keep;
+				core::ValidateLayoutCategories(keepOnly, _categories, "Settings.json", diags);
+			}
 			LogDiagnostics(diags, "Settings.json");
 			_settingsDiags = diags;
 			if (keep) {

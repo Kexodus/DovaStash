@@ -121,6 +121,8 @@ namespace dova::editor::esp
 		[[nodiscard]] const std::vector<CellEntry>& CellsOf(std::uint32_t a_plugin);
 		// The winning record of a cell.
 		[[nodiscard]] const CellEntry* FindCell(const FormKey& a_cell);
+		// The cell's name (FULL) from the first plugin whose record of it has one: a later override may drop it.
+		[[nodiscard]] std::string FirstCellName(const FormKey& a_cell);
 		[[nodiscard]] std::optional<FormKey> FindCellByEditorId(std::string_view a_editorId);
 
 		// Winning REFR/ACHR records placed in the cell. Exterior cells also get the worldspace's persistent

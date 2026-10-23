@@ -97,7 +97,7 @@ namespace dova
 		{
 			// DESIGN §10.1/§10.3: what the hotkey opens in the world.
 			// 0 = auto: UIExtensions list menus when UIExtensions is installed (not VR), else native
-			//     message boxes. The SKSE Menu Framework panel stays available as the editor.
+			//     message boxes. The SKSE Menu Framework panel stays available from that framework's menu.
 			// 1 = always message boxes, 2 = the SKSE Menu Framework panel (when loaded),
 			// 3 = UIExtensions (falls back to message boxes when it is not installed).
 			std::int32_t mode{ 0 };
@@ -157,8 +157,8 @@ namespace dova
 		[[nodiscard]] Values Get() const;
 		// Validates `a_values` (out-of-range values are clamped/reset like on load), makes them current
 		// and writes every key to kPath, keeping the file's comments. Returns the names of the keys that
-		// changed (empty = nothing changed, nothing written).
-		std::vector<std::string> Update(Values a_values);
+		// changed (empty = nothing changed, nothing written). `a_saved` (optional) tells whether the file was written.
+		std::vector<std::string> Update(Values a_values, bool* a_saved = nullptr);
 
 		[[nodiscard]] General GetGeneral() const { return _v.load()->general; }
 		[[nodiscard]] Input GetInput() const { return _v.load()->input; }

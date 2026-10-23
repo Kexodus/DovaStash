@@ -1,0 +1,28 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Breezehome with a template the auto-enable guard doubts (test template BreezehomeMayNotFit.json: four of five references missing)",
+  "home": "Skyrim.esm|0x000165A8",
+  "coc": "WhiterunBreezehome",
+  "templates": ["BreezehomeMayNotFit.json"],
+  "tests": [
+    {
+      "id": "6.2-mb-maynotfit", "title": "Setup prompt: the template line says it may not fit; Use template asks (It may not fit this home.), No goes back to the setup prompt and nothing is set up",
+      "steps": [
+        {"do": "settings", "set": {"iMode": 1}},
+        {"do": "enter"},
+        {"do": "reset"},
+        {"check": "home", "is": true, "layout": false},
+        {"do": "hotkey"},
+        {"check": "menuEntries", "contains": ["Use template \""], "body": "may not fit", "within": 5},
+        {"do": "choose", "entry": "Use template \""},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "It may not fit this home.", "within": 5},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["Use template \""], "body": "Dova Stash: set up Breezehome?", "within": 5},
+        {"check": "layoutFile", "exists": false},
+        {"do": "choose", "index": -1},
+        {"check": "layoutFile", "exists": false},
+        {"check": "noErrors", "except": ["BreezehomeMayNotFit", "0x00FFFF0"]}
+      ]
+    }
+  ]
+}

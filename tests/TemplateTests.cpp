@@ -281,6 +281,8 @@ TEST_CASE("Template and category validation lint", "[templates]")
 	layout.learned.emplace(Sk(0x1), Sk(0x2));
 	layout.basedOn = "x@1";
 	layout.containers.push_back({ .ref = Sk(0xB), .categories = { "weapons.*", "wepons.swords" } });
+	layout.displays.push_back({ .ref = Sk(0xC), .categories = { "weapons.swrods" } });
+	layout.displays.push_back({ .ref = Sk(0xD), .categories = { "weapons.nothing" }, .ignored = true });  // ignored: not linted
 	layout.keep = KeepConfig{};
 	layout.keep->never = { "misc.clutter", "misc.junk" };
 
@@ -292,7 +294,29 @@ TEST_CASE("Template and category validation lint", "[templates]")
 	const auto  set = CompileCategories(kStandardCategories);
 	Diagnostics catDiags;
 	ValidateLayoutCategories(layout, set, "t.json", catDiags);
-	CHECK(catDiags.WarningCount() == 2);  // wepons.swords, misc.junk
+	CHECK(catDiags.WarningCount() == 3);  // wepons.swords, weapons.swrods, misc.junk
+	const auto has = [&](std::string_view a_text) {
+		return std::ranges::any_of(catDiags.Items(), [&](const Diagnostic& d) { return d.message.find(a_text) != std::string::npos; });
+	};
+	CHECK(has("container Skyrim.esm|0x0000000B: category pattern \"wepons.swords\" matches no known category; did you mean \"weapons.swords\"?"));
+	CHECK(has("display Skyrim.esm|0x0000000C: category pattern \"weapons.swrods\" matches no known category; did you mean \"weapons.swords\"?"));
+	CHECK(has("keep.never: category pattern \"misc.junk\" matches no known category"));
+}
+
+TEST_CASE("Category lint: a misspelt keep token points to the token", "[templates][keep]")
+{
+	Layout layout;
+	layout.keep = KeepConfig{};
+	layout.keep->always = { "equiped", "favourite", "Quest" };
+	const auto  set = CompileCategories(kStandardCategories);
+	Diagnostics diags;
+	ValidateLayoutCategories(layout, set, "t.json", diags);
+	CHECK(diags.WarningCount() == 2);  // "Quest" is the token
+	const auto has = [&](std::string_view a_text) {
+		return std::ranges::any_of(diags.Items(), [&](const Diagnostic& d) { return d.message.find(a_text) != std::string::npos; });
+	};
+	CHECK(has("keep.always: category pattern \"equiped\" matches no known category; did you mean \"equipped\"?"));
+	CHECK(has("keep.always: category pattern \"favourite\" matches no known category; did you mean \"favorited\"?"));
 }
 
 namespace

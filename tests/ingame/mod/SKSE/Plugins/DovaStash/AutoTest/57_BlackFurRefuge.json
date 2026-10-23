@@ -3,7 +3,6 @@
   "name": "Black Fur Refuge - Solstheim Northern Cabin Player Home (solstheimretreat.esp, mod home; respawning containers in a cell that never resets, no displays)",
   "home": "solstheimretreat.esp|0x00005A00",
   "coc": "00BlackFurRefuge",
-  "templates": ["57_BlackFurRefuge.json"],
   "tests": [
     {
       "id": "1.1-blackfur", "title": "Template offered on the first visit",
@@ -11,22 +10,23 @@
         {"do": "enter"},
         {"check": "home", "is": true, "layout": false},
         {"check": "log", "since": "plan", "regex": "Cell .*\\(solstheimretreat\\.esp\\|0x00005A00\\): template available"},
-        {"check": "notify", "since": "plan", "regex": "Dova Stash: Black Fur Refuge \\(AutoTest\\) setup available"}
+        {"check": "notify", "since": "plan", "regex": "Dova Stash: Black Fur Refuge setup available"}
       ]
     },
     {
-      "id": "3.6-blackfur", "title": "Use template, Deposit: a potion with no container goes to the master, food to the chest",
+      "id": "3.6-blackfur", "title": "Use template, Deposit: potions to the strong box by the master chest, food to the chest",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Black Fur Refuge (AutoTest) setup enabled"},
-        {"check": "layout", "pointer": "/basedOn", "eq": "Templates/AutoTest/57_BlackFurRefuge.json@1.0.0"},
+        {"check": "notify", "contains": "Dova Stash: Black Fur Refuge setup enabled"},
+        {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/BlackFurRefuge.json@"},
+        {"check": "log", "since": "run", "regex": ": template Templates/Mods/BlackFurRefuge\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "solstheimretreat.esp|0x0000ADFE"},
         {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
         {"do": "additem", "item": "Skyrim.esm|0x00065C99", "count": 2},
         {"do": "snapshot", "name": "dep"},
         {"do": "op", "op": "Deposit"},
         {"do": "waitIdle"},
-        {"check": "count", "in": "solstheimretreat.esp|0x0000ADFE", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
+        {"check": "count", "in": "solstheimretreat.esp|0x0000FF39", "item": "Skyrim.esm|0x0003EADD", "from": "dep", "ge": 2},
         {"check": "count", "in": "solstheimretreat.esp|0x0000FF38", "item": "Skyrim.esm|0x00065C99", "from": "dep", "ge": 2},
         {"check": "conserved", "snapshot": "dep"},
         {"check": "noErrors"}
@@ -42,7 +42,7 @@
       ]
     },
     {
-      "id": "2.2-blackfur-equipped", "title": "Equipped gear stays on the player, the spare copy goes to the master",
+      "id": "2.2-blackfur-equipped", "title": "Equipped gear stays on the player, the spare copy goes to the weapons chest",
       "steps": [
         {"do": "additem", "item": "Skyrim.esm|0x00012EB7", "count": 2},
         {"do": "equip", "item": "Skyrim.esm|0x00012EB7"},
@@ -51,7 +51,7 @@
         {"do": "waitIdle"},
         {"check": "count", "item": "Skyrim.esm|0x00012EB7", "filter": "worn", "eq": 1},
         {"check": "count", "item": "Skyrim.esm|0x00012EB7", "eq": 1},
-        {"check": "count", "in": "solstheimretreat.esp|0x0000ADFE", "item": "Skyrim.esm|0x00012EB7", "from": "worn", "eq": 1},
+        {"check": "count", "in": "solstheimretreat.esp|0x00005B39", "item": "Skyrim.esm|0x00012EB7", "from": "worn", "eq": 1},
         {"check": "conserved", "snapshot": "worn"},
         {"check": "noErrors"}
       ]

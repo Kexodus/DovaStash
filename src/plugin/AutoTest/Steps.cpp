@@ -3,14 +3,23 @@
 #include "AutoTest/LogCapture.h"
 #include "Controller.h"
 #include "Events/EventSinks.h"
+#include "Game/Displays.h"
+#include "Game/Eligibility.h"
 #include "Game/FormUtil.h"
 #include "Game/ItemMover.h"
 #include "Home/HomeRegistry.h"
 #include "Home/Store.h"
 #include "Hooks/CraftingHooks.h"
+#include "Input/InputHandler.h"
 #include "Settings.h"
 #include "Sort/CraftingStorage.h"
 #include "Sort/DisplayFiller.h"
+#include "UI/ArmorSetMenu.h"
+#include "UI/MessageBox.h"
+#include "UI/Panel/DisplaysModel.h"
+#include "UI/Panel/KeyCapture.h"
+#include "UI/Panel/PanelModel.h"
+#include "UI/UIExtensions.h"
 
 #include <fstream>
 #include <regex>
@@ -72,6 +81,21 @@ namespace dova::autotest
 		{
 			auto* player = game::Player();
 			return player ? player->GetParentCell() : nullptr;
+		}
+
+		// "home", "displays", "settings", "about": a panel page (the panel check's status, panelVisible).
+		ui::panel::Page PanelPage(std::string_view a_name)
+		{
+			if (core::IEquals(a_name, "displays")) {
+				return ui::panel::Page::Displays;
+			}
+			if (core::IEquals(a_name, "settings")) {
+				return ui::panel::Page::Settings;
+			}
+			if (core::IEquals(a_name, "about")) {
+				return ui::panel::Page::About;
+			}
+			return ui::panel::Page::Home;
 		}
 
 		// "player", "master" (the current home's master), or a FormRef.
@@ -230,6 +254,15 @@ namespace dova::autotest
 			return a_filter == "plain" ? total - special : matching;
 		}
 
+		// Harness ignore list (every snapshot, every plan): forms that are no items. A container's base inventory can
+		// list a leveled list (LVLI, e.g. Skyrim.esm|0x0010FCFB LItemBarrelFoodSame70 in a Hearthfire barrel) until the
+		// engine resolves it into items when the container is first opened or resets; it then "disappears". Not a move
+		// of Dova Stash's: left out.
+		bool IsEngineToken(const RE::TESBoundObject* a_object)
+		{
+			return a_object->Is(RE::FormType::LeveledItem);
+		}
+
 		void Collect(Snapshot& a_snap, const std::string& a_holder, RE::TESObjectREFR* a_ref)
 		{
 			if (!a_ref) {
@@ -237,31 +270,113 @@ namespace dova::autotest
 			}
 			auto& counts = a_snap.holders[a_holder];
 			for (const auto& [object, count] : a_ref->GetInventoryCounts()) {
-				if (object && count > 0) {
+				if (object && count > 0 && !IsEngineToken(object)) {
 					const auto ref = game::ToFormRef(object);
 					counts[ref ? ref->ToString() : game::Describe(object)] += count;
 				}
 			}
 		}
 
-		// The player and every container of the player's cell.
-		// The player, every container of the player's cell and, in a home over several cells (DESIGN §6.7), the
-		// layout's containers in its other cells that are in memory (persistent ones): a Deposit from the grounds
-		// into the hall is a move, not a loss.
+		// The entries of the hotkey menu that is up: the pending UIExtensions list, else the open message box's
+		// buttons (the last box Dova Stash queued). Empty when neither is up.
+		std::vector<std::string> MenuEntries(std::string* a_source = nullptr)
+		{
+			if (auto list = ui::uiext::PendingList(); list.serial != 0) {
+				if (a_source) {
+					*a_source = "list";
+				}
+				return list.entries;
+			}
+			if (!MessageBoxText().empty()) {
+				if (a_source) {
+					*a_source = "message box";
+				}
+				return ui::LastMessageBoxButtons();
+			}
+			return {};
+		}
+
+		// The entry `a_text` names: the one equal to it, else the first that starts with it. -1 when none.
+		std::int32_t FindEntry(const std::vector<std::string>& a_entries, const std::string& a_text)
+		{
+			for (std::size_t i = 0; i < a_entries.size(); ++i) {
+				if (a_entries[i] == a_text) {
+					return static_cast<std::int32_t>(i);
+				}
+			}
+			for (std::size_t i = 0; i < a_entries.size(); ++i) {
+				if (a_entries[i].starts_with(a_text)) {
+					return static_cast<std::int32_t>(i);
+				}
+			}
+			return -1;
+		}
+
+		// A weapon or shield lying in the world: what a weapon rack holds (the item itself, moved onto it). Not books
+		// or plaque items: a bookshelf shows copies of the books it holds, which would count twice.
+		bool IsLooseItem(RE::TESObjectREFR* a_ref)
+		{
+			const auto* base = a_ref ? a_ref->GetBaseObject() : nullptr;
+			if (!base || a_ref->IsDisabled() || a_ref->IsDeleted()) {
+				return false;
+			}
+			const auto* armor = base->As<RE::TESObjectARMO>();
+			return base->Is(RE::FormType::Weapon) || (armor && armor->IsShield());
+		}
+
+		// Where the racks of `a_displays` hold their weapon: each trigger's bounds (the test Displays' RackHoldsItem
+		// uses). A loose weapon anywhere else (a pickaxe by a Hearthfire woodpile) is the game's: NPCs take it.
+		std::vector<std::pair<RE::NiPoint3, float>> RackZones(const std::vector<game::FoundDisplay>& a_displays)
+		{
+			std::vector<std::pair<RE::NiPoint3, float>> zones;
+			for (const auto& d : a_displays) {
+				auto* trigger = d.kind == core::DisplayKind::Rack ? RE::TESForm::LookupByID<RE::TESObjectREFR>(d.trigger) : nullptr;
+				auto* root = trigger ? trigger->Get3D() : nullptr;
+				if (!root) {
+					continue;
+				}
+				const bool bounded = root->worldBound.radius > 1.0f;
+				zones.emplace_back(bounded ? root->worldBound.center : root->world.translate, bounded ? std::clamp(root->worldBound.radius, 48.0f, 160.0f) : 96.0f);
+			}
+			return zones;
+		}
+
+		// The player, every container of the player's cell, what its displays hold (a mannequin's worn armor;
+		// a rack's weapon lies in the world: every weapon and shield within a rack's trigger bounds, as "world")
+		// and, in a home over several cells (DESIGN §6.7), the layout's containers in its other cells that are in
+		// memory (persistent ones): a Deposit from the grounds into the hall, or onto a mannequin, is a move, not a
+		// loss. Other loose items are left out: NPCs pick them up or eat them, which is not Dova Stash's doing.
 		Snapshot TakeSnapshot()
 		{
 			Snapshot snap;
 			Collect(snap, "player", game::Player());
 			std::set<RE::TESObjectREFR*> seen;
 			if (auto* cell = PlayerCell()) {
+				auto&      world = snap.holders["world"];
+				const auto displays = game::FindDisplays(cell);
+				const auto zones = RackZones(displays);
+				const auto onRack = [&](RE::TESObjectREFR* a_ref) {
+					return std::ranges::any_of(zones, [&](const auto& a_zone) { return a_ref->GetPosition().GetDistance(a_zone.first) <= a_zone.second; });
+				};
 				cell->ForEachReference([&](RE::TESObjectREFR* a_ref) {
 					if (a_ref && game::IsContainerRef(a_ref) && !a_ref->IsDisabled()) {
 						const auto ref = game::ToFormRef(a_ref);
 						Collect(snap, ref ? ref->ToString() : game::Describe(a_ref), a_ref);
 						seen.insert(a_ref);
+					} else if (IsLooseItem(a_ref) && onRack(a_ref)) {
+						auto*      base = a_ref->GetBaseObject();
+						const auto ref = game::ToFormRef(base);
+						world[ref ? ref->ToString() : game::Describe(base)] += std::max<std::int32_t>(1, a_ref->extraList.GetCount());
 					}
 					return RE::BSContainer::ForEachResult::kContinue;
 				});
+				for (const auto& d : displays) {
+					auto* object = RE::TESForm::LookupByID<RE::TESObjectREFR>(d.ref);
+					if (d.kind == core::DisplayKind::Mannequin && object && !seen.contains(object)) {
+						Collect(snap, "mannequin " + game::Describe(object), object);
+						seen.insert(object);
+					}
+				}
 			}
 			if (auto* home = CurrentHome(); home && home->layout) {
 				auto add = [&](const core::FormRef& a_ref) {
@@ -667,6 +782,256 @@ namespace dova::autotest
 					return CheckRecord{ !failure, std::format("files {}/{}{}", s.value("dir", "Layouts"s), regexText, Expectation(s)), failure.value_or(std::format("{}", n)) };
 				});
 			}
+			if (a_kind == "menuEntries") {
+				// The hotkey menu that is up: "contains" (each text starts an entry), "lacks" (no entry starts with
+				// it), "eq" (exactly these entries, in order), "order" (entries starting with these texts, in this order,
+				// others between them allowed), "body" (a message box's text contains it).
+				return Check(s, c, [s]() {
+					std::string source;
+					const auto  entries = MenuEntries(&source);
+					CheckRecord r{ true, "hotkey menu entries", {} };
+					std::string problems;
+					for (const auto& want : s.value("contains", Json::array())) {
+						if (FindEntry(entries, want.get<std::string>()) < 0) {
+							problems += std::format("{}missing \"{}\"", problems.empty() ? "" : "; ", want.get<std::string>());
+						}
+					}
+					for (const auto& unwanted : s.value("lacks", Json::array())) {
+						if (FindEntry(entries, unwanted.get<std::string>()) >= 0) {
+							problems += std::format("{}has \"{}\"", problems.empty() ? "" : "; ", unwanted.get<std::string>());
+						}
+					}
+					if (s.contains("eq") && s["eq"].get<std::vector<std::string>>() != entries) {
+						problems += std::format("{}not exactly {}", problems.empty() ? "" : "; ", s["eq"].dump());
+					}
+					std::int32_t last = -1;
+					for (const auto& want : s.value("order", Json::array())) {
+						const auto text = want.get<std::string>();
+						std::int32_t at = -1;
+						for (std::size_t i = static_cast<std::size_t>(last + 1); i < entries.size(); ++i) {
+							if (entries[i].starts_with(text)) {
+								at = static_cast<std::int32_t>(i);
+								break;
+							}
+						}
+						if (at < 0) {
+							problems += std::format("{}\"{}\" not after entry {}", problems.empty() ? "" : "; ", text, last);
+							break;
+						}
+						last = at;
+					}
+					if (s.contains("body")) {
+						const auto body = MessageBoxText();
+						if (body.find(s["body"].get<std::string>()) == std::string::npos) {
+							problems += std::format("{}body is \"{}\"", problems.empty() ? "" : "; ", body);
+						}
+					}
+					std::string shown;
+					for (const auto& e : entries) {
+						shown += std::format("{}\"{}\"", shown.empty() ? "" : ", ", e);
+					}
+					r.ok = !entries.empty() && problems.empty();
+					r.detail = entries.empty() ? "no hotkey menu is up" : std::format("{} ({}: {})", problems, source, shown);
+					return r;
+				});
+			}
+			if (a_kind == "panel") {
+				// What the Menu Framework panel shows for this home, from a snapshot built now (main thread): a template's
+				// row ("template": source, with "hidden" / "applied" / "best" true or false), an item in the keep
+				// rules' Add item picker ("inventoryHas": form ref), the container marked aimed ("aimed": form ref, or
+				// null for none), whether Use template asks first ("ownChanges": bool), a row of All templates
+				// ("catalogue": {"source", "installed"}: Only installed homes shows it), the name a keep rule's item shows
+				// ("keepEntry": form ref, "name": text; "" = not loaded) and the display marked aimed on the Displays page
+				// ("displayAimed": form ref, or null; the page's snapshot is rebuilt in a task: use "within").
+				return Check(s, c, [s]() {
+					auto& model = ui::panel::PanelModel::Get();
+					model.Rebuild(ui::panel::Refresh::Light);
+					const auto  snap = model.Home();
+					CheckRecord r{ false, "panel", {} };
+					if (!snap) {
+						r.detail = "no snapshot";
+						return r;
+					}
+					if (s.contains("template")) {
+						const auto source = s["template"].get<std::string>();
+						r.what = std::format("panel template {}", source);
+						const auto it = std::ranges::find(snap->templates, source, &ui::panel::TemplateOption::source);
+						if (it == snap->templates.end()) {
+							r.detail = "not listed for this home";
+							return r;
+						}
+						r.ok = true;
+						for (const auto& [key, value] : std::initializer_list<std::pair<const char*, bool>>{ { "hidden", it->hidden }, { "applied", it->applied }, { "best", it->best } }) {
+							if (s.contains(key)) {
+								r.what += std::format(" {} {}", key, s[key].get<bool>());
+								if (s[key].get<bool>() != value) {
+									r.ok = false;
+									r.detail += std::format("{}{} is {}", r.detail.empty() ? "" : "; ", key, value);
+								}
+							}
+						}
+						return r;
+					}
+					if (s.contains("inventoryHas")) {
+						const auto ref = Ref(s["inventoryHas"]);
+						r.what = std::format("panel keep picker lists {}", ref ? ref->ToString() : "?");
+						r.ok = ref && std::ranges::any_of(snap->inventory, [&](const ui::panel::InventoryEntry& e) { return e.refText == ref->ToString(); });
+						r.detail = std::format("{} items listed", snap->inventory.size());
+						return r;
+					}
+					if (s.contains("aimed")) {
+						const auto want = s["aimed"].is_null() ? std::optional<core::FormRef>{} : Ref(s["aimed"]);
+						const auto* row = snap->aimedRow && *snap->aimedRow < snap->containers.size() ? &snap->containers[*snap->aimedRow] : nullptr;
+						r.what = std::format("panel aimed {}", want ? want->ToString() : "none"s);
+						r.ok = want ? row && row->ref == *want : row == nullptr;
+						r.detail = row ? std::format("aimed is {} ({})", row->refText, row->managed ? "managed" : "not managed") : "nothing aimed";
+						if (s.contains("managed") && row) {
+							// An unmanaged container the player looks at gets a row of its own.
+							r.what += std::format(" managed {}", s["managed"].get<bool>());
+							r.ok = r.ok && row->managed == s["managed"].get<bool>();
+						}
+						return r;
+					}
+					if (s.contains("keepEntry")) {
+						const auto ref = Ref(s["keepEntry"]);
+						const auto want = s.value("name", ""s);
+						const auto it = ref ? snap->keepNames.find(ref->ToString()) : snap->keepNames.end();
+						r.what = std::format("panel keep rule {} shows \"{}\"", ref ? ref->ToString() : "?"s, want);
+						r.ok = it != snap->keepNames.end() && it->second == want;
+						r.detail = it == snap->keepNames.end() ? std::format("not in the keep rules ({} named)", snap->keepNames.size()) : std::format("shows \"{}\"", it->second);
+						return r;
+					}
+					if (s.contains("displayAimed")) {
+						const auto want = s["displayAimed"].is_null() ? std::optional<core::FormRef>{} : Ref(s["displayAimed"]);
+						auto&      displays = ui::panel::DisplaysModel::Get();
+						displays.RequestRefresh(true);
+						const auto dsnap = displays.Snapshot();
+						const auto* row = dsnap && dsnap->aimedRow && *dsnap->aimedRow < dsnap->rows.size() ? &dsnap->rows[*dsnap->aimedRow] : nullptr;
+						r.what = std::format("panel displays aimed {}", want ? want->ToString() : "none"s);
+						r.ok = want ? row && row->ref == *want : dsnap && row == nullptr;
+						r.detail = row ? std::format("aimed is {}", row->refText) : dsnap ? "nothing aimed"s : "no snapshot"s;
+						return r;
+					}
+					if (s.contains("ownChanges")) {
+						const bool want = s["ownChanges"].get<bool>();
+						r.what = std::format("panel ownChanges {}", want);
+						r.ok = snap->ownChanges == want;
+						r.detail = std::format("is {}", snap->ownChanges);
+						return r;
+					}
+					if (s.contains("catalogue")) {
+						const auto& cat = s["catalogue"];
+						const auto  source = cat.value("source", ""s);
+						model.BuildGlobal();
+						const auto global = model.Global();
+						r.what = std::format("panel All templates lists {}", source);
+						const ui::panel::TemplateInfo* info = nullptr;
+						if (global) {
+							for (const auto& t : global->templates) {
+								if (core::IEquals(t.source, source)) {
+									info = &t;
+									break;
+								}
+							}
+						}
+						if (!info) {
+							r.detail = "not listed";
+							return r;
+						}
+						r.ok = true;
+						if (cat.contains("installed")) {
+							r.what += std::format(" installed {}", cat["installed"].get<bool>());
+							r.ok = info->Installed() == cat["installed"].get<bool>();
+							r.detail = std::format("installed is {} (home loaded {}, {} missing)", info->Installed(), info->homeLoaded, info->missing.size());
+						}
+						return r;
+					}
+					if (s.contains("status")) {
+						// The status line of a page ("page": home, displays, settings, about): "contains" (text), "empty"
+						// (true: nothing shown there), "error" (red). Only filled while the panel is drawn (panelVisible).
+						const auto& st = s["status"];
+						const auto  pageName = st.value("page", "home"s);
+						const auto  text = model.Status(PanelPage(pageName));
+						const bool  error = model.StatusIsError();
+						r.what = std::format("panel status on {} {}", pageName, st.dump());
+						r.ok = true;
+						if (st.contains("contains")) {
+							r.ok = r.ok && text.find(st["contains"].get<std::string>()) != std::string::npos;
+						}
+						if (st.value("empty", false)) {
+							r.ok = r.ok && text.empty();
+						}
+						if (st.contains("error")) {
+							r.ok = r.ok && !text.empty() && error == st["error"].get<bool>();
+						}
+						r.detail = text.empty() ? "no status" : std::format("\"{}\"{}", text, error ? " (red)" : "");
+						return r;
+					}
+					r.detail = "nothing to check (template, inventoryHas, aimed, keepEntry, displayAimed, ownChanges, catalogue or status)";
+					return r;
+				});
+			}
+			if (a_kind == "displayHolds") {
+				// What a display holds now: "ref" (the display: rack activator, mannequin, case or bookshelf container) and
+				// "item" (a base form; "holds": false for "does not hold it"). A mannequin, case or bookshelf: its inventory
+				// (game::DisplayHolds); a rack: a loose reference of the item inside its trigger's bounds. "refs" (an array in
+				// place of "ref"): one of those displays holds it (none of them, with "holds": false), for a home with many
+				// racks or shelves where the filler picks which one.
+				return Check(s, c, [s]() {
+					const Json refs = s.contains("refs") ? s["refs"] : Json::array({ s.value("ref", Json()) });
+					auto*      item = Item(s);
+					const bool want = s.value("holds", true);
+					CheckRecord r{ false, std::format("display {} {} {}", s.contains("refs") ? "one of " + refs.dump() : Text(s.value("ref", Json())),
+											 want ? "holds" : "does not hold", Name(item)), {} };
+					if (!item) {
+						r.detail = "item not found";
+						return r;
+					}
+					bool        holds = false;
+					bool        judged = false;  // at least one of them could be looked at
+					std::string details;
+					for (const auto& one : refs) {
+						const auto ref = Ref(one);
+						auto*      object = ref ? game::LookupRef(*ref) : nullptr;
+						const auto found = object ? game::InspectDisplay(object) : std::nullopt;
+						std::string detail;
+						if (!found) {
+							detail = !object ? "display not found" : "not a display Dova Stash knows";
+						} else if (found->kind == core::DisplayKind::Rack) {
+							auto* trigger = RE::TESForm::LookupByID<RE::TESObjectREFR>(found->trigger);
+							auto* root = trigger ? trigger->Get3D() : nullptr;
+							auto* cell = object->GetParentCell();
+							if (!root || !cell) {
+								detail = "the rack's trigger has no 3D";
+							} else {
+								const auto  center = root->worldBound.radius > 1.0f ? root->worldBound.center : root->world.translate;
+								const float radius = std::clamp(root->worldBound.radius, 48.0f, 160.0f);
+								bool        here = false;
+								cell->ForEachReference([&](RE::TESObjectREFR* a_ref) {
+									if (a_ref && a_ref->GetBaseObject() == item && !a_ref->IsDisabled() && a_ref->GetPosition().GetDistance(center) <= radius) {
+										here = true;
+										return RE::BSContainer::ForEachResult::kStop;
+									}
+									return RE::BSContainer::ForEachResult::kContinue;
+								});
+								holds = holds || here;
+								judged = true;
+								detail = std::format("rack {}", here ? "holds it" : "does not hold it");
+							}
+						} else {
+							const auto held = game::DisplayHolds(*found);
+							const bool here = std::ranges::find(held, item) != held.end();
+							holds = holds || here;
+							judged = true;
+							detail = std::format("{} {}", core::DisplayKindName(found->kind), here ? "holds it" : "does not hold it");
+						}
+						details += (details.empty() ? "" : "; ") + (refs.size() > 1 ? Text(one) + ": " : ""s) + detail;
+					}
+					r.ok = judged && holds == want;
+					r.detail = std::move(details);
+					return r;
+				});
+			}
 			if (a_kind == "conserved") {
 				return Check(s, c, [s, &c]() {
 					const auto  name = s.value("snapshot", ""s);
@@ -810,7 +1175,11 @@ namespace dova::autotest
 				return Check(s, c, [s]() {
 					auto*       home = CurrentHome();
 					const auto* best = home ? home->BestTemplate() : nullptr;
-					const auto  want = s.value("source", ""s);
+					// "source": null = no template is offered for this cell.
+					if (s.contains("source") && s["source"].is_null()) {
+						return CheckRecord{ best == nullptr, "no template offered", best ? best->source : "none" };
+					}
+					const auto want = s.value("source", ""s);
 					return CheckRecord{ best && core::IEquals(best->source, want), std::format("best template is {}", want), best ? best->source : "none" };
 				});
 			}
@@ -973,6 +1342,14 @@ namespace dova::autotest
 					AbortTest(c, a_kind, "the player is not in a home");
 					return std::nullopt;
 				}
+				// Only the plan's home (or a cell its own `enter` steps went to): a step before `enter` would otherwise
+				// act on the home the previous plan left the player in.
+				const bool planHome = !c.home.IsValid() || home->cell == c.home || c.planCells.contains(home->cellId) ||
+				                      std::ranges::any_of(home->areas, [&](const home::Area& a_area) { return a_area.cell == c.home; });
+				if (!planHome) {
+					AbortTest(c, a_kind, std::format("the player is in {}, not the plan's home (enter it first)", home->name));
+					return std::nullopt;
+				}
 				return home->cellId;
 			};
 			auto refArg = [&](std::string_view a_key = "ref") -> std::optional<core::FormRef> {
@@ -1000,7 +1377,11 @@ namespace dova::autotest
 					}
 					return Clock::now() - **settled > 3s;
 				},
-					c);
+					c, true, [&c]() {
+						if (auto* cell = PlayerCell()) {
+							c.planCells.insert(cell->GetFormID());
+						}
+					});
 			}
 			if (a_kind == "require") {
 				// The home as this game has it: furniture a player buys or builds first (Breezehome's racks, Hearthfire)
@@ -1081,24 +1462,38 @@ namespace dova::autotest
 					}
 					return std::nullopt;
 				}
-				RE::TESObjectREFR* target = object;
+				// The whole enable-parent chain (a Hearthfire wing: built-wing marker -> furniture marker -> station), top
+				// first: a disabled marker in the middle keeps the station unusable although it is enabled itself.
+				std::vector<RE::TESObjectREFR*> chain{ object };
 				for (int depth = 0; depth < 8; ++depth) {
-					const auto* parent = target->extraList.GetByType<RE::ExtraEnableStateParent>();
+					const auto* parent = chain.back()->extraList.GetByType<RE::ExtraEnableStateParent>();
 					auto        next = parent ? parent->parent.get() : RE::NiPointer<RE::TESObjectREFR>{};
-					if (!next || !next->IsDisabled()) {
+					if (!next) {
 						break;
 					}
-					target = next.get();
+					chain.push_back(next.get());
 				}
-				logger::info("AutoTest: enabling {}", Name(target));
-				Console("enable", target);
-				if (target != object && object->IsDisabled()) {
-					Console("enable", object);
+				if (game::IsEffectivelyDisabled(object)) {
+					c.planEnabled.insert(object->GetFormID());  // off in this save until now (sit's skipIfClosed)
 				}
-				// Enabled and, for something in the player's cell, with its 3D up: a station enabled a moment ago has none
-				// yet, and sitting at it opens no menu (Heljarchen's anvil in the first runs).
+				for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+					if ((*it)->IsDisabled()) {
+						logger::info("AutoTest: enabling {}", Name(*it));
+						Console("enable", *it);
+					}
+				}
+				// Enabled through its parents and, for something in the player's cell, with its 3D attached to the cell: a
+				// station enabled a moment ago has none yet, and sitting at it opens no menu (Heljarchen's and Lakeview's
+				// anvils in earlier runs).
 				const bool here = object->GetParentCell() == PlayerCell();
-				return WaitFor(std::format("{} enabled", ref->ToString()), 5.0, [object, here]() { return !object->IsDisabled() && (!here || object->Is3DLoaded()); }, c, false);
+				return WaitFor(std::format("{} enabled", ref->ToString()), 10.0, [object, here]() {
+					if (object->IsDisabled() || game::IsEffectivelyDisabled(object)) {
+						return false;
+					}
+					auto* cell = object->GetParentCell();
+					return !here || (object->Is3DLoaded() && object->Get3D() && cell && cell->IsAttached());
+				},
+					c, false);
 			}
 			if (a_kind == "enter") {
 				std::string target = s.value("coc", ""s);
@@ -1131,6 +1526,9 @@ namespace dova::autotest
 					c, true, [&c, target]() {
 						events::RegisterPlayerSinks();  // as kNewGame / kPostLoadGame do; a game started by coc sends neither
 						c.Record(true, std::format("entered {}", target));
+						if (auto* cell = PlayerCell()) {
+							c.planCells.insert(cell->GetFormID());
+						}
 					});
 				auto finish = wait.finish;
 				wait.finish = [finish, &c](bool a_timedOut) {
@@ -1268,6 +1666,13 @@ namespace dova::autotest
 				}
 				return std::nullopt;
 			}
+			if (a_kind == "hideTemplate") {
+				// The panel's Remove... (`hidden`: true, the default) and Add back under Templates.
+				if (const auto cell = cellId()) {
+					Controller::Get().SetTemplateHidden(*cell, s.at("source").get<std::string>(), s.value("hidden", true));
+				}
+				return std::nullopt;
+			}
 			if (a_kind == "reset") {
 				if (const auto cell = cellId()) {
 					Controller::Get().ResetHome(*cell);
@@ -1317,6 +1722,28 @@ namespace dova::autotest
 				const auto cell = cellId();
 				if (const auto ref = cell ? refArg() : std::nullopt) {
 					Controller::Get().SetLabel(*cell, *ref, s.value("label", ""s));
+				}
+				return std::nullopt;
+			}
+			if (a_kind == "aim") {
+				// What the crosshair reports, as if the player looked at "ref" ("ref": null, at nothing); "clear": true
+				// gives it back to the game. The panel and the hotkey's target read it (events::CrosshairTarget).
+				if (s.value("clear", false)) {
+					events::OverrideCrosshair(std::nullopt);
+					return std::nullopt;
+				}
+				if (s.contains("ref") && s["ref"].is_null()) {
+					events::OverrideCrosshair(RE::RefHandle{ 0 });
+					return std::nullopt;
+				}
+				const auto ref = refArg();
+				auto*      object = ref ? game::LookupRef(*ref) : nullptr;
+				if (ref && !object) {
+					AbortTest(c, a_kind, std::format("{} is not loaded", ref->ToString()));
+					return std::nullopt;
+				}
+				if (object) {
+					events::OverrideCrosshair(object->GetHandle().native_handle());
 				}
 				return std::nullopt;
 			}
@@ -1390,11 +1817,119 @@ namespace dova::autotest
 				Controller::Get().SetKeep(*cell, std::move(keep));
 				return std::nullopt;
 			}
+			if (a_kind == "chooseArmorSet") {
+				// The set picker's choice for a mannequin (hotkey menu and Displays page): "set" names a piece of the set,
+				// null or absent = Auto.
+				const auto cell = cellId();
+				if (const auto ref = cell ? refArg() : std::nullopt) {
+					std::optional<core::FormRef> set;
+					if (s.contains("set") && !s["set"].is_null()) {
+						set = Ref(s["set"]);
+						if (!set) {
+							AbortTest(c, a_kind, "\"set\" is not a form ref");
+							return std::nullopt;
+						}
+					}
+					ui::ChooseArmorSet(*cell, *ref, set);
+				}
+				return std::nullopt;
+			}
 			if (a_kind == "displayUse") {
 				const auto cell = cellId();
 				if (const auto ref = cell ? refArg() : std::nullopt) {
 					Controller::Get().SetDisplayUsed(*cell, *ref, s.value("on", true));
 				}
+				return std::nullopt;
+			}
+			if (a_kind == "displayCategories") {
+				// A used display's categories, as its picker ticks them: "ref" and "categories" (patterns, also ones
+				// the picker would not offer; [] clears). The display must be in use (displayUse first).
+				const auto cell = cellId();
+				const auto ref = cell ? refArg() : std::nullopt;
+				if (!ref) {
+					return std::nullopt;
+				}
+				auto*       home = CurrentHome();
+				const auto* binding = home && home->layout ? home->layout->FindDisplay(*ref) : nullptr;
+				if (!binding) {
+					AbortTest(c, a_kind, std::format("{} is not a display of the setup (displayUse first)", ref->ToString()));
+					return std::nullopt;
+				}
+				std::vector<std::string> want;
+				for (const auto& p : s.value("categories", Json::array())) {
+					want.push_back(p.get<std::string>());
+				}
+				const auto current = binding->categories;  // toggling changes the binding
+				for (const auto& p : current) {
+					if (std::ranges::none_of(want, [&](const std::string& w) { return core::IEquals(w, p); })) {
+						Controller::Get().ToggleDisplayCategory(*cell, *ref, p);
+					}
+				}
+				for (const auto& w : want) {
+					if (std::ranges::none_of(current, [&](const std::string& p) { return core::IEquals(w, p); })) {
+						Controller::Get().ToggleDisplayCategory(*cell, *ref, w);
+					}
+				}
+				return std::nullopt;
+			}
+			if (a_kind == "setCategories") {
+				// One container's categories, as the category picker sets them (Clear categories, then a tick per
+				// pattern): "ref" and "categories" (patterns; [] clears). The rest of the setup stays.
+				const auto cell = cellId();
+				const auto ref = cell ? refArg() : std::nullopt;
+				if (!ref) {
+					return std::nullopt;
+				}
+				auto*       home = CurrentHome();
+				const auto* binding = home && home->layout ? home->layout->FindContainer(*ref) : nullptr;
+				if (binding && !binding->categories.empty()) {
+					Controller::Get().ClearCategories(*cell, *ref);
+				}
+				for (const auto& pattern : s.value("categories", Json::array())) {
+					Controller::Get().ToggleCategory(*cell, *ref, pattern.get<std::string>());
+				}
+				logger::info("AutoTest: categories of {} set to {}", ref->ToString(), s.value("categories", Json::array()).dump());
+				return std::nullopt;
+			}
+			if (a_kind == "panelVisible") {
+				// The Menu Framework panel as if it were drawn now ("page": home, displays, settings, about): for 1.5 s
+				// the Controller's notices go to its status line (PanelModel::SetStatus) instead of the HUD.
+				ui::panel::PanelModel::Get().MarkRendered(PanelPage(s.value("page", "home"s)));
+				return std::nullopt;
+			}
+			if (a_kind == "bindHotkey") {
+				// Settings > Hotkey's press-to-bind (UI/Panel/KeyCapture.h) as the page runs it: Begin, one key press
+				// through the capture's own input path (FeedForTest), then the page's apply (Controller::ApplySettings).
+				// "target": "keyboard" (default) or "gamepad"; "code": the SKSE key code pressed; "cancel": true ends the
+				// wait instead; "clear": true is the gamepad row's Clear (no wait). Logs what the page would show.
+				namespace kc = ui::panel::key_capture;
+				const auto target = s.value("target", "keyboard"s) == "gamepad" ? kc::Target::Gamepad : kc::Target::Keyboard;
+				auto       values = Settings::GetSingleton().Get();
+				auto&      slot = target == kc::Target::Gamepad ? values.input.gamepadHotkey : values.input.hotkey;
+				if (s.value("clear", false)) {
+					slot = Settings::kNoKey;
+				} else {
+					const bool before = kc::FrameworkKeyEnabled();
+					kc::Begin(target);
+					const bool during = kc::FrameworkKeyEnabled();
+					if (s.value("cancel", false)) {
+						kc::Cancel();
+					} else {
+						kc::FeedForTest(s.value("code", 0));
+					}
+					const auto code = kc::TakeResult(target);
+					logger::info("Hotkey capture (test): {}; framework key on before {}, during {}, after {}", code ? input::KeyName(*code) : "nothing bound"s,
+						before, during, kc::FrameworkKeyEnabled());
+					if (!code) {
+						return std::nullopt;
+					}
+					slot = *code;
+				}
+				Controller::Get().ApplySettings(values);
+				const auto now = Settings::GetSingleton().GetInput();
+				const auto bound = target == kc::Target::Gamepad ? now.gamepadHotkey : now.hotkey;
+				logger::info("Hotkey capture (test): hotkey is now {}, gamepad {}; clash \"{}\"", Controller::HotkeyName(),
+					now.gamepadHotkey == Settings::kNoKey ? "off"s : input::KeyName(now.gamepadHotkey), bound == Settings::kNoKey ? ""s : kc::Clash(target, bound));
 				return std::nullopt;
 			}
 			if (a_kind == "fill") {
@@ -1491,8 +2026,10 @@ namespace dova::autotest
 					}
 					return Clock::now() - **opened > 500ms;
 				};
-				auto wait = WaitFor(std::format("container menu of {} open", ref->ToString()), 10.0, menuUp, c);
-				wait.deadline = Clock::now() + 4s;
+				auto wait = WaitFor(std::format("container menu of {} open", ref->ToString()), 16.0, menuUp, c);
+				// Past Browse's whole sequence (settle up to 3 s, activate, 3 s, the console's activation, 8 s): the
+				// harness never races Browse's own retry.
+				wait.deadline = Clock::now() + 16s;
 				wait.finish = [&c, menuUp, target = *ref](bool a_timedOut) {
 					if (!a_timedOut) {
 						return;
@@ -1516,6 +2053,41 @@ namespace dova::autotest
 					c.next = std::move(again);
 				};
 				return wait;
+			}
+			if (a_kind == "choose") {
+				// Chooses an entry of the hotkey menu that is up, the way the player would: "entry" (its text, or the
+				// start of it) or "index" (-1: Esc, which cancels; a list with a parent goes back to it). Waits for the
+				// menu to be on screen first, then for what the choice opens.
+				const auto entry = s.value("entry", ""s);
+				const auto index = s.value("index", -1);
+				auto       ready = []() { return ui::uiext::PendingList().shown || !MessageBoxText().empty(); };
+				return WaitFor("a hotkey menu on screen", 10.0, ready, c, true, [&c, entry, index]() {
+					std::string source;
+					const auto  entries = MenuEntries(&source);
+					auto chosen = entry.empty() ? index : FindEntry(entries, entry);
+					const bool cancel = entry.empty() && index == -1;
+					if (cancel && source != "list") {
+						chosen = static_cast<std::int32_t>(entries.size()) - 1;  // a message box's last button cancels
+					}
+					if (!cancel && (chosen < 0 || static_cast<std::size_t>(chosen) >= entries.size())) {
+						c.Record(false, std::format("choose \"{}\"", entry.empty() ? std::to_string(index) : entry), std::format("not in the {}", source));
+						c.abortTest = true;
+						return;
+					}
+					logger::info("AutoTest: choosing \"{}\" in the {}", chosen < 0 ? "(Esc)"s : entries[static_cast<std::size_t>(chosen)], source);
+					if (source == "list") {
+						ui::uiext::ChooseForTest(chosen);
+					} else {
+						PressMessageBoxButton(chosen);
+					}
+					// What the choice opens comes a moment later (a list, a box, a notification): settle.
+					const auto since = Clock::now();
+					c.next = WaitFor("the menu after the choice", 10.0, [since]() {
+						const auto list = ui::uiext::PendingList();
+						return Clock::now() - since > 1s && (list.serial == 0 || list.shown);
+					},
+						c, false);
+				});
 			}
 			if (a_kind == "answerMessageBox") {
 				const auto text = MessageBoxText();
@@ -1621,6 +2193,10 @@ namespace dova::autotest
 				player->MoveTo(station);
 				const auto menu = s.value("menu", std::string(RE::CraftingMenu::MENU_NAME));
 				const auto timeout = s.value("timeout", 20.0);
+				// "skipIfClosed": a station that was off in this save until the plan's own `enable` turned it on (a wing the
+				// save never built) and still opens no menu after every fallback is skipped with the reason, not failed. A
+				// station that was already there fails: then the menu should have opened.
+				const bool skipIfClosed = s.value("skipIfClosed", false) && c.planEnabled.contains(station->GetFormID());
 				auto       opened = std::make_shared<std::optional<Clock::time_point>>();
 				auto       menuUp = [menu, opened]() {
                     auto* ui = RE::UI::GetSingleton();
@@ -1633,14 +2209,16 @@ namespace dova::autotest
                     return Clock::now() - **opened > 1s;
 				};
 				// Right after a MoveTo (or a coc a moment ago) the player has no 3D yet and the furniture does not seat
-				// them: the activation is accepted (the crafting hook fires) but no menu opens. Settle first.
+				// them: the activation is accepted (the crafting hook fires) but no menu opens. Settle first. A station
+				// the plan has just enabled (a Hearthfire wing) needs its own 3D too.
 				const auto stationId = station->GetFormID();
 				const auto until = Clock::now() + 1500ms;
-				return WaitFor("settled at the station", 10.0, [until]() {
+				return WaitFor("settled at the station", 10.0, [until, stationId]() {
 					auto* p = game::Player();
-					return Clock::now() >= until && p && p->Is3DLoaded();
+					auto* st = RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId);
+					return Clock::now() >= until && p && p->Is3DLoaded() && st && !st->IsDisabled() && st->Is3DLoaded();
 				},
-					c, false, [&c, menu, menuUp, stationId, timeout]() {
+					c, false, [&c, menu, menuUp, stationId, timeout, skipIfClosed]() {
 						auto* p = game::Player();
 						auto* st = RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId);
 						if (!p || !st) {
@@ -1650,13 +2228,79 @@ namespace dova::autotest
 						auto wait = WaitFor(std::format("{} open", menu), timeout, menuUp, c);
 						wait.deadline = Clock::now() + 6s;
 						// Activating the station from the plugin may not seat the player: then the console does it.
-						wait.finish = [&c, menuUp, menu, stationId, timeout](bool a_timedOut) {
+						wait.finish = [&c, menuUp, menu, stationId, timeout, skipIfClosed](bool a_timedOut) {
 							if (!a_timedOut) {
 								return;
 							}
 							logger::info("AutoTest: the station did not open {} (open menus: {}); activating it with the console", menu, OpenMenus());
 							Console("activate player", RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId));
-							c.next = WaitFor(std::format("{} open", menu), timeout, menuUp, c);
+							auto again = WaitFor(std::format("{} open", menu), timeout, menuUp, c);
+							again.deadline = Clock::now() + 6s;
+							// Still nothing (the station's 3D came late): stand at it again and activate once more.
+							again.finish = [&c, menuUp, menu, stationId, timeout, skipIfClosed](bool a_timedOut2) {
+								if (!a_timedOut2) {
+									return;
+								}
+								auto* p = game::Player();
+								auto* st = RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId);
+								logger::info("AutoTest: the station still did not open {} (open menus: {}); moving to it and activating again", menu, OpenMenus());
+								if (p && st) {
+									p->MoveTo(st);
+								}
+								Console("activate player", st);
+								// Then keep at it until the menu opens: 6 s after the last activation (or the last moment the
+								// menu was up: it can open and close again while the player sits down), activate the station
+								// again. Seated at it, the menu is on its way: activate again only after 10 s seated. Never
+								// move the player here: a MoveTo unseats them and closes a menu that is opening. A timeout
+								// now means the station really opens nothing.
+								auto lastTry = std::make_shared<Clock::time_point>(Clock::now());
+								auto seatedSince = std::make_shared<std::optional<Clock::time_point>>();
+								auto retry = [menuUp, menu, stationId, lastTry, seatedSince]() {
+									if (menuUp()) {
+										return true;
+									}
+									auto* ui = RE::UI::GetSingleton();
+									if (ui && ui->IsMenuOpen(menu)) {
+										*lastTry = Clock::now();
+										return false;
+									}
+									auto* p = game::Player();
+									auto* st = RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId);
+									if (!p || !st) {
+										return false;
+									}
+									const auto seat = p->GetOccupiedFurniture().get();
+									const bool seated = seat && seat.get() == st;
+									if (!seated) {
+										seatedSince->reset();
+									} else if (!*seatedSince) {
+										*seatedSince = Clock::now();
+										logger::info("AutoTest: seated at {}, waiting for {}", Name(st), menu);
+									}
+									if (Clock::now() - *lastTry < 6s || (seated && Clock::now() - **seatedSince < 10s)) {
+										return false;
+									}
+									*lastTry = Clock::now();
+									seatedSince->reset();
+									logger::info("AutoTest: {} still not open (open menus: {}{}); activating {} again", menu, OpenMenus(), seated ? ", seated" : "", Name(st));
+									Console("activate player", st);
+									return false;
+								};
+								auto last = WaitFor(std::format("{} open", menu), timeout, retry, c);
+								if (skipIfClosed) {
+									last.finish = [&c, menu, stationId, timeout](bool a_timedOut3) {
+										if (!a_timedOut3) {
+											return;
+										}
+										auto* station = RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId);
+										c.skipReason = std::format("the station opened no menu: {} opened no {} after three activations ({} s each; open menus: {})",
+											station ? Name(station) : "?"s, menu, timeout, OpenMenus());
+										c.abortTest = true;
+									};
+								}
+								c.next = std::move(last);
+							};
+							c.next = std::move(again);
 						};
 						c.next = std::move(wait);
 					});
@@ -1834,9 +2478,28 @@ namespace dova::autotest
 				});
 			}
 			if (a_kind == "writeLayout" || a_kind == "deleteLayout" || a_kind == "writeBackup" || a_kind == "deleteBackup") {
-				// Only the plan's own home (refused at startup when a layout of the player's existed).
+				// The plan's own home (refused at startup when a layout of the player's existed), or with "cell" another
+				// cell this plan has entered (an `enter` step), for a second home's setup. Another cell's existing file
+				// is only replaced when this run wrote it (the runner sets the player's own aside before the game starts).
 				const bool backup = a_kind.ends_with("Backup");
-				const auto path = backup ? BackupFile(c.home) : std::optional(LayoutFile(c.home));
+				auto       home = c.home;
+				if (s.contains("cell")) {
+					const auto cellRef = Ref(s["cell"]);
+					auto*      cellForm = cellRef ? game::LookupForm(*cellRef) : nullptr;
+					if (!cellRef || !cellForm || !(*cellRef == c.home || c.planCells.contains(cellForm->GetFormID()))) {
+						AbortTest(c, a_kind, std::format("{} is not a cell this plan entered", Text(s["cell"])));
+						return std::nullopt;
+					}
+					if (!(*cellRef == c.home) && !backup && std::filesystem::exists(LayoutFile(*cellRef)) && !c.writtenLayouts.contains(cellRef->ToString())) {
+						AbortTest(c, a_kind, std::format("{} has a setup file this run did not write", cellRef->ToString()));
+						return std::nullopt;
+					}
+					home = *cellRef;
+					if (!backup) {
+						c.writtenLayouts.insert(cellRef->ToString());
+					}
+				}
+				const auto path = backup ? BackupFile(home) : std::optional(LayoutFile(home));
 				if (!path) {
 					AbortTest(c, a_kind, "no path");
 					return std::nullopt;

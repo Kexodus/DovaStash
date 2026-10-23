@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <format>
 #include <numbers>
 
@@ -18,6 +19,7 @@
 #include <imgui.h>
 
 #include "Util.h"
+#include "Log.h"
 #include "data/Assets.h"
 #include "dova/core/Layout.h"
 #include "render/Thumbnail.h"
@@ -103,6 +105,13 @@ namespace dova::editor::ui
 		_context(a_context)
 	{
 		::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+		// A screenshot run (tests, the guide) neither reads nor writes the author's state.json: its homes'
+		// stages and panel sizes stay theirs. --state or DOVASTASH_EDITOR_STATE give it a file of its own.
+		if (a_gui.state) {
+			_state.path = PathFromUtf8(*a_gui.state);
+		} else if (a_gui.screenshot && ::GetEnvironmentVariableW(L"DOVASTASH_EDITOR_STATE", nullptr, 0) == 0) {
+			_state.memoryOnly = true;
+		}
 		_state.Load();
 		_templateAuthor = _state.author;
 		const auto& t = w::Th();
@@ -118,9 +127,11 @@ namespace dova::editor::ui
 			if (!_options.profile && _state.profile) {
 				_options.profile = _state.profile;
 			}
+		} else if (!_options.mo2 && !_options.data && !mo2::DetectInstance() && _state.data) {
+			_options.data = PathFromUtf8(*_state.data);  // a Data folder picked last time, without MO2
 		}
-		if (_options.mo2) {
-			std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", PathToUtf8(*_options.mo2).c_str());
+		if (_options.mo2 || _options.data) {
+			std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", PathToUtf8(_options.mo2 ? *_options.mo2 : *_options.data).c_str());
 		}
 		// Before the command line's overrides: opening saves the state (the instance), and they are for this run.
 		OpenWorkspace();
@@ -180,6 +191,7 @@ namespace dova::editor::ui
 			_paintCategory = core::ToLower(*a_gui.paint);
 		}
 		_pendingHome = a_gui.home;
+		_homeQueue = a_gui.moreHomes;
 		_pendingDrafts = a_gui.drafts;
 		_pendingCell = a_gui.cell;
 		if (a_gui.cell) {
@@ -205,9 +217,10 @@ namespace dova::editor::ui
 				if (!on || name.starts_with('+')) {
 					name.remove_prefix(1);
 				}
-				static constexpr const char* names[] = { "structure", "containers", "displays", "doors", "furniture", "people", "disabled", "effects", "other", "terrain" };
+				static constexpr const char* names[] = { "structure", "containers", "displays", "doors", "furniture", "people", "disabled", "effects", "other", "terrain", "roof",
+					"missing" };
 				bool* flags[] = { &_view.showStructure, &_view.showContainers, &_view.showDisplays, &_view.showDoors, &_view.showFurniture, &_view.showActors,
-					&_view.showDisabled, _state.ui.view == 0 ? &_view.showEffects : &_planEffects, &_showMarkers, &_view.showTerrain };
+					&_view.showDisabled, _state.ui.view == 0 ? &_view.showEffects : &_planEffects, &_showMarkers, &_view.showTerrain, &_showRoof, &_view.showMissing };
 				for (std::size_t i = 0; i < std::size(names); ++i) {
 					if (core::IEquals(name, names[i])) {
 						*flags[i] = on;
@@ -245,7 +258,7 @@ namespace dova::editor::ui
 		if (!_ws) {
 			return !_job.valid();
 		}
-		if (!_homes || _job.valid() || !_queue.empty() || _pendingCell || _pendingHome || _pendingDrafts) {
+		if (!_homes || _job.valid() || !_queue.empty() || _pendingCell || _pendingHome || _pendingDrafts || !_homeQueue.empty()) {
 			return false;
 		}
 		if (!_cell || _showStart) {
@@ -297,6 +310,7 @@ namespace dova::editor::ui
 			return;
 		}
 		_scene = std::make_unique<render::Scene>(_device, _assets, render::BuildSceneDesc(_cell->info, _cell->context));
+		Log("3D view: {} ({} references)", _cell->cellText, _cell->info.refs.size());
 		_scene->Start();
 		_cameraPending = true;
 	}
@@ -304,6 +318,7 @@ namespace dova::editor::ui
 	void EditorApp::OpenWorkspace()
 	{
 		_ws = std::make_unique<Workspace>();
+		_activePlugins.clear();
 		_wsError.clear();
 		_scans.clear();
 		_scene.reset();
@@ -329,12 +344,20 @@ namespace dova::editor::ui
 		_undo.clear();
 		_redo.clear();
 		if (!_ws->Open(_options, _wsError)) {
+			Log("workspace not opened: {}", _wsError);
 			_ws.reset();
-		} else if (_ws->Instance()) {
+		} else if (Log("workspace: {}", _ws->Describe()), _activePlugins = _ws->ActivePlugins(); _ws->Instance()) {
 			std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", PathToUtf8(_ws->Instance()->root).c_str());
 			// Remembered for the next start (asked once).
 			_state.mo2 = PathToUtf8(_ws->Instance()->root);
 			_state.profile = _ws->Profile();
+			_state.data.reset();
+			_state.Save();
+		} else if (_dataPicked) {
+			// A Data folder picked in the window (no MO2): the next start opens it.
+			_state.data = PathToUtf8(_ws->DataDir());
+			_state.mo2.reset();
+			_state.profile.reset();
 			_state.Save();
 		}
 		// The game-read art (the start panel's backdrop): the same Assets the 3D view uses.
@@ -465,7 +488,7 @@ namespace dova::editor::ui
 			_history.clear();
 			OpenCellAsync(a_lo, a_cell, false);
 		};
-		if (_cell && _cell->dirty && _cellDraft < 0) {
+		if (OpenUnsaved()) {
 			_pendingOpen = open;
 			return;
 		}
@@ -473,28 +496,50 @@ namespace dova::editor::ui
 		open();
 	}
 
-	void EditorApp::OpenHome(int a_index, std::optional<esp::FormKey> a_cell)
+	void EditorApp::OpenHome(int a_index, std::optional<esp::FormKey> a_cell, bool a_draft)
 	{
 		if (!_homes || a_index < 0 || static_cast<std::size_t>(a_index) >= _homes->homes.size()) {
 			return;
 		}
 		if (Busy()) {
-			Queue([this, a_index, a_cell] { OpenHome(a_index, a_cell); });
+			Queue([this, a_index, a_cell, a_draft] { OpenHome(a_index, a_cell, a_draft); });
 			return;
 		}
-		auto open = [this, a_index, a_cell]() {
-			auto&       e = EnsureDraft(a_index);
+		auto open = [this, a_index, a_cell, a_draft]() {
 			const auto& h = _homes->homes[static_cast<std::size_t>(a_index)];
-			_pendingLayout = e.draft->layout;
-			_pendingLayoutDirty = e.reviewed;
-			_pendingFilePath.clear();
+			auto&       e = _homes->entries[static_cast<std::size_t>(a_index)];
+			// A home with a template opens on the one the game offers first, as a file (nothing to save); its draft
+			// stays in the Draft panel. A draft with unsaved changes opens instead (they are not lost).
+			std::optional<core::Layout> file;
+			std::string                 filePath;
+			if (!a_draft && !e.reviewed) {
+				if (const auto list = HomeTemplates(h); !list.empty()) {
+					filePath = PathToUtf8(list.front()->path);
+					core::Diagnostics diags;
+					file = core::LoadLayoutFile(list.front()->path, filePath, diags);
+					if (!file || !file->cell) {
+						file.reset();  // unreadable since the scan: the draft
+					}
+				}
+			}
+			if (file) {
+				_pendingLayout = std::move(*file);
+				_pendingLayoutDirty = false;
+				_pendingFilePath = filePath;
+			} else {
+				auto& d = EnsureDraft(a_index);
+				_pendingLayout = d.draft->layout;
+				_pendingLayoutDirty = d.reviewed;
+				_pendingFilePath.clear();
+			}
 			_cellDraft = a_index;
 			_railCursor = a_index;
 			_railReveal = true;
+			_railRevealFrames = 0;
 			_history.clear();
 			OpenCellAsync(_homes->lo, a_cell ? *a_cell : h.cell, false);
 		};
-		if (_cell && _cell->dirty && _cellDraft < 0) {
+		if (OpenUnsaved()) {
 			_pendingOpen = open;
 			return;
 		}
@@ -653,6 +698,10 @@ namespace dova::editor::ui
 				_hoveredRef = -1;
 				_fitPending = true;
 				_showStart = false;
+				if (_cellDraft >= 0) {
+					_railReveal = true;  // again: the drawer and the title row have just changed the rail's height
+					_railRevealFrames = 0;
+				}
 				// Height range (shared by the plan and the 3D view).
 				_zMin = FLT_MAX;
 				_zMax = -FLT_MAX;
@@ -668,6 +717,15 @@ namespace dova::editor::ui
 				}
 				_zLo = std::floor(_zMin) - 1.0f;
 				_zHi = std::ceil(_zMax) + 1.0f;
+				// The roof cut (interiors): per area, never above the highest container + 120 (detail::RoofTop).
+				_roofZ = RoofTop(_cell->info);
+				_view.roofGrid = render::RoofGrid::Build(RoofFloor(_cell->info), _roofZ, kRoofAboveFloor);
+				if (_roofZ < 1e8f) {
+					const auto& g = _view.roofGrid;
+					const auto [lo, hi] = g.cuts.empty() ? std::pair{ _roofZ, _roofZ } : std::pair{ *std::ranges::min_element(g.cuts), *std::ranges::max_element(g.cuts) };
+					Log("roof cut: {} per area ({} x {} squares of {:.0f} units) at z {:.0f} to {:.0f}, above it only containers and displays in 3D{}", _cell->cellText,
+						g.nx, g.ny, g.size, lo, hi, _showRoof ? " (off: Layers > Roof is on)" : "");
+				}
 				if (_pendingSelect) {
 					const auto wanted = *std::exchange(_pendingSelect, std::nullopt);
 					if (const int i = RefIndexOf(*_cell, wanted); i >= 0) {
@@ -717,10 +775,34 @@ namespace dova::editor::ui
 		_state.Save();
 	}
 
+	void EditorApp::NoHomeMatches(const std::string& a_wanted)
+	{
+		Log("--home: no home matches {}", a_wanted);
+		std::fputs(("error: no home matches " + a_wanted + "\n").c_str(), stderr);  // DovaStashEditor.com passes it on
+		std::fflush(stderr);
+		_homeMissing = true;
+	}
+
 	void EditorApp::Frame()
 	{
+		_listHoverShown = std::exchange(_listHoveredRef, -1);
 		PollJob();
 		ApplyWindowSize();
+		// --home given more than once: the next home once the open one's 3D view has loaded.
+		if (!_homeQueue.empty() && _homes && _cell && !_pendingHome && !Busy() && _queue.empty() && _scene && _scene->Progress().finished) {
+			const auto wanted = _homeQueue.front();
+			_homeQueue.erase(_homeQueue.begin());
+			bool found = false;
+			for (std::size_t i = 0; i < _homes->homes.size() && !found; ++i) {
+				if (IContains(_homes->homes[i].name, wanted) || IContains(_homes->homes[i].editorId, wanted)) {
+					found = true;
+					OpenHome(static_cast<int>(i));
+				}
+			}
+			if (!found) {
+				NoHomeMatches(wanted);
+			}
+		}
 		if (_pendingPopover && _homes && !Busy() && _queue.empty() && !_pendingCell && !_pendingHome) {
 			const auto id = *std::exchange(_pendingPopover, std::nullopt);  // --popover
 			if (id == "savedrafts") {
@@ -747,12 +829,18 @@ namespace dova::editor::ui
 		const ImVec2 size = ImGui::GetContentRegionAvail();
 		const float  headerH = t.toolbarH + 2.0f * t.scale;
 		float        drawerH = headerH;
+		// The drawer's height is a fraction of the window's, so a smaller window keeps its view; the view keeps half.
+		_layoutH = std::max(size.y, 1.0f);
+		_drawerMinH = 120.0f * t.scale;
+		_drawerMaxH = std::max(_drawerMinH, size.y * 0.5f - t.titleH - t.statusH);
 		if (_state.ui.drawerOpen && _cell) {
 			if (_state.ui.drawerHeight <= 0.0f) {
-				_state.ui.drawerHeight = size.y / 3.0f;
+				_state.ui.drawerHeight = 1.0f / 3.0f;
 				_savedUi.drawerHeight = _state.ui.drawerHeight;  // the default, not a change to write
+			} else if (_state.ui.drawerHeight > 1.0f) {
+				_state.ui.drawerHeight /= _layoutH;  // pixels, from an older state.json
 			}
-			drawerH = std::clamp(_state.ui.drawerHeight, 120.0f * t.scale, std::max(120.0f * t.scale, size.y * 0.6f));
+			drawerH = std::clamp(_state.ui.drawerHeight * _layoutH, _drawerMinH, _drawerMaxH);
 		}
 		if (!_cell) {
 			drawerH = 0.0f;  // nothing to list without a home
@@ -767,7 +855,7 @@ namespace dova::editor::ui
 			DrawRail();
 			ImGui::SameLine(0.0f, 0.0f);
 			const float strip = t.stripW;  // BeginRail's collapsed strip
-			const float inspW = _state.ui.inspectorOpen ? std::clamp(_state.ui.inspectorWidth, 280.0f * t.scale, std::max(280.0f * t.scale, size.x * 0.45f)) : strip;
+			const float inspW = _state.ui.inspectorOpen ? std::clamp(_state.ui.inspectorWidth, 280.0f * t.scale, InspectorMaxWidth()) : strip;
 			DrawViewport(ImVec2(std::max(ImGui::GetContentRegionAvail().x - inspW, 64.0f), middleH));
 			ImGui::SameLine(0.0f, 0.0f);
 			DrawInspector();
@@ -821,6 +909,7 @@ namespace dova::editor::ui
 			_view.heightCut = _heightCut;
 			_view.zLo = _zLo;
 			_view.zHi = _zHi;
+			_view.roofZ = _showRoof ? 1e9f : _roofZ;
 			if (_state.ui.view == 0) {
 				DrawView3D(c, a_size);
 			} else {
@@ -831,17 +920,37 @@ namespace dova::editor::ui
 		ImGui::EndChild();
 	}
 
+	float EditorApp::RailMaxWidth() const
+	{
+		const auto& t = w::Th();
+		const float W = ImGui::GetMainViewport()->WorkSize.x;
+		const float insp = _state.ui.inspectorOpen ? std::clamp(_state.ui.inspectorWidth, 280.0f * t.scale, std::max(280.0f * t.scale, W * 0.45f)) : t.stripW;
+		return std::max(200.0f * t.scale, std::min(560.0f * t.scale, W * 0.6f - insp));
+	}
+
+	float EditorApp::InspectorMaxWidth() const
+	{
+		// From the window and the rail, not from the space left for the inspector (that is its own width and would
+		// shrink the saved width every run).
+		const auto& t = w::Th();
+		const float W = ImGui::GetMainViewport()->WorkSize.x;
+		const float rail = _state.ui.railOpen ? std::clamp(_state.ui.railWidth, 200.0f * t.scale, RailMaxWidth()) : t.stripW;
+		return std::max(280.0f * t.scale, std::min(W * 0.45f, W * 0.6f - rail));
+	}
+
 	void EditorApp::DrawOverlay(OpenCell& a_cell, ImVec2 a_min, ImVec2 a_max)
 	{
 		const auto& t = w::Th();
 		const bool  threeD = _state.ui.view == 0;
+		const bool  narrow = a_max.x - a_min.x < 900.0f * t.scale;  // icons only, their names in the tooltips
 		if (w::BeginOverlay("toolbar", ImVec2(t.pad, t.pad))) {
-			if (w::ToolButton("Select", !_paint && _selectMode, "Select: click picks, Ctrl+click adds, drag boxes", "S")) {
+			if (narrow ? w::IconButton("Select", w::Icon::Cursor, "Select: click picks, Ctrl+click adds, drag boxes", "S", !_paint && _selectMode)
+			           : w::ToolButton("Select", !_paint && _selectMode, "Select: click picks, Ctrl+click adds, drag boxes", "S")) {
 				SetPaint(false);
 				_selectMode = true;
 			}
 			ImGui::SameLine(0.0f, 2.0f * t.scale);
-			if (w::ToolButton("Paint", _paint, "Paint a category onto containers", "P")) {
+			if (narrow ? w::IconButton("Paint", w::Icon::Brush, "Paint: a category onto containers", "P", _paint) : w::ToolButton("Paint", _paint, "Paint a category onto containers", "P")) {
 				SetPaint(!_paint);
 			}
 			ImGui::SameLine(0.0f, t.gap);
@@ -856,17 +965,18 @@ namespace dova::editor::ui
 			if (_paint) {
 				DrawPaintBar(a_cell);
 			} else {
-				if (w::BeginPopover("layers", "Layers", w::Icon::Layers, 0, "What is drawn", "L")) {
+				if (w::BeginPopover("layers", narrow ? "" : "Layers", w::Icon::Layers, 0, narrow ? "Layers: what is drawn" : "What is drawn", "L")) {
 					DrawLayersPopover(a_cell);
 					w::EndPopover();
 				}
 				ImGui::SameLine(0.0f, 2.0f * t.scale);
-				if (w::BeginPopover("colours", "Colours", w::Icon::Palette, 0, "Colour the containers", "C / V")) {
+				if (w::BeginPopover("colours", narrow ? "" : "Colours", w::Icon::Palette, 0, narrow ? "Colours: colour the containers" : "Colour the containers", "C / V")) {
 					DrawColourLegend(a_cell);
 					w::EndPopover();
 				}
 				ImGui::SameLine(0.0f, 2.0f * t.scale);
-				if (w::BeginPopover("camera", "Camera", w::Icon::Camera, 0, threeD ? "Overview, frame, speed, light" : "Fit, centre", "Home / F")) {
+				if (w::BeginPopover("camera", narrow ? "" : "Camera", w::Icon::Camera, 0,
+						narrow ? (threeD ? "Camera: overview, frame, speed, light" : "Camera: fit, centre") : (threeD ? "Overview, frame, speed, light" : "Fit, centre"), "Home / F")) {
 					DrawCameraPopover(a_cell);
 					w::EndPopover();
 				}
@@ -907,8 +1017,13 @@ namespace dova::editor::ui
 			w::Check("Effects", _planEffects, "Fog, mist, glows, light rays and lights: their volumes (plan; the 3D view has its own)");
 		}
 		w::Check("Other", _showMarkers, "Markers, trigger volumes, room bounds, references without a mesh (plan)");
+		if (_state.ui.view == 0) {
+			w::Check("Missing meshes", _view.showMissing, "Walls and clutter whose mesh is not installed: see-through boxes (containers and displays stay solid). The status row's N missing turns it on");
+		}
 		if (!a_cell.info.interior) {
 			w::Check(std::format("Terrain (+{} cells around)", a_cell.context.size()).c_str(), _view.showTerrain);
+		} else if (_state.ui.view == 0 && _roofZ < 1e9f) {
+			w::Check("Roof", _showRoof, "Off: about 3 m above each area's floor only containers and displays are drawn, so rooms and caves show from above");
 		}
 		w::SectionHead("Height cut");
 		w::Check("Only between", _heightCut, "Only references between these heights, in both views: one floor of a tower");

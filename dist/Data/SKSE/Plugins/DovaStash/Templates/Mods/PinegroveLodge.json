@@ -1,0 +1,63 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Pinegrove Lodge",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
+  "author": "Dova Stash",
+  "version": "1.0.2",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "Eli_Pinegrove Lodge.esp"],
+  "cell": "Eli_Pinegrove Lodge.esp|0x0002933F",
+  "master": "Eli_Pinegrove Lodge.esp|0x001315AD",
+  "containers": [
+    {"ref": "Eli_Pinegrove Lodge.esp|0x001315D3", "label": "Weapon barrel",                           "categories": ["weapons.*"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x00084CDF", "label": "Armor stand",                             "categories": ["armor.heavy", "armor.light"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x00084CE4", "label": "Armor stand (second)",                    "categories": ["armor.shields"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x001315AE", "label": "Chest (by the master chest)",             "categories": ["ammo.*"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x00136720", "label": "Strong box (by the armor stand)",         "categories": ["misc.hides_pelts", "misc.animal_parts"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x0007FBC0", "label": "Bedroom dresser",                         "categories": ["armor.clothing"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x0007FBC2", "label": "Jewelry tray",                            "categories": ["armor.jewelry", "misc.gems", "misc.curios"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x0009407C", "label": "Strong box (by the double bed)",          "categories": ["keys"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x0013673C", "label": "Upstairs chest",                          "categories": ["misc.ores_ingots", "misc.dwemer", "misc.building_materials", "misc.tools"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000C6C36", "label": "Food stores",                             "categories": ["alchemy.food"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E54AB", "label": "Ingredients basket (by the alchemy lab)", "categories": ["alchemy.ingredients"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000EA608", "label": "Barrel (by the alchemy lab)",             "categories": ["alchemy.potions", "alchemy.poisons"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000EA609", "label": "Large sack (by the alchemy lab)",         "categories": ["misc.clutter"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E54AD", "label": "Book basket (by the alchemy lab)",        "categories": ["books.*"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x00131599", "label": "Scroll basket (by the arcane enchanter)", "categories": ["scrolls"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x0013157D", "label": "Soul gems (by the arcane enchanter)",     "categories": ["soulgems.*"]},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E53CE", "label": "Bookshelf (by the book basket)",          "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E53DE", "label": "Bookshelf (by the book basket, 2)",       "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E53F5", "label": "Bookshelf (by the book basket, 3)",       "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E5405", "label": "Bookshelf (by the upstairs chest)",       "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E545B", "label": "Bookshelf (by the ingredients basket)",   "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E545C", "label": "Bookshelf (by the upstairs chest, 2)",    "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E545D",
+      "label": "Bookshelf (by the ingredients basket, 2)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {
+      "ref": "Eli_Pinegrove Lodge.esp|0x000E545E",
+      "label": "Bookshelf (by the ingredients basket, 3)",
+      "ignored": true,
+      "note": "Scripted bookshelf: it only holds books and hands everything else back."
+    },
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000EF820", "label": "Bookshelf (by the armor stand)",          "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000EF833", "label": "Bookshelf (by the armor stand, 2)",       "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."}
+  ],
+  "displays": [
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E53CE", "label": "Bookshelf (by the book basket)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E53DE", "label": "Bookshelf (by the book basket, 2)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E53F5", "label": "Bookshelf (by the book basket, 3)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E5405", "label": "Bookshelf (by the upstairs chest)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E545B", "label": "Bookshelf (by the ingredients basket)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E545C", "label": "Bookshelf (by the upstairs chest, 2)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E545D", "label": "Bookshelf (by the ingredients basket, 2)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000E545E", "label": "Bookshelf (by the ingredients basket, 3)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000EF820", "label": "Bookshelf (by the armor stand)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x000EF833", "label": "Bookshelf (by the armor stand, 2)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x001366FF", "label": "Mannequin (by the armor stand)"},
+    {"ref": "Eli_Pinegrove Lodge.esp|0x00136702", "label": "Mannequin (by the armor stand, 2)"}
+  ]
+}

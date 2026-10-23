@@ -1,6 +1,7 @@
 #include "dova/core/Enums.h"
 
 #include <array>
+#include <string>
 #include <utility>
 
 namespace dova::core
@@ -86,6 +87,16 @@ namespace dova::core
 			}
 			return {};
 		}
+
+		template <class E, std::size_t N>
+		std::string Names(const Table<E, N>& a_table)
+		{
+			std::string out;
+			for (const auto& [value, name] : a_table) {
+				out += (out.empty() ? "" : ", ") + std::string(name);
+			}
+			return out;
+		}
 	}
 
 	std::optional<ItemType>     ParseItemType(std::string_view a_signature) { return Lookup(kItemTypes, a_signature); }
@@ -103,4 +114,19 @@ namespace dova::core
 	std::string_view ToString(AlchemyKind a_value) noexcept { return Name(kAlchemyKinds, a_value); }
 	std::string_view ToString(SoulGemState a_value) noexcept { return Name(kSoulGemStates, a_value); }
 	std::string_view ToString(AmmoKind a_value) noexcept { return Name(kAmmoKinds, a_value); }
+
+	template <>
+	std::string ValidNames<ItemType>() { return Names(kItemTypes); }
+	template <>
+	std::string ValidNames<WeaponType>() { return Names(kWeaponTypes); }
+	template <>
+	std::string ValidNames<ArmorType>() { return Names(kArmorTypes); }
+	template <>
+	std::string ValidNames<BookTeaches>() { return Names(kBookTeaches); }
+	template <>
+	std::string ValidNames<AlchemyKind>() { return Names(kAlchemyKinds); }
+	template <>
+	std::string ValidNames<SoulGemState>() { return Names(kSoulGemStates); }
+	template <>
+	std::string ValidNames<AmmoKind>() { return Names(kAmmoKinds); }
 }

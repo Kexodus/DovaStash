@@ -25,6 +25,13 @@ loaded:
 python -I esm_dump.py --add "E:\MO2\mods\My Home\MyHome.esp" cells MyHome
 ```
 
+To read an MO2 profile's load order instead, with each plugin taken from the mod folder that has it (as the
+Dova Stash Editor does), pass `--mo2 <instance folder> --profile <name>` (`--mo2` defaults to the environment variable DOVASTASH_MO2, else the developer's instance):
+
+```
+python -I esm_dump.py --mo2 "E:\modding\Kexodus Skyrim" --profile "Dova Stash AutoTest" check ..\dist\Data\SKSE\Plugins\DovaStash
+```
+
 Other global options: `--vanilla-only`, `--plugins A.esm,B.esp` (an explicit load order), `--lang english`
 (the Strings language) and `--compact` (single-line JSON). Global options go **before** the subcommand.
 
@@ -101,7 +108,7 @@ The quickest start is the game itself: set the home up, then choose **Save as te
 menu (or the panel's Template tab). Dova Stash writes `Data/SKSE/Plugins/DovaStash/Templates/User/<name>.json`
 (MO2: `overwrite`) with `cell`, `requires` and everything filled in (DESIGN §6.5). Learned items become
 `forms` (fixed item bindings) of the containers they were learned for, so they go to the same containers
-for everyone; for a template you share, untick *Keep learned items* in the panel's Template tab, or delete
+for everyone; for a template you share, untick *Include where you put things by hand* in the panel's Template tab, or delete
 those `forms` by hand. Polish the labels and notes by hand and run `check` (step 5) before you share it.
 (In game the player layout of a home is called its *setup*; the files are the same `dovastash-layout-1`
 format.) To write one from scratch:
@@ -127,8 +134,10 @@ format.) To write one from scratch:
    cells in `cells`, next to `cell`: `"cells": ["HearthFires.esm|0x00004849", {"cell": "Skyrim.esm|0x00009BF7",
    "label": "Grounds"}]` (`cells BYOHHouse1` finds them; an exterior cell is a cell like any other; `label` is
    the name players see for the area, and they can rename it in game). Its containers and displays may then
-   be in any of those cells. A cell that has a template of its own (the
-   shipped `*Cellar.json`) stays its own home for players who use that template.
+   be in any of those cells. A home ships as one template: an area whose containers the home's master cannot reach
+   (not persistent) names its own catch-all in its entry, `{"cell": ..., "label": "Cellar", "master": "<ref>"}`, used
+   there while the home's master is out of reach. `replaces` lists retired templates this one takes over
+   (`"Templates/Vanilla/LakeviewManorCellar.json"`): an untouched setup made from one is taken in (DESIGN §6.7).
 4. List every plugin the template references in `requires`, including the plugin that owns the cell (and the
    plugins of the `cells`). Leave
    out the plugins that only display items and sets come from (listing one makes the whole template need it).
@@ -137,12 +146,27 @@ format.) To write one from scratch:
    still offers instead of enabling a template when under 60% of its refs are there (DESIGN §9.1).
 5. `python -I esm_dump.py check path\to\MyHome.json --categories path\to\Categories\00_Default.json`
    - With `cells`, refs may be in any of the home's cells; the result lists the bound containers that are
-     `onlyReachableInTheirCell` (not persistent), and `cellsChecked`. Bad `cells` entries are errors, the main
-     cell listed again or a duplicate a warning.
+     `onlyReachableInTheirCell` (not persistent; an area's own `master` is not listed), and `cellsChecked`. Bad
+     `cells` entries are errors, the main cell listed again or a duplicate a warning. An area's `master` must be a
+     container in that area's cell; it is checked as the master is (respawning, starts disabled).
+   - Across the files it checks: a cell (main or in `cells`) in two templates under `Templates` (not
+     `Templates/User`) is an error (a home ships as one template), and so is a `replaces` entry that still ships.
    - It fails on refs that are not containers in the declared cell, respawning bound containers, duplicate refs,
      unknown categories, display entries that point at nothing in the cell, and plugins that are missing
      from `requires`. Display items and sets from plugins that are not loaded are listed in
      `optionalPlugins` instead (they are optional); from a loaded plugin they must exist.
+   - Container `forms` and the form refs in `keep` are hard references: their syntax is checked, the item must
+     exist (when its plugin is loaded) and its plugin must be in `requires`. `categories` may be one pattern or a
+     list.
+   - The `keep` block is checked as Dova Stash reads it: `always`/`never` entries are `equipped`, `favorited`,
+     `quest`, a form ref or a category pattern; each quota rule needs `quota` (an integer of 0 or more) and at
+     least one of `category`, `keywordsAny`, `forms`, and `restock` is `true` or `false`; unknown keys (a typo
+     such as `restok`) are warnings, and so are quota keywords no loaded plugin has.
+   - `autoDraft` (an editor auto-draft) is a known key. `learned`, `declined`, `basedOn` and `hiddenTemplates`
+     belong in player layouts only: a warning in a template.
+   - The same category on several containers is a fallback chain (the first one there takes it): a warning
+     only when two of them start enabled (the furniture of a Hearthfire wing's choices starts disabled). This lint
+     needs the template's plugins loaded: with refs not verified (no `--profile`) it is skipped.
    - It warns about bookshelves bound as storage, containers that disappear on upgrade, and a master that starts
      disabled, about a display's categories it can't hold (`displays[0]: Soul gems can't go on a weapon rack`,
      the rule of DESIGN §8.4 *Categories on displays*), and about display fields the display's kind doesn't use (`set` on a rack or bookshelf;
@@ -155,6 +179,27 @@ format.) To write one from scratch:
      name, malformed refs, `cells` that are not cells (when their plugin is loaded), and empty `cells` and
      `containers`; unknown keys are warnings.
    - `//` and `/* */` comments are allowed, as in game.
+   - A category keyword no loaded plugin has is a warning (`not in any loaded plugin (KID?)`): it never matches,
+     as in game (DESIGN §7.2). Keywords that KID creates at runtime are known with `--kid <path>` (a `*_KID.ini`
+     file, a folder searched for them, or a list with one keyword per line, such as `tests/data/ocf_keywords.txt`;
+     repeatable). `*_KID.ini` files in the Data folder are read by themselves, and a `50_OCF.json` is checked
+     against `tests/data/ocf_keywords.txt` when no `--kid` is given. The optional OCF set must pass:
+     `python -I tools/esm_dump.py check dist/Optional --kid tests/data/ocf_keywords.txt` (exit 0).
+
+### Editing the files by hand: JSON Schemas
+
+`tools/schema/dovastash-layout-1.schema.json` (layouts and templates) and `dovastash-categories-1.schema.json`
+(category files) describe every field, the form ref pattern and the enum values, so an editor completes field
+names and flags typos as you type. They don't know your load order: run `check` as well. The core tests
+validate the shipped data against them. VS Code (`settings.json`):
+
+```json
+"json.schemas": [
+  {"fileMatch": ["**/DovaStash/Templates/**/*.json", "**/DovaStash/Layouts/*.json"],
+   "url": "./tools/schema/dovastash-layout-1.schema.json"},
+  {"fileMatch": ["**/DovaStash/Categories/*.json"], "url": "./tools/schema/dovastash-categories-1.schema.json"}
+]
+```
 
 Plugin names in form refs use the plugin's own file name, for example `ccBGSSSE001-Fish.esm` as written in
 `Skyrim.ccc`. Steam may store the file in lower case. That does not matter, because Windows file names
@@ -173,23 +218,46 @@ Console form IDs depend on the load order, so regenerate after changing plugins.
 python -I tools/stress_loot.py [--mo2 "E:\modding\Kexodus Skyrim"] [--profile Default] [--per-plugin 6]
 ```
 
+`--mo2` defaults to the environment variable DOVASTASH_MO2 (the one `tools/autotest/run.ps1` reads), else the
+developer's instance.
+
 In game: `bat ds_vanilla`, and so on. Use a throwaway save, because scripted items run their scripts when added.
 
 ## `datagen/` (maintainers)
 
 The scripts that produce the shipped data:
 
-- `datagen/gen_categories.py` writes `Categories/00_Default.json`. It resolves the explicit Dwemer and
-  building-material form lists from the plugins.
-- `datagen/gen_templates.py` writes `Templates/Vanilla/*.json` and `Templates/CreationClub/*.json`. The
+- `datagen/gen_categories.py` writes `Categories/00_Default.json`, the group nodes and icons included. It
+  resolves the explicit Dwemer and building-material form lists from the plugins.
+- `datagen/gen_templates.py` writes `Templates/Vanilla/*.json`, `Templates/CreationClub/*.json` and
+  `Templates/Mods/*.json` (homes the Lux patch hub supports; each is built only when its plugin is in
+  the `mods` folder of the MO2 instance in the environment variable DOVASTASH_MO2, otherwise the shipped file is left as it is). The
   container-to-category bindings in it are hand-picked. The `"ignored"` entries are derived from the plugin
   data: respawning containers, scripted bookshelves (never storage; a template may list them under
-  `displays` too), and containers removed by upgrades. They are labelled
-  with the container's game name, and the reason goes in `"note"`. The output is laid out by
+  `displays` too), and containers removed by upgrades. They are labelled with the container's game name in
+  sentence case and where it stands, after the nearest bound container (`Bookshelf (by the library chest)`,
+  numbered when the same label comes again), and the reason goes in `"note"`. Every label has one form:
+  `<Kind> (by the <landmark>)`, `<Kind> (by the <landmark>, 2)` for repeats, `(second)` only where there is no
+  landmark (the script checks every label). A landmark is never the kind itself (`Bookshelf (by the bookshelves)`)
+  and names at most 3 of one kind while another landmark is about as near (within 300 units); in a home over several
+  cells only landmarks of the same cell count, else the area's name. `displays` lists every bookshelf, named weapon rack and
+  mannequin of the home's own plugins, without categories or a set (each takes what fits it; mannequins pick a
+  set), named the same way; item plaques and display cases are left to the player, and displays an upgrade
+  removes are left out (`skip_displays` leaves out others, with the reason: Wuth Rein's scripted shelves, which lost a
+  book in game, and a mannequin nothing in its mod enables). `landmarks` names displays and ignored containers after
+  unbound furniture where no bound container is near (Winter Cove's armory), `kinds` calls an ignored container by
+  another kind than its game name when that name would invite using it, and `master_name` (or `note`) fixes what the
+  note says. `misc.curios` is bound wherever `misc.gems` is. A Hearthfire wing's other two
+  choices (`HF_WINGS`) bind their furniture too: a category bound in several places is a fallback chain, and
+  unbuilt furniture is skipped. `cells` (`build`, `mod_home`) makes a home over several cells (DESIGN 6.7);
+  `whole_home` joins a house and its cellar or gallery (and the Hearthfire grounds) into the home's one template, under
+  its own name; the cellar's or gallery's old master becomes that area's `master`, and `replaces` names the retired
+  file. `RETIRED` lists the files no longer shipped: the script deletes them. `VERSIONS` holds each template's version: raise it with every change to the
+  file, and update `tests/data/shipped_templates.txt` and the in-game plans that name it. The output is laid out by
   `datagen/jsonfmt.py` (`align=True`): one line per container, fields lined up in columns, like the files the
   DLL writes. `CONFLICTS` in it lists the mods that rebuild a home (the templates' `conflicts`).
 - `datagen/gen_ocf_categories.py --ocf "<OCF mod folder>"` writes the optional OCF set,
   `dist/Optional/OCF/Data/SKSE/Plugins/DovaStash/Categories/50_OCF.json`, and `tests/data/ocf_keywords.txt`. It
   reads OCF's `*_KID.ini` files and fails if a category uses a keyword that OCF doesn't put on that record type.
 
-Run both scripts again after changing a binding, then run `check` on `dist/Data/SKSE/Plugins/DovaStash`.
+Run the scripts again after changing a binding, then run `check` on `dist/Data/SKSE/Plugins/DovaStash`.

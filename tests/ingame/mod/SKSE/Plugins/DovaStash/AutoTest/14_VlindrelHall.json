@@ -25,12 +25,12 @@
         {
           "check": "log",
           "since": "plan",
-          "contains": "template: Vlindrel Hall v1.0.0 by Dova Stash"
+          "regex": "template: Vlindrel Hall v[0-9.]+ by Dova Stash"
         },
         {
           "check": "notify",
           "since": "plan",
-          "contains": "Dova Stash: Vlindrel Hall setup available (by Dova Stash)"
+          "contains": "Dova Stash: Vlindrel Hall setup available (press K)"
         },
         {
           "do": "buyHome"
@@ -157,7 +157,7 @@
     },
     {
       "id": "3.7-mannequin",
-      "title": "A mannequin in use takes armor on Deposit",
+      "title": "A mannequin in use takes armor on Deposit (the template lists it: dressed from storage by the first Deposit)",
       "steps": [
         {
           "do": "buyHome"
@@ -179,6 +179,10 @@
           "ref": "Skyrim.esm|0x00102D4C"
         },
         {
+          "do": "clearInventory",
+          "why": "a worn Iron Helmet (the save's own gear) would stay on the player: kept by the worn item"
+        },
+        {
           "do": "additem",
           "item": "Skyrim.esm|0x00012E4D",
           "count": 1
@@ -196,8 +200,16 @@
           "do": "waitIdle"
         },
         {
+          "check": "layout",
+          "pointer": "/displays",
+          "contains": {
+            "ref": "Skyrim.esm|0x00102D4C"
+          }
+        },
+        {
           "check": "log",
-          "regex": "Display plan: .*\\(mannequin\\)",
+          "since": "plan",
+          "regex": "Display: .* on .*0x00102D4C\\] \\(mannequin\\)",
           "within": 10
         },
         {
@@ -457,6 +469,11 @@
           "do": "useTemplate"
         },
         {
+          "do": "clearContainer",
+          "ref": "Skyrim.esm|0x000E15AD",
+          "why": "the potion sack's leveled potions would be restocked instead of the test's own"
+        },
+        {
           "do": "additem",
           "item": "Skyrim.esm|0x0003EADD",
           "count": 4
@@ -639,8 +656,135 @@
     },
     {
       "id": "3.7-armorset",
-      "title": "Mannequin armor set: Auto, a chosen set, Armor sets page",
-      "manual": "needs a step that sets a mannequin's armor set (no 'armorSet' step in the harness)"
+      "title": "Mannequin armor set (Iron, named by its cuirass): stored on the mannequin's entry, Auto removes it; no item moves; the Displays page marks the mannequin you look at",
+      "steps": [
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x00102D4C",
+          "why": "the Vlindrel mannequin starts disabled (3.7-mannequin enables it)"
+        },
+        {
+          "do": "aim",
+          "ref": "Skyrim.esm|0x00102D4C"
+        },
+        {
+          "check": "panel",
+          "displayAimed": "Skyrim.esm|0x00102D4C",
+          "within": 5
+        },
+        {
+          "do": "aim",
+          "clear": true
+        },
+        {
+          "do": "snapshot",
+          "name": "armorset"
+        },
+        {
+          "do": "chooseArmorSet",
+          "ref": "Skyrim.esm|0x00102D4C",
+          "set": "Skyrim.esm|0x00012E49"
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "contains": {
+            "ref": "Skyrim.esm|0x00102D4C",
+            "set": "Skyrim.esm|0x00012E49"
+          },
+          "within": 3
+        },
+        {
+          "do": "chooseArmorSet",
+          "ref": "Skyrim.esm|0x00102D4C",
+          "set": null
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "lacks": {
+            "ref": "Skyrim.esm|0x00102D4C",
+            "set": "Skyrim.esm|0x00012E49"
+          },
+          "within": 3
+        },
+        {
+          "check": "conserved",
+          "snapshot": "armorset"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-template",
+      "title": "The template lists the home's shelves and racks: Deposit puts a book on a shelf and a weapon on a rack",
+      "steps": [
+        {
+          "do": "buyHome"
+        },
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "contains": {
+            "ref": "Skyrim.esm|0x00102C4E"
+          }
+        },
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x00102C4E",
+          "why": "the bookshelf comes with a decoration"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0001ACEF",
+          "count": 1
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x000139A8",
+          "count": 1
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "log",
+          "regex": "Display: The Lusty Argonian Maid, v1 .* on .*\\(bookshelf\\)",
+          "within": 10
+        },
+        {
+          "check": "log",
+          "regex": "Display: Glass Mace .* on .*\\(rack\\)",
+          "within": 10
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0001ACEF",
+          "eq": 0
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x000139A8",
+          "eq": 0
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "regex": "did not take|had no 3D"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
     }
   ]
 }

@@ -3,13 +3,10 @@
   "name": "Heljarchen Hall (built, several cells)",
   "home": "HearthFires.esm|0x00016A56",
   "coc": "BYOHHouse3Pale",
-  "templates": [
-    "HeljarchenHall.json"
-  ],
   "tests": [
     {
       "id": "3.9.1",
-      "title": "Built house: the AutoTest template is picked, /cells lists the cellar and the grounds",
+      "title": "Built house: the whole-home template (cellar and grounds) applied, /cells lists them",
       "steps": [
         {
           "do": "enter"
@@ -36,7 +33,7 @@
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/HeljarchenHall.json"
+          "source": "Templates/Vanilla/HeljarchenHall.json"
         },
         {
           "do": "useTemplate"
@@ -49,7 +46,7 @@
         {
           "check": "log",
           "since": "plan",
-          "regex": "template Templates/AutoTest/HeljarchenHall.json"
+          "regex": "template Templates/Vanilla/HeljarchenHall.json"
         },
         {
           "check": "layout",
@@ -70,7 +67,7 @@
         {
           "check": "layout",
           "pointer": "/basedOn",
-          "eq": "Templates/AutoTest/HeljarchenHall.json@1.0.0"
+          "contains": "Templates/Vanilla/HeljarchenHall.json@"
         },
         {
           "check": "noErrors"
@@ -174,6 +171,7 @@
           "check": "count",
           "in": "master",
           "item": "Skyrim.esm|0x0005ACE4",
+          "from": "main",
           "eq": 0
         },
         {
@@ -374,6 +372,10 @@
           "ref": "HearthFires.esm|0x00016D89"
         },
         {
+          "do": "enter",
+          "why": "the cell again, so the station just enabled is loaded with its furniture markers (sitting at it right after the enable opened no menu in some runs)"
+        },
+        {
           "do": "clearInventory"
         },
         {
@@ -415,7 +417,8 @@
           "product": "Skyrim.esm|0x0001397E"
         },
         {
-          "do": "closeMenu"
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
         },
         {
           "do": "waitIdle"
@@ -514,14 +517,15 @@
           "product": "Skyrim.esm|0x0005ACE4"
         },
         {
-          "do": "closeMenu"
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
         },
         {
           "do": "waitIdle"
         },
         {
           "check": "conserved",
-          "snapshot": "smelt",
+          "snapshot": "smelt2",
           "ignore": [
             "Skyrim.esm|0x00071CF3",
             "Skyrim.esm|0x0005ACE4"
@@ -566,7 +570,8 @@
           "within": 5
         },
         {
-          "do": "closeMenu"
+          "do": "closeMenu",
+          "menu": "Crafting Menu"
         },
         {
           "do": "waitIdle"
@@ -640,8 +645,8 @@
     },
     {
       "id": "3.9.6",
-      "title": "Cellar with its own setup (Cellar template enabled while the cellar is its own home)",
-      "manual": "needs a step that creates a layout for another cell than the plan's home; writeLayout and makeMaster act on the merged home"
+      "title": "Cellar with its own setup taken in by the whole-home template",
+      "manual": "covered by plan 21 (3.9.6, a test copy of the old cellar template): the cellar has no shipped template of its own, and writeLayout and makeMaster act on the merged home"
     },
     {
       "id": "3.9.7",
@@ -653,6 +658,10 @@
         },
         {
           "do": "buyHome"
+        },
+        {
+          "do": "enable",
+          "ref": "HearthFires.esm|0x00010F32"
         },
         {
           "do": "require",
@@ -807,7 +816,7 @@
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/AutoTest/HeljarchenHall.json"
+          "source": "Templates/Vanilla/HeljarchenHall.json"
         },
         {
           "do": "useTemplate"
@@ -861,7 +870,7 @@
     },
     {
       "id": "3.9.10",
-      "title": "Display edge: a rack in the main hall is not filled from the grounds; a Deposit inside fills it",
+      "title": "Display edge: the test rack is not filled from the grounds; a Deposit inside puts the sword on a rack (the template's racks are in use too)",
       "steps": [
         {
           "do": "enter"
@@ -903,7 +912,7 @@
         {
           "check": "log",
           "since": "plan",
-          "regex": "Display: .* on .*\\(rack\\)",
+          "regex": "Display: .* on .*0x00016AE0\\] \\(rack\\)",
           "absent": true
         },
         {
@@ -930,7 +939,7 @@
         {
           "check": "log",
           "since": "plan",
-          "regex": "Display:",
+          "regex": "Display: Iron Sword from <player> on .*\\(rack\\)",
           "within": 5
         },
         {
@@ -981,7 +990,8 @@
         },
         {
           "check": "bestTemplate",
-          "source": "Templates/Vanilla/HeljarchenHallCellar.json"
+          "source": null,
+          "why": "the cellar has no template of its own: the merged home template lists it"
         },
         {
           "check": "noErrors"

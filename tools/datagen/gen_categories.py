@@ -44,63 +44,91 @@ BUILDING = misc_forms([
 ])
 
 
-def cat(id_, name, priority, **match):
-    return {"id": id_, "name": name, "priority": priority, "match": match}
+def cat(id_, name, priority, icon, description=None, **match):
+    out = {"id": id_, "name": name}
+    if description:
+        out["description"] = description
+    out.update({"priority": priority, "icon": icon, "match": match})
+    return out
+
+
+def group(id_, name, icon):
+    """A parent node (no match): its name and icon for the panel; `weapons.*` covers its children."""
+    return {"id": id_, "name": name, "icon": icon}
+
+
+def skyui(label):
+    return {"source": "skyui/icons_category_psychosteve.swf", "label": label}
 
 
 W = ["WEAP"]
 CATS = [
     # ---------------------------------------------------------------- weapons
-    cat("weapons.swords", "Swords", 100, formTypes=W, weaponTypes=["OneHandSword"]),
-    cat("weapons.greatswords", "Greatswords", 100, formTypes=W, weaponTypes=["TwoHandSword"]),
-    cat("weapons.daggers", "Daggers", 100, formTypes=W, weaponTypes=["OneHandDagger"]),
+    group("weapons", "Weapons", skyui("inv_weapons")),
+    cat("weapons.swords", "Swords", 100, "weapon_sword", formTypes=W, weaponTypes=["OneHandSword"]),
+    cat("weapons.greatswords", "Greatswords", 100, "weapon_greatsword", formTypes=W, weaponTypes=["TwoHandSword"]),
+    cat("weapons.daggers", "Daggers", 100, "weapon_dagger", formTypes=W, weaponTypes=["OneHandDagger"]),
     # Battleaxes and warhammers share the TwoHandAxe engine type; the WeapTypeWarhammer keyword splits them.
-    cat("weapons.axes", "Battleaxes", 100, formTypes=W, weaponTypes=["TwoHandAxe"], keywordsNone=["WeapTypeWarhammer"]),
-    cat("weapons.waraxes", "War axes", 100, formTypes=W, weaponTypes=["OneHandAxe"]),
-    cat("weapons.maces", "Maces", 100, formTypes=W, weaponTypes=["OneHandMace"]),
-    cat("weapons.warhammers", "Warhammers", 110, formTypes=W, weaponTypes=["TwoHandAxe"], keywordsAny=["WeapTypeWarhammer"]),
-    cat("weapons.bows", "Bows", 100, formTypes=W, weaponTypes=["Bow"]),
-    cat("weapons.crossbows", "Crossbows", 100, formTypes=W, weaponTypes=["Crossbow"]),
-    cat("weapons.staves", "Staves", 100, formTypes=W, weaponTypes=["Staff"]),
+    cat("weapons.axes", "Battleaxes", 100, "weapon_battleaxe", "Two-handed battleaxes; war axes are weapons.waraxes.",
+        formTypes=W, weaponTypes=["TwoHandAxe"], keywordsNone=["WeapTypeWarhammer"]),
+    cat("weapons.waraxes", "War axes", 100, "weapon_waraxe", formTypes=W, weaponTypes=["OneHandAxe"]),
+    cat("weapons.maces", "Maces", 100, "weapon_mace", formTypes=W, weaponTypes=["OneHandMace"]),
+    cat("weapons.warhammers", "Warhammers", 110, "weapon_hammer", formTypes=W, weaponTypes=["TwoHandAxe"], keywordsAny=["WeapTypeWarhammer"]),
+    cat("weapons.bows", "Bows", 100, "weapon_bow", formTypes=W, weaponTypes=["Bow"]),
+    cat("weapons.crossbows", "Crossbows", 100, "weapon_crossbow", formTypes=W, weaponTypes=["Crossbow"]),
+    cat("weapons.staves", "Staves", 100, "weapon_staff", formTypes=W, weaponTypes=["Staff"]),
     # ---------------------------------------------------------------- armor
-    cat("armor.shields", "Shields", 120, formTypes=["ARMO"], keywordsAny=["ArmorShield"]),
-    cat("armor.jewelry", "Jewelry", 120, formTypes=["ARMO"], keywordsAny=["ArmorJewelry", "VendorItemJewelry"]),
-    cat("armor.heavy", "Heavy armor", 100, formTypes=["ARMO"], armorTypes=["Heavy"]),
-    cat("armor.light", "Light armor", 100, formTypes=["ARMO"], armorTypes=["Light"]),
-    cat("armor.clothing", "Clothing", 100, formTypes=["ARMO"], armorTypes=["Clothing"]),
+    group("armor", "Armor", skyui("inv_armor")),
+    cat("armor.shields", "Shields", 120, "armor_shield", formTypes=["ARMO"], keywordsAny=["ArmorShield"]),
+    cat("armor.jewelry", "Jewelry", 120, "armor_amulet", formTypes=["ARMO"], keywordsAny=["ArmorJewelry", "VendorItemJewelry"]),
+    cat("armor.heavy", "Heavy armor", 100, "armor_body", formTypes=["ARMO"], armorTypes=["Heavy"]),
+    cat("armor.light", "Light armor", 100, "lightarmor_body", formTypes=["ARMO"], armorTypes=["Light"]),
+    cat("armor.clothing", "Clothing", 100, "clothing_body", formTypes=["ARMO"], armorTypes=["Clothing"]),
     # ---------------------------------------------------------------- ammo
-    cat("ammo.arrows", "Arrows", 100, formTypes=["AMMO"], ammo=["Arrow"]),
-    cat("ammo.bolts", "Bolts", 100, formTypes=["AMMO"], ammo=["Bolt"]),
+    group("ammo", "Ammo", "weapon_arrow"),
+    cat("ammo.arrows", "Arrows", 100, "weapon_arrow", formTypes=["AMMO"], ammo=["Arrow"]),
+    cat("ammo.bolts", "Bolts", 100, "weapon_bolt", formTypes=["AMMO"], ammo=["Bolt"]),
     # ---------------------------------------------------------------- alchemy
-    cat("alchemy.potions", "Potions", 100, formTypes=["ALCH"], alchemy=["Potion"]),
-    cat("alchemy.poisons", "Poisons", 100, formTypes=["ALCH"], alchemy=["Poison"]),
-    cat("alchemy.food", "Food & drink", 100, formTypes=["ALCH"], alchemy=["Food"]),
-    cat("alchemy.ingredients", "Ingredients", 100, formTypes=["INGR"]),
+    group("alchemy", "Alchemy", skyui("inv_potions")),
+    cat("alchemy.potions", "Potions", 100, "potion_health", formTypes=["ALCH"], alchemy=["Potion"]),
+    cat("alchemy.poisons", "Poisons", 100, "potion_poison", formTypes=["ALCH"], alchemy=["Poison"]),
+    cat("alchemy.food", "Food & drink", 100, "default_food", formTypes=["ALCH"], alchemy=["Food"]),
+    cat("alchemy.ingredients", "Ingredients", 100, "default_ingredient", formTypes=["INGR"]),
     # ---------------------------------------------------------------- books
-    cat("books.spelltomes", "Spell tomes", 120, formTypes=["BOOK"], bookTeaches=["Spell"]),
-    cat("books.skill", "Skill books", 120, formTypes=["BOOK"], bookTeaches=["Skill"]),
+    group("books", "Books", skyui("inv_books")),
+    cat("books.spelltomes", "Spell tomes", 120, "book_tome", formTypes=["BOOK"], bookTeaches=["Spell"]),
+    cat("books.skill", "Skill books", 120, "default_book", formTypes=["BOOK"], bookTeaches=["Skill"]),
     # Vanilla letters carry VendorItemBook like real books, so this only catches recipes and untagged notes.
-    cat("books.notes", "Notes & recipes", 110, formTypes=["BOOK"], bookTeaches=["None"], keywordsNone=["VendorItemBook"]),
-    cat("books.other", "Books", 100, formTypes=["BOOK"]),
+    cat("books.notes", "Notes & recipes", 110, "book_note", formTypes=["BOOK"], bookTeaches=["None"], keywordsNone=["VendorItemBook"]),
+    cat("books.other", "Other books", 100, "default_book", formTypes=["BOOK"]),
     # ---------------------------------------------------------------- magic
-    cat("scrolls", "Scrolls", 100, formTypes=["SCRL"]),
-    cat("soulgems.empty", "Empty soul gems", 100, formTypes=["SLGM"], soulGem=["Empty"]),
-    cat("soulgems.filled", "Filled soul gems", 100, formTypes=["SLGM"], soulGem=["Filled"]),
+    cat("scrolls", "Scrolls", 100, "default_scroll", formTypes=["SCRL"]),
+    group("soulgems", "Soul gems", "misc_soulgem"),
+    cat("soulgems.empty", "Empty soul gems", 100, "soulgem_empty", formTypes=["SLGM"], soulGem=["Empty"]),
+    cat("soulgems.filled", "Filled soul gems", 100, "soulgem_full", formTypes=["SLGM"], soulGem=["Filled"]),
     # ---------------------------------------------------------------- misc
+    group("misc", "Miscellaneous", skyui("inv_misc")),
     # Explicit lists win over keyword categories: Quarried Stone is tagged VendorItemOreIngot, Iron Fittings
     # VendorItemTool, Dwemer scrap VendorItemOreIngot, Glass/Straw/Clay/Firewood VendorItemClutter.
-    cat("misc.building_materials", "Building materials", 210, formTypes=["MISC"], forms=BUILDING),
-    cat("misc.dwemer", "Dwemer parts & curios", 200, formTypes=["MISC"], forms=DWEMER),
-    cat("misc.tools", "Tools", 150, formTypes=["MISC"], keywordsAny=["VendorItemTool"]),
-    cat("misc.gems", "Gems", 140, formTypes=["MISC"], keywordsAny=["VendorItemGem"]),
-    cat("misc.ores_ingots", "Ores & ingots", 130, formTypes=["MISC"], keywordsAny=["VendorItemOreIngot"]),
-    cat("misc.hides_pelts", "Hides & pelts", 130, formTypes=["MISC"], keywordsAny=["VendorItemAnimalHide"]),
-    cat("misc.animal_parts", "Animal parts", 130, formTypes=["MISC"], keywordsAny=["VendorItemAnimalPart"]),
+    cat("misc.building_materials", "Building materials", 210, "misc_wood", formTypes=["MISC"], forms=BUILDING),
+    cat("misc.dwemer", "Dwemer parts & curios", 200, "misc_clutter", formTypes=["MISC"], forms=DWEMER),
+    # Creation Club curios the game makes potions (ALCH): kept out of alchemy.potions, so Restock never hands
+    # them out: Rare Curios' Welkynd Stone (ccBGSSSE037-Curios.esl) and the drinkable one of ccBGSSSE067-DaedInv.esm
+    # (form refs written out: this script reads the vanilla masters only).
+    cat("misc.curios", "Curios", 220, "misc_gem", "Rare finds the game counts as potions (Welkynd Stone).",
+        formTypes=["ALCH"], forms=["ccBGSSSE037-Curios.esl|0x00000800", "ccBGSSSE067-DaedInv.esm|0x0020E802"]),
+    cat("misc.tools", "Tools", 150, "misc_clutter", formTypes=["MISC"], keywordsAny=["VendorItemTool"]),
+    # Carried lights (LIGH): torches, and the lanterns some mods add.
+    cat("misc.lights", "Torches", 100, "misc_torch", formTypes=["LIGH"]),
+    cat("misc.gems", "Gems", 140, "misc_gem", formTypes=["MISC"], keywordsAny=["VendorItemGem"]),
+    cat("misc.ores_ingots", "Ores & ingots", 130, "misc_ingot", formTypes=["MISC"], keywordsAny=["VendorItemOreIngot"]),
+    cat("misc.hides_pelts", "Hides & pelts", 130, "misc_hide", formTypes=["MISC"], keywordsAny=["VendorItemAnimalHide"]),
+    cat("misc.animal_parts", "Animal parts", 130, "misc_remains", formTypes=["MISC"], keywordsAny=["VendorItemAnimalPart"]),
     # Catch-all for MISC: most vanilla tableware/clutter has no vendor keyword at all. Gold and lockpicks are
     # never moved (default keep rules), quest items are always skipped by the mover.
-    cat("misc.clutter", "Clutter & other misc items", 10, formTypes=["MISC"]),
+    cat("misc.clutter", "Clutter & other misc items", 10, "misc_clutter", formTypes=["MISC"]),
     # ---------------------------------------------------------------- keys
-    cat("keys", "Keys", 100, formTypes=["KEYM"]),
+    cat("keys", "Keys", 100, "default_key", formTypes=["KEYM"]),
 ]
 
 doc = {"$schema": "dovastash-categories-1", "categories": CATS}

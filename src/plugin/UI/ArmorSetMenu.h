@@ -14,6 +14,8 @@ namespace dova::ui
 	{
 		std::string                  text;  // "[x] Ebony (4/4)"
 		std::optional<core::FormRef> set;   // nullopt: Auto
+		bool                         complete{ false };  // the player has every piece
+		bool                         current{ false };   // the set the mannequin is set to (or Auto, when it is)
 	};
 
 	struct ArmorSetMenu
@@ -31,6 +33,6 @@ namespace dova::ui
 	void OpenArmorSets(RE::FormID a_cellId, const core::FormRef& a_mannequin);
 
 	// Stores the choice (nullopt: Auto) in the mannequin's layout entry, adding the entry (used) if it has
-	// none, saves the layout and tells the player. Also used by the Menu Framework "Armor sets" page.
+	// none, saves the layout and tells the player. Also used by the Menu Framework Displays page's set picker.
 	void ChooseArmorSet(RE::FormID a_cellId, const core::FormRef& a_mannequin, std::optional<core::FormRef> a_set);
 }

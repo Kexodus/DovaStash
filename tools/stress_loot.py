@@ -411,7 +411,8 @@ def write_bat(out: Path, fname: str, lines: list[tuple[Item, int, str]], manifes
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mo2", default=r"E:\modding\Kexodus Skyrim", help="MO2 instance folder")
+    ap.add_argument("--mo2", default=os.environ.get("DOVASTASH_MO2") or r"E:\modding\Kexodus Skyrim",
+                    help="MO2 instance folder (default: %%DOVASTASH_MO2%%, else the developer's)")
     ap.add_argument("--profile", help="MO2 profile (default: the selected one)")
     ap.add_argument("--out", help="output folder (default: <mods>/dovastash inventory testing/root)")
     ap.add_argument("--per-plugin", type=int, default=6, help="items per mod plugin (default 6)")

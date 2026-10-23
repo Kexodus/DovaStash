@@ -1,0 +1,31 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Wuth Rein",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
+  "author": "Dova Stash",
+  "version": "1.0.2",
+  "priority": 0,
+  "requires": ["Skyrim.esm", "Update.esm", "WuthRein.esp"],
+  "cell": "WuthRein.esp|0x00001308",
+  "master": "WuthRein.esp|0x00001488",
+  "containers": [
+    {"ref": "WuthRein.esp|0x00001409", "label": "Barrel (by the grindstone)",             "categories": ["misc.ores_ingots", "misc.dwemer"]},
+    {"ref": "WuthRein.esp|0x000014AF", "label": "Barrel (by the grindstone, 2)",          "categories": ["misc.building_materials", "misc.tools"]},
+    {"ref": "WuthRein.esp|0x000013F7", "label": "Barrel (by the tanning rack)",           "categories": ["misc.hides_pelts", "misc.animal_parts"]},
+    {"ref": "WuthRein.esp|0x00001388", "label": "Chest (by the arcane enchanter)",        "categories": ["soulgems.*", "scrolls"]},
+    {"ref": "WuthRein.esp|0x0000137D", "label": "Chest (by the arcane enchanter, 2)",     "categories": ["weapons.*", "ammo.*"]},
+    {"ref": "WuthRein.esp|0x000013C7", "label": "Barrel (by the arcane enchanter)",       "categories": ["alchemy.food"]},
+    {"ref": "WuthRein.esp|0x0000138A", "label": "Chest (by the alchemy lab)",             "categories": ["armor.heavy", "armor.light", "armor.shields"]},
+    {"ref": "WuthRein.esp|0x000013D7", "label": "Urn (by the alchemy lab)",               "categories": ["alchemy.ingredients"]},
+    {"ref": "WuthRein.esp|0x0002730C", "label": "Satchel (by the alchemy lab)",           "categories": ["alchemy.potions", "alchemy.poisons"]},
+    {"ref": "WuthRein.esp|0x0000141B", "label": "Chest (by the bed)",                     "categories": ["armor.clothing"]},
+    {"ref": "WuthRein.esp|0x00001337", "label": "Strong box (by the bed)",                "categories": ["armor.jewelry", "misc.gems", "misc.curios"]},
+    {"ref": "WuthRein.esp|0x00001405", "label": "Chest (by the bookshelves)",             "categories": ["books.*"]},
+    {"ref": "WuthRein.esp|0x0002C4CB", "label": "Strong box (by the single bed)",         "categories": ["keys"]},
+    {"ref": "WuthRein.esp|0x0002C4A0", "label": "Chest (by the single bed)",              "categories": ["misc.clutter"]},
+    {"ref": "WuthRein.esp|0x000013C5", "label": "Bookshelf (by the arcane enchanter)",    "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "WuthRein.esp|0x00003043", "label": "Bookshelf (by the arcane enchanter, 2)", "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "WuthRein.esp|0x00003070", "label": "Bookshelf (by the arcane enchanter, 3)", "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."},
+    {"ref": "WuthRein.esp|0x0000307F", "label": "Bookshelf (by the bed)",                 "ignored": true, "note": "Scripted bookshelf: it only holds books and hands everything else back."}
+  ]
+}

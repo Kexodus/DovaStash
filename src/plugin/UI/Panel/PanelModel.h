@@ -22,6 +22,15 @@ namespace dova::ui::panel
 		Full    // + per-category item counts (scans every managed container inventory)
 	};
 
+	// The section pages (UI/Panel/Strings.h): a status line belongs to the page whose action posted it.
+	enum class Page : std::uint8_t
+	{
+		Home,  // This home (the stash window too)
+		Displays,
+		Settings,
+		About
+	};
+
 	class PanelModel
 	{
 	public:
@@ -30,7 +39,8 @@ namespace dova::ui::panel
 		// --- any thread ------------------------------------------------------------------------------
 		[[nodiscard]] std::shared_ptr<const HomeSnapshot>   Home() const;
 		[[nodiscard]] std::shared_ptr<const GlobalSnapshot> Global() const;
-		[[nodiscard]] std::string                           Status() const;
+		// The status line of `a_page` (empty when the last one was posted from another page or home).
+		[[nodiscard]] std::string                           Status(Page a_page = Page::Home) const;
 		[[nodiscard]] ExportState                           Export() const;
 
 		// Coalesced: at most one rebuild task is queued at a time.
@@ -40,14 +50,19 @@ namespace dova::ui::panel
 
 		// Render thread: the panel (window or section page) was drawn this frame. Also requests a light
 		// rebuild every couple of seconds while the panel is visible.
-		void MarkRendered();
+		void MarkRendered(Page a_page = Page::Home);
 		[[nodiscard]] bool RecentlyRendered() const;
 
 		// An export was requested (shows "exporting..." until SetExport delivers the result).
-		void BeginExport();
+		void BeginExport(std::uint32_t a_cell);
 		void SetExport(ExportState a_state);
-		// Last notification (shown at the bottom of the panel).
-		void SetStatus(std::string a_message);
+		// Last notification (shown at the top of the page, red when `a_error`: it reports a failure), for the home of
+		// cell `a_cellId` (0: none). Status() is empty while the page shows another home, and after ClearStatus (the
+		// window opens: the hotkey's Focus, the framework's own menu). It belongs to the page drawn last (the one the
+		// player clicked on: actions run within a frame or two of the click).
+		void SetStatus(std::string a_message, bool a_error = false, std::uint32_t a_cellId = 0);
+		void ClearStatus();
+		[[nodiscard]] bool StatusIsError() const;
 
 		// --- main thread only ------------------------------------------------------------------------
 		void Rebuild(Refresh a_refresh);
@@ -65,6 +80,9 @@ namespace dova::ui::panel
 		std::shared_ptr<const HomeSnapshot>   _home;
 		std::shared_ptr<const GlobalSnapshot> _global;
 		std::string                           _status;
+		bool                                  _statusError{ false };
+		std::uint32_t                         _statusCell{ 0 };
+		Page                                  _statusPage{ Page::Home };
 		ExportState                           _export;
 
 		// main thread only
@@ -74,6 +92,10 @@ namespace dova::ui::panel
 		std::uint64_t                       _focusSerial{ 0 };
 		Tab                                 _focusTab{ Tab::None };
 		std::uint64_t                       _serial{ 0 };
+		// The crosshair target last seen and the container it stands for (worked out again only when it changes:
+		// a bookshelf's activator is found through its script).
+		RE::RefHandle                _aimedHandle{ 0 };
+		std::optional<core::FormRef> _aimed;
 		// HomeSnapshot::ownChanges and what it was worked out for (home, template list, the setup as serialized).
 		std::string _ownChangesKey;
 		bool        _ownChanges{ false };
@@ -82,5 +104,6 @@ namespace dova::ui::panel
 		std::atomic<bool>         _fullQueued{ false };
 		std::atomic<std::int64_t> _lastRenderMs{ 0 };
 		std::atomic<std::int64_t> _lastAutoRefreshMs{ 0 };
+		std::atomic<Page>         _renderPage{ Page::Home };  // the page drawn last
 	};
 }

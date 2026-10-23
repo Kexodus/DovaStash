@@ -4,12 +4,55 @@
 #include "Game/FormUtil.h"
 #include "Game/ItemAdapter.h"
 #include "Home/Store.h"
+#include "Home/TemplateDisplays.h"
 #include "Log.h"
+
+#include <list>
 
 namespace dova::home
 {
 	namespace
 	{
+		// Whole-home templates (DESIGN Â§6.7): a cell the home's layout lists whose own setup is only what a template
+		// made by itself (auto-enable on the first visit: Lakeview Manor Cellar; core::AbsorbableCells) joins the
+		// home. Its file is backed up and removed, the Reset path (.bak next to it; the copy outside Data moves to
+		// history with the next write). Anything of the player's in it, or a file that cannot be read, keeps it a
+		// home of its own. Only the setup changes: no item is moved. The number of cells taken in.
+		std::size_t TakeInUntouchedCells(const Home& a_home)
+		{
+			if (!a_home.layout || a_home.layout->cells.empty()) {
+				return 0;
+			}
+			auto&                   store = Store::Get();
+			std::list<core::Layout> loaded;  // stable addresses for the lookup's pointers
+			const auto              lookup = [&](const core::FormRef& a_cell) -> const core::Layout* {
+				if (a_cell == a_home.cell || !store.HasPlayerLayoutFile(a_cell)) {
+					return nullptr;
+				}
+				bool broken = false;
+				auto layout = store.LoadPlayerLayout(a_cell, broken);
+				if (!layout || broken) {
+					return nullptr;
+				}
+				return &loaded.emplace_back(std::move(*layout));
+			};
+			// The cell's setup was made with its displays' script items recorded on arrival: count those as the
+			// template's (a display that is not loaded from here is not recorded, so its cell stays its own).
+			const auto record = [](core::Layout& a_copy) { (void)RecordDisplayItems(a_copy, false); };
+			std::size_t taken = 0;
+			for (const auto& cell : core::AbsorbableCells(*a_home.layout, lookup, store.Templates(), record)) {
+				const auto name = ListedCellName(a_home, cell);
+				if (!store.BackupAndRemovePlayerLayout(cell)) {
+					logger::warn("{}: could not back up the setup of {} ({}); it stays a home of its own", a_home.name, name, cell.ToString());
+					continue;
+				}
+				store.KeepHomeBackupHistoryNext(cell);
+				logger::info("{}: took in {} (untouched template setup)", a_home.name, name);
+				++taken;
+			}
+			return taken;
+		}
+
 		// An extra cell of a multi-cell home: nobody else's (CheckExtraCell), and the home's main cell still
 		// eligible when it is in memory (interior cells always are).
 		game::Verdict CheckExtraArea(const Home& a_home, RE::TESObjectCELL* a_cell)
@@ -85,9 +128,7 @@ namespace dova::home
 			if (!game::IsEffectivelyDisabled(ref)) {
 				return Present;
 			}
-			const auto* parent = ref->extraList.GetByType<RE::ExtraEnableStateParent>();
-			const bool  undeleted = (parent && parent->parent.get().get() == game::Player() && (parent->flags & 1) != 0) || ref->GetPosition().z < -29000.0f;
-			return undeleted ? Disabled : NotBuilt;
+			return game::IsUndeletedRef(ref) ? Disabled : NotBuilt;
 		};
 		return core::JudgeTemplateFit(a_template, probe);
 	}
@@ -125,7 +166,7 @@ namespace dova::home
 		if (moved || _stale) {
 			if (moved) {
 				// The home the player just left, if it is set up: this cell can be offered to it (OfferArea).
-				_cameFrom = _home && _home->layout && !_home->layoutBroken ? std::optional<Visit>(Visit{ _home->cell, _home->name }) : std::nullopt;
+				_cameFrom = _home && _home->layout && !_home->layoutBroken ? std::optional<Visit>(Visit{ _home->cell, _home->DisplayName() }) : std::nullopt;
 			}
 			_stale = false;
 			Flush();
@@ -414,6 +455,23 @@ namespace dova::home
 		Resolve(a_home);
 		logger::info("Applied template {} v{} to {} (player data merged)", source, version, a_home.name);
 		logger::debug("{}: template switched from {} to {}", a_home.name, before, core::MakeBasedOn(source, version));
+		if (TakeInUntouchedCells(a_home) > 0) {
+			BuildAreas(a_home);  // the cells taken in are areas now, even when the layout lists the same cells as before
+			LogAreas(a_home);
+		}
+		return Save(a_home);
+	}
+
+	bool HomeRegistry::SetTemplateHidden(Home& a_home, std::string_view a_source, bool a_hidden)
+	{
+		if (!a_home.layout || a_home.layoutBroken) {
+			return false;
+		}
+		if (!(a_hidden ? core::HideTemplate(*a_home.layout, a_source) : core::UnhideTemplate(*a_home.layout, a_source))) {
+			return false;
+		}
+		Resolve(a_home);
+		logger::info("{}: template {} {}", a_home.name, a_source, a_hidden ? "removed from this home" : "added back");
 		return Save(a_home);
 	}
 

@@ -65,56 +65,90 @@ one workspace.
 - **Title row:** `≡` menu (Open template file..., Rescan load order, Draft all homes, Save N drafts..., Undo, Redo,
   Commands..., Shortcuts..., About), the emblem (the start panel), *Back* to the cell opened before, the **home
   switcher** (the rail's list in compact form, type to filter) with the unsaved dot and the template's chip (*no
-  template*, *shipped*, *yours*, *auto-draft*, *draft*), `3D | Plan` (keys `1`/`2`), *Draft* ▾ (Draft this home, Accept all,
+  template*, *shipped*, *yours*, *auto-draft*: the template file open; *draft*: the editor's draft open, changed or
+  not, also when the home has a template), `3D | Plan` (keys `1`/`2`), *Draft* ▾ (Draft this home, Accept all,
   Reject the weak ones, Draft again, Draft all homes, Save N drafts...), *Save* (Ctrl+S; disabled while the checks
   find errors) and `⚙` *Setup* (MO2 instance, profile, author, save target, theme, UI size, Rescan; closing applies;
   *Theme* picks the window's colours: Dova Stash, the default, or a dark or light palette inspired by xEdit's UI
   themes, or one of your own files, EDITOR-UX.md §3.1).
 - **Homes rail** (left, Ctrl+1; collapses to a strip): the home list (step 2).
 - **Viewport** (centre): the 3D view or the plan, never both, with a floating toolbar: *Select* / *Paint* (`S` /
-  `P`), *Layers* ▾ (`L`: the layers and the height cut), *Colours* ▾ (none, by category, by fill, `C` / `V`, with the
-  legend), *Camera* ▾ (overview, frame, fly speed, light, *Pick anything* / *Left drag pans*). Paint mode puts the
-  paint bar in place of Layers, Colours and Camera. A hint line at the bottom names the controls of the moment. With
-  no home open the viewport shows the start panel (§3.6).
+  `P`), *Layers* ▾ (`L`: the layers, the height cut and, in an interior's 3D view, *Roof*), *Colours* ▾ (none, by
+  category, by fill, `C` / `V`, with the legend), *Camera* ▾ (overview, frame, fly speed, light, *Pick anything* /
+  *Left drag pans*). A view narrower than 900 px shows the toolbar as icons, the names in the tooltips. Paint mode
+  puts the paint bar in place of Layers, Colours and Camera. A hint line at the bottom names the controls of the
+  moment. With no home open the viewport shows the start panel (§3.6).
+- **Roof cut** (3D view, interiors): per area, so a cave below the built rooms opens too. The home is split into
+  512-unit squares (`render::RoofGrid`); each is cut 2 m above its own floor, the lowest container, piece of
+  furniture or door there from the start in it (a square without one takes its neighbours' lowest cut), and never
+  above the highest container + 120 units. Above the cut only containers and displays are drawn (or picked), so the
+  overview shows the rooms and caves from above, not a cave's rock shell or a house's roof. On by default; *Layers*
+  ▾ › *Roof* brings the roof back. The log names the squares and the heights at each open. The highest container
+  counts among those there from the start (initially disabled ones may be stored above the rooms).
+  `--render-cell <cell> --roof-cut` draws the same cut (Wuth Rein's lower cave: §9).
 - **Inspector** (right, Ctrl+3): four panels. *Selection*: what is selected (its own mesh as a picture, the
   reference and base record in one block), its role (§3.1) and *Where its items go* (§3.5); a multi-selection gets
   the bulk editor (§3.7); empty: *Make the nearest chest the master*, *Draft this home*, *Open the containers list*.
-  *Template*: header, cells, keep rules, save target, *Save* / *Save as...* / *Copy JSON*. *Draft*: the review of
+  *Template*: header, cells, keep rules, save target, *Save* / *Save as...* / *Copy JSON* (*Save* as the title row's:
+  filled only with unsaved work, else *Save* or *Save a copy*; the notes wrap, up to 5 lines). *Draft*: the review of
   this home's draft (§3.4). *Checks*: the problems, then what the template still lacks. Selecting switches to
   Selection, *Draft this home* to Draft, a click on the status row's problem count to Checks.
 - **Drawer** (bottom, Ctrl+2; drag to resize): *Containers* · *Displays* · *Doors* · *Where items go*, the wide
-  tables, with counts on the tabs. Every column sorts: click its header (again: descending, a third time: the
+  tables, with counts on the tabs: the usable ones (the rail's count, for this cell), `252 of 253` in a home of
+  more than one cell (this cell's of the home's; the tooltip says how many more this cell has that respawn, are
+  someone else's or go with an upgrade). Every column sorts: click its header (again: descending, a third time: the
   table's own order), Shift+click adds a column; *ignored*, *not listed* and *no categories* sort after real
-  categories, the master first. At the tab row's right: quick filters (Containers: *Master*, *With categories*,
+  categories, the master first. Containers opens in its own order: the master, with categories, without, ignored,
+  not listed, those that start disabled last in each. At the tab row's right: quick filters (Containers: *Master*, *With categories*,
   *No categories*, *Ignored*, *Not listed*, *Respawning* and a *Kind* ▾ list: chest, sack, barrel, satchel,
   bookshelf...; Displays: their kinds, *Used*, *Unused*; Where items go: *Master*, *Receives items*, *Receives
-  nothing*; one of a set is enough, sets combine) and a *Filter rows* box (every word must be in some column; Esc
-  clears it), with "N of M" when rows are hidden. Sort and filters last for the session, per table.
+  nothing*; one of a set is enough, sets combine; a row too narrow for them, at a large text size or in a small
+  window, folds them into a *Filters* ▾ list with the count of those on) and a *Filter rows* box (every word must
+  be in some column; Esc clears it), always shown, with "N of M" when rows are hidden. Sort and filters last for
+  the session, per table. The tables
+  speak words: categories by their names (*Swords*, *Books (all)* for `books.*`; the ids in the tooltip and found by
+  the filter), scripts as what they do (*bookshelf*, *Hearthfire build*, *critter spawn*, *beehive*; the script
+  names in the tooltip), *Height (m)* in metres (70 units) above the cell's floor: its lowest containers there from
+  the start that stand together (another within 400 units above; one a mod left alone below them does not count),
+  leaving out any more than 2000 units from the median (a container a mod parked far below the home reads `-`, its
+  Notes *out of the home*). *Where items go* and the Draft panel's chips name categories the same way, and every panel names a
+  container the same way: the template's label (a landmark, `Barrel (by the grindstone)`) first, else the game's
+  name (the Draft panel adds the height, `Barrel · 1.3 m`, when two still share a name).
 - **Status row:** home · cell and the unsaved dot; `errors · warnings` (click: Checks); background work (scan,
-  drafts, archives, meshes, textures) as `label n/m`, then missing meshes or textures; one shortcut for the moment.
+  drafts, archives, meshes, textures) as `label n/m`, then missing or unreadable meshes and textures (the tooltip
+  counts them, `1 texture missing`, and lists each with the reason; a texture names the mesh that uses it and the
+  mod or archive the mesh comes from, so a mod's missing file reads as that mod's; a click shows or hides the
+  missing meshes' boxes, a right-click copies the list); one shortcut for the moment.
 - **Command palette** (Ctrl+K): commands, homes (opens), the open home's containers and displays (selects and frames),
   categories in paint mode (sets the brush), each with its key.
 
-The rail's, inspector's and drawer's sizes, which are open, and the view persist in `state.json` (§3.6).
+The rail's, inspector's and drawer's sizes, which are open, and the view persist in `state.json` (§3.6). The
+drawer's height is kept as a share of the window's, so a smaller window keeps its view: the drawer takes at most
+half the height, and the rail and inspector together at most 60% of the width.
 
 1. **Open the setup.** Launched from MO2 the editor finds its instance and profile by itself (§4.2);
    otherwise the start panel asks for the instance folder once (remembered later). `⚙` *Setup* changes it.
 2. **Find the home.** The rail lists every player home of the active load order (the same scan as *Draft all
    homes*, §3.4, read once and shared) under the mod whose plugin defines its cell: the enabled mod with the
-   highest priority that has the plugin, as MO2 resolves it, in MO2's order (its Nexus id muted); *Game Data folder*
+   highest priority that has the plugin, as MO2 resolves it, in MO2's order (`Nexus 65088 · 2 homes`, muted); *Game Data folder*
    holds the base game, the DLCs and Creation Club. A row is the home's name, its storage (containers a template can
-   use · displays, over its cells), a status word (*yours*, *shipped*, *auto-draft*, *draft*, *none*), how many cells and templates it
+   use · displays, over its cells: not respawning, nobody else's, not removed by an upgrade; `--draft-all` prints the
+   same *usable containers*), a status word (*yours*, *shipped*, *auto-draft*, *draft*, *none*; *off* when every template of the home names a plugin of the load order under `conflicts`, so the game offers none), how many cells and templates it
    has when more than one (`2 cells · 3 templates`) and the unsaved dot. One search box takes part of a home or mod name, a plugin, or a Nexus id (`92177` finds Whitepeak Tower);
-   the filter popover (a count badge when one is on) has *Only homes without a template*, *Only enabled mods*,
+   the filter popover (a count badge when one is on) has *Only homes without a template*, *Show homes with no
+   containers* (off: a cell found as a home with no usable chest and no template is hidden), *Only enabled mods*,
    *Likely homes only*, *Exteriors*, *Group by mod*. Up/Down and Enter walk it; right-click: *Open*, *Draft*, *Open
    in Explorer* (its template file), *Copy form ref*. *Rescan* (F5) at the bottom reads the load order again after a
    change in MO2, next to the scan summary (`125 homes · 309 plugins · 2.2 s`).
-3. **Or any cell of a mod.** For a home the scan misses (owned by a faction, an exterior), *All cells...* under a
-   mod group loads the mod's plugins with their masters and scores every cell they define or edit (§3.2). Likely
+3. **Or any cell of a mod.** For a home the scan misses (owned by a faction, an exterior), *All cells...* (a mod
+   group's right-click menu, or the link under the open home's group) loads the mod's plugins with their masters and scores every cell they define or edit (§3.2). Likely
    homes are listed first, their evidence (player-house location, player owned, never resets, containers,
    displays) in the tooltip; *Likely homes only* and *Exteriors* from the filter apply.
-4. **Open its cells.** A click opens the home with its draft (§3.4; every cell of a multi-cell home, §3.3) in the
-   viewport. The drawer's *Doors* tab lists where its load doors lead: the home's other interiors (a cellar, a
+4. **Open its cells.** A click opens the home (every cell of a multi-cell home, §3.3) in the viewport, on its
+   template: the one the game offers first (the Template panel's order), opened as a file, nothing to save. A home
+   without a template opens on its draft (§3.4), and so does one whose draft has unsaved changes. The draft stays in
+   the Draft panel: *Use the draft* opens it in place of the template (the chip then reads *draft*; Save writes it
+   as yours). The drawer's *Doors* tab lists where its load doors lead: the home's other interiors (a cellar, a
    cave) and the exterior cells outside (resolved through the worldspace grid, e.g. *Tamriel (-9, -2)
    WhitepeakTowerExterior01*). A double click on a row opens that cell (*Back* returns); its tick joins it to the
    home.
@@ -126,16 +160,29 @@ The rail's, inspector's and drawer's sizes, which are open, and the view persist
 6. **Assign.** Master, categories, label, note, ignored; displays on/off with categories, items, armor set. In
    the Selection panel, by paint mode (§3.7), or by accepting the draft's suggestions in the Draft panel (§3.4).
 7. **Validate.** Continuous: core's `ValidateTemplate` and `ValidateLayoutCategories`, plus the plugin-aware
-   checks of `esm_dump.py check` (ref is a container in the cell, never a respawning one, displays exist,
-   `set` is an ARMO, `requires` complete, §5.6). The status row counts errors and warnings; the Checks panel
-   lists them, errors first, a click selects the object, and under *Still to do* what the template lacks (no
-   master, 35 containers without a role).
+   checks of `esm_dump.py check` in its words (`home::CheckTemplateRefs` over the home's cells the editor has read):
+   the master, each container and display is *a reference in* the home's cells, a container *is not a container* or
+   *is deleted* (errors), a bound container that respawns is an error (*respawns: never bind it*; esm_dump says *RESPAWNS - never bind it*), and warnings for
+   the respawn flag in a cell that never resets (*accepted because its cell never resets*), a container an upgrade
+   removes (*disappears when its enable parent is enabled*), a scripted bookshelf listed as a container and a master
+   that *starts disabled*; a reference of a plugin not loaded or of a cell not read yet is not reported (`set` is
+   an ARMO, `requires` complete, §5.6). A container with the respawn flag in a cell whose encounter zone
+   never resets counts as usable, as the plugin rules it (DESIGN §9): the tables note *respawn flag, cell never
+   resets*, the Selection panel a *respawn flag* chip, and drafts give it categories. The status row counts errors and warnings; the Checks panel
+   lists them, errors first, each by the container's name (the form ref in its tooltip, no `template:` nor `containers[N]`), a click selects the object, and under *Still to do* what the template lacks (no
+   master, 35 containers without a role, `12 containers not listed (4 more come with upgrades)`: a click shows them
+   in the Containers tab, quick filter *Not listed*; for a shipped or saved template that line sits under a quieter
+   *Not listed*). A template whose `conflicts` names a plugin of the load order gets a warning first, *Not offered in
+   game: <plugin> rebuilds this home*, and the title's word is *off*; its reference checks follow as information,
+   not errors (they describe the rebuild), so *Save a copy* still works.
 8. **Save.** *Save* (title row, Template panel, Ctrl+S) into `Data/SKSE/Plugins/DovaStash/Templates/<Home>/<Author>.json`
    of a mod chosen by the author (§4.4): under MO2 a "Dova Stash Templates" mod by default (created when missing),
    else an existing mod the author picks (*Setup* or the Template panel). Never MO2's overwrite by default
    (cleaning it would delete the templates). An existing file is backed up first and its version raised, as the
    DLL does (`core::NextPatchVersion`). A home over several cells is one file (§3.3). *Save as...* writes a copy
-   anywhere. Both are a person's save: an auto-draft opened and saved loses its `"autoDraft"` mark (§3.4).
+   anywhere. Both are a person's save: an auto-draft opened and saved loses its `"autoDraft"` mark (§3.4). With no
+   author yet (Setup's *Author* empty), Save asks for *Your name* first and keeps it as the author: a file is never
+   named `Unknown.json` by a person's save.
 
 The editor also **opens existing files** (*Open a template...*, Ctrl+O): a shipped or downloaded template, a player
 layout from `Layouts/` or from the backups in Documents (DESIGN §6.6). That is the path from "I set it up in game" to a template
@@ -173,9 +220,13 @@ what falls to the master. This is the one feature only a tool with the whole loa
 
 Every interior cell the plugin defines or edits (exteriors on request) is loaded with its references and
 scored; a cell is a **likely home** when its location has `LocTypePlayerHouse`, it is owned by the player
-(`Player` or `PlayerFaction`), or it has mannequins and nothing in it respawns (homes owned by a faction,
-such as Severin Manor, DESIGN §16). The score ranks them: player house +4, player owned +3, never resets +1,
-usable containers +1/+2, displays +1, mannequins without respawning containers +2. Containers, displays and
+(`Player` or `PlayerFaction`), it has mannequins and nothing in it respawns (homes owned by a faction,
+such as Severin Manor, DESIGN §16), or it is owned by a faction its own mod adds (not a base-game plugin's) and
+has containers that do not respawn: the faction the player joins with the home (White Lighthouse; the DLL accepts
+it once the player is in it, and its references that faction owns are no one else's). The score ranks them:
+player house +4, player owned +3, its mod's faction +2, never resets +1, usable containers +1/+2, displays +1,
+mannequins without respawning containers +2. A cell of the `CELL` group is inside even when its last override
+drops the DATA flag, and one whose last override drops its name keeps the first plugin's (USCCCP's Myrwatch). Containers, displays and
 fronts (activators that open a hidden chest) are found as `esm_dump.py cell` finds them (verified: Whitepeak
 Tower 89 containers, 77 racks, 6 mannequins, 50 plaques; Breezehome 24/3 respawning/9 racks; all 9 vanilla,
 Hearthfire and Dragonborn homes found in their plugins; Gallows Hall in `Update.esm` and both Myrwatch cells in
@@ -217,10 +268,12 @@ opened, or all of them at once with **Draft all homes**. That is an action, not 
 panel, Ctrl+D, `--drafts`): the drafts are made on a worker with the progress in the status row; then the rail shows
 a *draft* chip per home and a banner over it offers *Save N drafts...*. It does not advance the homes' stages
 (§3.6). `home::FindAllHomes` reads every interior cell once (the 302 plugins of the test profile
-in about a second), keeps the likely homes (§3.2), and resolves all their load doors in one pass: interior cells whose
-doors lead to each other and are homes too are **one home** (a hall and its cellar), and storage behind a home's door
-that nothing respawns in and nobody owns joins it (the main cell is the one whose name is not "cellar", "basement",
-"cave"..., then the best score). Status per home (the rail's chip): *none*, *shipped* (Dova Stash's or another
+in about a second), keeps the likely homes (§3.2) and every cell a known template names (`cell` or `cells`,
+`home::TemplateCellsOf`: a later override may drop a home's location, as USCCCP does Myrwatch's), and resolves all
+their load doors in one pass: interior cells whose doors lead to each other and are homes too are **one home** (a
+hall and its cellar), and storage behind a home's door that nothing respawns in and nobody else owns joins it (a
+faction-owned `LocTypePlayerHouse` cell counts as nobody else's). The main cell is a template's `cell`, else the one
+whose name is not "cellar", "basement", "cave"..., then the best score. Status per home (the rail's chip): *none*, *shipped* (Dova Stash's or another
 mod's), *yours* (`Templates/User`, the "Dova Stash Templates" mod, the mod picked under *Save to*, overwrite; also a template saved this session), from every `Templates/**.json` of the
 merged Data folder (`home::LoadTemplateIndex`); *auto-draft* (only a file *Save N drafts...* wrote, nobody saved it
 since), *draft* (a draft not saved). The title row and the Template panel use the same words; the counts are words in the row's summary, never "+N".
@@ -233,7 +286,9 @@ classified by the real category engine through `esp::ReadItem`) and furniture, w
 
 - **Ignored** containers, first matching `ignore` rule, with the note the template writes: respawns, goes away with a
   house upgrade (unless it diverts its items, `BYOHDivertItemScript`), owned by someone else (`XOWN` on the reference),
-  scripted bookshelves, display cases.
+  scripted bookshelves, display cases. **Left out** of drafts altogether: containers that start disabled with no
+  enable parent (only a quest's script brings them) and scripted weapon mounts (a `WeaponRack` / `WeaponMount` script
+  or base: Wynter's `Wynter_WeaponMountPoint` shows one weapon, it is no storage).
 - **Names come first.** A container's **display name** is what the home's author wrote for players. When it has a word
   beyond the generic ones (`genericWords`: "large", "wooden", "upper"..., plus the master's chest and furniture words) it
   is **specific** ("Dragonpriest Masks", "Food & Drinks", "Arrows & Bolts"): only that name counts, never the EditorID,
@@ -245,8 +300,8 @@ classified by the real category engine through `esp::ReadItem`) and furniture, w
   -1), its size up to a small chest's (`fullSize` 100000 cubic units, +1: a huge shelf or urn does not win on volume),
   closeness to a load door (+1 within 1500 units, the front door counts more), closeness to the middle (+0.5), and -3
   when its name says what it holds (a specific name, or a name rule that is sure of it): such a container is only the
-  master when every usable one is named. The reason is shown ("Chest: named like a chest, 96 x 49 x 49 units, 5.5 m from
-  the door to Windhelm; usable (one of 69): ...") with the runners-up.
+  master when every usable one is named. The reason is shown ("Chest: named like a chest, 0.6 x 1.1 x 0.6 m, 6.7 m from
+  the door to Skyrim; usable (one of 69): ...", sizes in metres: units / 70) with the runners-up.
 - **Categories per container**, each with a confidence and the reason: its **name** (`names` rules: "Alchemy Satchel",
   "Weapon Chest", "Cooking Ingredients" is food; EditorIDs are split into words, plurals match; a container named
   exactly like a **category** of the loaded set gets it, and one named like an **item** of the load order gets the
@@ -256,7 +311,9 @@ classified by the real category engine through `esp::ReadItem`) and furniture, w
   hints only), and **items placed on or next to it** (by their category, a hint of at most 45%; clutter, weapons,
   armor and ammunition lying about are decoration and say nothing). Evidence for the same category adds up. Each
   category goes to **one** container: one named for exactly that category first, then one whose display name says it
-  as part of a group ("Alchemy Satchel" before a barrel whose EditorID says "Ingredient"), then the strongest; it is
+  as part of a group ("Alchemy Satchel" before a barrel whose EditorID says "Ingredient"), then the strongest. On equal
+  confidence a container's own name beats stations and nearby items, then the container sure of fewer other
+  categories wins ("Notes and Letters" over "Alchemy Recipes"), then the nearer station, then the earlier container. It is
   accepted at 50%, the others keep it as a rejected alternative ("Potion Basket has it with 93%"). A **fill** pass then
   gives each usual group nobody took (weapons, armor, clothes, jewelry, alchemy, food, books, soul gems and scrolls,
   ammunition, crafting materials, building materials, clutter, keys) to the free container with the strongest weaker
@@ -273,7 +330,8 @@ container has a stronger claim on), *Reject the weak ones* (under 50%), *Draft a
 editing `DraftRules.json`; asks when the template has changes). Then the master with the first clause of its reason
 (the whole reason and the runners-up in the tooltip; *Use this one* when the template uses another), and per
 container its suggestions as chips coloured by confidence (green: the name says so, yellow: a station or items
-nearby, orange: a hint; the legend is the tooltip of the *Containers N of M* head), the source and reason in the
+nearby, orange: a hint; the legend is the tooltip of the *Containers N of M* head: accepted of the home's usable
+containers, the rail's number), the source and reason in the
 tooltip; a click accepts or rejects. A click on a container's name selects it in the view (one in another cell of
 the home opens that cell). The draft's displays are a folded list at the end. For a home that has a template: how
 many categories the draft sends to the same container and whether the master is the same (details in the tooltip).
@@ -288,8 +346,11 @@ drafts of homes without a template after one confirmation listing new files and 
 before writing, `core::ScanTemplateFiles` reads the destination's `Templates/` and `core::CheckAutoDraftTarget` allows
 a missing file or that home's own earlier auto-draft (refreshed: `.bak`, version raised); `home::SaveTemplateFile`
 reads the target again just before writing. A file without the mark (hand-made, downloaded, an auto-draft saved since),
-one that cannot be read, another home's auto-draft (two homes of the same name share `Templates/<Home>/`), and any
-home with a template someone made anywhere in the destination are left alone: the dialog lists those homes by name
+one that cannot be read, and any home with a template someone made anywhere in the destination are left alone. Two
+homes of the same name: the second goes under its main cell's EditorID (`Templates/Keep (YngolKeep02)/`), and so
+does a home whose folder another home's auto-draft already holds. A draft with no master (no usable container) is
+not written (*N homes left alone: no container to sort into*); the rail's *Save N drafts...* counts as the dialog
+does. The dialog lists the homes left alone by name
 (the file in the tooltip) and the command line prints a *not saved* line for each. A home whose only template is an
 auto-draft counts as without one (the rail's *auto-draft* chip, the *Only homes without a template* filter). Opening
 it and saving (Ctrl+S, *Save as...*) drops the mark: the template is yours, and no bulk draft touches it again. The
@@ -329,12 +390,16 @@ category's colour, one hue per group). Selecting a container shows its predicted
 Without `--mod`/`--cell`/`--home`/`--drafts` the editor opens on the **start panel**, drawn in the viewport while no
 home is open (the emblem in the title row brings it back; Esc returns to the open home): the setup in one line
 (instance, profile, mods enabled) with *Change...* (the `⚙` Setup popover; the instance is found from MO2, else the
-one remembered; when none is found, a card with the folder, *Browse...* and *Open*, and nothing else), "N player homes,
+one remembered; when none is found, a card with the folder, *Browse...* and *Open*, and a muted hint: *Pick your MO2
+instance (the folder with ModOrganizer.ini) or your Skyrim Data folder, or start the editor from MO2.* The card and
+Setup take either folder: one with `ModOrganizer.ini` opens as the instance, one with `Skyrim.esm` (or a game folder
+with `Data\Skyrim.esm`) as `--data`, remembered as `"data"` in `state.json`), "N player homes,
 M with templates" and the scan time, three cards (*Open a home*: focuses the rail's search; *Draft all homes*,
 Ctrl+D; *Open a template...*, Ctrl+O: a shipped or downloaded template or a layout saved in game, opened on its home),
-and **In progress**: each home's stage, *drafted* (opened with its draft) -> *reviewed* (a suggestion accepted or
+and **In progress**: each home's stage, *drafted* (its draft opened) -> *reviewed* (a suggestion accepted or
 rejected, or the template edited) -> *validated* (reviewed and no problems) -> *saved*, with where it was saved. A
-home's stage starts when it is opened; *Draft all homes* does not advance it. The stages, the instance, the author,
+home's stage starts when its draft is opened (a home opened on its template has none yet); *Draft all homes* does
+not advance it. A name too long for its column ends in "..." (the whole name in the tooltip). The stages, the instance, the author,
 the save target, the layout (rail, inspector and drawer: open or collapsed, their sizes; the view), the UI size and
 the theme persist in `%LOCALAPPDATA%\DovaStashEditor\state.json` (`DOVASTASH_EDITOR_STATE` points tests elsewhere);
 a click on a home in progress opens it. A `--tab` on the command line applies to that run only: the file keeps the
@@ -369,7 +434,8 @@ are files in `%LOCALAPPDATA%\DovaStashEditor\Themes\` (EDITOR-UX.md §3.1).
 ```
 editor/src/
   main.cpp            wmain: command line (headless) or window
-  Cli.*               --list-mods, --homes, --cell [--draft], --render-cell, --nif-info, --gui [--home --tab --inspector --select --popover --palette --window --screenshot]
+  (the rest)          one object library, linked by the exe and by editor/tests/EditorTests.cpp (DovaStashEditorTests)
+  Cli.*               --list-mods, --homes, --cell [--draft], --render-cell, --nif-info, --gui [--home --tab --inspector --select --popover --palette --window --text-size --screenshot --state]
   CliDrafts.cpp       --draft-all [--compare --save-to --base-game], --preview <cell> [--sample]
   Workspace.*         MO2 instance + profile + mods + merged Data view; opens a plugin with its masters, or the whole load order
   mo2/Instance.*      ModOrganizer.ini, profiles, modlist.txt, meta.ini (Nexus id), plugins per mod, VFS detection
@@ -382,6 +448,7 @@ editor/src/
   esp/Pex.*           compiled Papyrus scripts: variables, events, parent (plaques and cases as the DLL sees them)
   esp/Items.*         every item record as core::ItemInfo (the DLL's ItemAdapter, read from the plugins)
   home/ArmorSets.*    the load order's armor sets (mannequin set picker, chosen sets in the preview)
+  home/RefChecks.*    the game-data checks of the Checks panel (esm_dump.py check's reference checks)
   home/Cell.*         cell facts, placed references (+ model paths, keywords, owner), terrain, displays, doors, home finder
   home/Drafts.*       every home of the load order (grouped by doors), draft objects, drafts (core::SuggestDraft), comparison
   home/DovaData.*     the player's categories, templates (with their status) and draft rules
@@ -394,7 +461,7 @@ editor/src/
   ui/Window.cpp       Win32 + Direct3D 11 + Dear ImGui host
   ui/App.*            the workspace (EDITOR-UX.md §2): background jobs, opening cells and homes, the viewport and its toolbar, keys
   ui/TitleBar.cpp     the title row (≡ menu, home switcher, 3D | Plan, Draft, Save, Setup) and the status row
-  ui/Rail.cpp         the homes rail: homes by mod, search, filter, chips, "All cells..." per mod
+  ui/Rail.cpp         the homes rail: homes by mod, search, filter, chips, "All cells..." (a group's right-click, the open home's group)
   ui/Start.cpp        the start panel (setup, counts, three cards, homes in progress)
   ui/Inspector.cpp    the inspector: Selection, Template, Draft, Checks
   ui/Drawer.cpp       the drawer: Containers, Displays, Doors, Where items go
@@ -409,6 +476,8 @@ editor/src/
                       optional art from the player's install and mesh thumbnails
   ui/Themes.*         the colour themes: Dova Stash, the built-in dark and light ones, the player's theme files
   ui/State.*          what is remembered between runs (instance, author, save target, each home's to-do stage, layout, theme)
+editor/console/Main.cpp  DovaStashEditor.com, the console companion: runs the .exe, waits, passes on its output and exit code
+editor/tests/EditorTests.cpp  DovaStashEditorTests: BSA, Assets (stale archives), DDS, NIF, state.json, reference checks, floors and the home finder on fixtures it writes (ctest --preset editor)
 ```
 
 Core additions for the editor (engine-independent, unit-tested, usable by the DLL later): `DraftSuggest.h` (the draft
@@ -445,10 +514,17 @@ categories, armor sets, display kinds. The editor never duplicates a rule core a
 MO2 starts executables inside usvfs: the process sees `<game>\Data` as the merge of the game folder, every
 enabled mod in priority order and overwrite; writes below Data land in overwrite, or in the mod chosen in
 the executable's *Create files in mod instead of overwrite*; the profile's `plugins.txt` appears at
-`%LOCALAPPDATA%\Skyrim Special Edition\plugins.txt`. The editor detects usvfs (`usvfs_x64.dll` loaded) and
-then reads Data directly. Outside MO2 it rebuilds the same view itself (`DataFiles`: game Data, enabled
-mods lowest priority first, overwrite; a later root wins), so both ways give the same answers and the editor
-can be used from Explorer, a terminal or tests. The instance is still read under the VFS: it is what maps
+`%LOCALAPPDATA%\Skyrim Special Edition\plugins.txt`. **The editor does not read through that view: it builds the
+same one itself** (`DataFiles`: game Data, enabled mods lowest priority first, overwrite; a later root wins) from
+the instance, started from MO2 or not (it notes usvfs, `usvfs_x64.dll` loaded, only for the status). Reason,
+found the hard way: every MO2 process of an instance shares one virtual Data folder (usvfs shared memory
+`mod_organizer_instance`), and when another MO2 process launches a program with another profile (the in-game test
+run: `ModOrganizer.exe --multiple -p "Dova Stash AutoTest"`), MO2 rebuilds it under the running editor (the usvfs
+logs show 629,607 nodes becoming 9,073). Read through the VFS, the editor then lost every file of the other
+profile's mods, and the base game's texture archives that a mod replaces (*Skyrim Every Single Texture Upscaled*
+ships its own `Skyrim - Textures0..8.bsa`) turned into the vanilla files under the editor's index: 254 of
+Wuth Rein's textures missing or garbage, as a session got older. The mod folders read directly never change that
+way, and both ways now give the same answers (Explorer, a terminal, tests, MO2). The instance is also what maps
 plugins back to mods and Nexus ids.
 
 **Which plugins are loaded.** **Decided: the whole load order by default** (all active plugins in
@@ -465,7 +541,19 @@ then each plugin's `<name>.bsa` / `<name> - Textures.bsa` in load order (the pro
 other plugin in the merged Data folder, so a disabled home mod opened on purpose still shows its meshes); loose
 files win over archives. Loose files are found without walking the Data folder: a directory is listed only in
 the mod folders that have its parent, and only when a file in it is asked for (2,000 mods, a few hundred
-directories per cell). Archives are opened on the 3D view's loader threads, in parallel.
+directories per cell). Archives are opened on the 3D view's loader threads, in parallel; each read opens the
+file for itself (no handles kept, so MO2 can still update or remove a mod while the editor runs).
+
+Files that change while the editor runs (`data/Assets`): a folder listing that failed is not kept (asked again
+next time); a listed loose file that cannot be opened has its folder listed again; an archive whose file changed
+on disk (size or time) is indexed again before it is read; Rescan (F5) drops every listing and index. So
+**missing** in the status row means in no loose folder and no archive; a file that exists but cannot be read or
+used (broken, Direct3D refusing it after one retry) counts as **unreadable**, with its reason in the tooltip.
+The editor's log, `%LOCALAPPDATA%\DovaStashEditor\editor.log` (the previous run's is `editor.old.log`), records
+the workspace, the archives opened, each 3D view loaded (counts, memory) and every failed read with its reason
+(meshes first; a right-click on the status row's *2 meshes, 5 textures missing* copies the same list). Console
+commands and `--screenshot` runs log to `%TEMP%\DovaStashEditor\editor-run.log` instead, so they never replace the
+author's last session (with `DOVASTASH_EDITOR_STATE` set, to `editor.log` next to that file).
 
 ### 4.4 Writing templates
 
@@ -530,10 +618,15 @@ selection for both and for the tables. What is in:
   387 meshes, 3,348 draws) draws in about 1 ms of CPU; meshes and textures load in under a second on worker
   threads while the view fills in.
 - **What is drawn:** every reference with its base object's model (armor: its world model); mannequins with
-  their body (the NPC's or race's skin, body addon); other people and missing meshes as solid boxes of their
-  bounds; things invisible in game that a template can use (hidden chests on marker meshes, rack and plaque
+  their body (the NPC's or race's skin, body addon); other people, and anything but walls and clutter whose mesh
+  is missing (a container stays clickable), as solid boxes of their bounds; walls and clutter whose mesh is missing as see-through
+  boxes that clicks pass through, off by default so a mod's missing roofs do not hide the home (the Layers popover's
+  *Missing meshes* or a click on the status row's *N meshes, N textures missing* shows them; `--layers missing`); things invisible in game that a template can use (hidden chests on marker meshes, rack and plaque
   triggers, mesh-less activators) as see-through boxes in the plan's colours, room-sized volumes as outlines
-  only; markers, sound and light markers are left out. *Disabled* hides initially disabled references (house
+  only; markers, sound and light markers are left out, and so are shapes that draw nothing (material alpha 0 with
+  alpha on) or only a black card (`textures\black.dds`: Lux's shadow planes, the darkness behind doorways; they
+  block light outside the rooms and would cover them from above): a model of only those is invisible, like a
+  collision-only one (`--nif-info` says *hidden*). *Disabled* hides initially disabled references (house
   upgrades). *Height* reuses the plan's height range to cut a tower into floors. *Effects* hides glows, fog and
 light rays, the effect shaders and the *Effects* layer's references (drawn at half strength: the editor has no
 scene lighting to balance them); *Light* sets how bright the editor's light is.
@@ -542,7 +635,10 @@ scene lighting to balance them); *Light* sets how bright the editor's light is.
   surroundings (not selectable).
 - **Camera** (controls in §9): fly with the right mouse button held (mouse look, WASD, Q/E), wheel, middle-button
   pan, Alt + left orbit, F frames the selection (it looks for a side where no wall is in the way, once the walls
-  have loaded), Home goes back to the overview.
+  have loaded), Home goes back to the overview. The overview frames the home, not strays: initially disabled
+  references are left out when at least one in four is enabled (always, with *Disabled* off), then only the
+  largest group of references 1024 units apart or closer counts (the one with the most containers; prefabs stored
+  outside the rooms are not the home), its 2nd to 98th percentile on each axis.
 - **Select** (the toolbar's *Select*): a ray against each reference's bounds, then its triangles. It picks what a
   template can use (containers, displays, doors, furniture); a wall in front still blocks, clutter lying on a
   chest does not (anything within 40 units in front). *Pick anything* (S, or the *Camera* popover) picks walls and
@@ -569,7 +665,8 @@ tables select the same objects (a double click in a table frames the object in t
 Core already gives template lint (`ValidateTemplate`), category typos (`ValidateLayoutCategories`) and
 `cells` checks (`ValidateHomeCells`). The plugin-aware half of `esm_dump.py check` (references in the
 declared cell, containers not respawning, display entries pointing at displays, `set` an ARMO, duplicate
-references) lives only in Python today. Proposal: a core function over a small interface of facts the caller
+references) is in Python, and the editor ports its reference checks (`home/RefChecks`, the Checks panel, §2 step 7).
+Proposal: a core function over a small interface of facts the caller
 provides (`ICellFacts`: is this ref in this cell, its base type, respawns, display kind), implemented by the
 editor from the plugins and by the DLL from the game, so the three places check the same things.
 
@@ -598,40 +695,73 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    the shipped templates write them.
 2. **Plugin parsing** is a C++ port of `esm_dump.py` (same heuristics, same answers), memory-mapped, with a
    per-plugin cell directory built in one pass (cells, worldspace, child groups) and a lazily built index of
-   the record types references point at. `esm_dump.py` stays the reference: golden tests compare the
-   editor's `--cell` output with `esm_dump.py cell` for every shipped template's cell.
+   the record types references point at. `esm_dump.py` stays the reference. The golden test
+   `python -I editor/tests/editor_golden.py --data <Skyrim Data>` (stdlib only; `--data` defaults to
+   `DOVASTASH_SKYRIM_DATA`) runs `DovaStashEditor.com --cell` and `esm_dump.py cell` on the cell of every shipped
+   template (`tests/data/shipped_templates.txt`; the base game plus the cell's own plugin) and compares the
+   containers with their respawn and initially-disabled flags, the displays and the doors to other cells; exit 1 on
+   any difference. A cell whose plugin is not in `--data` (a mod's, under MO2) is skipped (`skip <cell>: <plugin>
+   not in --data`) and left out of the count. Item plaques and cases that esm_dump finds and the editor's stricter script check (the plugin's:
+   a placed flag or a marker, a case taking items in) rejects are allowed (Hearthfire's planters and crafting
+   triggers). With `--mo2 <instance> [--profile <name>]` (or `DOVASTASH_MO2`, `DOVASTASH_MO2_PROFILE`) it then checks
+   the home finder: every one of those cells must be a home's cell in `--draft-all --base-game`, which reads that
+   profile's templates (the Arch-Mage's Quarters is a home only because a template names it). The readers have tests of their own: `DovaStashEditorTests` (built with the editor; `ctest --preset
+   editor`, also the last step of `cmake --workflow --preset editor`) writes its fixtures and checks a BSA read by path, a rewrite on disk noticed,
+   Assets indexing a changed archive again (the stale-archive path), a loose file over an archive, DDS textures
+   (32-bit, BC1, truncated, not a DDS) on a WARP device, and hand-built SE meshes (NIF): a textured BSTriShape
+   (vertex count, bounds with the shape's own translation and not the root's, texture path), a collision-only
+   model, a black card and a shape of material alpha 0 (both left out: the model is invisible); and `state.json`
+   saved with no `--state` (from `DOVASTASH_EDITOR_STATE`), saved again over itself and read back (author, instance,
+   a home's stage), with no `.tmp` left over; the Checks panel's game-data checks on a hand-made cell (the master
+   starts disabled, a respawning container, the respawn flag in a cell that never resets, an ignored one, not a
+   container, removed by an upgrade, not in the cell, a plugin not loaded, a cell not read); the floor heights
+   are measured from (a lone container below, one far out of the home, metres); and the home finder on two
+   hand-made plugins (a home cell whose override in the second drops its name, location and interior flag: no
+   home without a template, a home under its first name when a template names it).
 3. **Strings:** loose `Strings/` first, then the plugin's BSA, then `Skyrim - Interface.bsa`.
 4. **Exterior cells:** a cell's references include the worldspace's persistent references in its grid
    square; persistent exterior doors are mapped to their grid cell from the arrival position (XTEL).
 5. **Threading:** parsing runs on a worker; the UI only reads finished, preformatted results.
 6. **Headless mode** keeps the editor testable and scriptable (`--list-mods`, `--homes`, `--cell`,
-   `--draft`). `--render-cell <cell> --screenshot out.png` draws the 3D view off-screen (`--camera`, `--select`
-   `--frame`, `--height`, `--pick x,y` prints what a click there selects, `--verbose` lists the boxes, the bounds
+   `--draft`; `--cell` marks a container `RESPAWNS`, or `respawn-flag` when its cell never resets).
+   `--render-cell <cell> --screenshot out.png` draws the 3D view off-screen (`--camera`, `--select`
+   `--frame`, `--height`, `--roof-cut` the window's roof cut, `--pick x,y` prints what a click there selects and its mesh, `--verbose` lists the boxes, the bounds
    check and the frame time); `--cell <cell> --draft --save-to <folder> [--author <name>]` saves the draft through
    the same code as the Template panel (`home/TemplateFile`: backup, version raised); `--nif-info` dumps how a mesh
    is read. The window takes the same cell flags plus `--home <text>` (the first home whose name contains it), `--tab
    3d|plan` (the view), `--tab containers|displays|doors|preview` (the drawer on that tab), `--tab template` or
    `--inspector selection|template|draft|checks` (the inspector's panel), `--select <ref>` / `--multi <ref>`,
-   `--paint <category>`, `--colours category|fill`, `--palette` (the command palette open), `--popover <id>` (`menu`,
-   `setup`, `switcher`, `filter`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`; `savedrafts` is the *Save N
+   `--paint <category>`, `--colours category|fill|none`, `--palette` (the command palette open), `--popover <id>` (`menu`,
+   `setup`, `switcher`, `filter`, `kind`, `draftmenu`, `layers`, `colours`, `camera`, `paintcat`, `templates` (the
+   title's template list), `categories` (the selection's category picker); `savedrafts` is the *Save N
    drafts...* dialog, with `--drafts` once the bulk draft is done), `--layers <names>` (layers
    on, or off with a leading `-`, comma separated: `structure`, `containers`, `displays`, `doors`, `furniture`,
-   `people`, `disabled`, `effects` (the view's own), `other`, `terrain`; e.g. `--tab plan --layers effects,-structure`),
+   `people`, `disabled`, `effects` (the view's own), `other`, `terrain`, `roof`, `missing`; e.g. `--tab plan --layers effects,-structure`),
    `--window WxH` (the client size), `--theme <name>` (a colour theme for this run, EDITOR-UX.md §3.1; the
-   remembered one stays),
+   remembered one stays), `--text-size <percent|auto>` (the text size for this run, 100 to 250; screenshots keep
+   100 % without it, even with `--state`),
    `--sort <table>:<column>[:desc]` (a drawer table sorted by a column, its header or number; repeat it for more
    columns), `--filter <text>` and `--quick <chip>` (the drawer tab's filter box and quick filters, `--popover kind`
    opens the Kind list); like `--tab` they apply once, for that run;
-   `--screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit).
-   `--draft-all` drafts every home of the active load order and prints the master with its reason and each container's
+   `--screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit). A screenshot run
+   starts from the default state and writes none: the author's `state.json` (homes in progress, panel sizes) stays
+   as it was. `--state <file>` reads and writes that file instead (with or without `--screenshot`), as
+   `DOVASTASH_EDITOR_STATE` does.
+   `--draft-all` drafts every home of the active load order and prints its usable containers (the rail's count), its
+   templates (*off: <plugin> loaded* when a plugin under `conflicts` is loaded; `--compare` skips those), the master with its reason and each container's
    accepted and rejected suggestions (`--verbose`: every reason); `--compare` measures the drafts against the existing
-   templates (§3.4); `--save-to <folder> [--author <name>]` saves the drafts of homes without a template as
+   templates (§3.4; a container the template ignores agrees when the draft ignores it too, or lists it only as a
+   display, as a scripted bookshelf); every path prints with Windows separators; `--save-to <folder> [--author <name>]` saves the drafts of homes without a template as
    auto-drafts, never over a template someone made in the folder, with a *not saved* line naming the file in the way
    (`--include-templated`: also homes with a template elsewhere); `--base-game` reads only the game's own plugins. `--preview <cell> [--sample haul|all|<pattern>]
    [--draft]` prints where items go per container. Window smoke tests: `--gui` alone (start panel), `--gui --drafts`
    (Draft all homes started, the rail showing the homes without a template; with `--home <home>`, or `--only`, that
    home's Draft panel), `--gui --home <home> --tab preview`, `--inspector checks`, `--colours fill|category`, `--paint
    <category>`, `--multi <ref>`, `--palette`, `--popover setup`, `--window 1280x720` (the smallest layout).
+   Exit codes: 0 done; 2 a bad command line (an unknown flag, or a value the window does not know, e.g. `error:
+   unknown --tab bogus (3d, plan, ...)`, for `--tab`, `--inspector`, `--popover`, `--colours`, `--layers`,
+   `--theme`); 1 a command that failed (`--cell NoSuchCell`) or a `--home` that matches no home (`error: no home
+   matches ...`; with `--screenshot` the image is still written), so a smoke test never passes on a typo.
 
 ---
 
@@ -639,7 +769,7 @@ the user's own game and mod files at run time and never ships or extracts Bethes
 
 | Risk | Handling |
 |---|---|
-| Plugin edge cases (compressed, localized, ESL, overrides spread over plugins) | Port of a reader that already handles the shipped templates; golden tests against `esm_dump.py` |
+| Plugin edge cases (compressed, localized, ESL, overrides spread over plugins) | Port of a reader that already handles the shipped templates; `--cell` checked against `esm_dump.py cell` on every shipped template's cell (`editor/tests/editor_golden.py`, §5.2); the BSA, Assets, DDS and NIF readers have tests (`DovaStashEditorTests`) |
 | The home as shipped vs. as patched (Lux, USSEP move or delete references) | Whole-load-order toggle; mark references later plugins edit; never bind a deleted reference |
 | Displays that only exist at runtime (script state, scripts the plugin does not show) | Same limits as `esm_dump.py`; the author can still add an entry with `kind` (DESIGN §8.4) |
 | 3D effort (NIF variants, skinned actors, alpha, performance) | Plan first; 3D static meshes only; placeholders for actors |
@@ -668,7 +798,7 @@ Taken with the user after M0; the sections above are written to match.
 | # | Decision | Where it lands |
 |---|---|---|
 | 1 | **Selecting objects**: by clicking on the 2D floor plan now; a Creation Kit style 3D view with the same select mode next (M2). A live link to the running game stays optional (M3), undecided | §2 step 5, §4.5, §4.6 |
-| 2 | **Shipping**: the editor ships **inside the main Dova Stash zip** (the one-zip release rule: one download, short notes, no side downloads). `DovaStashEditor.exe` lives in the mod folder; MO2 runs it from there (§4.8) | §6, §4.8, the release checklist |
+| 2 | **Shipping**: the editor ships **inside the main Dova Stash zip** (the one-zip release rule: one download, short notes, no side downloads). `DovaStashEditor.exe` lives in the mod folder; MO2 runs it from there (§4.8) | §6, §4.8, the release checklist (BUILDING.md, Release) |
 | 3 | **Default save target under MO2**: a dedicated **"Dova Stash Templates" mod** (created when missing), never overwrite by default, so clearing overwrite cannot delete a template. Another mod can be picked (*Save to* in the Template panel or the Setup popover) | §2 step 8, §4.4 |
 | 4 | **Which plugins**: the **whole load order by default** (the home as the player sees it, patches included), with a toggle *Home plugin + masters only* (the home as its mod ships it). M0 only has the second; M1 adds the first and flips the default | §4.3, §7 (M1) |
 | 5 | **Multi-cell homes**: saved as **one file per home** (`cell` + `cells`), never one file per cell. The shipped `*Cellar.json` files stay for players who use them; the DLL loads both shapes (DESIGN §6.7) | §3.3, §4.4 |
@@ -687,10 +817,18 @@ mod's *All cells...* still loads its plugins with their masters. A home over sev
 ```powershell
 cmake --preset editor
 cmake --build --preset editor-release
+ctest --preset editor
 ```
 
-The program lands in `build\editor\editor\Release\DovaStashEditor.exe` (one file; copy it anywhere, e.g. next to
-MO2's other tools).
+(`cmake --workflow --preset editor` runs all three; `ctest` runs `DovaStashEditorTests`, §5.2.) The program lands in `build\editor\editor\Release\DovaStashEditor.exe` (one file; copy it anywhere, e.g. next to
+MO2's other tools), with its console companion `DovaStashEditor.com` beside it. The .exe is a Windows program (no
+console flash under MO2), so a shell does not wait for it; typed as `DovaStashEditor` (no extension) in cmd or
+PowerShell, the .com runs it with the same arguments, waits, and passes on its output and exit code
+(`DovaStashEditor --mo2 "..." --draft-all --compare > out.txt` fills the file, `$LASTEXITCODE` is set). Both are
+deployed to the mod's `Tools` folder (`DOVASTASH_DEPLOY_DIR`, from the environment or the CMake cache, as the
+plugin's; with neither, only where the default's `mods` folder exists, else the configure step says *Editor deploy
+off*). Only the editor build copies them, when the exe relinks; if the editor was running, close it and run
+`cmake --build --preset editor-release --target DovaStashEditor_deploy`.
 
 A players' guide with screenshots (install, every view, controls, FAQ) is `presskit/guide/DovaStashEditor-UserGuide.pdf`
 (sources and how to rebuild it: `presskit/guide/README.md`).
@@ -735,7 +873,9 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
    by mod. Type `92177` in the rail's search and click *Whitepeak Tower*: the tower shows in 3D from above while
    meshes load (progress in the status row).
 2. Hold the right mouse button and fly in with W; let go and roll the wheel. *Layers* ▾ (L): tick *Only between*
-   under *Height cut* and narrow the range to see one floor. Press Home to get the overview back.
+   under *Height cut* and narrow the range to see one floor. Press Home to get the overview back. In an interior
+   the overview has no roof (a cave shows its rooms, not its rock): about 2 m above each area's floor, never above
+   the highest container, only containers and displays are drawn; *Layers* ▾ › *Roof* brings the rest back.
 3. Hover a weapon rack (a blue see-through box shows its trigger): the tooltip names it. Click it: it turns
    yellow and the Selection panel on the right shows it; tick *Use this display* and add a category (*+ add*,
    e.g. `weapons.bows`). Press F to frame it.
@@ -762,5 +902,17 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
 11. Click the emblem: the start panel lists the homes you opened, reviewed and saved with their stage, also after a
     restart. Esc returns to the open home.
 
+If meshes or textures go missing, the reasons are in `%LOCALAPPDATA%\DovaStashEditor\editor.log` (§4.3; a console
+command or a `--screenshot` run writes `%TEMP%\DovaStashEditor\editor-run.log` instead, and leaves the author's log
+alone). To check a long session's loading without clicking, give `--home` several times: `--gui --home "Dead Man"
+--home Hydda --home "Wuth Rein" --screenshot after.png` opens each home in turn once the previous one's 3D view has
+loaded and logs each.
+Screenshots keep the text at 100 %; take one at 150 % too to check the UI size: `--gui --home "Wuth Rein" --tab
+containers --text-size 150 --screenshot big.png`.
+
 Without the game or MO2 running anything, `--render-cell` shows the same view as an image:
 `DovaStashEditor.exe --mo2 "E:\modding\Kexodus Skyrim" --mod 92177 --render-cell bcr58WhiteTower --screenshot wt.png`.
+`--roof-cut` adds the window's roof cut. Check it on a cave below built rooms: `DovaStashEditor --mo2 "E:\modding\Kexodus
+Skyrim" --plugin WuthRein.esp --render-cell "WuthRein.esp|0x00001308" --roof-cut --camera -500,-3600,1100,90,-50
+--screenshot cave.png` shows the lower cave's floor with its barrels, urns and chests, not its rock (without
+`--roof-cut`: the rock).

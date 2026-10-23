@@ -3,21 +3,162 @@
 #include "Controller.h"
 #include "Game/FormUtil.h"
 #include "Home/Store.h"
+#include "Home/TemplateDisplays.h"
 #include "Settings.h"
 #include "Sort/SellChest.h"
 #include "Sort/SortEngine.h"
+#include "UI/AreaPrompt.h"
 
 namespace dova::ui
 {
-	std::vector<std::pair<std::string, std::function<void()>>> SellEntries(const home::Home& a_home, const std::optional<core::FormRef>& a_chest)
+	std::vector<std::pair<std::string, std::function<void()>>> SellEntries(const home::Home& a_home, const std::optional<core::FormRef>& a_chest,
+		const std::function<void()>& a_onBack)
 	{
 		std::vector<std::pair<std::string, std::function<void()>>> out;
 		const auto cellId = a_home.cellId;
 		if (const auto quote = sort::selling::QuoteSale(a_home, a_chest); !quote.Empty()) {
-			out.emplace_back(std::format(kSellNow, quote.gold), [cellId, a_chest]() { Controller::Get().SellNow(cellId, a_chest); });
+			out.emplace_back(std::format(kSellNow, quote.gold), [cellId, a_chest, a_onBack]() { Controller::Get().SellNow(cellId, a_chest, a_onBack); });
 		}
 		if (const auto offer = sort::selling::BuyBackOffer(a_home)) {
-			out.emplace_back(std::format(kBuyBack, offer->gold), [cellId]() { Controller::Get().BuyBack(cellId); });
+			out.emplace_back(std::format(kBuyBack, offer->gold), [cellId, a_onBack]() { Controller::Get().BuyBack(cellId, a_onBack); });
+		}
+		return out;
+	}
+
+	namespace
+	{
+		bool MayNotFit(home::Home& a_home)
+		{
+			const auto* fit = home::HomeRegistry::Get().BestTemplateFit(a_home);  // the auto-enable guard (DESIGN §9.1)
+			return fit && !fit->fits;
+		}
+	}
+
+	bool AskBeforeTemplate(home::Home& a_home)
+	{
+		if (MayNotFit(a_home)) {
+			return true;
+		}
+		if (!a_home.layout || a_home.layoutBroken) {
+			return false;
+		}
+		const auto templates = home::Store::Get().Templates();
+		return core::HasOwnChanges(*a_home.layout, core::FindBasedOn(*a_home.layout, templates), [](core::Layout& a_copy) { home::RecordDisplayItems(a_copy, false); });
+	}
+
+	std::string TemplateEntry(home::Home& a_home)
+	{
+		const auto* best = a_home.BestTemplate();
+		if (!best) {
+			return {};
+		}
+		const bool basedOn = a_home.layout && a_home.layout->basedOn && a_home.layout->basedOn->starts_with(best->source + "@");
+		auto       entry = std::format("{} template \"{}\"", basedOn ? "Re-apply" : "Use", best->layout.name);
+		if (MayNotFit(a_home)) {
+			entry += std::format(" ({})", kMayNotFit);
+		}
+		return entry;
+	}
+
+	std::string TemplateQuestion(home::Home& a_home)
+	{
+		const auto* best = a_home.BestTemplate();
+		const bool  basedOn = best && a_home.layout && a_home.layout->basedOn && a_home.layout->basedOn->starts_with(best->source + "@");
+		const auto  name = best ? best->layout.name : ""s;
+		auto        text = basedOn ? std::format(kConfirmReapplyTemplate, name) : std::format(kConfirmUseTemplate, name);
+		if (MayNotFit(a_home)) {
+			text += kMayNotFitNote;
+		}
+		return text;
+	}
+
+	std::string ForgetLearnedQuestion(std::size_t a_count, std::string_view a_name)
+	{
+		return std::format(kConfirmForgetAll, std::format("{} learned item{}", a_count, a_count == 1 ? "" : "s"), a_name);
+	}
+
+	std::string ForgetAllEntry(std::size_t a_count)
+	{
+		return a_count == 1 ? "Forget 1 learned item..."s : std::format("Forget all {} learned items...", a_count);
+	}
+
+	std::string BrowseEntryText(RE::TESObjectREFR* a_ref, std::string_view a_what)
+	{
+		std::int64_t items = 0;
+		if (a_ref) {
+			for (const auto& [object, data] : a_ref->GetInventory()) {
+				if (object && data.first > 0) {
+					items += data.first;
+				}
+			}
+		}
+		const auto name = game::RefName(a_ref);
+		const auto count = std::format("{} item{}", items, items == 1 ? "" : "s");
+		return a_what.empty() || core::IEquals(a_what, name) ? std::format("{} ({})", name, count) : std::format("{} - {} ({})", name, a_what, count);
+	}
+
+	std::string MakeMasterQuestion(std::string_view a_name, bool a_forgetsSetup)
+	{
+		return a_forgetsSetup ? std::format(kConfirmMakeMasterForgets, a_name) : std::format(kConfirmMakeMaster, a_name);
+	}
+
+	std::vector<MenuEntry> ContainerMenuEntries(home::Home& a_home, RE::TESObjectREFR* a_container, const ContainerMenuHooks& a_hooks)
+	{
+		std::vector<MenuEntry> out;
+		const auto             ref = game::ToFormRef(a_container);
+		if (!ref || !a_home.layout) {
+			return out;
+		}
+		const auto  cellId = a_home.cellId;
+		const auto& layout = *a_home.layout;
+		const auto* binding = layout.FindContainer(*ref);
+		const auto  name = game::RefName(a_container);
+		const bool  sellChest = layout.IsSellChest(*ref);
+		const bool  ignored = binding && binding->ignored;
+		const auto  learned = static_cast<std::size_t>(std::ranges::count_if(layout.learned, [&](const auto& a_pair) { return a_pair.second == *ref; }));
+
+		out.push_back({ a_hooks.categoriesText, a_hooks.openCategories });
+		out.push_back({ std::format("Open {}", name), [cellId, ref = *ref]() { Controller::Get().Browse(cellId, ref); } });
+		if (sellChest) {
+			for (auto& [text, action] : SellEntries(a_home, *ref, a_hooks.back)) {
+				out.push_back({ std::move(text), std::move(action) });
+			}
+		}
+		if (a_hooks.rename) {
+			out.push_back({ "Rename...", a_hooks.rename });
+			if (HasCustomName(a_container)) {
+				out.push_back({ "Restore original name", [cellId, ref = *ref]() { Controller::Get().SetLabel(cellId, ref, {}); } });
+			}
+		}
+		if (learned > 0) {
+			out.push_back({ std::format(kLearnedEntry, learned), a_hooks.openLearned });
+		}
+		const auto confirm = a_hooks.confirm;
+		if (binding && !binding->categories.empty()) {
+			out.push_back({ kClearCategoriesEntry, [confirm, cellId, ref = *ref, question = std::format(kConfirmClearCategories, name)]() {
+							   confirm(question, [cellId, ref]() { Controller::Get().ClearCategories(cellId, ref); });
+						   } });
+		}
+		out.push_back({ ignored ? "Stop ignoring" : "Ignore", [cellId, ref = *ref, ignored]() { Controller::Get().SetIgnored(cellId, ref, !ignored); } });
+		if (sellChest) {
+			out.push_back({ kNotSellChest, [cellId, ref = *ref]() { Controller::Get().SetSellChest(cellId, ref, false); } });
+		} else if (!ignored) {
+			out.push_back({ kMakeSellChest, [confirm, cellId, ref = *ref, question = SellChestQuestion(name)]() {
+							   confirm(question, [cellId, ref]() { Controller::Get().SetSellChest(cellId, ref, true); });
+						   } });
+		}
+		if (binding || learned > 0) {
+			out.push_back({ "Remove...", [confirm, cellId, ref = *ref, question = std::format(kConfirmRemove, name, kRemoveExplained)]() {
+							   confirm(question, [cellId, ref]() { Controller::Get().RemoveContainer(cellId, ref); });
+						   } });
+		}
+		// What Make master forgets (DESIGN §10.3): the container's binding (categories, sell chest, ignored) and the
+		// items learned for it.
+		out.push_back({ kMakeMasterEntry, [confirm, cellId, ref = *ref, question = MakeMasterQuestion(name, binding || learned > 0)]() {
+						   confirm(question, [cellId, ref]() { Controller::Get().MakeMaster(cellId, ref); });
+					   } });
+		if (a_hooks.openPanel) {
+			out.push_back({ kOpenPanel, a_hooks.openPanel });
 		}
 		return out;
 	}

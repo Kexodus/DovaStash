@@ -25,7 +25,8 @@
 //   Evidence for the same category on the same container adds up (1 - product of (1 - c)).
 //   Each category goes to one container: one named for exactly that category first, then one whose display
 //   name says it as part of a group ("Alchemy Satchel" before a barrel whose EditorID says "Ingredient"), then
-//   the highest confidence (ties: the nearer station, then the earlier container). It is accepted when its confidence
+//   the highest confidence (ties: the container's own name over stations and items nearby, then the container sure of
+//   fewer other categories, then the nearer station, then the earlier container). It is accepted when its confidence
 //   reaches `acceptAt`; the others keep it as a rejected alternative, so the author sees why.
 //   Then the fill pass: each group of `fill` (weapons, armor, clothes, alchemy...) that no container was given
 //   goes to the free container with the strongest weaker evidence for it (a dresser for clothes, an end table

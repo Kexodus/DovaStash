@@ -7,6 +7,10 @@
 // Loose files are found without walking the whole Data folder (an MO2 setup can hold millions of
 // textures over thousands of mods): a directory is listed only in the roots that have its parent, and
 // only when a file in it is asked for. Every function is thread-safe.
+//
+// The files can change while the editor runs (MO2 installs, removes or replaces a mod): a listing that
+// failed is not kept, a listed file that cannot be read has its folder listed again, and an archive whose
+// file changed on disk is indexed again. So "not found" means: in no loose folder and no archive.
 
 #include <atomic>
 #include <cstddef>
@@ -15,6 +19,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -41,8 +46,10 @@ namespace dova::editor
 		void OpenArchives(const std::function<void(std::size_t, std::size_t)>& a_progress = {});
 
 		// `a_path` like "meshes\\clutter\\chest01.nif" (either slash, any case). `a_source` (optional)
-		// receives where it came from: the loose file's path or "<archive>.bsa".
-		[[nodiscard]] std::optional<std::vector<std::byte>> Read(std::string_view a_path, std::string* a_source = nullptr);
+		// receives where it came from: the loose file's path or "<archive>.bsa". nullopt: `a_error` (optional)
+		// stays empty when no loose folder or archive has the file, else says why the one found could not be read.
+		[[nodiscard]] std::optional<std::vector<std::byte>> Read(std::string_view a_path, std::string* a_source = nullptr,
+			std::string* a_error = nullptr);
 		[[nodiscard]] bool                                  Exists(std::string_view a_path);
 
 		[[nodiscard]] std::size_t ArchiveCount() const noexcept { return _archivePaths.size(); }
@@ -61,13 +68,21 @@ namespace dova::editor
 		};
 		using DirEntries = std::vector<std::pair<std::uint32_t, std::shared_ptr<Listing>>>;  // root index (ascending) -> listing
 
-		const DirEntries&                    ResolveDir(const std::string& a_dir);  // _mutex held
+		DirEntries                           ResolveDir(const std::string& a_dir);  // _mutex held
 		std::optional<std::filesystem::path> FindLoose(const std::string& a_normalized);
+		void                                 ForgetDir(const std::string& a_normalized);  // the folder of this file is listed again
+		// The archives that have `a_key`, highest priority first (index into _archives, archive).
+		std::vector<std::pair<std::size_t, std::shared_ptr<const esp::Bsa>>> ArchivesWith(const std::string& a_key);
+		// Indexes archive `a_index` again when its file is not the one indexed (nullptr: gone or unreadable now).
+		std::shared_ptr<const esp::Bsa> Reindex(std::size_t a_index, const std::shared_ptr<const esp::Bsa>& a_stale);
+		void                                 NoteFailure(std::string_view a_what);
 
 		std::vector<std::filesystem::path>            _roots;
 		std::vector<std::filesystem::path>            _archivePaths;
-		std::vector<std::unique_ptr<esp::Bsa>>        _archives;  // parallel to _archivePaths (null: unreadable)
+		std::vector<std::shared_ptr<const esp::Bsa>>  _archives;  // parallel to _archivePaths (null: unreadable)
+		std::shared_mutex                             _archivesMutex;  // _archives' entries (Reindex replaces one)
 		std::atomic<bool>                             _archivesOpen{ false };
+		std::atomic<int>                              _failuresLogged{ 0 };
 		std::mutex                                    _openMutex;
 		std::mutex                                    _mutex;
 		std::unordered_map<std::string, DirEntries>   _dirs;  // lower-case relative dir ("" = root)
