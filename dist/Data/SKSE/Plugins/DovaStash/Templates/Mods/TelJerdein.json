@@ -1,15 +1,15 @@
 {
   "$schema": "dovastash-layout-1",
   "name": "Tel Jerdein",
-  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest. In another area the master is out of reach: what has no container there goes to that area's own master.",
   "author": "Dova Stash",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "priority": 0,
   "requires": ["Skyrim.esm", "Update.esm", "rmp_telvannihearthfires.esp"],
   "cell": "rmp_telvannihearthfires.esp|0x00014D76",
   "cells": [
-    {"cell": "rmp_telvannihearthfires.esp|0x0000AABB", "label": "Tel Jerdein - Foyer"},
-    {"cell": "rmp_telvannihearthfires.esp|0x0008EADA", "label": "Tel Jerdein - Root Cellar"}
+    {"cell": "rmp_telvannihearthfires.esp|0x0000AABB", "label": "Tel Jerdein - Foyer",       "master": "rmp_telvannihearthfires.esp|0x00075488"},
+    {"cell": "rmp_telvannihearthfires.esp|0x0008EADA", "label": "Tel Jerdein - Root Cellar", "master": "rmp_telvannihearthfires.esp|0x0012708F"}
   ],
   "master": "rmp_telvannihearthfires.esp|0x00084894",
   "containers": [

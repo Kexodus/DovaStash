@@ -99,7 +99,7 @@ namespace
 			dova::events::RegisterPlayerSinks();
 			// The player may load straight into a home: refresh now (messaging runs on the main thread,
 			// but go through the task queue like every other trigger).
-			SKSE::GetTaskInterface()->AddTask([]() { dova::Controller::Get().OnCellMaybeChanged(); });
+			SKSE::GetTaskInterface()->AddTask([]() { dova::Controller::Get().OnCellMaybeChanged("load game"); });
 			break;
 		case SKSE::MessagingInterface::kSaveGame:
 			dova::Controller::Get().OnSaveGame();

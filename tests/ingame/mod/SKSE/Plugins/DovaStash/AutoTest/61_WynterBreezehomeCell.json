@@ -38,7 +38,7 @@
         {"check": "log", "regex": "Weapon Mount Point \\(ref\\) \\[WynterBreezehomeRedux\\.esp\\|0x00811B43\\]: This container runs a script"},
         {"check": "layout", "pointer": "/containers", "contains": {"ref": "WynterBreezehomeRedux.esp|0x00811B43", "categories": ["weapons.*"]}},
         {"do": "bind", "ref": "WynterBreezehomeRedux.esp|0x00811F83", "category": "misc.clutter"},
-        {"check": "notify", "regex": "can't use this container \\(container is disabled"},
+        {"check": "notify", "regex": "can't use this container \\((disabled|not built yet)\\)"},
         {"check": "layout", "pointer": "/containers", "lacks": {"ref": "WynterBreezehomeRedux.esp|0x00811F83", "categories": ["misc.clutter"]}},
         {"check": "noErrors"}
       ]

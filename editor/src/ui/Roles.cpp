@@ -19,6 +19,7 @@
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 
+#include "Log.h"
 #include "Util.h"
 #include "dova/core/DisplayCategories.h"
 #include "dova/core/Template.h"
@@ -117,6 +118,7 @@ namespace dova::editor::ui
 			}
 		}
 		a_cell.json = core::SerializeLayout(a_cell.layout);
+		ReadHomeCells(a_cell);
 	}
 
 	void EditorApp::CheckRefs(const OpenCell& a_cell, core::Diagnostics& a_diags) const
@@ -151,11 +153,101 @@ namespace dova::editor::ui
 				}
 			}
 		}
+		for (const auto& c : a_cell.homeCells) {
+			if (inHome(a_cell.lo->ToFormRef(c.key))) {
+				add(*a_cell.lo, c);  // the others, exteriors too (ReadHomeCells)
+			}
+		}
 		const bool complete = l.cell && std::ranges::find(read, *l.cell) != read.end() &&
 		                      std::ranges::all_of(l.cells, [&](const core::HomeCell& c) { return std::ranges::find(read, c.cell) != read.end(); });
 		const auto& lo = a_cell.lo;
 		home::CheckTemplateRefs(l, { &refs, complete, !l.cells.empty(), [&lo](std::string_view a_plugin) { return lo->PluginIndex(a_plugin).has_value(); } },
 			"template", a_diags);
+	}
+
+	void EditorApp::ReadHomeCells(OpenCell& a_cell)
+	{
+		// The template's cells no one has read yet (a Grounds exterior the draft never joins, a cell typed in the
+		// file): read once in a job, so the checks know every cell and report a reference that is in none of them.
+		const auto& l = a_cell.layout;
+		if (&a_cell != _cell.get() || !l.cell || l.cells.empty()) {
+			return;
+		}
+		std::vector<core::FormRef> read{ a_cell.lo->ToFormRef(a_cell.info.key) };
+		for (const auto& c : a_cell.homeCells) {
+			read.push_back(a_cell.lo->ToFormRef(c.key));
+		}
+		if (_cellDraft >= 0 && _homes && static_cast<std::size_t>(_cellDraft) < _homes->entries.size()) {
+			if (const auto* d = _homes->entries[static_cast<std::size_t>(_cellDraft)].draft.get()) {
+				for (const auto& c : d->cells) {
+					read.push_back(_homes->lo->ToFormRef(c.key));
+				}
+			}
+		}
+		std::vector<core::FormRef> wanted;
+		for (const auto& ref : core::HomeCellRefs(*l.cell, l.cells)) {
+			if (std::ranges::find(read, ref) == read.end() && std::ranges::find(a_cell.homeCellsAsked, ref) == a_cell.homeCellsAsked.end()) {
+				wanted.push_back(ref);
+				a_cell.homeCellsAsked.push_back(ref);
+			}
+		}
+		if (wanted.empty()) {
+			return;
+		}
+		Log("checks: reading {} more cells of the home ({})", wanted.size(), wanted.front().ToString());
+		const auto* target = &a_cell;
+		Queue([this, target, lo = a_cell.lo, wanted] {
+			StartJob("Reading the home's cells", [this, target, lo, wanted]() -> std::function<void()> {
+				auto cells = std::make_shared<std::vector<home::CellInfo>>();
+				for (const auto& ref : wanted) {
+					const auto key = lo->ParseFormRef(ref.ToString());
+					if (auto cell = key ? home::LoadCell(*lo, *key, home::LoadCellOptions{ .resolveDoors = false }) : std::nullopt) {
+						cells->push_back(std::move(*cell));
+					} else {
+						Log("checks: cell {} cannot be read", ref.ToString());
+					}
+				}
+				return [this, target, lo, cells] {
+					if (!_cell || _cell.get() != target || _cell->lo != lo || cells->empty()) {
+						return;  // another cell opened meanwhile: it asks again
+					}
+					for (auto& c : *cells) {
+						_cell->homeCells.push_back(std::move(c));
+					}
+					Revalidate(*_cell);
+				};
+			});
+		});
+	}
+
+	std::string EditorApp::HomeRefName(const OpenCell& a_cell, const core::FormRef& a_ref) const
+	{
+		auto inCell = [&](const esp::LoadOrder& a_lo, const home::CellInfo& a_info) -> std::optional<std::string> {
+			for (const auto& p : a_info.refs) {
+				if (a_lo.ToFormRef(p.key) == a_ref) {
+					return RefLabel(a_cell.layout, a_ref, GameName(p));
+				}
+			}
+			return std::nullopt;
+		};
+		if (auto name = inCell(*a_cell.lo, a_cell.info)) {
+			return *name;
+		}
+		for (const auto& c : a_cell.homeCells) {
+			if (auto name = inCell(*a_cell.lo, c)) {
+				return *name;
+			}
+		}
+		if (_cellDraft >= 0 && _homes && static_cast<std::size_t>(_cellDraft) < _homes->entries.size()) {
+			if (const auto* d = _homes->entries[static_cast<std::size_t>(_cellDraft)].draft.get()) {
+				for (const auto& c : d->cells) {
+					if (auto name = inCell(*_homes->lo, c)) {
+						return *name;
+					}
+				}
+			}
+		}
+		return RefLabel(a_cell.layout, a_ref, a_ref.ToString());
 	}
 
 	int EditorApp::ErrorCount(const OpenCell& a_cell) const
@@ -333,7 +425,38 @@ namespace dova::editor::ui
 			layout.containers.push_back(std::move(old));
 		}
 		std::erase_if(layout.containers, [&](const core::ContainerBinding& b) { return b.ref == ref; });
+		for (auto& c : layout.cells) {
+			if (c.master == ref) {
+				c.master.reset();  // the home's master is no area's (core::ValidateHomeCells would ignore it)
+			}
+		}
 		layout.master = ref;
+		a_cell.dirty = true;
+		Revalidate(a_cell);
+	}
+
+	void EditorApp::MakeAreaMaster(OpenCell& a_cell, int a_index, bool a_on)
+	{
+		auto&       layout = a_cell.layout;
+		const auto& r = a_cell.info.refs[static_cast<std::size_t>(a_index)];
+		const auto  ref = a_cell.lo->ToFormRef(r.key);
+		const auto* area = AreaMasterCell(layout, ref);
+		const auto  cell = a_on ? a_cell.lo->ToFormRef(a_cell.info.key) : area ? area->cell : core::FormRef{};
+		std::optional<core::FormRef> previous;
+		if (!SetAreaMaster(layout, cell, a_on ? std::optional{ ref } : std::nullopt, previous)) {
+			return;
+		}
+		// The old one (or this one, given up) becomes a plain container again, as with Make master.
+		if (const auto back = a_on ? previous : std::optional{ ref }; back && !layout.FindContainer(*back) && !layout.IsAnyMaster(*back)) {
+			core::ContainerBinding b;
+			b.ref = *back;
+			for (const auto& p : a_cell.info.refs) {
+				if (a_cell.lo->ToFormRef(p.key) == *back) {
+					b.label = GameName(p);
+				}
+			}
+			layout.containers.push_back(std::move(b));
+		}
 		a_cell.dirty = true;
 		Revalidate(a_cell);
 	}
@@ -374,16 +497,43 @@ namespace dova::editor::ui
 					layout.containers.push_back(std::move(b));
 					changed = true;
 				}
+			} else if (IsAreaMaster(layout, ref)) {
+				w::Chip("area master", w::Kind::Accent);
+				ImGui::SameLine();
+				w::Muted("takes what has no place while the master is out of reach");
+				if (ImGui::Button("Not the area master")) {
+					MakeAreaMaster(a_cell, a_index, false);
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Make master")) {
+					MakeMaster(a_cell, a_index);
+				}
+				w::Tip("The container that takes everything without a place of its own (and the hotkey's target)");
 			} else {
+				// A joined cell (a cellar, the grounds) can have its own catch-all: cells[].master (DESIGN §6.7).
+				const auto openRef = a_cell.lo->ToFormRef(a_cell.info.key);
+				const bool joined = !(layout.cell && *layout.cell == openRef) &&
+				                    std::ranges::any_of(layout.cells, [&](const core::HomeCell& c) { return c.cell == openRef; });
 				ImGui::BeginDisabled(r.respawns);
 				if (ImGui::Button("Make master")) {
 					MakeMaster(a_cell, a_index);
 				}
 				ImGui::EndDisabled();
 				w::Tip("The container that takes everything without a place of its own (and the hotkey's target)");
+				if (joined) {
+					ImGui::SameLine();
+					ImGui::BeginDisabled(r.respawns);
+					if (ImGui::Button("Make this area's master")) {
+						MakeAreaMaster(a_cell, a_index, true);
+					}
+					ImGui::EndDisabled();
+					w::Tip("Takes what has no place while the home's master is out of reach");
+				}
 				auto* b = layout.FindContainer(ref);
 				if (!b) {
-					ImGui::SameLine();
+					if (!joined) {
+						ImGui::SameLine();
+					}
 					if (ImGui::Button("Add to the template")) {
 						core::ContainerBinding nb;
 						nb.ref = ref;
@@ -1050,6 +1200,11 @@ namespace dova::editor::ui
 				if (w::IconButton("leave", w::Icon::Close, "Leave the home")) {
 					remove = static_cast<int>(i);
 				}
+				// Its area master (cells[].master): set from the Selection panel, Make this area's master.
+				ImGui::PushTextWrapPos(0.0f);
+				w::MutedWrapped(("Area master: " + (c.master ? HomeRefName(a_cell, *c.master) : std::string("none"))).c_str());
+				ImGui::PopTextWrapPos();
+				w::Tip("Takes what has no place while the home's master is out of reach (Selection: Make this area's master)");
 				ImGui::PopID();
 			}
 			if (remove >= 0) {
@@ -1065,7 +1220,10 @@ namespace dova::editor::ui
 					core::Diagnostics diags;
 					const auto        draft = home::DraftTemplate(*a_cell.lo, a_cell.info, diags);
 					auto              entries = draft.containers;
-					if (draft.master) {
+					auto              joined = std::ranges::find_if(t.cells, [&](const core::HomeCell& c) { return c.cell == openRef; });
+					if (draft.master && joined != t.cells.end() && !joined->master && !t.IsAnyMaster(*draft.master) && !t.FindContainer(*draft.master)) {
+						joined->master = draft.master;  // the cell's own draft master: its area master (cells[].master)
+					} else if (draft.master) {
 						core::ContainerBinding m;
 						m.ref = *draft.master;
 						for (const auto& p : a_cell.info.refs) {
@@ -1076,13 +1234,13 @@ namespace dova::editor::ui
 						entries.push_back(std::move(m));
 					}
 					for (auto& e : entries) {
-						if (!t.FindContainer(e.ref) && !t.IsMaster(e.ref)) {
+						if (!t.FindContainer(e.ref) && !t.IsAnyMaster(e.ref)) {
 							t.containers.push_back(std::move(e));
 						}
 					}
 					changed = true;
 				}
-				w::Tip("Adds every container of the open cell the template does not list yet");
+				w::Tip("Adds every container of the open cell the template does not list yet (its best chest as the area master, when it has none)");
 			}
 			// The open cell's facts (the eligibility checks use them).
 			std::string facts = std::format("{} · {} · last edited by {}", a_cell.info.editorId, a_cell.info.interior ? "interior" : "exterior", a_cell.info.lastOverride);

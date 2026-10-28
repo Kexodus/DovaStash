@@ -17,7 +17,7 @@
       "id": "3.6-wuthrein", "title": "Use template, Deposit spreads ore, soul gems and potions",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Wuth Rein setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Wuth Rein is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/WuthRein.json@"},
         {"check": "log", "since": "run", "regex": ": template Templates/Mods/WuthRein\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "WuthRein.esp|0x00001488"},

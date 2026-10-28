@@ -31,7 +31,7 @@ namespace dova::core
 		{ "when": "respawns", "note": "Respawns: what you store here can disappear." },
 		{ "when": "match", "editorIds": ["PlayerBookShelfContainer"], "scripts": ["PlayerBookShelfContainerScript"],
 		  "note": "Scripted bookshelf: it only holds books and hands everything else back." },
-		{ "when": "upgrade", "unlessScripts": ["BYOHDivertItemScript"], "note": "Goes away with a house upgrade: anything inside would be lost." },
+		{ "when": "upgrade", "unlessScripts": ["BYOHDivertItemScript"], "note": "Goes away later (an upgrade or a quest): anything inside would be lost." },
 		{ "when": "owned", "note": "Owned by someone else: taking from it would be stealing." },
 		{ "when": "match", "words": ["display case"], "note": "A display case: it shows what is put in it." }
 	],
@@ -126,6 +126,21 @@ namespace dova::core
 		  "categories": ["misc.building_materials"], "confidence": 0.6, "radius": 400 },
 		{ "label": "weapon rack", "keywords": ["display:rack"], "categories": ["weapons.*"], "confidence": 0.3, "radius": 250 },
 		{ "label": "mannequin", "keywords": ["display:mannequin"], "categories": ["armor.heavy", "armor.light"], "confidence": 0.3, "radius": 250 }
+	],
+
+	// The name of the room a container stands in (a Hearthfire wing), first match: its categories are shared out over
+	// the room's containers, one each in turn (the one already hinted at a category first), as strong as a station.
+	"wings": [
+		{ "label": "armory", "words": ["armory", "armoury"],
+		  "categories": ["weapons.*", "armor.heavy", "armor.light", "armor.shields", "ammo.*"], "confidence": 0.6 },
+		{ "label": "library", "words": ["library"], "categories": ["books.*"], "confidence": 0.6 },
+		{ "label": "kitchen", "words": ["kitchen"], "categories": ["alchemy.food", "alchemy.ingredients"], "confidence": 0.6 },
+		{ "label": "alchemy laboratory", "words": ["alchem*", "greenhouse"], "categories": ["alchemy.ingredients", "alchemy.potions", "alchemy.poisons"], "confidence": 0.6 },
+		{ "label": "enchanter's tower", "words": ["enchant*"], "categories": ["soulgems.*", "scrolls", "books.spelltomes", "weapons.staves"], "confidence": 0.6 },
+		{ "label": "storage room", "words": ["storage"],
+		  "categories": ["misc.building_materials", "misc.ores_ingots", "misc.hides_pelts", "misc.tools", "misc.dwemer"], "confidence": 0.6 },
+		{ "label": "trophy room", "words": ["trophy"], "categories": ["misc.animal_parts", "misc.hides_pelts"], "confidence": 0.6 },
+		{ "label": "bedrooms", "words": ["bedroom"], "categories": ["armor.clothing", "armor.jewelry", "misc.gems"], "confidence": 0.6 }
 	],
 
 	// Loose items on or next to a container: a hint (at most "max", below acceptAt), adding up with a name or a station.
@@ -322,6 +337,13 @@ namespace dova::core
 		}
 
 		// How far a point is from the box of a container (horizontal), and whether it is within its height band.
+		// Whether `a_evidence` (a station, a loose item) is there whenever `a_container` is: always, unless it appears later
+		// with an `appearsWith` key; then only for a container that appears with it.
+		bool AppearsWith(const DraftObject& a_evidence, const DraftObject& a_container)
+		{
+			return !a_evidence.appearsLater || a_evidence.appearsWith.empty() || a_evidence.appearsWith == a_container.appearsWith;
+		}
+
 		float NearDistance(const DraftObject& a_container, const DraftObject& a_item, float a_radius)
 		{
 			const float hx = a_container.size[0] * 0.5f, hy = a_container.size[1] * 0.5f, hz = a_container.size[2] * 0.5f;
@@ -520,7 +542,7 @@ namespace dova::core
 		}
 		WarnUnknown(*doc,
 			{ "acceptAt", "keepAt", "fillAt", "maxPerContainer", "categoryNameConfidence", "itemNameConfidence", "editorIdFactor", "genericWords", "ignore",
-				"harmlessScripts", "master", "names", "stations", "nearby", "fill" },
+				"harmlessScripts", "master", "names", "stations", "wings", "nearby", "fill", "areas" },
 			a_source, "rules", a_diags);
 		DraftRules r;
 		ReadFloat(*doc, "acceptAt", r.acceptAt, a_source, "rules", a_diags);
@@ -650,6 +672,31 @@ namespace dova::core
 			}
 		}
 
+		if (const auto it = doc->find("wings"); it != doc->end() && it->is_array()) {
+			for (std::size_t i = 0; i < it->size(); ++i) {
+				const auto& e = (*it)[i];
+				const auto  where = std::format("wings[{}]", i);
+				if (!e.is_object()) {
+					a_diags.Error(std::string(a_source), where + ": expected an object");
+					continue;
+				}
+				WarnUnknown(e, { "label", "words", "categories", "confidence" }, a_source, where, a_diags);
+				DraftWingRule rule;
+				rule.label = e.value("label", std::string{});
+				bool ok = ReadWordList(e, "words", rule.words, a_source, where, a_diags);
+				bool catsOk = false;
+				rule.categories = CategoryList(e, a_source, where, a_diags, catsOk);
+				ok = ReadFloat(e, "confidence", rule.confidence, a_source, where, a_diags) && ok && catsOk;
+				if (ok && rule.words.empty()) {
+					a_diags.Error(std::string(a_source), where + ": needs words");
+					ok = false;
+				}
+				if (ok) {
+					r.wings.push_back(std::move(rule));
+				}
+			}
+		}
+
 		if (const auto it = doc->find("nearby"); it != doc->end() && it->is_object()) {
 			WarnUnknown(*it, { "radius", "confidence", "perItem", "max", "skip", "groups" }, a_source, "nearby", a_diags);
 			ReadFloat(*it, "radius", r.nearbyRadius, a_source, "nearby", a_diags);
@@ -663,6 +710,14 @@ namespace dova::core
 			}
 			for (auto& s : r.nearbyGroups) {
 				s = ToLower(s);
+			}
+		}
+
+		if (const auto it = doc->find("areas"); it != doc->end() && it->is_object()) {
+			WarnUnknown(*it, { "containers" }, a_source, "areas", a_diags);
+			float containers = static_cast<float>(r.areaContainers);
+			if (ReadFloat(*it, "containers", containers, a_source, "areas", a_diags) && containers >= 1.0f) {
+				r.areaContainers = static_cast<std::size_t>(containers);
 			}
 		}
 
@@ -951,7 +1006,8 @@ namespace dova::core
 			for (std::size_t i = 0; i < parts.size(); ++i) {
 				why += (i ? ", " : "") + parts[i];
 			}
-			why += std::format("; usable (one of {}): does not respawn, no script, nobody else's, there from the start", candidates.size());
+			why += candidates.size() == 1 ? std::string("; the only container there from the start that can be the master: does not respawn, no script, nobody else's") :
+			                                std::format("; one of {} that can be the master: does not respawn, no script, nobody else's, there from the start", candidates.size());
 			if (mainOnly && !a_options.mainCell.empty() && std::ranges::any_of(plan.containers, [&](const DraftContainer& c) { return usable(c, false) && !usable(c, true); })) {
 				why += ", in the home's main cell";
 			}
@@ -1016,7 +1072,7 @@ namespace dova::core
 			std::map<const DraftStationRule*, std::pair<float, std::size_t>> nearest;
 			for (const auto& s : stations) {
 				const auto& so = a_objects[s.object];
-				if (so.cell != o.cell) {
+				if (so.cell != o.cell || !AppearsWith(so, o)) {
 					continue;
 				}
 				const float d = Distance(o, so);
@@ -1039,7 +1095,7 @@ namespace dova::core
 			// Loose items on or next to it.
 			std::map<std::string, std::vector<std::string>> items;
 			for (const auto& it : a_objects) {
-				if (it.kind != Kind::Item || it.cell != o.cell || it.categories.empty()) {
+				if (it.kind != Kind::Item || it.cell != o.cell || it.categories.empty() || !AppearsWith(it, o)) {
 					continue;
 				}
 				if (NearDistance(o, it, a_rules.nearbyRadius) > a_rules.nearbyRadius) {
@@ -1070,8 +1126,70 @@ namespace dova::core
 			}
 		}
 
-		// ---- One container per category ----
-		std::map<std::string, std::size_t> winner;  // pattern -> container index
+		// ---- The room a container stands in: its name's categories, shared out over the room's containers ----
+		{
+			std::map<std::pair<std::string, std::string>, std::vector<std::size_t>> rooms;  // (cell, wing) -> container indexes, in order
+			for (std::size_t ci = 0; ci < plan.containers.size(); ++ci) {
+				const auto& c = plan.containers[ci];
+				const auto& o = a_objects[c.object];
+				if (!c.ignored && !(plan.master && *plan.master == c.object) && !o.wing.empty()) {
+					rooms[{ o.cell, o.wing }].push_back(ci);
+				}
+			}
+			for (const auto& [key, members] : rooms) {
+				const auto tokens = DraftTokens(key.second);
+				const auto rule = std::ranges::find_if(a_rules.wings, [&](const DraftWingRule& r) { return AnyWords(tokens, r.words); });
+				if (rule == a_rules.wings.end()) {
+					continue;
+				}
+				std::vector<std::size_t> given(members.size(), 0);
+				for (const auto& cat : rule->categories) {
+					// The container given fewest of the room's categories so far, then the one already hinted at this
+					// one, then the earlier. A container named for its contents hears only what its name says.
+					std::optional<std::size_t> pick;
+					float                      pickHint = 0.0f;
+					for (std::size_t k = 0; k < members.size(); ++k) {
+						const auto ci = members[k];
+						const auto have = evidence[ci].find(cat);
+						if (!known(cat) || (labelled[ci] && have == evidence[ci].end())) {
+							continue;
+						}
+						const float hint = have == evidence[ci].end() ? 0.0f : have->second.confidence;
+						if (!pick || given[k] < given[*pick] || (given[k] == given[*pick] && hint > pickHint + 1e-4f)) {
+							pick = k;
+							pickHint = hint;
+						}
+					}
+					if (pick) {
+						++given[*pick];
+						Add(evidence[members[*pick]], cat, rule->confidence, std::format("in the {}", key.second), DraftSource::Station);
+					}
+				}
+			}
+		}
+
+		// ---- Wings: in a big home, what is built together takes each category once more ----
+		// More than `areaContainers` usable containers: the containers that appear later with one `appearsWith` key (a
+		// Hearthfire wing, built as one of three choices) are an area of their own, as the shipped templates bind each
+		// choice; everything else is one area, each category once.
+		std::vector<std::string> areaOf(plan.containers.size());
+		{
+			std::size_t usableCount = 0;
+			for (const auto& c : plan.containers) {
+				usableCount += !c.ignored && !(plan.master && *plan.master == c.object) ? 1 : 0;
+			}
+			if (usableCount > a_rules.areaContainers) {
+				for (std::size_t ci = 0; ci < plan.containers.size(); ++ci) {
+					const auto& o = a_objects[plan.containers[ci].object];
+					if (o.appearsLater && !o.appearsWith.empty()) {
+						areaOf[ci] = o.appearsWith;
+					}
+				}
+			}
+		}
+
+		// ---- One container per category (per wing) ----
+		std::map<std::pair<std::string, std::string>, std::size_t> winner;  // (area, pattern) -> container index
 		// The categories other than `a_pattern` container `a_ci` is sure of: on a tie, the one with fewer is more about it.
 		const auto othersSure = [&](std::size_t a_ci, const std::string& a_pattern) {
 			return std::ranges::count_if(evidence[a_ci], [&](const auto& a_entry) {
@@ -1080,9 +1198,9 @@ namespace dova::core
 		};
 		for (std::size_t ci = 0; ci < evidence.size(); ++ci) {
 			for (const auto& [pattern, e] : evidence[ci]) {
-				const auto it = winner.find(pattern);
+				const auto it = winner.find({ areaOf[ci], pattern });
 				if (it == winner.end()) {
-					winner[pattern] = ci;
+					winner[{ areaOf[ci], pattern }] = ci;
 					continue;
 				}
 				const auto& other = evidence[it->second].at(pattern);
@@ -1116,7 +1234,7 @@ namespace dova::core
 				s.confidence = e.confidence;
 				s.reason = e.reason;
 				s.source = e.source;
-				const auto w = winner.at(pattern);
+				const auto w = winner.at({ areaOf[ci], pattern });
 				if (w != ci) {
 					s.lostTo = a_objects[plan.containers[w].object].id;
 					s.reason += std::format("; {} has it with {}", Title(a_objects[plan.containers[w].object]), Percent(evidence[w].at(pattern).confidence));
@@ -1127,10 +1245,14 @@ namespace dova::core
 		}
 
 		// ---- Fill: groups nobody was given, to the free container with the strongest hint ----
-		auto acceptedAnywhere = [&](const std::string& a_pattern) {
-			return std::ranges::any_of(plan.containers, [&](const DraftContainer& c) {
-				return std::ranges::any_of(c.suggestions, [&](const DraftSuggestion& s) { return s.accepted && s.pattern == a_pattern; });
-			});
+		auto acceptedAnywhere = [&](const std::string& a_pattern, const std::string& a_area) {
+			for (std::size_t ci = 0; ci < plan.containers.size(); ++ci) {
+				if (areaOf[ci] == a_area &&
+					std::ranges::any_of(plan.containers[ci].suggestions, [&](const DraftSuggestion& s) { return s.accepted && s.pattern == a_pattern; })) {
+					return true;
+				}
+			}
+			return false;
 		};
 		auto isFree = [&](std::size_t ci) {
 			const auto& c = plan.containers[ci];
@@ -1139,22 +1261,19 @@ namespace dova::core
 		};
 		// A container takes the group's categories it has evidence of its own for: a shield hanging next to a cabinet
 		// is no reason to send it heavy armor.
-		auto open = [&](const std::string& a_pattern) { return known(a_pattern) && !acceptedAnywhere(a_pattern); };
-		std::vector<bool> groupDone(a_rules.fill.size(), false);
+		auto open = [&](const std::string& a_pattern, std::size_t a_ci) { return known(a_pattern) && !acceptedAnywhere(a_pattern, areaOf[a_ci]); };
+		std::set<std::pair<std::size_t, std::string>> groupDone;  // (group, area)
 		for (;;) {
 			float       best = 0.0f;
 			std::size_t bestGroup = 0, bestContainer = 0;
 			for (std::size_t g = 0; g < a_rules.fill.size(); ++g) {
 				const auto& group = a_rules.fill[g];
-				if (groupDone[g]) {
-					continue;
-				}
 				for (std::size_t ci = 0; ci < plan.containers.size(); ++ci) {
-					if (!isFree(ci)) {
+					if (!isFree(ci) || groupDone.contains({ g, areaOf[ci] })) {
 						continue;
 					}
 					for (const auto& [pattern, e] : evidence[ci]) {
-						if (std::ranges::find(group.categories, pattern) != group.categories.end() && open(pattern) && e.hinted && e.confidence > best + 1e-4f) {
+						if (std::ranges::find(group.categories, pattern) != group.categories.end() && open(pattern, ci) && e.hinted && e.confidence > best + 1e-4f) {
 							best = e.confidence;
 							bestGroup = g;
 							bestContainer = ci;
@@ -1165,12 +1284,12 @@ namespace dova::core
 			if (best + 1e-4f < a_rules.fillAt) {
 				break;
 			}
-			groupDone[bestGroup] = true;
+			groupDone.insert({ bestGroup, areaOf[bestContainer] });
 			auto&       c = plan.containers[bestContainer];
 			const auto& group = a_rules.fill[bestGroup];
 			for (const auto& p : group.categories) {
 				const auto e = evidence[bestContainer].find(p);
-				if (e == evidence[bestContainer].end() || e->second.confidence + 1e-4f < a_rules.fillAt || !e->second.hinted || !open(p)) {
+				if (e == evidence[bestContainer].end() || e->second.confidence + 1e-4f < a_rules.fillAt || !e->second.hinted || !open(p, bestContainer)) {
 					continue;
 				}
 				auto s = std::ranges::find_if(c.suggestions, [&](const DraftSuggestion& x) { return x.pattern == p; });

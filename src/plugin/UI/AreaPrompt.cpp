@@ -4,6 +4,9 @@
 #include "Game/FormUtil.h"
 #include "Home/Areas.h"
 #include "Home/HomeRegistry.h"
+#include "UI/IStashUI.h"
+#include "UI/Labels.h"
+#include "UI/MessageBox.h"
 #include "UI/UIExtensions.h"
 
 namespace dova::ui
@@ -71,6 +74,12 @@ namespace dova::ui
 				Controller::Get().SetLabel(a_cellId, a_container, *a_text);
 			}
 		});
+	}
+
+	void IStashUI::OpenPartOfPrompt(home::Home& a_home, std::string_view a_template)
+	{
+		ShowOptions(std::format(kPartOfBody, a_template),
+			{ MenuOption{ std::format(kUsePartOfTemplate, a_template), [cellId = a_home.cellId]() { Controller::Get().UsePartOfTemplate(cellId); } } });
 	}
 
 	bool HasCustomName(RE::TESObjectREFR* a_ref)

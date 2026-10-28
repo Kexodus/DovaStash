@@ -181,10 +181,19 @@ namespace dova::sort::crafting
 				}
 				tasks->AddUITask([a_station]() {
 					if (!g_active.load() || g_stationId.load() != a_station) {
+						logger::debug("Crafting from storage: the session ended before the recipe list could be built again");
 						return;
 					}
-					auto* ui = RE::UI::GetSingleton();
-					const auto menu = ui ? ui->GetMenu<RE::CraftingMenu>() : RE::GPtr<RE::CraftingMenu>{};
+					// The menu may have closed (the player got up) between Begin and this task: a closing menu's lists are
+					// never touched.
+					auto*       ui = RE::UI::GetSingleton();
+					const auto* player = RE::PlayerCharacter::GetSingleton();
+					if (!ui || !ui->IsMenuOpen(RE::CraftingMenu::MENU_NAME) || !player ||
+						player->GetOccupiedFurniture().native_handle() != g_stationHandle.load()) {
+						logger::debug("Crafting from storage: the crafting menu closed (or the player got up) before its recipe list was built again; left alone");
+						return;
+					}
+					const auto menu = ui->GetMenu<RE::CraftingMenu>();
 					auto*      sub = menu ? menu->GetCraftingSubMenu() : nullptr;
 					if (auto* recipes = sub ? skyrim_cast<RE::CraftingSubMenus::ConstructibleObjectMenu*>(sub) : nullptr) {
 						recipes->UpdateConstructibleList();
@@ -284,6 +293,7 @@ namespace dova::sort::crafting
 				return;
 			}
 			const auto& s = *ended;
+			logger::debug("Crafting from storage: session {} at {} ends ({})", s.id, s.stationName, a_why);
 			logger::info("Crafting from storage ({}): {} taken from storage at {}{}", a_why, detail::Plural(s.used, "material"), s.stationName,
 				s.usedFrom.empty() ? "" : std::format(" ({} crafts; {})", s.crafts, Names(s.usedFrom)));
 		}

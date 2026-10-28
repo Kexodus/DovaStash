@@ -1746,7 +1746,13 @@ namespace dova::editor::ui::w
 		float right = q.x - t.pad * 0.5f;
 		// A name the chip would cut (a large text size, a narrow rail): the chip becomes a dot of its colour, a quiet
 		// "none" goes (the row's tooltip says it).
-		const bool narrow = a_chip && *a_chip && p.x + t.pad + TextSize(ImGui::GetFont(), a_name).x > right - ChipW(a_chip) - t.gap;
+		// The name and the summary's shortest form must fit before the chip, else the dot (the summary keeps its room).
+		const char* shortest = a_summaryShortest && *a_summaryShortest ? a_summaryShortest : a_summaryShort && *a_summaryShort ? a_summaryShort : a_summary;
+		float       need = TextSize(ImGui::GetFont(), a_name).x + (a_unsaved ? 10.0f * t.scale : 0.0f);
+		if (shortest && *shortest) {
+			need += t.gap + TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), shortest).x;
+		}
+		const bool narrow = a_chip && *a_chip && p.x + t.pad + need > right - ChipW(a_chip) - t.gap;
 		if (narrow) {
 			if (a_chipKind != Kind::Neutral) {
 				const float r = std::round(4.0f * t.scale);
@@ -1788,9 +1794,12 @@ namespace dova::editor::ui::w
 				}
 			}
 			const ImVec2 ss = ImGui::CalcTextSize(text);
-			ImGui::PushStyleColor(ImGuiCol_Text, t.muted);
-			ImGui::RenderTextEllipsis(dl, ImVec2(x + t.gap, std::floor(p.y + (h - ss.y) * 0.5f)), ImVec2(maxX, q.y), maxX, text, nullptr, &ss);
-			ImGui::PopStyleColor();
+			// Only whole: a summary cut to an ellipsis says nothing (the row's tooltip has it).
+			if (x + t.gap + ss.x <= maxX) {
+				ImGui::PushStyleColor(ImGuiCol_Text, t.muted);
+				ImGui::RenderTextEllipsis(dl, ImVec2(x + t.gap, std::floor(p.y + (h - ss.y) * 0.5f)), ImVec2(maxX, q.y), maxX, text, nullptr, &ss);
+				ImGui::PopStyleColor();
+			}
 			PopFont();
 		}
 		dl->PopClipRect();
@@ -1798,7 +1807,7 @@ namespace dova::editor::ui::w
 		return clicked;
 	}
 
-	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open)
+	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open, const char* a_noteShort)
 	{
 		const Theme& t = Th();
 		ImGui::PushID(a_id);
@@ -1813,19 +1822,42 @@ namespace dova::editor::ui::w
 		}
 		const float is = std::round(12.0f * t.scale);
 		DrawIcon(dl, a_open ? Icon::ChevronDown : Icon::ChevronRight, detail::Floor(ImVec2(p.x + 2.0f * t.scale, p.y + (h - is) * 0.5f)), is, t.muted);
-		// Label, then the note (Nexus id and count); the note always shows, a long label gets an ellipsis.
+		// Label, then the note (Nexus id and count). The label is what the author scans for: the full note only beside
+		// the whole label, else `a_noteShort` (the count) while the label keeps about 12 characters, else none. A long
+		// label gets an ellipsis only after that.
 		PushFont(Font::Small);
 		ImVec2      ls = ImGui::CalcTextSize(a_label);
 		const float x = p.x + is + 6.0f * t.scale;
 		const float ty = std::floor(p.y + (h - ls.y) * 0.5f);
-		const float nw = a_note && *a_note ? ImGui::CalcTextSize(a_note).x + t.gap : 0.0f;
-		const float maxX = std::max(x + 1.0f, p.x + wdt - t.pad * 0.5f - nw);
+		std::string_view head(a_label);
+		if (head.size() > 12) {
+			std::size_t cut = 12;
+			while (cut > 0 && (static_cast<unsigned char>(head[cut]) & 0xC0) == 0x80) {
+				--cut;  // not inside a UTF-8 character
+			}
+			head = head.substr(0, cut);
+		}
+		const float keep = std::min(ls.x, ImGui::CalcTextSize(head.data(), head.data() + head.size()).x + ImGui::CalcTextSize("...").x);
+		const float right = p.x + wdt - t.pad * 0.5f;
+		const char* note = nullptr;
+		float       nw = 0.0f;
+		for (const char* option : { a_note, a_noteShort }) {
+			if (option && *option) {
+				const float width = ImGui::CalcTextSize(option).x + t.gap;
+				if (right - width - x >= (option == a_note && a_noteShort ? ls.x : keep)) {
+					note = option;
+					nw = width;
+					break;
+				}
+			}
+		}
+		const float maxX = std::max(x + 1.0f, right - nw);
 		dl->PushClipRect(p, ImVec2(p.x + wdt, p.y + h), true);
 		ImGui::PushStyleColor(ImGuiCol_Text, t.accent);
 		ImGui::RenderTextEllipsis(dl, ImVec2(x, ty), ImVec2(maxX, p.y + h), maxX, a_label, nullptr, &ls);
 		ImGui::PopStyleColor();
-		if (nw > 0.0f) {
-			Text(dl, ImGui::GetFont(), ImVec2(std::min(x + ls.x, maxX) + t.gap, ty), t.muted, a_note);
+		if (note) {
+			Text(dl, ImGui::GetFont(), ImVec2(std::min(x + ls.x, maxX) + t.gap, ty), t.muted, note);
 		}
 		dl->PopClipRect();
 		PopFont();

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cfloat>
 #include <format>
 #include <tuple>
 #include <unordered_map>
@@ -182,14 +183,12 @@ namespace dova::editor::ui
 				if (_pendingHome) {
 					Queue([this] {
 						const auto wanted = *std::exchange(_pendingHome, std::nullopt);
-						for (std::size_t i = 0; i < _homes->homes.size(); ++i) {
-							if (IContains(_homes->homes[i].name, wanted) || IContains(_homes->homes[i].editorId, wanted)) {
-								if (!_pendingPanel && _onlyWithoutTemplate) {
-									_pendingPanel = Panel::Draft;  // --drafts --home: its review
-								}
-								OpenHome(static_cast<int>(i));
-								return;
+						if (const auto i = home::FindHome(_homes->homes, wanted)) {
+							if (!_pendingPanel && _onlyWithoutTemplate) {
+								_pendingPanel = Panel::Draft;  // --drafts --home: its review
 							}
+							OpenHome(static_cast<int>(*i));
+							return;
 						}
 						SetStatus("No home matches " + wanted, true);
 						NoHomeMatches(wanted);
@@ -361,7 +360,7 @@ namespace dova::editor::ui
 			const home::DraftContext ctx{ _categorySet ? &*_categorySet : nullptr, &_draftRules, _homes ? &_homes->itemNames : nullptr };
 			d->objects = home::BuildDraftObjects(*_cell->lo, d->cells, ctx.categories, &d->where);
 			d->plan = core::SuggestDraft(d->objects, _draftRules, home::MakeDraftOptions(_cell->lo->Format(_cell->info.key), ctx));
-			d->layout = home::LayoutFromPlan(*_cell->lo, d->cells, d->objects, d->plan);
+			d->layout = home::LayoutFromPlan(*_cell->lo, d->cells, d->objects, d->plan, &_draftRules);
 			d->diagnostics = home::ValidateDraft(d->layout, ctx.categories);
 			_localDraft = std::move(d);
 			_localDraftCell = _cell.get();
@@ -457,6 +456,7 @@ namespace dova::editor::ui
 			return;
 		}
 		_confirmDraftAgain = false;
+		_stationNames = {};  // the rules may have changed
 		if (_cellDraft >= 0 && _homes) {
 			auto& e = _homes->entries[static_cast<std::size_t>(_cellDraft)];
 			e.draft.reset();
@@ -863,10 +863,22 @@ namespace dova::editor::ui
 			w::MutedWrapped("Showing the template. Accept a chip to change it, or use the whole draft.");
 			ImGui::PopTextWrapPos();
 			ImGui::PopFont();
-			if (w::PrimaryButton("Use the draft")) {
+			// Secondary: the template open is often far better than the draft. The tip says how far they agree.
+			std::string agree;
+			if (_categorySet) {
+				const auto cmp = home::CompareToTemplate(d->layout, a_cell.layout, *_categorySet);
+				agree = std::format("The draft and this template: {} of {} categories the same", cmp.sameDestination, cmp.categories);
+			}
+			if (w::ToolButton("Use the draft", false, ("Open this draft in place of the template (Save writes it as yours)" + (agree.empty() ? "" : "\n" + agree)).c_str())) {
 				UseDraft();
 			}
-			w::Tip("Open this draft in place of the template (Save writes it as yours)");
+			if (!agree.empty()) {
+				ImGui::PushFont(t.smallFont);
+				ImGui::PushTextWrapPos(0.0f);
+				w::MutedWrapped(agree.c_str());
+				ImGui::PopTextWrapPos();
+				ImGui::PopFont();
+			}
 			w::Spacer(t.gap);
 		}
 		const float rowRight = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
@@ -896,18 +908,18 @@ namespace dova::editor::ui
 				if (!a_cell.filePath.empty() && fs::equivalent(tp->path, PathFromUtf8(a_cell.filePath), ec)) {
 					continue;  // the open one
 				}
-				// The draft against it (or, a template open, that template against the other): the word of the rail and its mod.
-				const auto  cmp = home::CompareToTemplate(a_cell.layout, tp->layout, *_categorySet);
-				w::Kind     kind = w::Kind::Neutral;
-				std::string word = TemplateWord(*tp, &kind);
-				word[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(word[0])));
+				// What is open (the draft, or a template) against it, named by the word of the rail and its mod; a template
+				// open, the draft against it too.
+				const bool        templateOpen = !a_cell.filePath.empty();
+				const auto        cmp = home::CompareToTemplate(a_cell.layout, tp->layout, *_categorySet);
+				w::Kind           kind = w::Kind::Neutral;
+				const std::string word = TemplateWord(*tp, &kind);
 				ImGui::PushFont(t.smallFont);
 				ImGui::PushTextWrapPos(0.0f);
-				w::ColouredWrapped(kind, std::format("{} ({}): {} of {} categories agree, master {}", word, tp->origin, cmp.sameDestination, cmp.categories,
-											 cmp.sameMaster ? "the same" : "differs")
+				w::ColouredWrapped(kind, std::format("{} and {} ({}): {} of {} categories the same, master {}", templateOpen ? "This template" : "The draft", word,
+											 tp->origin, cmp.sameDestination, cmp.categories, cmp.sameMaster ? "the same" : "differs")
 											 .c_str());
 				ImGui::PopTextWrapPos();
-				ImGui::PopFont();
 				if (ImGui::BeginItemTooltip()) {
 					ImGui::TextUnformatted(tp->source.c_str());
 					w::Muted(std::format("{}, version {}", tp->origin, tp->layout.version).c_str());
@@ -916,6 +928,11 @@ namespace dova::editor::ui
 					}
 					ImGui::EndTooltip();
 				}
+				if (templateOpen) {
+					const auto drafted = home::CompareToTemplate(d->layout, tp->layout, *_categorySet);
+					w::Muted(std::format("The draft and {}: {} of {}", word, drafted.sameDestination, drafted.categories).c_str());
+				}
+				ImGui::PopFont();
 			}
 		}
 
@@ -1029,13 +1046,84 @@ namespace dova::editor::ui
 			floors[cell] = FloorOf(start.empty() ? std::move(z) : std::move(start));
 		}
 		for (const auto ci : order) {
-			const auto& o = d->objects[d->plan.containers[ci].object];
-			rowLabels[ci] = labelOf(o);
-			if (named[rowLabels[ci]] > 1) {
-				const auto& f = floors[o.cell];
-				rowLabels[ci] += f.Outside(o.center[2]) ? std::string(" · out of the home") : std::format(" · {:.1f} m", f.Metres(o.center[2]));
-			}
+			rowLabels[ci] = labelOf(d->objects[d->plan.containers[ci].object]);
 		}
+		// Told apart by what a player sees, in turn while names stay the same: the cell (Cellar, Grounds), the wing
+		// (a Hearthfire room), the nearest station ("by the oven"), the side of the room, then the height.
+		const auto cellRef = [&](const core::DraftObject& a_o) { return core::FormRef::Parse(a_o.cell); };
+		std::vector<char> byHeight(d->plan.containers.size(), 0);
+		const auto        tellApart = [&](auto&& a_part) {
+			std::unordered_map<std::string, int> count;
+			for (const auto ci : order) {
+				++count[rowLabels[ci]];
+			}
+			for (const auto ci : order) {
+				if (count[rowLabels[ci]] > 1) {
+					if (const auto part = a_part(ci); !part.empty()) {
+						rowLabels[ci] += " · " + part;
+					}
+				}
+			}
+		};
+		tellApart([&](std::size_t ci) -> std::string {
+			// The home's other cells (the main cell has no entry in `cells`).
+			const auto ref = cellRef(d->objects[d->plan.containers[ci].object]);
+			for (const auto& hc : d->layout.cells) {
+				if (ref && hc.cell == *ref) {
+					return hc.label;
+				}
+			}
+			return {};
+		});
+		tellApart([&](std::size_t ci) {
+			const auto& o = d->objects[d->plan.containers[ci].object];
+			auto        wing = home::WingName(o.appearsWith);
+			return core::IEquals(wing, "Cellar") ? std::string{} : wing;  // the cell says it
+		});
+		if (_stationNames.draft != d || _stationNames.objects != d->objects.size()) {
+			_stationNames = { d, d->objects.size(), home::NearestStations(d->objects, _draftRules) };
+		}
+		tellApart([&](std::size_t ci) {
+			const auto& station = _stationNames.names[d->plan.containers[ci].object];
+			return station.empty() ? station : "by the " + station;
+		});
+		{
+			// The side: along the tied rows' long axis (the room's), each half from the middle of their spread, named as
+			// the plan shows it (north up). Rows within half a metre of the middle have none (the height tells them).
+			std::unordered_map<std::string, std::vector<std::size_t>> ties;
+			for (const auto ci : order) {
+				ties[rowLabels[ci]].push_back(ci);
+			}
+			std::vector<std::string> side(d->plan.containers.size());
+			for (const auto& [label, rows] : ties) {
+				if (rows.size() < 2) {
+					continue;
+				}
+				float lo[2] = { FLT_MAX, FLT_MAX }, hi[2] = { -FLT_MAX, -FLT_MAX };
+				for (const auto ci : rows) {
+					const auto& o = d->objects[d->plan.containers[ci].object];
+					for (int k = 0; k < 2; ++k) {
+						lo[k] = std::min(lo[k], o.center[k]);
+						hi[k] = std::max(hi[k], o.center[k]);
+					}
+				}
+				const int   axis = hi[0] - lo[0] >= hi[1] - lo[1] ? 0 : 1;
+				const float mid = (lo[axis] + hi[axis]) * 0.5f;
+				for (const auto ci : rows) {
+					const float off = d->objects[d->plan.containers[ci].object].center[axis] - mid;
+					if (std::abs(off) >= 0.5f * kUnitsPerMetre) {
+						side[ci] = axis == 0 ? (off < 0.0f ? "west" : "east") : (off < 0.0f ? "south" : "north");
+					}
+				}
+			}
+			tellApart([&](std::size_t ci) { return side[ci]; });
+		}
+		tellApart([&](std::size_t ci) {
+			const auto& o = d->objects[d->plan.containers[ci].object];
+			const auto& f = floors[o.cell];
+			byHeight[ci] = 1;
+			return f.Outside(o.center[2]) ? std::string("out of the home") : std::format("{:.1f} m", f.Metres(o.center[2]));
+		});
 		for (const auto ci : order) {
 			if (std::ranges::count(rowLabels, rowLabels[ci]) > 1) {
 				rowLabels[ci] += std::format(" ({})", ++seen[rowLabels[ci]]);
@@ -1062,7 +1150,7 @@ namespace dova::editor::ui
 			if (index >= 0 && ImGui::IsItemHovered()) {
 				_listHoveredRef = index;  // highlighted in the 3D view
 			}
-			w::Tip((o.id + "\n" + o.editorId + (named[labelOf(o)] > 1 ? "\nThe height: above the cell's floor" : "")).c_str());
+			w::Tip((o.id + "\n" + o.editorId + (byHeight[ci] ? "\nThe height: above the cell's floor" : "")).c_str());
 			ImGui::Indent(t.pad);
 			const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 			const auto* b = ref ? a_cell.layout.FindContainer(*ref) : nullptr;

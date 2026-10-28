@@ -87,7 +87,7 @@
         },
         {
           "check": "notify",
-          "regex": "setup enabled",
+          "regex": "is set up",
           "since": "action",
           "within": 5
         },

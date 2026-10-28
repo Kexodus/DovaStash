@@ -17,3 +17,4 @@ Unique Vampire Dens SSE|gonkishvampdens.esp
 White Lighthouse|WhiteLighthouseSE.esp
 Winter Cove|Winter Cove.esp
 Wuth Rein - An ancient nordic hideout|WuthRein.esp
+Whitepeak Tower - Dawnguard Themed Home - Vanilla Textures|Whitepeak Tower.esp

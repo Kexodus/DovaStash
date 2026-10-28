@@ -41,7 +41,7 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "Dova Stash: .* setup enabled"
+          "regex": "Dova Stash: .* is set up"
         },
         {
           "check": "log",

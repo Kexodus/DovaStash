@@ -161,7 +161,7 @@ namespace dova::core
 				return nullptr;
 			}
 			const auto* c = _layout.FindContainer(it->second);
-			return c && !c->ignored && !_layout.IsMaster(c->ref) && IsAvailable(c->ref) ? c : nullptr;
+			return c && !c->ignored && !_layout.IsAnyMaster(c->ref) && IsAvailable(c->ref) ? c : nullptr;
 		};
 		if (const auto* c = learnedFor(a_item.form)) {
 			return Destination{ c->ref, Destination::Reason::Learned, {} };
@@ -248,11 +248,22 @@ namespace dova::core
 
 	std::vector<Move> SortPlanner::Distribute(std::span<const ItemInfo> a_masterContents, std::vector<StackDecision>* a_explain) const
 	{
+		if (!_layout.master) {
+			if (a_explain) {
+				a_explain->assign(a_masterContents.size(), StackDecision{ .outcome = StackDecision::Outcome::NoDestination });
+			}
+			return {};
+		}
+		return Distribute(a_masterContents, *_layout.master, a_explain);
+	}
+
+	std::vector<Move> SortPlanner::Distribute(std::span<const ItemInfo> a_contents, const FormRef& a_source, std::vector<StackDecision>* a_explain) const
+	{
 		std::vector<Move>          moves;
-		std::vector<StackDecision> decisions(a_explain ? a_masterContents.size() : 0);
-		const bool                 masterOk = _layout.master && IsAvailable(*_layout.master);
-		for (std::size_t i = 0; i < a_masterContents.size(); ++i) {
-			const auto&    item = a_masterContents[i];
+		std::vector<StackDecision> decisions(a_explain ? a_contents.size() : 0);
+		const bool                 masterOk = _layout.IsAnyMaster(a_source) && IsAvailable(a_source);
+		for (std::size_t i = 0; i < a_contents.size(); ++i) {
+			const auto&    item = a_contents[i];
 			StackDecision  scratch;
 			StackDecision& d = a_explain ? decisions[i] : scratch;
 			if (!masterOk) {
@@ -266,12 +277,12 @@ namespace dova::core
 			d.destination = ResolveDestination(item);
 			if (!d.destination) {
 				d.outcome = StackDecision::Outcome::NoDestination;
-			} else if (d.destination->reason == Destination::Reason::Master || d.destination->container == *_layout.master) {
-				d.outcome = StackDecision::Outcome::Homeless;
+			} else if (d.destination->reason == Destination::Reason::Master || d.destination->container == a_source) {
+				d.outcome = StackDecision::Outcome::Homeless;  // it stays in the inbox, never passed on to another master
 			} else {
 				d.outcome = StackDecision::Outcome::Move;
 				d.moved = item.count;
-				moves.push_back(Move{ item.stackId, item.form, item.count, ContainerRef(*_layout.master), ContainerRef(d.destination->container) });
+				moves.push_back(Move{ item.stackId, item.form, item.count, ContainerRef(a_source), ContainerRef(d.destination->container) });
 			}
 		}
 		if (a_explain) {
@@ -292,9 +303,14 @@ namespace dova::core
 					continue;
 				}
 				const auto dest = ResolveDestination(item);
-				if (dest && dest->container != contents.ref) {
-					moves.push_back(Move{ item.stackId, item.form, item.count, ContainerRef(contents.ref), ContainerRef(dest->container) });
+				if (!dest || dest->container == contents.ref) {
+					continue;
 				}
+				// Homeless items stay in an area master, as with Distribute: never passed on to another master (DESIGN §6.7).
+				if (dest->reason == Destination::Reason::Master && !_layout.IsMaster(contents.ref) && IsAreaMaster(contents.ref)) {
+					continue;
+				}
+				moves.push_back(Move{ item.stackId, item.form, item.count, ContainerRef(contents.ref), ContainerRef(dest->container) });
 			}
 		}
 		return moves;
@@ -408,7 +424,7 @@ namespace dova::core
 
 	LearnResult Learn(Layout& a_layout, const FormRef& a_form, const FormRef& a_container, LearnUndo* a_undo)
 	{
-		if (a_layout.IsMaster(a_container)) {
+		if (a_layout.IsAnyMaster(a_container)) {
 			return LearnResult::RejectedMaster;
 		}
 		bool added = false;
@@ -449,7 +465,7 @@ namespace dova::core
 		if (a_item.questItem || !a_item.playable || a_item.name.empty() || a_item.returns) {
 			return LearnResult::RejectedItem;
 		}
-		if (a_layout.IsMaster(a_container)) {
+		if (a_layout.IsAnyMaster(a_container)) {
 			return LearnResult::RejectedMaster;
 		}
 		if (const auto* c = a_layout.FindContainer(a_container); c && c->ignored) {

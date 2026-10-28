@@ -420,6 +420,56 @@ TEST_CASE("Switching to a template that makes a container the sell chest drops t
 		CHECK(again.learned.contains(ring));
 		CHECK(again.FindContainer(keepsake)->forms == std::vector<FormRef>{ sword });
 	}
+	SECTION("an area master marked sell is not a sell chest and keeps its forms (an inbox is never learned into)")
+	{
+		tpl.layout.cells = { HomeCell{ .cell = Sk(0xCE11), .label = "Cellar", .master = keepsake } };
+		const auto master = ApplyTemplate(tpl, &mine);
+		CHECK_FALSE(master.IsSellChest(keepsake));
+		CHECK_FALSE(master.learned.contains(ring));
+		CHECK(master.FindContainer(keepsake)->forms == std::vector<FormRef>{ sword });
+	}
+}
+
+TEST_CASE("A template that makes a player's container an area master takes it out of containers, learned and declined", "[templates][switch][cells]")
+{
+	const FormRef x = Sk(0xC0011);
+	const FormRef ring = Sk(0x1000A);
+	const FormRef sword = Sk(0x1000B);
+
+	Layout mine;
+	mine.cell = kCell;
+	mine.master = Sk(0xAAAAA);
+	ContainerBinding chest;
+	chest.ref = x;
+	chest.forms = { sword };
+	chest.categories = { "misc.gems" };
+	mine.containers.push_back(chest);
+	mine.learned.emplace(ring, x);
+	mine.declined[x] = { "misc.gems" };
+
+	auto tpl = Make("Templates/User/Cellar.json", false);
+	tpl.layout.cells = { HomeCell{ .cell = Sk(0xCE11), .label = "Cellar", .master = x } };
+
+	const auto applied = ApplyTemplate(tpl, &mine);
+	REQUIRE(applied.IsAnyMaster(x));
+	CHECK_FALSE(applied.FindContainer(x));
+	CHECK_FALSE(applied.learned.contains(ring));
+	CHECK_FALSE(applied.declined.contains(x));
+
+	// Exporting a layout that still learned into it adds no container entry for the area master.
+	Layout stale = applied;
+	stale.learned.emplace(ring, x);
+	const auto exported = ExportAsTemplate(stale, ExportOptions{ .learnedAsForms = true });
+	CHECK_FALSE(exported.FindContainer(x));
+
+	SECTION("the previous master, now an area master, is not kept as a plain container")
+	{
+		auto moved = Make("Templates/User/Moved.json", false);
+		moved.layout.master = Sk(0xBBBBB);
+		moved.layout.cells = { HomeCell{ .cell = Sk(0xCE11), .label = "Cellar", .master = Sk(0xAAAAA) } };
+		const auto again = ApplyTemplate(moved, &mine);
+		CHECK_FALSE(again.FindContainer(Sk(0xAAAAA)));
+	}
 }
 
 TEST_CASE("AbsorbableCells: a cellar set up by itself from its template can join a whole-home template", "[templates][cells]")

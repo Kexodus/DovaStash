@@ -16,6 +16,12 @@
 
 namespace dova::ui::panel
 {
+	// How a category pattern reads on every panel page: "*" Everything, "<id>.*" All <name>, "<id>" its name.
+	// `a_nameOf` names a category id; nullopt (unknown) leaves the pattern as it is.
+	[[nodiscard]] std::string PatternName(std::string_view a_pattern, const std::function<std::optional<std::string>(std::string_view)>& a_nameOf);
+	// The same with the names of a snapshot's category tree (render thread).
+	[[nodiscard]] std::string PatternName(const CategoryTree& a_tree, std::string_view a_pattern);
+
 	enum class Refresh : std::uint8_t
 	{
 		Light,  // layout, containers, learned, keep (cheap)

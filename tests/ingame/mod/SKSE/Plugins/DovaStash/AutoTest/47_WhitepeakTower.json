@@ -1,0 +1,304 @@
+{
+  "$schema": "dovastash-autotest-1",
+  "name": "Whitepeak Tower (Whitepeak Tower.esp; the player's template, test copy WhitepeakTowerKexodus.json: 170 displays, 50 item plaques; the home's own 'Test Chest' 0x00204026 holds the 55 items the plaques are made for)",
+  "home": "Whitepeak Tower.esp|0x0001E33D",
+  "coc": "bcr58WhiteTower",
+  "requires": [
+    "Whitepeak Tower.esp"
+  ],
+  "templates": [
+    "WhitepeakTowerKexodus.json"
+  ],
+  "tests": [
+    {
+      "id": "3.7-whitepeak-start",
+      "title": "A new game: the plaques are empty (no model shown) and the home's Test Chest holds what they are made for",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "check": "home",
+          "is": true,
+          "layout": false
+        },
+        {
+          "do": "clearInventory"
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Skyrim.esm|0x00061CC9",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Dawnguard.esm|0x0000A89E",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Dawnguard.esm|0x0000284D",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Dawnguard.esm|0x000118F9",
+          "eq": 1
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x002067CA",
+          "item": "Skyrim.esm|0x00061CC9",
+          "holds": false
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x00208F71",
+          "item": "Dawnguard.esm|0x0000A89E",
+          "holds": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-whitepeak-apply",
+      "title": "Use template (the player's): applying it puts nothing on a plaque and takes nothing out of the Test Chest",
+      "steps": [
+        {
+          "do": "useTemplate"
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "contains": "WhitepeakTowerKexodus.json@",
+          "within": 5
+        },
+        {
+          "do": "wait",
+          "seconds": 5
+        },
+        {
+          "do": "waitIdle",
+          "timeout": 300
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Skyrim.esm|0x00061CC9",
+          "eq": 1
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x002067CA",
+          "item": "Skyrim.esm|0x00061CC9",
+          "holds": false
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "regex": "Display plan: "
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-whitepeak-testchest",
+      "title": "Deposit with nothing on the player: the home mod's own Test Chest stock (never the player's) stays in it, no plaque shows its item",
+      "steps": [
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "wait",
+          "seconds": 3
+        },
+        {
+          "do": "waitIdle",
+          "timeout": 300
+        },
+        {
+          "check": "log",
+          "regex": "Displays in Whitepeak Tower: .*50 item \\(50 empty\\)"
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "regex": "Display plan: .* from Whitepeak Tower\\.esp\\|0x00204026"
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Skyrim.esm|0x00061CC9",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Dawnguard.esm|0x0000A89E",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Dawnguard.esm|0x0000284D",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Dawnguard.esm|0x000118F9",
+          "eq": 1
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x002067CA",
+          "item": "Skyrim.esm|0x00061CC9",
+          "holds": false
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x00208F71",
+          "item": "Dawnguard.esm|0x0000A89E",
+          "holds": false
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x00208F83",
+          "item": "Dawnguard.esm|0x0000284D",
+          "holds": false
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x00224399",
+          "item": "Dawnguard.esm|0x000118F9",
+          "holds": false
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00061CC9",
+          "eq": 0
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.7-whitepeak-extra",
+      "title": "One more copy of a plaque's item, the player's: Deposit puts it up; the Test Chest keeps its own copy (base-record stock); the copy on the plaque counts as held (its script keeps it in no inventory); activating the plaque hands it back",
+      "steps": [
+        {
+          "do": "clearInventory"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00061CC9",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "extra"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "wait",
+          "seconds": 3
+        },
+        {
+          "do": "waitIdle",
+          "timeout": 300
+        },
+        {
+          "check": "log",
+          "regex": "Display: .* on .*0x002067CA\\] \\(item\\)",
+          "within": 10
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x002067CA",
+          "item": "Skyrim.esm|0x00061CC9",
+          "holds": true,
+          "within": 10
+        },
+        {
+          "check": "count",
+          "in": "Whitepeak Tower.esp|0x00204026",
+          "item": "Skyrim.esm|0x00061CC9",
+          "eq": 1
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00061CC9",
+          "eq": 0
+        },
+        {
+          "check": "log",
+          "absent": true,
+          "regex": "Display plan: .* from Whitepeak Tower\\.esp\\|0x00204026"
+        },
+        {
+          "check": "conserved",
+          "snapshot": "extra"
+        },
+        {
+          "do": "activate",
+          "ref": "Whitepeak Tower.esp|0x002067CA"
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x00061CC9",
+          "eq": 1,
+          "within": 10
+        },
+        {
+          "check": "displayHolds",
+          "ref": "Whitepeak Tower.esp|0x002067CA",
+          "item": "Skyrim.esm|0x00061CC9",
+          "holds": false,
+          "within": 10
+        },
+        {
+          "check": "conserved",
+          "snapshot": "extra"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.5-whitepeak-reset",
+      "title": "Reset (last)",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "reset"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    }
+  ]
+}

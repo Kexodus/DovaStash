@@ -1,19 +1,19 @@
 {
   "$schema": "dovastash-layout-1",
   "name": "Niflholm",
-  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest. In another area the master is out of reach: what has no container there goes to that area's own master.",
   "author": "Dova Stash",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "priority": 0,
   "requires": ["Skyrim.esm", "Update.esm", "Niflholm.esp"],
   "cell": "Niflholm.esp|0x00005913",
   "cells": [
-    {"cell": "Niflholm.esp|0x00001880", "label": "Niflholm"},
-    {"cell": "Niflholm.esp|0x00007A95", "label": "Niflholm Mage Hall"},
-    {"cell": "Niflholm.esp|0x000077D9", "label": "Niflholm Living Hall"},
-    {"cell": "Niflholm.esp|0x000199A1", "label": "Niflholm Storage"},
-    {"cell": "Niflholm.esp|0x001AA4CF", "label": "Niflholm Guest House"},
-    {"cell": "Niflholm.esp|0x0024829C", "label": "Niflholm Hidden Cellar"}
+    {"cell": "Niflholm.esp|0x00001880", "label": "Niflholm",               "master": "Niflholm.esp|0x000E41EC"},
+    {"cell": "Niflholm.esp|0x00007A95", "label": "Niflholm Mage Hall",     "master": "Niflholm.esp|0x000416F3"},
+    {"cell": "Niflholm.esp|0x000077D9", "label": "Niflholm Living Hall",   "master": "Niflholm.esp|0x000B6541"},
+    {"cell": "Niflholm.esp|0x000199A1", "label": "Niflholm Storage",       "master": "Niflholm.esp|0x00097CD8"},
+    {"cell": "Niflholm.esp|0x001AA4CF", "label": "Niflholm Guest House",   "master": "Niflholm.esp|0x001AA5A1"},
+    {"cell": "Niflholm.esp|0x0024829C", "label": "Niflholm Hidden Cellar", "master": "Niflholm.esp|0x002483D9"}
   ],
   "master": "Niflholm.esp|0x000EE489",
   "containers": [

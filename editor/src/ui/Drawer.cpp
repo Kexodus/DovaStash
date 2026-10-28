@@ -282,6 +282,9 @@ namespace dova::editor::ui
 			if (a_cell.layout.IsMaster(ref)) {
 				role = Grouped("master", -1);
 				row.tags |= kMaster;
+			} else if (IsAreaMaster(a_cell.layout, ref)) {
+				role = Grouped("area master", -1);  // a joined cell's catch-all (cells[].master), not listed in containers
+				row.tags |= kMaster;
 			} else if (const auto* b = a_cell.layout.FindContainer(ref)) {
 				if (b->ignored) {
 					role = Grouped("ignored", 1);

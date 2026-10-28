@@ -39,7 +39,7 @@
         },
         {
           "check": "notify",
-          "contains": "Dova Stash: Myrwatch setup enabled"
+          "contains": "Dova Stash: Myrwatch is set up"
         },
         {
           "check": "layout",
@@ -489,7 +489,7 @@
         },
         {
           "check": "notify",
-          "regex": "Dova Stash: Myrwatch setup enabled"
+          "regex": "Dova Stash: Myrwatch is set up"
         },
         {
           "check": "layout",

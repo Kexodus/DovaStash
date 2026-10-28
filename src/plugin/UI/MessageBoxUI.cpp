@@ -2,6 +2,7 @@
 
 #include "Controller.h"
 #include "Game/FormUtil.h"
+#include "Home/Areas.h"
 #include "Home/Store.h"
 #include "Sort/SortEngine.h"
 #include "Settings.h"
@@ -123,8 +124,9 @@ namespace dova::ui
 			options.push_back({ "Restock", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Restock); } });
 		}
 		options.push_back({ "Sort all", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::SortAll); } });
-		// Before the optional entries, so Retrieve and Browse stay on the first page (5 per page). Save as template...
-		// and Reset home... are under it, as in the lists (ListUI).
+		options.push_back({ "Retrieve...", [this, cellId]() { OpenRetrieveMenu(cellId); } });
+		// Before the optional entries, so it stays on the first page (5 per page). Browse, the template, Save as
+		// template... and Reset home... are under it, as in the lists (ListUI).
 		options.push_back({ "Advanced...", [this, cellId]() { OpenAdvancedMenu(cellId); } });
 		if (a_home.layout && a_home.layout->HasSellChest()) {
 			for (auto& [text, action] : SellEntries(a_home, std::nullopt, [this, cellId]() { ReopenMasterMenu(cellId); })) {
@@ -152,7 +154,7 @@ namespace dova::ui
 									   }
 								   } });
 			}
-			options.push_back({ std::format(kRemoveArea, a_home.name), [this, cellId, cell = area->cell, question = std::format(kConfirmRemoveArea, area->name, a_home.name)]() {
+			options.push_back({ std::format(kRemoveArea, a_home.DisplayName()), [this, cellId, cell = area->cell, question = std::format(kConfirmRemoveArea, area->name, a_home.DisplayName())]() {
 								   Confirm(question, [cellId, cell]() { Controller::Get().RemoveArea(cellId, cell); }, [this, cellId]() { ReopenMasterMenu(cellId); });
 							   } });
 		}
@@ -167,7 +169,6 @@ namespace dova::ui
 		}
 		// Everyday actions first, the one that asks last.
 		std::vector<Option> options;
-		options.push_back({ "Retrieve...", [this, a_cellId]() { OpenRetrieveMenu(a_cellId); } });
 		options.push_back({ "Browse containers...", [this, a_cellId]() { OpenBrowseMenu(a_cellId); } });
 		if (home->BestTemplate()) {
 			// Asks only when it would replace changes of the player's own, or may not fit (as the panel does).
@@ -190,11 +191,7 @@ namespace dova::ui
 								   if (!current) {
 									   return;
 								   }
-								   RE::TESObjectREFR* master = nullptr;
-								   if (current->layout && current->layout->master) {
-									   master = game::LookupRef(*current->layout->master);
-								   }
-								   panel->OpenMasterMenu(*current, master);
+								   panel->OpenMasterMenu(*current, home::CatchAllHere(*current));
 							   } });
 		}
 		ShowOptions(std::format("Dova Stash: {}: Advanced", home->name), std::move(options), [this, a_cellId]() { ReopenMasterMenu(a_cellId); });
@@ -206,11 +203,7 @@ namespace dova::ui
 		if (!current) {
 			return;
 		}
-		RE::TESObjectREFR* master = nullptr;
-		if (current->layout && current->layout->master) {
-			master = game::LookupRef(*current->layout->master);
-		}
-		OpenMasterMenu(*current, master);
+		OpenMasterMenu(*current, home::CatchAllHere(*current));  // as the hotkey opens it (Controller::OnHotkey)
 	}
 
 	void MessageBoxUI::OpenRetrieveMenu(RE::FormID a_cellId)
@@ -230,7 +223,14 @@ namespace dova::ui
 		}
 
 		std::vector<Option> options;
-		options.push_back({ std::format("Everything ({})", total), [a_cellId]() { Controller::Get().RunOperation(a_cellId, sort::Op::Retrieve, "*"); } });
+		options.push_back({ std::format("Everything ({})", total), [this, a_cellId, total]() {
+							   if (total <= kRetrieveAllAskAbove) {
+								   Controller::Get().RunOperation(a_cellId, sort::Op::Retrieve, "*");
+								   return;
+							   }
+							   Confirm(std::format(kConfirmRetrieveAll, total), [a_cellId]() { Controller::Get().RunOperation(a_cellId, sort::Op::Retrieve, "*"); },
+								   [this, a_cellId]() { OpenRetrieveMenu(a_cellId); });
+						   } });
 		for (const auto& root : RootCategories()) {
 			const auto pattern = root + ".*";
 			const auto n = CountMatching(counts, pattern);
@@ -246,7 +246,7 @@ namespace dova::ui
 				options.push_back({ std::format("{}... ({})", CategoryName(root), n), [this, a_cellId, root]() { OpenRetrieveRoot(a_cellId, root); } });
 			}
 		}
-		ShowOptions("Dova Stash: Retrieve", std::move(options), [this, a_cellId]() { OpenAdvancedMenu(a_cellId); });
+		ShowOptions("Dova Stash: Retrieve", std::move(options), [this, a_cellId]() { ReopenMasterMenu(a_cellId); });
 	}
 
 	void MessageBoxUI::OpenBrowseMenu(RE::FormID a_cellId)
@@ -255,26 +255,78 @@ namespace dova::ui
 		if (!home || !home->layout) {
 			return;
 		}
-		std::vector<Option> options;
-		auto                add = [&](const core::FormRef& a_ref, const std::string& a_what) {
+		// The masters first, then the containers, each with its group: in a home over several cells its area, else
+		// the root of its first category ("Other" without one).
+		std::vector<Option>                         options;
+		std::vector<std::pair<std::string, Option>> containers;
+		const bool                                  byArea = home->areas.size() > 1;
+		auto entry = [&](const core::FormRef& a_ref, const std::string& a_what) -> std::optional<Option> {
 			auto* ref = game::LookupRef(a_ref);
 			if (!ref || ref->IsDisabled()) {
-				return;
+				return std::nullopt;
 			}
-			options.push_back({ BrowseEntryText(ref, a_what), [a_cellId, a_ref]() { Controller::Get().Browse(a_cellId, a_ref); } });
+			return Option{ BrowseEntryText(ref, a_what), [a_cellId, a_ref]() { Controller::Get().Browse(a_cellId, a_ref); } };
 		};
 		if (home->layout->master) {
-			add(*home->layout->master, "master");
-		}
-		for (const auto& c : home->layout->containers) {
-			if (!c.ignored) {
-				const auto summary = RoleSummary(DescribeContainer(game::LookupRef(c.ref)), 2);
-				add(c.ref, summary.empty() ? c.label : summary);
+			if (auto o = entry(*home->layout->master, "master")) {
+				options.push_back(std::move(*o));
 			}
 		}
-		if (options.empty()) {
+		for (const auto& [m, role] : AreaMasterRoles(*home)) {
+			if (auto o = entry(m, role)) {  // an area's master (DESIGN §6.7): it holds that area's leftovers
+				options.push_back(std::move(*o));
+			}
+		}
+		for (const auto& c : home->layout->containers) {
+			if (c.ignored) {
+				continue;
+			}
+			auto*      ref = game::LookupRef(c.ref);
+			const auto summary = RoleSummary(DescribeContainer(ref), 2);
+			auto       o = entry(c.ref, summary.empty() ? c.label : summary);
+			if (!o) {
+				continue;
+			}
+			std::string group = "Other";
+			if (const auto* area = byArea ? home::AreaOf(*home, ref) : nullptr) {
+				group = area->name;
+			} else if (!byArea && !c.categories.empty()) {
+				auto id = std::string_view(c.categories.front());
+				if (id.ends_with(".*")) {
+					id.remove_suffix(2);
+				}
+				if (!id.empty() && id != "*") {
+					group = CategoryName(RootOf(id));
+				}
+			}
+			containers.emplace_back(std::move(group), std::move(*o));
+		}
+		if (options.empty() && containers.empty()) {
 			Notify("Dova Stash: no containers to open");
 			return;
+		}
+		// Up to 3 pages: one flat list. Longer (a big home): a line per group, its containers under it (the list UI
+		// shows them all in one scroll instead).
+		if (options.size() + containers.size() <= 3 * kPerPage) {
+			for (auto& [group, o] : containers) {
+				options.push_back(std::move(o));
+			}
+		} else {
+			std::vector<std::pair<std::string, std::vector<Option>>> groups;
+			for (auto& [group, o] : containers) {
+				auto it = std::ranges::find_if(groups, [&](const auto& a_group) { return a_group.first == group; });
+				if (it == groups.end()) {
+					groups.emplace_back(group, std::vector<Option>{});
+					it = std::prev(groups.end());
+				}
+				it->second.push_back(std::move(o));
+			}
+			for (auto& [group, members] : groups) {
+				options.push_back({ std::format("{} ({})...", group, members.size()), [this, a_cellId, group, members]() {
+									   ShowOptions(std::format("Dova Stash: Browse containers: {}", group), members, [this, a_cellId]() { OpenBrowseMenu(a_cellId); });
+								   } });
+			}
+			logger::debug("Browse containers: {} containers in {} groups", containers.size(), groups.size());
 		}
 		ShowOptions("Dova Stash: Browse containers", std::move(options), [this, a_cellId]() { OpenAdvancedMenu(a_cellId); });
 	}

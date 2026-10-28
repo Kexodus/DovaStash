@@ -331,8 +331,8 @@ namespace dova::editor::ui
 				continue;
 			}
 			const auto ref = a_cell.lo->ToFormRef(r.key);
-			if (a_cell.layout.IsMaster(ref)) {
-				continue;
+			if (a_cell.layout.IsAnyMaster(ref)) {
+				continue;  // the home's master or a joined cell's area master: listed, not in containers
 			}
 			if (const auto* b = a_cell.layout.FindContainer(ref)) {
 				listedBare += !b->ignored && b->categories.empty() && b->forms.empty() ? 1 : 0;

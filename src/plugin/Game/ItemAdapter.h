@@ -62,8 +62,8 @@ namespace dova::game
 
 	// An extra list that makes its copies different from plain ones (tempered, enchanted, renamed, poisoned,
 	// charged, a filled soul gem, worn, favorited, a quest alias, scripted...). A list that only carries a
-	// count, a unique id or an owner is how the engine keeps plain items next to a container's base-record
-	// stock: its copies are plain for every rule of ours.
+	// count, a unique id, an owner, a leveled-list marker or an original reference is how the engine keeps
+	// plain items next to a container's base-record stock: its copies are plain for every rule of ours.
 	[[nodiscard]] bool IsDistinctExtraList(RE::ExtraDataList* a_extra);
 
 	// ExtraStacks narrowed to the distinct ones: the copies a plain move must never take (ItemMover).

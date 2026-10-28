@@ -1,6 +1,6 @@
 {
   "$schema": "dovastash-autotest-1",
-  "name": "Winter Cove (storage cell, master in a non-persistent cell)",
+  "name": "Winter Cove (storage cell with its own master; the master in the main hall)",
   "home": "Winter Cove.esp|0x00000D62",
   "coc": "1xmWinterCoveInt",
   "tests": [
@@ -82,20 +82,21 @@
         {
           "check": "layout",
           "pointer": "/master",
-          "eq": "Winter Cove.esp|0x000216D8",
+          "eq": "Winter Cove.esp|0x00023D65",
           "within": 5
         },
         {
           "check": "layout",
           "pointer": "/cells",
           "contains": {
-            "cell": "Winter Cove.esp|0x0000E30B"
+            "cell": "Winter Cove.esp|0x0000E30B",
+            "master": "Winter Cove.esp|0x000216D8"
           },
           "within": 5
         },
         {
           "check": "notify",
-          "regex": "setup enabled",
+          "regex": "is set up",
           "since": "action",
           "within": 5
         },
@@ -131,7 +132,7 @@
     },
     {
       "id": "2.3-WinterCove",
-      "title": "Deposit from the main hall reaches the persistent storage chests; the master (non-persistent, in the storage cell) and the main chest are left alone",
+      "title": "Deposit from the main hall reaches the persistent storage chests; the storage room's own master (not persistent) is left alone",
       "steps": [
         {
           "do": "enter"
@@ -250,8 +251,69 @@
       ]
     },
     {
+      "id": "2.3b-WinterCove",
+      "title": "Deposit in the main hall: a potion with no container (its chest ignored) goes to the master there; none stays with the player",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "ignore",
+          "ref": "Winter Cove.esp|0x0000E328"
+        },
+        {
+          "check": "notify",
+          "contains": "is now ignored"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "homeless"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x00023D65",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "homeless",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "homeless"
+        },
+        {
+          "do": "ignore",
+          "ref": "Winter Cove.esp|0x0000E328",
+          "on": false
+        },
+        {
+          "check": "notify",
+          "contains": "is managed again"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
       "id": "3.9-WinterCove",
-      "title": "Storage cell (another cell): home with the home's name; Deposit there reaches the storage chests and the master (in this cell)",
+      "title": "Storage cell (another cell): home with the home's name; Deposit there reaches the storage chests",
       "steps": [
         {
           "do": "enter",
@@ -295,6 +357,68 @@
         {
           "check": "conserved",
           "snapshot": "stor"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9c-WinterCove",
+      "title": "Deposit in the storage room: a potion with no container goes to the home's master, the main-hall chest (persistent: in reach from the storage room, so it comes before the room's own master, DESIGN 6.7); none stays with the player",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "Winter Cove.esp|0x0000E30B"
+        },
+        {
+          "do": "ignore",
+          "ref": "Winter Cove.esp|0x0000E328"
+        },
+        {
+          "check": "notify",
+          "contains": "is now ignored"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "storhomeless"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "Winter Cove.esp|0x00023D65",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "storhomeless",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "storhomeless"
+        },
+        {
+          "do": "ignore",
+          "ref": "Winter Cove.esp|0x0000E328",
+          "on": false
+        },
+        {
+          "check": "notify",
+          "contains": "is managed again"
         },
         {
           "check": "noErrors"

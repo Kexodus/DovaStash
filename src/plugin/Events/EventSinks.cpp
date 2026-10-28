@@ -15,10 +15,17 @@ namespace dova::events
 		std::atomic<bool>          g_crosshairOverridden{ false };
 		std::atomic<RE::RefHandle> g_crosshairOverride{ 0 };
 
-		void Enqueue(std::function<void()> a_task)
+		// Every task these sinks queue logs its start and end with a tag and a serial (trace): bisecting a hang, a
+		// "Task #N <tag>: start" with no "done" names the handler the game is stuck in.
+		void Enqueue(const char* a_tag, std::function<void()> a_task)
 		{
+			static std::atomic<std::uint64_t> serial{ 0 };
 			if (const auto* tasks = SKSE::GetTaskInterface()) {
-				tasks->AddTask(std::move(a_task));
+				tasks->AddTask([tag = a_tag, n = ++serial, task = std::move(a_task)]() {
+					logger::trace("Task #{} {}: start", n, tag);
+					task();
+					logger::trace("Task #{} {}: done", n, tag);
+				});
 			}
 		}
 
@@ -48,7 +55,7 @@ namespace dova::events
 			const auto base = a_event.baseObj;
 			const auto count = a_event.itemCount;
 			const auto worldRef = a_event.reference.native_handle();
-			Enqueue([incoming, other, base, count, worldRef]() {
+			Enqueue("inventory journal", [incoming, other, base, count, worldRef]() {
 				logger::debug("Inventory: {}{} {} {} {}", incoming ? "+" : "-", count, game::Describe(RE::TESForm::LookupByID(base)),
 					incoming ? "from" : "to", JournalEnd(other, worldRef, incoming));
 			});
@@ -72,7 +79,7 @@ namespace dova::events
 					const auto base = a_event->baseObj;
 					auto*      ui = RE::UI::GetSingleton();
 					const bool byHand = ui && ui->IsMenuOpen("LootMenu");
-					Enqueue([container, base, byHand]() { Controller::Get().OnItemReturned(container, base, byHand); });
+					Enqueue("item returned", [container, base, byHand]() { Controller::Get().OnItemReturned(container, base, byHand); });
 				}
 				if (!a_event || a_event->oldContainer != game::kPlayerRefID || a_event->newContainer == 0 ||
 					a_event->newContainer == game::kPlayerRefID || a_event->itemCount <= 0) {
@@ -84,7 +91,7 @@ namespace dova::events
 				}
 				const auto container = a_event->newContainer;
 				const auto base = a_event->baseObj;
-				Enqueue([container, base]() { Controller::Get().OnItemStored(container, base); });
+				Enqueue("item stored", [container, base]() { Controller::Get().OnItemStored(container, base); });
 				return Control::kContinue;
 			}
 		};
@@ -103,9 +110,9 @@ namespace dova::events
 					if (const auto ref = game::RefFromHandle(RE::ContainerMenu::GetTargetRefHandle())) {
 						target = ref->GetFormID();
 					}
-					Enqueue([target]() { Controller::Get().OnContainerMenuOpened(target); });
+					Enqueue("container menu opened", [target]() { Controller::Get().OnContainerMenuOpened(target); });
 				} else {
-					Enqueue([]() { Controller::Get().OnContainerMenuClosed(); });
+					Enqueue("container menu closed", []() { Controller::Get().OnContainerMenuClosed(); });
 				}
 				return Control::kContinue;
 			}
@@ -118,7 +125,7 @@ namespace dova::events
 			{
 				// CellFlag is a plain value (kEnter = 0, kLeave = 1), not a bit mask.
 				if (a_event && a_event->flags.get() == RE::BGSActorCellEvent::CellFlag::kEnter) {
-					Enqueue([]() { Controller::Get().OnCellMaybeChanged(); });
+					Enqueue("actor cell", []() { Controller::Get().OnCellMaybeChanged("actor cell"); });
 				}
 				return Control::kContinue;
 			}
@@ -130,7 +137,7 @@ namespace dova::events
 			Control ProcessEvent(const RE::TESCellFullyLoadedEvent* a_event, RE::BSTEventSource<RE::TESCellFullyLoadedEvent>*) override
 			{
 				if (a_event && a_event->cell && a_event->cell->IsInteriorCell()) {
-					Enqueue([]() { Controller::Get().OnCellMaybeChanged(); });
+					Enqueue("cell loaded", []() { Controller::Get().OnCellMaybeChanged("cell loaded"); });
 				} else if (a_event && a_event->cell) {
 					// An exterior cell loaded (walked near): its grid square is remembered so that the persistent
 					// references of a home's exterior area can be matched to it from indoors later (DESIGN §6.7).
@@ -204,6 +211,11 @@ namespace dova::events
 	RE::RefHandle CrosshairTarget() noexcept
 	{
 		return g_crosshairOverridden.load() ? g_crosshairOverride.load() : g_crosshair.load();
+	}
+
+	bool CrosshairOverridden() noexcept
+	{
+		return g_crosshairOverridden.load();
 	}
 
 	void OverrideCrosshair(std::optional<RE::RefHandle> a_handle) noexcept

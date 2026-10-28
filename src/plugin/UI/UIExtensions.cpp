@@ -15,7 +15,7 @@ namespace dova::ui::uiext
 		// The UIExtensions contracts we use: UIListMenu.psc and UITextEntryMenu.psc. The list extras
 		// (icons, stay-open entries, logo; see UIExtensions.h) are optional on top of them.
 		constexpr auto        kCustomMenu = "CustomMenu"sv;  // SKSE's custom menu that hosts the SWFs
-		constexpr std::size_t kMaxEntries = 128;             // UIListMenu.psc buffers 128 entries; skins may assume it
+		constexpr std::size_t kMaxEntries = kMaxListEntries;  // UIListMenu.psc buffers 128 entries; skins may assume it
 
 		enum class Kind : std::uint8_t
 		{

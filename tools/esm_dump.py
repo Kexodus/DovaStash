@@ -1646,6 +1646,85 @@ def check_keep(keep, errors, warnings, category_ids, item_refs, keyword_uses):
                     item_refs.append((f"{where}.forms[{i}]", fk))
 
 
+def catch_all_warnings(lo, home_cells, cell_key, ref_cell, cell_refs, mk, area_masters, cell_names, warnings, info):
+    """The master is only in reach in its own cell (not persistent): every other area needs a master of its own in reach
+    there (an area master in that cell, or a persistent one anywhere), else a Deposit there leaves homeless items with the
+    player (SortPlanner::CatchAll). An area without a single container cannot have one: listed in info instead."""
+    master_cell = ref_cell.get(kl(mk), cell_key)
+    for hc in home_cells:
+        if kl(hc) == kl(master_cell):
+            continue
+        in_reach = any(kl(ref_cell.get(kl(a), c)) == kl(hc) or bool(cell_refs.get(kl(a)) and cell_refs[kl(a)][0].flags & REC_FLAG_PERSISTENT)
+                       for _w, a, c in area_masters if kl(a) in cell_refs)
+        if in_reach:
+            continue
+        name = cell_names.get(kl(hc), "cell (the main one)")
+        refs = lo.cell_refs(hc)
+        if not any((d := decode_ref(lo, r, ["CONT"], refs)) and d["baseType"] == "CONT" and not d["deleted"] for r, _g in refs.values()):
+            info.setdefault("areasWithoutContainers", []).append(name)
+            continue
+        fix = 'Add "master" to this entry' if kl(hc) != kl(cell_key) else             "Make a container of this cell the master, and the master's area its own \"master\""
+        warnings.append(f"{name}: no master in reach there; Deposit leaves homeless items with the player. {fix}")
+
+
+# The label form of the shipped templates (tools/README.md, `datagen/`): "<Kind> (by the <landmark>)", "(by the <landmark>,
+# 2)" for a repeat, "(second)" where there is no landmark, the area's name, or a short place where no landmark fits
+# ("(east)", "(back room)", "(upgrade)"). What a container holds goes before its kind ("Food barrel"), never in the ().
+LABEL_ORDINALS = {"second", "third", "fourth", "fifth"}
+LABEL_CONTENTS_WORDS = {
+    "food", "foods", "drink", "drinks", "meat", "ingredient", "ingredients", "potion", "potions", "poison", "poisons", "alchemy",
+    "book", "books", "tome", "tomes", "note", "notes", "scroll", "scrolls", "weapon", "weapons", "armor", "armour", "ammo",
+    "arrow", "arrows", "bolt", "bolts", "gem", "gems", "soul", "jewelry", "key", "keys", "ore", "ores", "ingot", "ingots",
+    "hide", "hides", "pelt", "pelts", "leather", "clothing", "clothes", "tool", "tools", "staff", "staves", "shield", "shields",
+    "curios", "valuables", "clutter", "misc", "dwemer", "torches", "lights",
+}
+
+
+def label_problem(label, areas=()):
+    """What is wrong with a label's parentheses (LABEL_* above), or None."""
+    m = re.match(r"^(?P<kind>.+?)(?: \((?P<inner>[^()]*)\))?$", label or "")
+    inner = m.group("inner") if m else None
+    if not inner:
+        return None
+    parts = [p.strip() for p in inner.split(",")]
+    first = parts[0]
+    for word in parts[1:]:
+        if word in LABEL_ORDINALS:
+            n = LABEL_ORDINAL_WORDS.index(word)
+            return f"({inner}) marks a repeat with a word: use \", {n}\" (tools/README.md)"
+    if first.startswith("by the ") or first in LABEL_ORDINALS or first in areas:
+        return None
+    words = re.findall(r"[a-z']+", first.lower())
+    if any(w in LABEL_CONTENTS_WORDS for w in words):
+        return f"({first}) says what it holds: put that before the kind, as in \"Food barrel\""
+    if len(words) > 3:
+        return f"({first}) is long for a place: a landmark (by the ...) or a word or two"
+    return None
+
+
+LABEL_ORDINAL_WORDS = ["", "", "second", "third", "fourth", "fifth"]
+
+
+def orphan_ordinals(labelled):
+    """[(where, label)] of one section -> what each repeat label lacks: '<Kind> (<inner>, N)' needs '<Kind> (<inner>)'
+    (and ', N-1' when N > 2), '<Kind> (second)' needs '<Kind>', '(third)' needs '(second)' (tools/README.md: ', 2' and
+    '(second)' mark repeats)."""
+    labels = {label for _w, label in labelled}
+    out = []
+    for where, label in labelled:
+        need = None
+        if m := re.fullmatch(r"(.+) \(([^()]+), (\d+)\)", label):
+            kind, inner, n = m.group(1), m.group(2), int(m.group(3))
+            if n >= 2:
+                need = f"{kind} ({inner})" if n == 2 else f"{kind} ({inner}, {n - 1})"
+        elif (m := re.fullmatch(r"(.+) \(([a-z]+)\)", label)) and m.group(2) in LABEL_ORDINAL_WORDS[2:]:
+            n = LABEL_ORDINAL_WORDS.index(m.group(2))
+            need = m.group(1) if n == 2 else f"{m.group(1)} ({LABEL_ORDINAL_WORDS[n - 1]})"
+        if need and need not in labels:
+            out.append(f"{where}: label {label!r} is a repeat, but no {need!r} is listed")
+    return out
+
+
 def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, kid_keywords=frozenset()):
     for k in doc:
         if k not in LAYOUT_KEYS:
@@ -1687,7 +1766,7 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, ki
     refs = []
     cell_key = _check_ref_syntax(doc.get("cell", ""), "cell", errors)
     # More cells of a multi-cell home (DESIGN 6.7): strings or {"cell", "label", "note"}.
-    extra_cells, area_masters = [], []
+    extra_cells, area_masters, cell_names = [], [], {}
     cells_val = doc.get("cells", [])
     for i, entry in enumerate(cells_val if isinstance(cells_val, list) else [cells_val]):
         where = f"cells[{i}]"
@@ -1710,6 +1789,7 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, ki
             warnings.append(f"{where}: duplicate cell {fmt_ref(ck)}")
         else:
             extra_cells.append(ck)
+            cell_names[kl(ck)] = f"{where} ({entry['label']})" if isinstance(entry, dict) and entry.get("label") else where
             # The area's own master: its catch-all while the home's master is out of reach (DESIGN 6.7).
             if isinstance(entry, dict) and "master" in entry:
                 amk = _check_ref_syntax(entry["master"], f"{where}.master", errors) if isinstance(entry["master"], str) else None
@@ -1726,6 +1806,8 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, ki
             warnings.append(f"{where}: {fmt_ref(amk)} is the home's master (ignored)")
         else:
             refs.append((where, amk, {}))
+    area_names = {doc.get("name")} | {e.get("label") for e in (cells_val if isinstance(cells_val, list) else [cells_val])
+                                       if isinstance(e, dict)}
     seen, cats_seen, item_refs, keyword_uses = {}, {}, [], []
     for i, c in enumerate(doc.get("containers", [])):
         where = f"containers[{i}]"
@@ -1739,16 +1821,21 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, ki
             errors.append(f"{where}: duplicate ref {c['ref']} (also {seen[kl(key)]})")
         seen[kl(key)] = where
         if mk and kl(key) == kl(mk):
-            warnings.append(f"{where}: the master is also listed as a container")
-        if any(kl(key) == kl(a) for _w, a, _c in area_masters):
-            warnings.append(f"{where}: an area master is also listed as a container")
+            warnings.append(f"{where}: the master container is also listed in \"containers\" (its categories are used, it stays the catch-all)")
+        is_area_master = any(kl(key) == kl(a) for _w, a, _c in area_masters)
+        if is_area_master:
+            warnings.append(f"{where}: an area master is also listed in \"containers\" (its categories are used, it stays the area's catch-all)")
         if not c.get("label"):
             warnings.append(f"{where}: no label")
+        elif problem := label_problem(c["label"], area_names):
+            warnings.append(f"{where}: label {c['label']!r}: {problem}")
         if c.get("ignored") and c.get("categories"):
             warnings.append(f"{where}: ignored container also has categories")
-        # The sell chest (DESIGN 8.8): a boolean; inert on an ignored container or the master.
+        # The sell chest (DESIGN 8.8): a boolean; inert on an ignored container, the master or an area master.
         if "sell" in c and not isinstance(c["sell"], bool):
             errors.append(f"{where}: sell must be true or false")
+        elif c.get("sell") and is_area_master:
+            warnings.append(f"{where}: an area master can't be the sell chest (sell ignored)")
         elif c.get("sell") and (c.get("ignored") or (mk and kl(key) == kl(mk))):
             warnings.append(f"{where}: sell has no effect on an ignored container or the master")
         for cat in _as_list(c.get("categories", [])):
@@ -1779,6 +1866,8 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, ki
                 warnings.append(f"{where}: unknown key {k!r}")
         if "kind" in d and str(d["kind"]).lower() not in DISPLAY_KINDS:
             errors.append(f"{where}: kind {d['kind']!r} is not one of {sorted(DISPLAY_KINDS)}")
+        if isinstance(d.get("label"), str) and (problem := label_problem(d["label"], area_names)):
+            warnings.append(f"{where}: label {d['label']!r}: {problem}")
         if "only" in d and not isinstance(d["only"], bool):
             errors.append(f"{where}: 'only' must be true or false")
         for cat in _as_list(d.get("categories", [])):
@@ -1802,6 +1891,11 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, ki
             sk = _check_ref_syntax(d["set"], f"{where}.set", errors)
             if sk:
                 soft_refs.append((f"{where}.set", sk))
+    for section in ("containers", "displays"):
+        entries_ = doc.get(section, [])
+        if isinstance(entries_, list):
+            warnings.extend(orphan_ordinals([(f"{section}[{i}]", e["label"]) for i, e in enumerate(entries_)
+                                             if isinstance(e, dict) and isinstance(e.get("label"), str)]))
     for k in [cell_key] + extra_cells + [r[1] for r in refs] + [r[1] for r in display_refs] + [r[1] for r in item_refs]:
         if k and k[0].lower() not in requires:
             errors.append(f"plugin {k[0]} is referenced but not listed in 'requires'")
@@ -1931,7 +2025,14 @@ def check_layout(lo, doc, errors, warnings, category_ids, category_defs=None, ki
         if bound and ep.get("oppositeOfParent") and not divert:
             warnings.append(f"{where}: {fmt_ref(key)} disappears when its enable parent is enabled (house upgrade?)")
         if where.endswith("master") and d.get("startsDisabled"):
-            warnings.append(f"{where} {fmt_ref(key)} starts disabled (the game enables it later, e.g. when built)")
+            home_master = cell_refs.get(kl(mk)) if mk else None
+            if area_master_cell is not None and home_master and home_master[0].flags & REC_FLAG_PERSISTENT:
+                # DESIGN 6.7: unused until built, and the home's persistent master covers the area until then.
+                info.setdefault("areaMastersBuiltLater", []).append(f"{where} {fmt_ref(key)}")
+            else:
+                warnings.append(f"{where} {fmt_ref(key)} starts disabled (the game enables it later, e.g. when built)")
+    if len(home_cells) > 1 and mk and kl(mk) in cell_refs and not (cell_refs[kl(mk)][0].flags & REC_FLAG_PERSISTENT):
+        catch_all_warnings(lo, home_cells, cell_key, ref_cell, cell_refs, mk, area_masters, cell_names, warnings, info)
     def reaches(a_first, a_later):
         # From a_later's cell, is a_first usable? The same cell, or a persistent reference (HomeCells.h, JudgeReach).
         hit = cell_refs.get(a_first)

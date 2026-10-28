@@ -1,6 +1,7 @@
 #include "home/Drafts.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <map>
@@ -61,11 +62,32 @@ namespace dova::editor::home
 
 		std::string GameName(const PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
 
-		// A container no draft lists: initially disabled with no enable parent (only a quest's script brings it), or
-		// a scripted weapon mount (Wynter_WeaponMountPoint: its script shows one weapon, it is no storage).
+		bool Digit(std::string_view a_text, std::size_t a_at) { return a_at < a_text.size() && a_text[a_at] >= '0' && a_text[a_at] <= '9'; }
+
+		// "BYOHHouse" and the house's number: a Hearthfire house's reference.
+		bool HearthfireRef(std::string_view a_editorId) { return a_editorId.starts_with("BYOHHouse") && Digit(a_editorId, 9); }
+
+		// A piece of a Hearthfire house ("BYOHHouse1InteriorRoom06Part007Chest02"): initially disabled with no enable
+		// parent, the house's building script enables it when the player builds its room.
+		bool BuiltByHouseScript(std::string_view a_editorId)
+		{
+			if (!HearthfireRef(a_editorId)) {
+				return false;
+			}
+			for (auto at = a_editorId.find("Part"); at != std::string_view::npos; at = a_editorId.find("Part", at + 1)) {
+				if (Digit(a_editorId, at + 4)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		// A container no draft lists: initially disabled with no enable parent (only a quest's script brings it; a
+		// Hearthfire piece stays, its house builds it), or a scripted weapon mount (Wynter_WeaponMountPoint: its script
+		// shows one weapon, it is no storage).
 		bool LeftOutOfDrafts(const PlacedRef& a_ref)
 		{
-			if (a_ref.initiallyDisabled && !a_ref.enableParent) {
+			if (a_ref.initiallyDisabled && !a_ref.enableParent && !BuiltByHouseScript(a_ref.editorId)) {
 				return true;
 			}
 			if (a_ref.scripts.empty()) {
@@ -133,6 +155,26 @@ namespace dova::editor::home
 		return out;
 	}
 
+	std::optional<std::size_t> FindHome(std::span<const HomeEntry> a_homes, std::string_view a_wanted)
+	{
+		for (const auto exact : { true, false }) {
+			for (std::size_t i = 0; i < a_homes.size(); ++i) {
+				const auto& h = a_homes[i];
+				if (exact ? core::IEquals(h.editorId, a_wanted) : IContains(h.name, a_wanted) || IContains(h.editorId, a_wanted)) {
+					return i;
+				}
+			}
+			if (exact) {
+				for (std::size_t i = 0; i < a_homes.size(); ++i) {
+					if (core::IEquals(a_homes[i].name, a_wanted)) {
+						return i;
+					}
+				}
+			}
+		}
+		return std::nullopt;
+	}
+
 	std::vector<HomeEntry> FindAllHomes(esp::LoadOrder& a_lo, const ScanProgress& a_progress, const std::atomic<bool>* a_cancel, const TemplateCells* a_templateCells)
 	{
 		auto named = [&](const FormKey& a_cell) { return a_templateCells && a_templateCells->contains(a_cell); };
@@ -148,6 +190,7 @@ namespace dova::editor::home
 			HomeCandidate        candidate;
 			std::string          lastPlugin;
 			std::vector<FormKey> doors;
+			std::vector<std::optional<std::array<float, 3>>> arrivals;  // per door: where the player arrives (XTEL)
 			bool                 ownedByOther{ false };
 			int                  displays{ 0 };
 		};
@@ -194,6 +237,7 @@ namespace dova::editor::home
 				for (const auto& r : cell->refs) {
 					if (r.teleportDoor) {
 						s.doors.push_back(*r.teleportDoor);
+						s.arrivals.push_back(r.teleportPosition);
 					}
 				}
 				s.candidate = std::move(h);
@@ -223,17 +267,126 @@ namespace dova::editor::home
 		for (std::size_t i = 0; i < likely.size(); ++i) {
 			indexOf[likely[i]] = i;
 		}
+		// The grounds (Hearthfire's BYOHHouse*Exterior): the exterior cells around a home's load door (its arrival cell
+		// and the 8 next to it) that the home's own plugin edits and places containers in that a template can use or
+		// that appear later, when another plugin defines the cell (a city or a worldspace the home's plugin adds is never
+		// joined). A persistent exterior door lives in the worldspace's persistent cell: the arrival position (XTEL)
+		// gives the grid square, as LoadCell does.
+		struct GridCell
+		{
+			FormKey      key;
+			std::int32_t x{ 0 }, y{ 0 };
+		};
+		std::map<std::uint32_t, esp::FormKeyMap<std::vector<GridCell>>> edited;  // plugin -> worldspace -> the exterior cells it edits
+		auto editedBy = [&](std::uint32_t a_plugin, const FormKey& a_world) -> const std::vector<GridCell>* {
+			auto [it, fresh] = edited.try_emplace(a_plugin);
+			if (fresh) {
+				for (const auto& c : a_lo.CellsOf(a_plugin)) {
+					if (!c.world || c.worldPersistent) {
+						continue;
+					}
+					const auto subs = a_lo.Read(c.rec);
+					if (const auto xclc = subs.Get(MakeSig("XCLC")); xclc && xclc->size() >= 8) {
+						it->second[*c.world].push_back({ c.key, esp::Read<std::int32_t>(*xclc, 0), esp::Read<std::int32_t>(*xclc, 4) });
+					}
+				}
+			}
+			const auto found = it->second.find(a_world);
+			return found != it->second.end() ? &found->second : nullptr;
+		};
+		// The containers a plugin adds to a cell that a template can use or that appear later (UsableContainer and not
+		// LeftOutOfDrafts, from the plugin's own records: reading the whole cell for every door would take seconds).
+		esp::FormKeyMap<std::unordered_map<std::uint32_t, int>> outside;  // cell -> plugin -> count
+		auto ownContainers = [&](std::uint32_t a_plugin, const FormKey& a_cell) {
+			auto [it, fresh] = outside[a_cell].try_emplace(a_plugin, 0);
+			if (!fresh) {
+				return it->second;
+			}
+			const auto self = a_lo.FileId(a_lo.PluginAt(a_plugin).Name());
+			for (const auto& rec : a_lo.PluginCellRefRecords(a_plugin, a_cell)) {
+				const auto key = a_lo.KeyOf(rec);
+				if ((rec.flags & esp::kRecDeleted) || key.file != self) {
+					continue;
+				}
+				const auto subs = a_lo.Read(rec);
+				const auto name = subs.Get(MakeSig("NAME"));
+				const auto* base = name && name->size() >= 4 ? a_lo.Find(a_lo.Resolve(a_plugin, esp::Read<std::uint32_t>(*name, 0)), MakeSig("CONT")) : nullptr;
+				if (!base) {
+					continue;
+				}
+				const auto data = a_lo.Read(*base).Get(MakeSig("DATA"));
+				const bool respawns = data && !data->empty() && (static_cast<std::uint8_t>((*data)[0]) & 0x02) != 0;
+				const auto xesp = subs.Get(MakeSig("XESP"));
+				const bool removed = xesp && xesp->size() >= 8 && (esp::Read<std::uint32_t>(*xesp, 4) & 1) != 0;
+				const bool leftOut = (rec.flags & esp::kRecInitiallyDisabled) && !(xesp && xesp->size() >= 4) && !BuiltByHouseScript(a_lo.EditorId(subs));
+				bool       other = false;
+				if (const auto xown = subs.Get(MakeSig("XOWN")); xown && xown->size() >= 4) {
+					const auto owner = a_lo.Resolve(a_plugin, esp::Read<std::uint32_t>(*xown, 0));
+					other = !(core::IEquals(a_lo.FileName(owner.file), "Skyrim.esm") && (owner.id == 0x7 || owner.id == 0xDB1));
+				}
+				it->second += respawns || removed || leftOut || other ? 0 : 1;
+			}
+			return it->second;
+		};
+		std::vector<std::vector<std::pair<FormKey, int>>> grounds(likely.size());  // exterior cells joined as the grounds, with their containers
+		auto joinGrounds = [&](std::size_t a_home, const esp::CellEntry& a_dest, const std::optional<std::array<float, 3>>& a_arrival) {
+			const auto file = likely[a_home].file;
+			const auto plugin = a_lo.PluginIndex(a_lo.FileName(file));
+			if (!plugin) {
+				return;
+			}
+			std::int32_t gx = 0, gy = 0;
+			if (a_dest.worldPersistent) {
+				if (!a_arrival) {
+					return;
+				}
+				gx = static_cast<std::int32_t>(std::floor((*a_arrival)[0] / 4096.0f));
+				gy = static_cast<std::int32_t>(std::floor((*a_arrival)[1] / 4096.0f));
+			} else if (const auto xclc = a_lo.Read(a_dest.rec).Get(MakeSig("XCLC")); xclc && xclc->size() >= 8) {
+				gx = esp::Read<std::int32_t>(*xclc, 0);
+				gy = esp::Read<std::int32_t>(*xclc, 4);
+			} else {
+				return;
+			}
+			const auto* cells = editedBy(*plugin, *a_dest.world);
+			if (!cells) {
+				return;
+			}
+			std::vector<GridCell> near;  // nearest first
+			for (const auto& c : *cells) {
+				if (std::abs(c.x - gx) <= 1 && std::abs(c.y - gy) <= 1 && c.key.file != file && std::ranges::none_of(near, [&](const GridCell& n) { return n.key == c.key; })) {
+					near.push_back(c);
+				}
+			}
+			std::ranges::stable_sort(near, [&](const GridCell& a, const GridCell& b) { return std::abs(a.x - gx) + std::abs(a.y - gy) < std::abs(b.x - gx) + std::abs(b.y - gy); });
+			auto& list = grounds[a_home];
+			for (const auto& c : near) {
+				if (std::ranges::none_of(list, [&](const auto& g) { return g.first == c.key; })) {
+					if (const int n = ownContainers(*plugin, c.key); n > 0) {
+						list.emplace_back(c.key, n);
+					}
+				}
+			}
+			// The cell with the most of them is "Grounds" (a Hearthfire home's chest outside), the nearest first on a tie.
+			std::ranges::stable_sort(list, [](const auto& a, const auto& b) { return a.second > b.second; });
+		};
+
 		UnionFind                                  uf(likely.size());
 		std::vector<std::vector<FormKey>>          storage(likely.size());  // non-likely cells reached from a home
 		for (std::size_t i = 0; i < likely.size(); ++i) {
-			for (const auto& d : seen.at(likely[i]).doors) {
-				const auto it = doorCells.find(d);
+			const auto& here = seen.at(likely[i]);
+			for (std::size_t k = 0; k < here.doors.size(); ++k) {
+				const auto it = doorCells.find(here.doors[k]);
 				if (it == doorCells.end() || it->second == likely[i]) {
 					continue;
 				}
 				const auto* dest = a_lo.FindCell(it->second);
-				if (!dest || dest->world) {
-					continue;  // the outside: not joined (exteriors are added by hand)
+				if (!dest) {
+					continue;
+				}
+				if (dest->world) {
+					joinGrounds(i, *dest, here.arrivals[k]);
+					continue;
 				}
 				if (const auto j = indexOf.find(it->second); j != indexOf.end()) {
 					uf.Unite(i, j->second);
@@ -295,6 +448,17 @@ namespace dova::editor::home
 					}
 				}
 			}
+			for (const auto m : members) {
+				for (const auto& [key, count] : grounds[m]) {
+					if (claimed.insert(key).second) {
+						const auto* c = a_lo.FindCell(key);
+						const auto  n = std::ranges::count_if(e.extra, [](const HomeEntry::Extra& x) { return x.exterior; });
+						e.extra.push_back({ key, a_lo.Format(key), n == 0 ? std::string("Grounds") : std::format("Grounds {}", n + 1),
+							c ? a_lo.EditorId(a_lo.Read(c->rec)) : std::string{}, false, true });
+						e.containers += count;
+					}
+				}
+			}
 			for (const auto& key : cells) {
 				const auto& s = seen.at(key);
 				e.containers += s.candidate.containers;
@@ -326,6 +490,28 @@ namespace dova::editor::home
 	{
 		std::vector<core::DraftObject>                     out;
 		esp::FormKeyMap<std::vector<std::string>>          itemCategories;
+		esp::FormKeyMap<const PlacedRef*>                  byKey;
+		for (const auto& cell : a_cells) {
+			for (const auto& r : cell.refs) {
+				byKey.emplace(r.key, &r);
+			}
+		}
+		// What brings a reference that appears later: the Hearthfire room its EditorID or an enable parent's names, else
+		// its enable parent.
+		auto appearsWith = [&](const PlacedRef& a_ref) {
+			const PlacedRef* at = &a_ref;
+			for (int hop = 0; at && hop < 8; ++hop) {
+				if (auto room = HearthfireRoomKey(at->editorId); !room.empty()) {
+					return room;
+				}
+				if (!at->enableParent) {
+					break;
+				}
+				const auto it = byKey.find(*at->enableParent);
+				at = it != byKey.end() ? it->second : nullptr;
+			}
+			return a_ref.enableParent ? a_lo.Format(*a_ref.enableParent) : std::string{};
+		};
 		for (std::size_t ci = 0; ci < a_cells.size(); ++ci) {
 			const auto& cell = a_cells[ci];
 			const auto  cellRef = a_lo.Format(cell.key);
@@ -339,6 +525,13 @@ namespace dova::editor::home
 				o.keywords = r.keywords;
 				o.scripts = r.scripts;
 				Box(r, o.center, o.size);
+				// A container's key makes its wing (core's areas); a station's or an item's limits it to its wing's
+				// containers, so only a Hearthfire room's (the room's other choices stand where it would): a station an
+				// upgrade brings still counts for the drawers always there beside it.
+				o.appearsLater = r.initiallyDisabled || (r.enableParent && !r.enableOpposite);
+				if (o.appearsLater) {
+					o.appearsWith = r.IsContainer() && !r.display ? appearsWith(r) : HearthfireRoomKey(appearsWith(r));
+				}
 				if (r.display) {
 					o.kind = core::DraftObject::Kind::Display;
 					o.keywords.push_back("display:" + std::string(core::DisplayKindName(*r.display)));
@@ -349,7 +542,6 @@ namespace dova::editor::home
 					o.kind = core::DraftObject::Kind::Container;
 					o.respawns = r.respawns;
 					o.removedByUpgrade = r.enableParent && r.enableOpposite;
-					o.appearsLater = r.initiallyDisabled || (r.enableParent && !r.enableOpposite);
 					o.ownedByOther = r.ownedByOther;
 				} else if (r.teleportDoor) {
 					o.kind = core::DraftObject::Kind::Door;
@@ -395,7 +587,8 @@ namespace dova::editor::home
 		return out;
 	}
 
-	core::Layout LayoutFromPlan(esp::LoadOrder& a_lo, std::span<const CellInfo> a_cells, std::span<const core::DraftObject> a_objects, const core::DraftPlan& a_plan)
+	core::Layout LayoutFromPlan(esp::LoadOrder& a_lo, std::span<const CellInfo> a_cells, std::span<const core::DraftObject> a_objects, const core::DraftPlan& a_plan,
+		const core::DraftRules* a_rules)
 	{
 		core::Layout t;
 		if (a_cells.empty()) {
@@ -405,13 +598,37 @@ namespace dova::editor::home
 		t.name = main.name.empty() ? main.editorId : main.name;
 		t.version = "1.0.0";
 		t.cell = a_lo.ToFormRef(main.key);
+		int outside = 0;  // the grounds: "Grounds", then "Grounds 2"...
 		for (std::size_t i = 1; i < a_cells.size(); ++i) {
 			core::HomeCell hc;
 			hc.cell = a_lo.ToFormRef(a_cells[i].key);
-			hc.label = a_cells[i].name;
+			hc.label = a_cells[i].interior ? a_cells[i].name : ++outside == 1 ? std::string("Grounds") : std::format("Grounds {}", outside);
 			t.cells.push_back(std::move(hc));
 		}
 		core::ApplyDraftPlan(a_plan, a_objects, t);
+		// An area master per joined cell (DESIGN §6.7 cells[].master): the draft's master rule over that cell alone,
+		// unless it picks the home's master. A container it takes that has no categories leaves `containers`.
+		for (std::size_t i = 1; i < a_cells.size(); ++i) {
+			const auto                     cellId = a_lo.Format(a_cells[i].key);
+			std::vector<core::DraftObject> own;
+			for (const auto& o : a_objects) {
+				if (o.cell == cellId) {
+					own.push_back(o);
+				}
+			}
+			core::DraftOptions options;
+			options.mainCell = cellId;
+			const auto area = core::SuggestDraft(own, a_rules ? *a_rules : core::DefaultDraftRules(), options);
+			const auto ref = area.master ? core::FormRef::Parse(own[*area.master].id) : std::nullopt;
+			if (!ref || t.IsMaster(*ref)) {
+				continue;
+			}
+			if (const auto* b = t.FindContainer(*ref); b && (b->ignored || !b->categories.empty() || !b->forms.empty())) {
+				continue;  // ignored in the home's plan, or given categories there: no area master rather than a guess
+			}
+			t.cells[i - 1].master = *ref;
+			std::erase_if(t.containers, [&](const core::ContainerBinding& b) { return b.ref == *ref; });
+		}
 		std::ranges::stable_sort(t.containers, [](const core::ContainerBinding& a, const core::ContainerBinding& b) { return a.ref < b.ref; });
 		for (const auto& cell : a_cells) {
 			for (const auto& r : cell.refs) {
@@ -492,8 +709,16 @@ namespace dova::editor::home
 			return d;
 		}
 		d.objects = BuildDraftObjects(a_lo, d.cells, a_context.categories, &d.where);
+		// A joined exterior (the grounds): only the containers the home's own plugin places there.
+		for (std::size_t k = d.objects.size(); k-- > 0;) {
+			const auto [ci, ri] = d.where[k];
+			if (ci > 0 && !d.cells[ci].interior && d.objects[k].kind == core::DraftObject::Kind::Container && d.cells[ci].refs[ri].key.file != a_home.cell.file) {
+				d.objects.erase(d.objects.begin() + static_cast<std::ptrdiff_t>(k));
+				d.where.erase(d.where.begin() + static_cast<std::ptrdiff_t>(k));
+			}
+		}
 		d.plan = core::SuggestDraft(d.objects, a_context.rules ? *a_context.rules : core::DefaultDraftRules(), MakeDraftOptions(a_lo.Format(a_home.cell), a_context));
-		d.layout = LayoutFromPlan(a_lo, d.cells, d.objects, d.plan);
+		d.layout = LayoutFromPlan(a_lo, d.cells, d.objects, d.plan, a_context.rules);
 		d.diagnostics = ValidateDraft(d.layout, a_context.categories);
 		return d;
 	}
@@ -622,7 +847,7 @@ namespace dova::editor::home
 		const auto                      objects = BuildDraftObjects(a_lo, cells, a_categories);
 		const DraftContext              ctx{ a_categories, a_rules, nullptr };
 		const auto plan = core::SuggestDraft(objects, a_rules ? *a_rules : core::DefaultDraftRules(), MakeDraftOptions(a_lo.Format(a_cell.key), ctx));
-		auto       t = LayoutFromPlan(a_lo, cells, objects, plan);
+		auto       t = LayoutFromPlan(a_lo, cells, objects, plan, a_rules);
 		core::ValidateTemplate(t, "draft", a_diags);
 		return t;
 	}
@@ -676,6 +901,89 @@ namespace dova::editor::home
 			};
 		}
 		return options;
+	}
+
+	std::string HearthfireRoomKey(std::string_view a_editorId)
+	{
+		if (!HearthfireRef(a_editorId)) {
+			return {};
+		}
+		const auto at = a_editorId.find("Room");
+		if (at == std::string_view::npos || !Digit(a_editorId, at + 4)) {
+			return {};
+		}
+		auto end = at + 4;
+		while (Digit(a_editorId, end)) {
+			++end;
+		}
+		// One key whatever the piece says: "BYOHHouse1InteriorRoom06", "BYOHHouse1Room06CraftingTrigger" and
+		// "BYOHHouse1InteriorWorkbenchRoom06Ref" are the same room.
+		return std::string(a_editorId.substr(0, 10)) + std::string(a_editorId.substr(at, end - at));
+	}
+
+	std::string WingName(std::string_view a_appearsWith)
+	{
+		// The rooms of every Hearthfire house, by number, as the shipped templates name them.
+		static constexpr const char* rooms[] = { "Small house", "Main hall", "Bedrooms", "Greenhouse", "Enchanter's tower", "Storage room", "Trophy room",
+			"Alchemy laboratory", "Armory", "Kitchen", "Library", "Cellar" };
+		if (!HearthfireRef(a_appearsWith)) {
+			return {};
+		}
+		const auto at = a_appearsWith.rfind("Room");
+		if (at == std::string_view::npos || !Digit(a_appearsWith, at + 4)) {
+			return {};
+		}
+		int n = 0;
+		for (auto k = at + 4; Digit(a_appearsWith, k); ++k) {
+			n = n * 10 + (a_appearsWith[k] - '0');
+		}
+		return n >= 1 && n <= static_cast<int>(std::size(rooms)) ? std::string(rooms[n - 1]) : std::string{};
+	}
+
+	std::vector<std::string> NearestStations(std::span<const core::DraftObject> a_objects, const core::DraftRules& a_rules, float a_radius)
+	{
+		using Kind = core::DraftObject::Kind;
+		std::vector<std::size_t> stations;  // the objects a station rule matches (as core::SuggestDraft: keywords, then words)
+		for (std::size_t i = 0; i < a_objects.size(); ++i) {
+			const auto& o = a_objects[i];
+			if (o.kind == Kind::Container || o.kind == Kind::Item || o.kind == Kind::Door || o.name.empty()) {
+				continue;
+			}
+			auto       tokens = core::DraftTokens(o.editorId);
+			const auto n = core::DraftTokens(o.name);
+			tokens.insert(tokens.end(), n.begin(), n.end());
+			const bool station = std::ranges::any_of(a_rules.stations, [&](const core::DraftStationRule& r) {
+				return std::ranges::any_of(r.keywords, [&](const std::string& k) { return std::ranges::any_of(o.keywords, [&](const std::string& h) { return core::IEquals(h, k); }); }) ||
+				       std::ranges::any_of(r.words, [&](const std::vector<std::string>& w) { return core::DraftWordsMatch(tokens, w); });
+			});
+			if (station) {
+				stations.push_back(i);
+			}
+		}
+		std::vector<std::string> out(a_objects.size());
+		for (std::size_t ci = 0; ci < a_objects.size(); ++ci) {
+			const auto& c = a_objects[ci];
+			if (c.kind != Kind::Container) {
+				continue;
+			}
+			const core::DraftObject* best = nullptr;
+			float                    bestDist = a_radius;
+			for (const auto si : stations) {
+				const auto& o = a_objects[si];
+				if (o.cell != c.cell || (o.appearsLater && !o.appearsWith.empty() && o.appearsWith != c.appearsWith)) {
+					continue;  // another cell's, another wing's
+				}
+				const float dx = o.center[0] - c.center[0], dy = o.center[1] - c.center[1], dz = (o.center[2] - c.center[2]) * 2.0f;
+				if (const float dist = std::sqrt(dx * dx + dy * dy + dz * dz); dist < bestDist) {
+					bestDist = dist;
+					best = &o;
+				}
+			}
+			if (best) {
+				out[ci] = core::ToLower(best->name);
+			}
+		}
+		return out;
 	}
 
 	std::vector<core::FormRef> HomeCellRefs(const esp::LoadOrder& a_lo, const HomeEntry& a_home)

@@ -1,16 +1,16 @@
 {
   "$schema": "dovastash-layout-1",
   "name": "Winter Cove",
-  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the storage chest. From the main hall it is out of reach: what has no container stays with you.",
+  "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest. In the storage room the master is out of reach: what has no container there goes to the storage room's chest.",
   "author": "Dova Stash",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "priority": 0,
   "requires": ["Skyrim.esm", "Update.esm", "Winter Cove.esp"],
   "cell": "Winter Cove.esp|0x00000D62",
   "cells": [
-    {"cell": "Winter Cove.esp|0x0000E30B", "label": "Winter Cove storage"}
+    {"cell": "Winter Cove.esp|0x0000E30B", "label": "Winter Cove storage", "master": "Winter Cove.esp|0x000216D8"}
   ],
-  "master": "Winter Cove.esp|0x000216D8",
+  "master": "Winter Cove.esp|0x00023D65",
   "containers": [
     {"ref": "Winter Cove.esp|0x00012A70", "label": "Soul gems",                   "categories": ["soulgems.*"]},
     {"ref": "Winter Cove.esp|0x0001CA30", "label": "Wardrobe (by the soul gems)", "categories": ["armor.clothing"]},

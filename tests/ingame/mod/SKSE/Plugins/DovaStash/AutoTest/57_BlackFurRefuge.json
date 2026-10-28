@@ -17,7 +17,7 @@
       "id": "3.6-blackfur", "title": "Use template, Deposit: potions to the strong box by the master chest, food to the chest",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Black Fur Refuge setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Black Fur Refuge is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/BlackFurRefuge.json@"},
         {"check": "log", "since": "run", "regex": ": template Templates/Mods/BlackFurRefuge\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "solstheimretreat.esp|0x0000ADFE"},

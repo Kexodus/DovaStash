@@ -40,7 +40,7 @@ the plugin build no longer copies `Tools/DovaStashEditor.exe`; the editor build 
 | Source | Destination (under the mod folder) |
 |---|---|
 | `DovaStash.dll`, `DovaStash.pdb` | `SKSE/Plugins/` |
-| `src/plugin/DovaStash.ini.default` | `SKSE/Plugins/DovaStash.ini`: created if missing; otherwise kept, and any `[Section]` it lacks is appended from the default (user values are never overwritten) |
+| `src/plugin/DovaStash.ini.default` | `SKSE/Plugins/DovaStash.ini.default` (as the release zip has it), and `SKSE/Plugins/DovaStash.ini`: created if missing; otherwise kept, and any `[Section]` it lacks is appended from the default (user values are never overwritten) |
 | `dist/Data/SKSE/Plugins/DovaStash/*` | `SKSE/Plugins/DovaStash/`, an exact mirror: files `dist` no longer has are removed; `Layouts/`, `Backups/`, `Templates/User/` and `AutoTest/` are never touched |
 | `dist/Data/Interface/*` | `Interface/` (the hotkey list menu's logo; `Interface/DovaStash/` is mirrored exactly) |
 
@@ -52,15 +52,22 @@ Options:
   `cmake --build build/plugin --config Release --target DovaStash_deploy`
 
 The deploy warns about top-level entries in the mod folder that no build writes: today `root/` (the `stress_loot`
-output `ds_*.txt`, `ds_manifest.csv`), which Root Builder copies into the game folder. Remove it by hand.
+output `ds_*.txt`, `ds_manifest.csv`), which Root Builder copies into the game folder. Remove it: `cmake -E rm -rf "<DOVASTASH_DEPLOY_DIR>/root"` (the deploy
+prints this command; `tools/stress_loot.py` now writes to the "dovastash inventory testing" mod).
 
 ### Release
 
+Build the editor (`cmake --build --preset editor-release`) and the guide PDF (`presskit/guide`) first. Then
 `cmake --build --preset plugin-release --target DovaStash_package` stages `build/release/Dova Stash/`
-(`DovaStash.dll`/`.pdb`, `DovaStash.ini` from `DovaStash.ini.default`, the `dist` data, `Interface`,
-`Tools/DovaStashEditor.exe`/`.com` from `build/editor` (build the editor first) and
-`Tools/DovaStashEditor-UserGuide.pdf` from `presskit/guide`) and zips it to `build/release/DovaStash-<version>.zip`.
-The stage is made fresh each time, so nothing a test session wrote gets in.
+(`DovaStash.dll`/`.pdb`, `DovaStash.ini.default`, the `dist` data, `Interface`, `Tools/DovaStashEditor.exe`/`.com`
+from `build/editor` and `Tools/DovaStashEditor-UserGuide.pdf`) and zips its contents to `build/release/DovaStash-<version>.zip` (`SKSE/`, `Interface/` and `Tools/` at the top, no
+wrapping folder, so it maps onto `Data/`).
+It stops when the editor or the guide is missing, unless configured with `-DPACKAGE_ALLOW_PARTIAL=ON` (test zips
+only). The zip ships no `DovaStash.ini`: the plugin creates it from `DovaStash.ini.default` on the first start, so
+an update never overwrites the player's settings. The stage is made fresh each time, so nothing a test session
+wrote gets in. With the guide built, a release is two commands in this order: `cmake --build --preset editor-release`,
+then `cmake --build --preset plugin-release --target DovaStash_package` (a CMake workflow preset takes one configure
+preset, so there is no single `release` preset).
 
 At runtime the log is written to `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash.log`
 (on VR the folder is `Skyrim VR`; on GOG it is `Skyrim Special Edition GOG`). On a good load it contains
@@ -174,7 +181,10 @@ It is a Windows-subsystem program: from PowerShell or cmd, pipe the output (`| O
 for it; Git Bash waits by itself. To run it from MO2, add it under *Tools > Executables*; it finds the
 instance from MO2 and reads the merged Data folder (docs/EDITOR.md §4.8; step by step, with the controls and a
 short test: docs/EDITOR.md §9). `--render-cell` needs a Direct3D 11 GPU (it falls back to the WARP software
-device) but no window, so it also works over remote sessions.
+device) but no window, so it also works over remote sessions. `--screenshot` with `--gui` also works without a
+desktop: in session 0 it draws off-screen at the `--window` size (a window without `--screenshot` exits 3 there). Errors exit 1 with no message box (stderr and
+the log), and `--timeout <s>` (default 180) saves what it has, logs *screenshot timed out waiting for &lt;job&gt;* and
+exits 4.
 
 ## Timings (16-thread machine, cold)
 

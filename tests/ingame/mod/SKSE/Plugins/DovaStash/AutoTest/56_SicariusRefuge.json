@@ -17,7 +17,7 @@
       "id": "3.6-sicarius", "title": "Use template, Deposit spreads arrows, ingots and books",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Sicarius' Refuge setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Sicarius' Refuge is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/SicariusRefuge.json@"},
         {"check": "layout", "pointer": "/master", "eq": "Eli_Sicarius' Refuge.esp|0x0016D16A"},
         {"do": "additem", "item": "Skyrim.esm|0x0001397D", "count": 20},

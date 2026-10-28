@@ -1,5 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
+#include <format>
+#include <optional>
+#include <set>
 
 #include "TestHelpers.h"
 #include "dova/core/DraftSuggest.h"
@@ -151,7 +154,15 @@ TEST_CASE("Draft master: the largest usable chest near the entrance, with the re
 	CHECK_THAT(plan.masterReason, Catch::Matchers::ContainsSubstring("1.1 x 0.7 x 0.7 m, "));  // one unit: metres, as the door distance
 	CHECK_THAT(plan.masterReason, Catch::Matchers::ContainsSubstring(" m from the door to Whiterun"));
 	CHECK_FALSE(plan.masterReason.contains("units"));
+	CHECK_THAT(plan.masterReason, Catch::Matchers::ContainsSubstring("; one of 4 that can be the master: "));
 	CHECK_FALSE(plan.masterRunnersUp.empty());
+
+	// One candidate: no count.
+	const std::vector<DraftObject> single{ objects[2], door };
+	const auto                     alone = SuggestDraft(single, DefaultDraftRules());
+	REQUIRE(alone.master);
+	CHECK_THAT(alone.masterReason, Catch::Matchers::ContainsSubstring("; the only container there from the start that can be the master: "));
+	CHECK_FALSE(alone.masterReason.contains("one of"));
 	// The master gets no suggestions of its own.
 	CHECK(plan.Find(2)->suggestions.empty());
 }
@@ -564,4 +575,128 @@ TEST_CASE("Preview: where items go follows the planner and the displays", "[prev
 		const auto r = PreviewWhereItemsGo(layout, categories, items);
 		CHECK(r.noDestination == std::vector<std::size_t>{ 2 });
 	}
+}
+
+TEST_CASE("Draft wings: a big home takes a category once per wing; a wing's station only speaks for its own containers", "[draft]")
+{
+	const auto wing = [](DraftObject a_o, std::string a_key) {
+		a_o.appearsLater = true;
+		a_o.appearsWith = std::move(a_key);
+		return a_o;
+	};
+	const auto build = [&](std::size_t a_fillers) {
+		std::vector<DraftObject> objects{
+			Container("Skyrim.esm|0x00000A00", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 80, 50, 50 }),
+			wing(Container("Skyrim.esm|0x00000A01", "BYOHChest", "Chest", { 3000, 0, 0 }), "Room06"),
+			wing(Thing(DraftObject::Kind::Other, "Smelter", "Smelter", { 3100, 0, 0 }, { "CraftingSmelter" }), "Room06"),
+			wing(Container("Skyrim.esm|0x00000A02", "BYOHChest", "Chest", { 6000, 0, 0 }), "Room07"),
+			wing(Thing(DraftObject::Kind::Other, "Smelter", "Smelter", { 6100, 0, 0 }, { "CraftingSmelter" }), "Room07"),
+		};
+		for (std::size_t i = 0; i < a_fillers; ++i) {
+			objects.push_back(Container(std::format("Skyrim.esm|0x00000B{:02X}", i), "EndTable01", "End Table", { -2000.0f - 1000.0f * static_cast<float>(i), 0, 0 }));
+		}
+		DraftObject door = Thing(DraftObject::Kind::Door, "HouseDoor", "Door", { 0, 0, 0 });
+		door.exteriorDoor = true;
+		objects.push_back(door);
+		return objects;
+	};
+	const auto ingots = [](const DraftPlan& a_plan, std::size_t a_object) {
+		const auto* s = Find(a_plan, a_object, "misc.ores_ingots");
+		return s && s->accepted;
+	};
+
+	const auto big = build(DefaultDraftRules().areaContainers);
+	const auto bigPlan = SuggestDraft(big, DefaultDraftRules());
+	CHECK(ingots(bigPlan, 1));
+	CHECK(ingots(bigPlan, 3));
+
+	const auto small = build(0);
+	const auto smallPlan = SuggestDraft(small, DefaultDraftRules());
+	CHECK(ingots(smallPlan, 1) != ingots(smallPlan, 3));  // once per home
+
+	// A smelter built with another wing says nothing about this one's chest.
+	auto other = small;
+	other[4].appearsWith = "Room06";
+	const auto otherPlan = SuggestDraft(other, DefaultDraftRules());
+	CHECK_FALSE(Find(otherPlan, 3, "misc.ores_ingots"));
+}
+
+TEST_CASE("Draft wings: a room's name shares its categories out over the room's containers", "[draft]")
+{
+	// A Lakeview-like house: an armory, a library and a kitchen built as wings, a main hall nobody named a rule for.
+	const auto wing = [](DraftObject a_o, std::string a_key, std::string a_name) {
+		a_o.appearsLater = true;
+		a_o.appearsWith = std::move(a_key);
+		a_o.wing = std::move(a_name);
+		return a_o;
+	};
+	std::vector<DraftObject> objects{
+		Container("Skyrim.esm|0x00000A00", "PlayerHouseChest", "Chest", { 0, 0, 0 }, { 80, 50, 50 }),
+		wing(Container("Skyrim.esm|0x00000A01", "BYOHChest", "Chest", { 3000, 0, 0 }), "Room09", "Armory"),
+		wing(Container("Skyrim.esm|0x00000A02", "BYOHCupboard", "Cupboard", { 3100, 0, 0 }), "Room09", "Armory"),
+		wing(Container("Skyrim.esm|0x00000A03", "BYOHDresser", "Dresser", { 3200, 0, 0 }), "Room09", "Armory"),
+		wing(Container("Skyrim.esm|0x00000A04", "BYOHChest", "Chest", { 3300, 0, 0 }), "Room09", "Armory"),
+		wing(Container("Skyrim.esm|0x00000A05", "BYOHDresser", "Dresser", { 3400, 0, 0 }), "Room09", "Armory"),
+		wing(Container("Skyrim.esm|0x00000A06", "BYOHChest", "Chest", { 6000, 0, 0 }), "Room11", "Library"),
+		wing(Container("Skyrim.esm|0x00000A07", "BYOHCupboard", "Cupboard", { 9000, 0, 0 }), "Room10", "Kitchen"),
+		wing(Container("Skyrim.esm|0x00000A08", "BYOHChest", "Chest", { 12000, 0, 0 }), "Room02", "Main hall"),
+	};
+	for (std::size_t i = 0; i < DefaultDraftRules().areaContainers; ++i) {
+		objects.push_back(Container(std::format("Skyrim.esm|0x00000B{:02X}", i), "EndTable01", "End Table", { -2000.0f - 1000.0f * static_cast<float>(i), 0, 0 }));
+	}
+	DraftObject door = Thing(DraftObject::Kind::Door, "HouseDoor", "Door", { 0, 0, 0 });
+	door.exteriorDoor = true;
+	objects.push_back(door);
+
+	const auto plan = SuggestDraft(objects, DefaultDraftRules());
+	const auto holder = [&](std::string_view a_pattern) {
+		std::optional<std::size_t> at;
+		for (std::size_t o = 1; o <= 8; ++o) {
+			if (const auto* s = Find(plan, o, a_pattern); s && s->accepted) {
+				CHECK_FALSE(at);  // once per wing
+				at = o;
+			}
+		}
+		return at;
+	};
+
+	// The armory's five categories go to five different containers, each with the room as the reason.
+	std::set<std::size_t> armory;
+	for (const auto* p : { "weapons.*", "armor.heavy", "armor.light", "armor.shields", "ammo.*" }) {
+		const auto at = holder(p);
+		REQUIRE(at);
+		CHECK(*at >= 1);
+		CHECK(*at <= 5);
+		armory.insert(*at);
+		CHECK_THAT(Find(plan, *at, p)->reason, Catch::Matchers::ContainsSubstring("in the Armory"));
+	}
+	CHECK(armory.size() == 5);
+	CHECK(holder("books.*") == std::optional<std::size_t>(6));
+	CHECK(holder("alchemy.food") == std::optional<std::size_t>(7));
+	// "Main hall" says nothing: its chest gets no category from the room.
+	CHECK(std::ranges::none_of(plan.Find(8)->suggestions, [](const DraftSuggestion& s) { return s.reason.find("in the ") != std::string::npos; }));
+
+	// Without the room's name, the armory's plain chests get none of it.
+	auto unnamed = objects;
+	for (auto& o : unnamed) {
+		o.wing.clear();
+	}
+	const auto plain = SuggestDraft(unnamed, DefaultDraftRules());
+	CHECK_FALSE(Find(plain, 1, "weapons.*"));
+	CHECK_FALSE(Find(plain, 6, "books.*"));
+}
+
+TEST_CASE("Draft rules: wings need words and categories", "[draft]")
+{
+	Diagnostics d;
+	const auto  r = ParseDraftRules(R"({ "$schema": "dovastash-draftrules-1", "wings": [
+		{ "label": "armory", "words": ["armory"], "categories": ["weapons.*"], "confidence": 0.7 },
+		{ "label": "nothing", "categories": ["books.*"] },
+		{ "label": "empty", "words": ["library"] } ] })",
+		"test", d);
+	REQUIRE(r);
+	REQUIRE(r->wings.size() == 1);
+	CHECK(r->wings[0].confidence == 0.7f);
+	CHECK(d.ErrorCount() == 2);
+	CHECK(DefaultDraftRules().wings.size() >= 6);
 }

@@ -24,6 +24,9 @@
 // - Saving: settings apply the moment they change (sliders on release) and are written to DovaStash.ini; no
 //   Save button, no restart. Lists edited as a draft (keep rules) end with Save, Revert and a yellow
 //   "Unsaved changes". A text box with a button saves with the button or Enter.
+// - Names: a home is named by its setup's name in notices and area entries (Home::DisplayName, as the HUD does);
+//   a category by its name ("All Weapons"), its id ("weapons.*") in the tooltip; a reference by its name, the
+//   form reference ("Skyrim.esm|0x000CB437") in the tooltip.
 // - Order: a page goes from everyday actions to setup, with the actions that reset or remove things last.
 //   What an action did shows in the status line at the top of the page, under its header (red when it failed).
 
@@ -61,9 +64,22 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kRefresh = "Refresh";
 	inline constexpr auto             kUnsaved = "Unsaved changes";
 	inline constexpr auto             kNone = "-";
+	inline constexpr std::string_view kInParens = "({})";  // a detail after a name: the game's name, the area
+	inline constexpr std::string_view kNameDetail = "{} ({})";  // a name and its detail in one text: name, detail
+	inline constexpr auto             kWarningMark = "(!)";  // after a row that has a warning (its tooltip)
+	inline constexpr std::string_view kHaveOfTotal = "{}/{}";  // how many of how many: have, total
+	inline constexpr auto             kNotLoadedSuffix = " (not loaded)";  // after a form reference whose plugin is missing
+	inline constexpr auto             kRuntimeAE = "Skyrim AE";
+	inline constexpr auto             kRuntimeSE = "Skyrim SE";
+	inline constexpr auto             kRuntimeVR = "Skyrim VR";
+	inline constexpr auto             kRuntimeOther = "Skyrim";
 	inline constexpr std::string_view kNameVersion = "{} v{}";  // name, version
 	inline constexpr std::string_view kByAuthor = "{} by {}";   // "<name> v<version>", author
 	inline constexpr std::string_view kNotInHome = "You are not in a player home ({}).";  // reason
+	inline constexpr auto             kNotAHome = "not a player home";  // kNotInHome's reason when the game gives none
+	// Why a container row is unavailable when its reference is not in memory.
+	inline constexpr auto             kRefNotInMemory = "not loaded here (another area, or plugin missing)";
+	inline constexpr auto             kRefNotFound = "reference not found (plugin missing?)";
 	inline constexpr auto             kNeedsSetup = "Set this home up first (This home page).";
 	inline constexpr auto             kViaWider = "(via a wider choice)";
 	inline constexpr auto             kAuto = "Auto";
@@ -74,7 +90,11 @@ namespace dova::ui::panel::text
 	// Header
 	inline constexpr std::string_view kHeaderHome = "{}";            // home name
 	inline constexpr std::string_view kHeaderLayout = "Setup: {}";   // "<name> v<version> by <author>"
-	inline constexpr std::string_view kHeaderBasedOn = "Based on template: {}";
+	inline constexpr std::string_view kHeaderBasedOn = "Based on template: {}";  // "<name> v<version>"; the file is its tooltip
+	inline constexpr std::string_view kHeaderBasedOnName = "{} v{}";             // template name, version
+	inline constexpr std::string_view kIniKeyTip = "{}\n\nDovaStash.ini: {}";    // the setting's help, its INI key
+	inline constexpr auto             kFrameworkKey = "the SKSE Menu Framework key";  // what else a hotkey does (KeyCapture)
+	inline constexpr auto             kFrameworkKeyAlso = " and the SKSE Menu Framework key";
 	inline constexpr auto             kHeaderCustom = "Custom setup (not from a template)";
 	inline constexpr std::string_view kHeaderMaster = "Master: {}";
 	inline constexpr auto             kHeaderNoMaster = "Master: none (items without a destination stay in your inventory)";
@@ -147,6 +167,8 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kSellNothing = "Nothing to sell.";
 	inline constexpr std::string_view kSellQuote = "{} for {} gold: {}";  // "14 items", gold, what
 	inline constexpr std::string_view kBuyBackInfo = "Last sale: {} for {} gold ({}).";  // "14 items", gold, what
+	inline constexpr auto             kSellNowTip = "Sells what is in the sell chest now, at a merchant's price.";
+	inline constexpr auto             kBuyBackTip = "Buys the last sale back for the gold it brought.";
 	inline constexpr std::string_view kItemCount = "{} item";   // count (singular)
 	inline constexpr std::string_view kItemsCount = "{} items";  // count (plural)
 	inline constexpr auto             kSalesHeader = "Sales this session";
@@ -159,12 +181,15 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kNotSellChestTip = "Makes it an ordinary container again. Nothing is sold or moved.";
 	inline constexpr auto             kResetHeader = "Reset";
 	inline constexpr auto             kResetHome = "Reset home...";
+	inline constexpr auto             kResetHomeTip = "Clears this home's setup to start over; it is backed up first.";
 	inline constexpr std::string_view kConfirmReset = ui::kConfirmResetHome;  // the hotkey menus ask the same
 	inline constexpr auto             kBackupsHeader = "Saved setups";
 	inline constexpr auto             kBackupsTip = "Copies of this home's setup in Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups (VR: Skyrim VR), one per recent session. Cleaning MO2's overwrite folder does not touch them.";
-	inline constexpr std::string_view kRestoreLast = "Restore last setup ({})...";  // date
+	inline constexpr std::string_view kRestoreLast = "Restore your last setup ({})...";  // date; ui::kRestoreLastSetup, asking
 	inline constexpr std::string_view kRestoreOlder = "Restore the setup from {}...";  // date
 	inline constexpr std::string_view kRestoreOlderNow = "Restore the setup from {}";  // date; the setup page (no setup to lose: no question)
+	inline constexpr auto             kRestoreTip = "Puts this home's setup back to this copy; the current one is backed up first.";
+	inline constexpr auto             kRestoreNowTip = "Puts this home's setup back to this copy.";
 	inline constexpr std::string_view kOlderBackups = "Older copies ({})";  // count
 	inline constexpr auto             kNoBackups = "No saved copy of this home's setup yet.";
 	inline constexpr std::string_view kBackupSame = "The latest copy ({}) is this setup as it is now.";  // date
@@ -211,6 +236,7 @@ namespace dova::ui::panel::text
 	// ui::kConfirmClearCategories, ui::ForgetLearnedQuestion.
 	inline constexpr auto             kMakeMaster = ui::kMakeMasterEntry;
 	inline constexpr auto             kMakeMasterTip = "Makes it the master: items without a destination go here.";
+	inline constexpr auto             kMakeAreaMasterTip = "Makes it this area's master: what has no destination goes here while the home's master is out of reach.";
 	inline constexpr auto             kMakeSellChestTip = "Makes it the sell chest: what you put in is sold when you choose Sell now.";
 	inline constexpr auto             kClearCategories = ui::kClearCategoriesEntry;
 	inline constexpr auto             kClearCategoriesTip = "Unticks every category of this container. Its learned items stay.";
@@ -226,8 +252,10 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kCategoriesHeader = "Categories sent here";
 	inline constexpr std::string_view kLearnedInfo = "Learned here: {}. Only those exact items come here; tick a category to send all of it.";
 	inline constexpr auto             kIgnoredInfo = "Ignored containers receive nothing and teach nothing, and Dova Stash never adds them back. Their categories are kept for when you stop ignoring them. To forget a container instead, use Remove.";
-	inline constexpr auto             kEverything = "Everything (*)";
-	inline constexpr std::string_view kAllOf = "All {} ({}.*)";  // name, id
+	// A category pattern reads as its name; the id ("weapons.*") is the control's tooltip (kPatternIdTip).
+	inline constexpr auto             kEverything = "Everything";
+	inline constexpr std::string_view kAllOf = "All {}";  // category name
+	inline constexpr std::string_view kPatternIdTip = "Id: {}";  // the pattern, for selectors and template files
 	inline constexpr auto             kOtherPatterns = "Other patterns (unknown categories)";
 
 	// Category suggestion on a container's page (DESIGN §8.6; the HUD asks the same, ui::kSuggestCategory)
@@ -246,6 +274,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kNotManagedSuffix = " (not managed)";
 	inline constexpr std::string_view kLearnedUnusedInfo = "{} of these point at a container that is no longer used, so they do nothing.";
 	inline constexpr std::string_view kForgetUnused = "Forget those ({})...";
+	inline constexpr auto             kForgetUnusedTip = "Forgets the learned items that point at containers no longer used.";
 	inline constexpr std::string_view kConfirmForgetUnused = "Forget {} learned for containers no longer used? They go by category again. No items are moved.";  // "3 items"
 	inline constexpr auto             kStaleMaster = "the master";
 	inline constexpr auto             kStaleNotInSetup = "not in the setup";
@@ -262,7 +291,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kKeepQuotas = "Quotas";
 	inline constexpr auto             kKeepQuotasTip = "Keeps up to N items of a category on you; Deposit takes the rest.";
 	inline constexpr auto             kKeepAddHint = "or type a selector";
-	inline constexpr auto             kKeepAddTip = "Types a rule, a category id or Plugin.esm|0x000ABC. Enter adds it.";
+	inline constexpr auto             kKeepAddTip = "Adds what you type: a rule (equipped, favorited, quest), a category id or Plugin.esm|0x000ABC. Enter adds it.";
 	inline constexpr auto             kKeepPickCategory = "Add category";
 	inline constexpr auto             kKeepPickRule = "Add rule";
 	inline constexpr auto             kKeepPickRuleTip = "Adds a rule: what you wear, what you favorited, or quest items.";
@@ -289,6 +318,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kRemoveQuotaTip = "Removes this quota from the list.";
 	inline constexpr auto             kQuotaNeedsCategory = "Pick a category for every quota (rules without any selector are dropped).";
 	inline constexpr auto             kKeepUseGlobal = "Use the defaults only...";
+	inline constexpr auto             kKeepUseGlobalTip = "Removes this home's keep rules; only the default ones apply.";
 	inline constexpr auto             kConfirmKeepGlobal = "Remove this home's keep rules and use only the defaults? No items are moved.";
 	inline constexpr auto             kKeepGlobalHeader = "Default keep rules";
 	inline constexpr auto             kKeepGlobalWhere = "Edit them under Dova Stash > Settings.";
@@ -306,12 +336,16 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kExportLearned = "Include where you put things by hand";
 	inline constexpr auto             kExportLearnedTip = "Saves the items you put away by hand, so they go to the same containers for anyone using the template. Untick it to share a template without your habits.";
 	inline constexpr auto             kExportName = "Name";
+	inline constexpr auto             kExportNameTip = "The template's name; it also names the file.";
 	inline constexpr auto             kExportAuthor = "Author";
 	inline constexpr auto             kExportAuthorHint = "your character's name";
+	inline constexpr auto             kExportAuthorTip = "Who made it. Empty: your character's name.";
 	inline constexpr auto             kExportVersion = "Version";
 	inline constexpr auto             kExportVersionHint = "automatic";
-	inline constexpr std::string_view kExportFile = "Saved as Data/SKSE/Plugins/DovaStash/Templates/User/{}.json (under MO2: in overwrite). This home offers it right away.";
+	inline constexpr auto             kExportVersionTip = "Empty: raised by itself each time you save.";
+	inline constexpr std::string_view kExportFile = "Saves to Data/SKSE/Plugins/DovaStash/Templates/User/{}.json (under MO2: in overwrite). This home offers it right away.";
 	inline constexpr auto             kExport = "Save";
+	inline constexpr auto             kExportTip = "Saves this home's setup as a template with the name above.";
 	inline constexpr auto             kExporting = "Saving...";
 	inline constexpr auto             kExportWarnings = "Template warnings";
 
@@ -424,6 +458,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto kSetLogOff = "Off";
 	inline constexpr auto kSetResetHeader = "Reset";
 	inline constexpr auto kSetReset = "Reset settings to defaults...";
+	inline constexpr auto kSetResetTip = "Puts every setting above back to its default; your hotkeys and keep rules stay.";
 	inline constexpr auto kSetConfirmReset = "Reset every setting above to its default? Your hotkeys and the default keep rules are kept. No items are moved.";
 
 	// All templates: the catalogue at the end of the Template tab and of the setup page (This home); outside a home,
@@ -438,6 +473,8 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kColRequires = "Requires";
 	inline constexpr auto             kColIssues = "Issues";
 	inline constexpr auto             kOk = "ok";
+	inline constexpr auto             kStatusOkTip = "Its plugins are loaded: it is offered in its home.";
+	inline constexpr auto             kMissingTip = "Not offered: these plugins are not loaded.";
 	inline constexpr auto             kStatusInUse = "in use";
 	inline constexpr auto             kStatusRemoved = "removed from this home";
 	inline constexpr auto             kStatusInUseTip = "This home's setup is based on it.";
@@ -495,6 +532,7 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kSetsSearchHint = "Search sets, mods, pieces";
 	inline constexpr auto             kSetsOnlyHave = "Only sets you have";
 	inline constexpr auto             kSetsOnlyHaveTip = "Shows only the sets you own a piece of.";
+	inline constexpr auto             kSetsSearchTip = "Shows only the sets whose name, mod or pieces contain every word.";
 	inline constexpr std::string_view kSetsCount = "{} of {} sets";
 	inline constexpr auto             kSetsNoMatch = "No set matches.";
 	inline constexpr std::string_view kSetsTooMany = "Showing the first {}; search to narrow it down.";
@@ -520,6 +558,13 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kDispKindMannequin = "Mannequin";
 	inline constexpr auto             kDispKindItem = "Plaque";
 	inline constexpr auto             kDispKindCase = "Display case";
+	inline constexpr auto             kDispKindBookshelf = "Bookshelf";
+	// The plurals, lower case, in sentences ("Use all 3 bookshelves...").
+	inline constexpr auto             kDispKindRacks = "racks";
+	inline constexpr auto             kDispKindMannequins = "mannequins";
+	inline constexpr auto             kDispKindPlaques = "plaques";
+	inline constexpr auto             kDispKindCases = "display cases";
+	inline constexpr auto             kDispKindBookshelves = "bookshelves";
 	inline constexpr auto             kDispAnyKind = "Any kind";
 	inline constexpr auto             kDispAnyStatus = "Any status";
 	inline constexpr auto             kDispUsedOnly = "Used";
@@ -542,9 +587,12 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kColHolds = "Holds";
 	inline constexpr auto             kDispUsed = "used";
 	inline constexpr auto             kDispNotUsed = "not used";
+	inline constexpr auto             kDispUsedTip = "In the setup: Deposit, Sort all and Fill now fill it.";
+	inline constexpr auto             kDispNotUsedTip = "Not in the setup: Use adds it.";
 	inline constexpr auto             kDispIgnored = "ignored";
 	inline constexpr auto             kDispIgnoredTip = "Turned off in the setup (Stop using, or the template). Use all leaves it off.";
 	inline constexpr auto             kDispNotBuilt = "not built";
+	inline constexpr auto             kDispNotBuiltTip = "Not built yet in your home; it is filled once it is built.";
 	inline constexpr auto             kDispNotLoaded = "not loaded";
 	inline constexpr auto             kDispNotLoadedTip = "In the setup, but not in a loaded area of this home (or its plugin is missing). It is filled when you are in its area.";
 	inline constexpr auto             kDispAnyWeapon = "any weapon";
@@ -568,8 +616,11 @@ namespace dova::ui::panel::text
 	inline constexpr auto             kDispCategoriesTip = "Chooses what goes on it. Nothing ticked: anything that fits.";
 	inline constexpr std::string_view kDispArmorSet = "Armor set ({})";  // set name
 	inline constexpr auto             kDispSetTip = "Chooses what it wears, from every armor set in your load order, modded ones included. Sets you have come first; a set fills in as you get the pieces.";
+	inline constexpr auto             kDispSetNeedsUse = "Use it to choose its armor set.";
+	inline constexpr auto             kDispSearchTip = "Shows only the displays whose name, kind, area, items or categories contain every word.";
 	inline constexpr auto             kDispBulkHeader = "Use all";
 	inline constexpr std::string_view kDispUseAll = "Use all {} {}...";  // count, plural kind
+	inline constexpr auto             kDispUseAllTip = "Adds every one of these not in the setup; the ignored ones stay off.";
 	inline constexpr std::string_view kDispConfirmUseAll = "Use all {} {}? Deposit and Sort all then fill them. No items are moved now.";  // count, plural kind
 	inline constexpr std::string_view kDispIgnoredStayOff = "{} ignored stay off.";  // count
 }

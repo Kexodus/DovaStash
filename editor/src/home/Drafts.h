@@ -11,6 +11,7 @@
 #include <functional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -33,6 +34,7 @@ namespace dova::editor::home
 			std::string  name;
 			std::string  editorId;
 			bool         likely{ false };  // a home by its own evidence (else: only reached through the home's door)
+			bool         exterior{ false };  // the grounds outside the home's load door (name "Grounds", "Grounds 2"...)
 		};
 
 		struct Door
@@ -70,11 +72,17 @@ namespace dova::editor::home
 
 	// Every likely player home among the interior cells of the loaded plugins (each cell once, as the load order
 	// has it), with the interior cells their doors lead to joined when those are homes too, or storage that
-	// nothing respawns in and nobody else owns. A cell a template names (`a_templateCells`) is a home whatever
+	// nothing respawns in and nobody else owns, and the grounds: the exterior cells around a load door (its own and the
+	// 8 next to it) where the home's own plugin places containers that a template can use or that appear later, in a
+	// cell another plugin defines (Hearthfire's; a city the home's plugin adds is never joined). A cell a template names (`a_templateCells`) is a home whatever
 	// the heuristics say (a later plugin may drop its location or name), and a template's main cell leads its
 	// group. Sorted by plugin load order, then name.
 	[[nodiscard]] std::vector<HomeEntry> FindAllHomes(esp::LoadOrder& a_lo, const ScanProgress& a_progress = {}, const std::atomic<bool>* a_cancel = nullptr,
 		const TemplateCells* a_templateCells = nullptr);
+
+	// --home: the home whose cell EditorID is `a_wanted`, else whose name is, else the first whose name or EditorID
+	// contains it (case-insensitive). Two homes of one name: the EditorID picks the one meant.
+	[[nodiscard]] std::optional<std::size_t> FindHome(std::span<const HomeEntry> a_homes, std::string_view a_wanted);
 
 	// Item names of the load order (lower-case) -> their category, for containers named after an item. Names
 	// that mean different categories, and clutter, are left out.
@@ -106,16 +114,33 @@ namespace dova::editor::home
 		std::vector<std::string>                         diagnostics;
 	};
 
+	// The draft of a home over its cells. In a joined exterior only the containers the home's own plugin places are
+	// listed (the world's barrels and chests around it are no part of the home).
 	[[nodiscard]] HomeDraft DraftHome(esp::LoadOrder& a_lo, const HomeEntry& a_home, const DraftContext& a_context);
+
+	// The Hearthfire room a reference's EditorID names ("BYOHHouse1InteriorRoom06Part007Chest02" -> "BYOHHouse1Room06",
+	// as its crafting trigger and workbench say it), else empty: the `appearsWith` key of what the house's building
+	// script builds together. BuildDraftObjects keys a container that appears later by it, else by its enable parent; a
+	// station or an item by it only.
+	[[nodiscard]] std::string HearthfireRoomKey(std::string_view a_editorId);
+
+	// The name of the wing an `appearsWith` key stands for ("Storage room" for a Hearthfire room 06), else empty.
+	[[nodiscard]] std::string WingName(std::string_view a_appearsWith);
+
+	// Per object: for a container, the name of the nearest station (an object a station rule of `a_rules` matches) in
+	// its cell within `a_radius` (height counted double), lower-case ("oven"); else empty. Another wing's is not counted.
+	[[nodiscard]] std::vector<std::string> NearestStations(std::span<const core::DraftObject> a_objects, const core::DraftRules& a_rules, float a_radius = 600.0f);
 
 	// The home's cells as form references: the main cell, then the others (core::CheckAutoDraftTarget's home).
 	[[nodiscard]] std::vector<core::FormRef> HomeCellRefs(const esp::LoadOrder& a_lo, const HomeEntry& a_home);
 
-	// The template the plan describes: name, cell, cells, master, every container (accepted categories, ignored
-	// with notes), every display (plaques and cases with the items their script is made for; shield and dagger
-	// racks with their category), a note, `requires`.
+	// The template the plan describes: name, cell, cells (each joined cell with an area master: the master rule of
+	// `a_rules`, nullptr core's defaults, over that cell alone, unless it is the home's master or a container the plan
+	// gives categories or ignores), master, every container (accepted categories, ignored with notes), every display
+	// (plaques and cases with the items their script is made for; shield and dagger racks with their category), a
+	// note, `requires`.
 	[[nodiscard]] core::Layout LayoutFromPlan(esp::LoadOrder& a_lo, std::span<const CellInfo> a_cells, std::span<const core::DraftObject> a_objects,
-		const core::DraftPlan& a_plan);
+		const core::DraftPlan& a_plan, const core::DraftRules* a_rules = nullptr);
 
 	// Accepts or rejects one suggestion: the plan's flag and the container's categories in the layout.
 	void SetSuggestion(HomeDraft& a_draft, std::size_t a_container, std::size_t a_suggestion, bool a_accepted);

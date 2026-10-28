@@ -1,5 +1,6 @@
 #include "Controller.h"
 
+#include "Events/EventSinks.h"
 #include "Game/ArmorIndex.h"
 #include "Game/Displays.h"
 #include "Game/Eligibility.h"
@@ -230,12 +231,29 @@ namespace dova
 			return unavailable;
 		}
 
-		std::string SetupEnabledText(const std::string& a_name, int a_unavailable)
+		// A cell another home's template lists (DESIGN §6.7): where to set it up. The main cell by name when it has one
+		// of its own ("Tundra Homestead Hall"), else "its main room" (Tundra's cellar and hall share the home's name).
+		std::string PartOfText(const core::TemplateCandidate& a_whole)
 		{
-			if (a_unavailable == 0) {
-				return std::format("Dova Stash: {} setup enabled", a_name);
+			auto*             form = a_whole.layout.cell ? game::LookupForm(*a_whole.layout.cell) : nullptr;
+			auto*             cell = form ? form->As<RE::TESObjectCELL>() : nullptr;
+			const std::string name = cell && cell->GetName() ? cell->GetName() : "";  // never the editor id
+			const bool        named = !name.empty() && !core::IEquals(name, a_whole.layout.name);
+			return std::format("Dova Stash: part of {}; set it up in {}", a_whole.layout.name, named ? name : "its main room"s);
+		}
+
+		// One wording whichever way the setup came (Use template, Re-apply, the first visit): "Dova Stash: X is set up",
+		// then in one parenthetical the hotkey (`a_hotkey`, the first visit only) and the containers unavailable for now.
+		std::string SetupEnabledText(const std::string& a_name, int a_unavailable, std::string_view a_hotkey = {})
+		{
+			std::string note;
+			if (!a_hotkey.empty()) {
+				note = std::format("press {}", a_hotkey);
 			}
-			return std::format("Dova Stash: {} setup enabled ({} container{} unavailable for now)", a_name, a_unavailable, a_unavailable == 1 ? "" : "s");
+			if (a_unavailable > 0) {
+				note += std::format("{}{} container{} unavailable for now", note.empty() ? "" : "; ", a_unavailable, a_unavailable == 1 ? "" : "s");
+			}
+			return note.empty() ? std::format("Dova Stash: {} is set up", a_name) : std::format("Dova Stash: {} is set up ({})", a_name, note);
 		}
 	}
 
@@ -345,6 +363,19 @@ namespace dova
 			return;
 		}
 		auto* cell = PlayerCell();
+		if (!home->layout && !home->layoutBroken && !home->backup) {
+			// The cellar or gallery of a home that ships as one template (DESIGN §6.7): set up from its main cell, so
+			// it joins that setup, rather than becoming a home of its own here.
+			if (const auto* whole = home->PartOfTemplate()) {
+				logger::debug("Hotkey in {}: part of the template {} ({})", home->name, whole->layout.name, whole->source);
+				if (Registry().CanSetUpMainCell(*whole)) {
+					UI().OpenPartOfPrompt(*home, whole->layout.name);  // the whole home set up from here
+				} else {
+					Notify(PartOfText(*whole));  // its main cell has a setup of its own: never replaced from here
+				}
+				return;
+			}
+		}
 
 		auto  targetHold = game::RefFromHandle(a_crosshairTarget);  // keeps the ref alive for this call
 		auto* target = targetHold.get();
@@ -371,9 +402,10 @@ namespace dova
 		}
 
 		logger::debug("Hotkey in {} (layout: {}), target {}", home->name, home->layout ? "yes" : "no", target ? game::Describe(target) : "none"s);
-		if (!target && cell) {
+		if (!target && cell && !events::CrosshairOverridden()) {
 			// Nothing in the crosshair: an unnamed mannequin shows no prompt, so the crosshair never names it. The
-			// display the player looks at, within reach, gets its menu instead of the master's.
+			// display the player looks at, within reach, gets its menu instead of the master's. (Not while AutoTest
+			// sets the crosshair: its "at nothing" means nothing, whatever the camera faces.)
 			if (auto* seen = game::DisplayInView(cell, kDisplayReach)) {
 				logger::debug("Hotkey: looking at {}", game::Describe(seen));
 				if (OpenDisplayMenu(*home, seen)) {
@@ -383,8 +415,9 @@ namespace dova
 		}
 		if (target) {
 			const auto ref = game::ToFormRef(target);
-			if (home->layout && ref && home->layout->IsMaster(*ref)) {
-				logger::debug("Hotkey -> master menu");
+			// The home's master, or an area's (cells[].master, DESIGN §6.7): both are inboxes, never a sorted container.
+			if (home->layout && ref && home->layout->IsAnyMaster(*ref)) {
+				logger::debug("Hotkey -> master menu{}", home->layout->IsMaster(*ref) ? "" : " (area master)");
 				UI().OpenMasterMenu(*home, target);
 				return;
 			}
@@ -416,14 +449,8 @@ namespace dova
 		}
 
 		if (home->layout) {
-			RE::TESObjectREFR* master = nullptr;
-			if (home->layout->master) {
-				master = game::LookupRef(*home->layout->master);
-				if (master && !home::CheckHomeContainer(master, *home).ok) {  // in another area of the home: when reachable
-					master = nullptr;
-				}
-			}
-			UI().OpenMasterMenu(*home, master);
+			// The chest that takes the leftovers from here: the home's master when reachable, else this area's master.
+			UI().OpenMasterMenu(*home, home::CatchAllHere(*home));
 			return;
 		}
 		if (home->layoutBroken) {
@@ -531,7 +558,7 @@ namespace dova
 		if ((found->kind == core::DisplayKind::Case || found->kind == core::DisplayKind::Bookshelf) && a_home.layout) {
 			// A container the layout uses for storage is a container, not a case or a bookshelf.
 			const auto* binding = a_home.layout->FindContainer(*display);
-			if (a_home.layout->IsMaster(*display) || (binding && !binding->ignored)) {
+			if (a_home.layout->IsAnyMaster(*display) || (binding && !binding->ignored)) {
 				return false;
 			}
 		}
@@ -566,8 +593,36 @@ namespace dova
 		return true;
 	}
 
-	void Controller::OnCellMaybeChanged()
+	void Controller::OnCellMaybeChanged(std::string_view a_source)
 	{
+		// Bisecting the hang at some cell changes (coc, doors): what Dova Stash does on a cell change, and how long it
+		// took (debug). A line "Cell change (...): start" with no "done" after it names the culprit. One change queues
+		// up to three calls (actor cell, cell loaded, load game): the player entering a cell (actor cell, also a coc
+		// into the same cell) always runs; the others skip a cell already handled attached a moment ago (trace), and
+		// an interior not attached yet is handled again once it has loaded.
+		auto*      startCell = PlayerCell();
+		const auto started = std::chrono::steady_clock::now();
+		const auto cellId = startCell ? startCell->GetFormID() : 0;
+		const auto where = startCell ? game::Describe(startCell) : "no cell"s;
+		if (a_source != "actor cell"sv && cellId != 0 && cellId == _cellHandled && started - _cellHandledAt < std::chrono::seconds(5)) {
+			logger::trace("Cell change ({}): {} already handled", a_source, where);
+			return;
+		}
+		const bool attached = startCell && (!startCell->IsInteriorCell() || startCell->IsAttached());
+		_cellHandled = attached ? cellId : 0;
+		_cellHandledAt = started;
+		logger::debug("Cell change ({}): start in {}", a_source, where);
+		struct Done
+		{
+			std::chrono::steady_clock::time_point started;
+			std::string_view                      source;
+			std::string                           where;
+			~Done()
+			{
+				logger::debug("Cell change ({}): done in {} after {:.1f} ms", source, where,
+					std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count());
+			}
+		} done{ started, a_source, where };
 		UI().OnHomeChanged();
 		if (&Editor() != &UI()) {
 			Editor().OnHomeChanged();
@@ -592,6 +647,10 @@ namespace dova
 		}
 		const auto* best = home->BestTemplate();
 		if (!best) {
+			if (const auto* whole = home->PartOfTemplate(); whole && Registry().MarkNotified(home->cellId)) {
+				logger::debug("{}: part of the template {} ({}); set up from its main cell", home->name, whole->layout.name, whole->source);
+				Notify(PartOfText(*whole));
+			}
 			return;
 		}
 		// The auto-enable guard (DESIGN §9.1) looks at the template's references, so it waits for them: an interior
@@ -618,7 +677,7 @@ namespace dova
 					SaveLayout(*home);
 				}
 				// First visit: the player did nothing yet, so say what to do (the hotkey anywhere opens the master menu).
-				Notify(std::format("Dova Stash: {} is set up (press {})", name, HotkeyName()));
+				Notify(SetupEnabledText(name, CountUnavailable(*home), HotkeyName()));
 			}
 			return;
 		}
@@ -656,7 +715,7 @@ namespace dova
 		if (const auto deferred = std::exchange(_arrivalDeferredCell, 0)) {
 			// The items that arrived while the paused menu was open. The menu can still be in its close
 			// animation here, so wait until it is really gone.
-			RunWhenContainerMenuClosed([this, deferred]() { SortArrivals(deferred); });
+			RunWhenContainerMenuClosed([this, deferred, source = _arrivalDeferredSource]() { SortArrivals(deferred, source); });
 		}
 		if (Settings::GetSingleton().GetSelling().autoSellHours > 0) {
 			RunWhenContainerMenuClosed([]() { sort::selling::CheckTimed("a container closed"); });
@@ -665,23 +724,25 @@ namespace dova
 			return;
 		}
 		auto* home = Registry().Current();
-		if (!home || !home->layout || !home->layout->master) {
+		if (!home || !home->layout) {
 			return;
 		}
-		auto* master = game::LookupRef(*home->layout->master);
-		if (master && master->GetFormID() == closed) {
-			RunOperation(home->cellId, sort::Op::Distribute);
+		// The home's master or an area master (DESIGN §6.7): both are inboxes, distributed when they close.
+		const auto source = game::ToFormRef(RE::TESForm::LookupByID(closed));
+		if (source && home->layout->IsAnyMaster(*source)) {
+			RunOperation(home->cellId, sort::Op::Distribute, {}, source);
 		}
 	}
 
 	bool Controller::OnMasterArrival(RE::FormID a_container)
 	{
 		auto* home = Registry().Current();
-		if (!home || !home->layout || !home->layout->master) {
+		if (!home || !home->layout) {
 			return false;
 		}
-		auto* master = game::LookupRef(*home->layout->master);
-		if (!master || master->GetFormID() != a_container) {
+		// The home's master or an area master (DESIGN §6.7): both are inboxes.
+		const auto source = game::ToFormRef(RE::TESForm::LookupByID(a_container));
+		if (!source || !home->layout->IsAnyMaster(*source)) {
 			return false;
 		}
 		if (!Settings::GetSingleton().GetSorting().sortOnArrival) {
@@ -690,18 +751,18 @@ namespace dova
 		// Debounced: dragging ten items in sorts once, ~0.4 s after the last one.
 		const auto serial = ++_arrivalSerial;
 		const auto cellId = home->cellId;
-		Later(std::chrono::milliseconds(400), [this, serial, cellId]() {
+		Later(std::chrono::milliseconds(400), [this, serial, cellId, source = *source]() {
 			if (serial == _arrivalSerial) {
-				SortArrivals(cellId);
+				SortArrivals(cellId, source);
 			}
 		});
 		return true;
 	}
 
-	void Controller::SortArrivals(RE::FormID a_cellId)
+	void Controller::SortArrivals(RE::FormID a_cellId, const core::FormRef& a_source)
 	{
 		auto* home = Registry().CurrentIf(a_cellId);
-		if (!home || !home->layout || !home->layout->master) {
+		if (!home || !home->layout || !home->layout->IsAnyMaster(a_source)) {
 			return;
 		}
 		// DESIGN §8.2: never move items out of a container while its menu shows them, unless the menu does
@@ -713,18 +774,19 @@ namespace dova
 				logger::debug("Sort on arrival: container menu open and the game is paused, sorting when it closes");
 			}
 			_arrivalDeferredCell = a_cellId;
+			_arrivalDeferredSource = a_source;
 			return;
 		}
 		_arrivalDeferredCell = 0;
 		// Unpaused menu (Skyrim Souls): every move is still validated against the live inventory by the
 		// ItemMover, and the open menus are told to rebuild their lists afterwards.
 		logger::info("Sort on arrival in {}", home->name);
-		const auto result = sort::Run(*home, sort::Op::Distribute);
+		const auto result = sort::Run(*home, sort::Op::Distribute, {}, a_source);
 		Registry().Flush();
 		if (result.items <= 0) {
 			return;
 		}
-		if (auto* master = game::LookupRef(*home->layout->master)) {
+		if (auto* master = game::LookupRef(a_source)) {
 			RE::SendUIMessage::SendInventoryUpdateMessage(master, nullptr);
 		}
 		if (auto* player = game::Player()) {
@@ -898,7 +960,7 @@ namespace dova
 			return;
 		}
 		const auto containerRef = game::ToFormRef(ref);
-		if (!containerRef || home->layout->IsMaster(*containerRef)) {
+		if (!containerRef || home->layout->IsAnyMaster(*containerRef)) {
 			return;
 		}
 		// Scripted containers (bookshelves, display cases...) may reject or hand back items: never add
@@ -979,6 +1041,7 @@ namespace dova
 		++_arrivalSerial;
 		++_learnSerial;
 		++_suggestionSerial;
+		_cellHandled = 0;  // the next save's first cell is handled even when it is the same one
 		_arrivalDeferredCell = 0;
 		_learnBatch.clear();
 		_openContainer = 0;
@@ -1016,15 +1079,15 @@ namespace dova
 		}).detach();
 	}
 
-	void Controller::RunOperation(RE::FormID a_cellId, sort::Op a_op, std::string a_pattern)
+	void Controller::RunOperation(RE::FormID a_cellId, sort::Op a_op, std::string a_pattern, std::optional<core::FormRef> a_source)
 	{
-		RunWhenContainerMenuClosed([this, a_cellId, a_op, pattern = std::move(a_pattern)]() {
+		RunWhenContainerMenuClosed([this, a_cellId, a_op, pattern = std::move(a_pattern), source = std::move(a_source)]() {
 			auto* home = Registry().CurrentIf(a_cellId);
 			if (!home) {
 				Notify("Dova Stash: you are no longer in that home", true);
 				return;
 			}
-			const auto result = sort::Run(*home, a_op, pattern);
+			const auto result = sort::Run(*home, a_op, pattern, source);
 			Registry().Flush();
 			integrations::quickloot::Refresh();
 			if (!result.message.empty()) {
@@ -1054,8 +1117,8 @@ namespace dova
 
 	core::ContainerBinding* Controller::EnsureBinding(home::Home& a_home, const core::FormRef& a_container)
 	{
-		if (!a_home.layout || a_home.layout->IsMaster(a_container)) {
-			return nullptr;
+		if (!a_home.layout || a_home.layout->IsAnyMaster(a_container)) {
+			return nullptr;  // a master (the home's or an area's) takes everything: no binding, never ignored or a sell chest
 		}
 		if (auto* binding = a_home.layout->FindContainer(a_container)) {
 			return binding;
@@ -1091,6 +1154,39 @@ namespace dova
 		Notify(std::format("Dova Stash: {} is now the master container", game::RefName(ref)));
 	}
 
+	void Controller::MakeAreaMaster(RE::FormID a_cellId, const core::FormRef& a_container, const core::FormRef& a_area)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home) {
+			return;
+		}
+		if (!home->layout || a_area == home->cell) {
+			MakeMaster(a_cellId, a_container);  // the main cell: the home's master
+			return;
+		}
+		if (home->layoutBroken) {
+			Notify("Dova Stash: this home's setup file is broken (see DovaStash.log)", true);
+			return;
+		}
+		auto&      layout = *home->layout;
+		const auto entry = std::ranges::find(layout.cells, a_area, &core::HomeCell::cell);
+		if (entry == layout.cells.end() || layout.IsMaster(a_container)) {
+			return;  // not an area of this home (a stale menu), or already the home's master
+		}
+		auto* ref = UsableContainer(*home, a_container);
+		if (!ref) {
+			return;
+		}
+		std::erase_if(layout.containers, [&](const core::ContainerBinding& c) { return c.ref == a_container; });
+		std::erase_if(layout.learned, [&](const auto& a_pair) { return a_pair.second == a_container; });
+		layout.declined.erase(a_container);
+		entry->master = a_container;
+		SaveLayout(*home);
+		const auto areaName = home::ListedCellName(*home, a_area);
+		logger::info("Master of {} in {} is now {}", areaName, home->name, game::Describe(ref));
+		Notify(std::format("Dova Stash: {} is now the master of {}", game::RefName(ref), areaName));
+	}
+
 	void Controller::UseTemplate(RE::FormID a_cellId)
 	{
 		auto* home = Registry().CurrentIf(a_cellId);
@@ -1117,6 +1213,34 @@ namespace dova
 
 		// Report bindings that fail the safety checks right now (disabled Hearthfire furniture, etc.).
 		Notify(SetupEnabledText(name, CountUnavailable(*home)));
+	}
+
+	void Controller::UsePartOfTemplate(RE::FormID a_cellId)
+	{
+		auto* home = Registry().CurrentIf(a_cellId);
+		if (!home) {
+			Notify("Dova Stash: you are no longer in that home", true);
+			return;
+		}
+		const auto* whole = home->PartOfTemplate();
+		if (!whole) {
+			Notify("Dova Stash: no template for this home", true);  // a stale entry (set up meanwhile, templates rescanned)
+			return;
+		}
+		const auto name = whole->layout.name;
+		if (!Registry().ApplyTemplateToMainCell(*whole)) {
+			Notify("Dova Stash: could not apply the template (see DovaStash.log)", true);
+			return;
+		}
+		auto* now = Registry().Current();  // this cell, loaded again as an area of that home
+		if (now && now->layout && RecordDisplayItems(*now->layout)) {
+			SaveLayout(*now);
+		}
+		UI().OnHomeChanged();
+		if (&Editor() != &UI()) {
+			Editor().OnHomeChanged();
+		}
+		Notify(SetupEnabledText(name, now && now->layout ? CountUnavailable(*now) : 0));
 	}
 
 	void Controller::ResetHome(RE::FormID a_cellId)
@@ -1275,7 +1399,7 @@ namespace dova
 			}
 			return;
 		}
-		if (home->layout && home->layout->IsMaster(a_container)) {
+		if (home->layout && home->layout->IsAnyMaster(a_container)) {
 			Notify("Dova Stash: the master can't be the sell chest", true);
 			return;
 		}
@@ -1522,7 +1646,7 @@ namespace dova
 				continue;  // listed: used already, or turned off by the player
 			}
 			const auto* container = layout.FindContainer(display);
-			if (layout.IsMaster(display) || (container && !container->ignored)) {
+			if (layout.IsAnyMaster(display) || (container && !container->ignored)) {
 				continue;  // storage, not a display
 			}
 			core::DisplayBinding binding;
@@ -1734,9 +1858,9 @@ namespace dova
 		}
 		integrations::quickloot::Refresh();
 
-		if (home->layout->IsMaster(a_container)) {
+		if (home->layout->IsAnyMaster(a_container)) {
 			Notify(std::format("Dova Stash: master container is now \"{}\"", label));
-			return;  // the master has no layout label
+			return;  // a master (the home's or an area's) has no layout label
 		}
 		auto* binding = home->layout->FindContainer(a_container);
 		if (!binding) {

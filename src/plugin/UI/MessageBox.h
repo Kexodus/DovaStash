@@ -20,7 +20,9 @@ namespace dova::ui
 	};
 	inline constexpr std::size_t kOptionsPerPage = 5;  // + More... / Back / Cancel = at most 8 buttons
 	// Every message-box menu pages the same way: options[page * 5 ...], then More..., Back (the previous page; on
-	// the first page `a_onBack`, if any) and Cancel. "(page 2/4)" is added to the body when there is more than one.
+	// the first page `a_onBack`, if any) and Cancel; the last page holds up to 6 options (6 + Back + Cancel = 8
+	// buttons), so a lone 6th option never gets a page of its own. "(page 2/4)" is added to the body when there is
+	// more than one.
 	void ShowOptions(std::string a_body, std::vector<MenuOption> a_options, std::function<void()> a_onBack = {}, std::size_t a_page = 0);
 
 	// HUD notification (top-left), one line.

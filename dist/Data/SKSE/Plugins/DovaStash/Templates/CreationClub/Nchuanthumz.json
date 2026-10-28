@@ -3,7 +3,7 @@
   "name": "Nchuanthumz",
   "note": "Each container takes the item categories listed (see Categories/00_Default.json); ignored ones are never used. Anything without a container of its own goes to the master, the chest.",
   "author": "Dova Stash",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "priority": 0,
   "requires": ["Skyrim.esm", "Update.esm", "ccAFDSSE001-DweSanctuary.esm"],
   "cell": "ccAFDSSE001-DweSanctuary.esm|0x00000A5E",
@@ -70,7 +70,12 @@
       "ignored": true,
       "note": "Scripted bookshelf: it only holds books and hands everything else back."
     },
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0000111E", "label": "Large sack (by the alchemy satchel)",    "ignored": true, "note": "Goes away with a house upgrade: anything inside would be lost."},
+    {
+      "ref": "ccAFDSSE001-DweSanctuary.esm|0x0000111E",
+      "label": "Large sack (by the alchemy satchel)",
+      "ignored": true,
+      "note": "Goes away later (an upgrade or a quest): anything inside would be lost."
+    },
     {
       "ref": "ccAFDSSE001-DweSanctuary.esm|0x000011A7",
       "label": "Bookshelf (by the kitchen cupboard, 2)",
@@ -83,7 +88,12 @@
       "ignored": true,
       "note": "Scripted bookshelf: it only holds books and hands everything else back."
     },
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0000132A", "label": "Sack (by the garden wing cupboard)",     "ignored": true, "note": "Goes away with a house upgrade: anything inside would be lost."},
+    {
+      "ref": "ccAFDSSE001-DweSanctuary.esm|0x0000132A",
+      "label": "Sack (by the garden wing cupboard)",
+      "ignored": true,
+      "note": "Goes away later (an upgrade or a quest): anything inside would be lost."
+    },
     {
       "ref": "ccAFDSSE001-DweSanctuary.esm|0x0000146E",
       "label": "Bookshelf (by the kitchen cupboard, 3)",
@@ -96,7 +106,12 @@
       "ignored": true,
       "note": "Scripted bookshelf: it only holds books and hands everything else back."
     },
-    {"ref": "ccAFDSSE001-DweSanctuary.esm|0x0004862A", "label": "Large sack (by the alchemy satchel, 2)", "ignored": true, "note": "Goes away with a house upgrade: anything inside would be lost."}
+    {
+      "ref": "ccAFDSSE001-DweSanctuary.esm|0x0004862A",
+      "label": "Large sack (by the alchemy satchel, 2)",
+      "ignored": true,
+      "note": "Goes away later (an upgrade or a quest): anything inside would be lost."
+    }
   ],
   "displays": [
     {"ref": "ccAFDSSE001-DweSanctuary.esm|0x00000A67", "label": "Bookshelf (by the garden wing chest)"},

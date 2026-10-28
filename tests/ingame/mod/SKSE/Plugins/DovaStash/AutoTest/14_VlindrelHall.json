@@ -156,6 +156,31 @@
       ]
     },
     {
+      "id": "3.7-useall",
+      "title": "Displays page > Use all racks... (Controller::UseDisplays): a setup without displays, one rack used then stopped (ignored); Use all racks lists the others as used, the ignored one stays off, the HUD says how many; nothing moves",
+      "steps": [
+        {"do": "buyHome"},
+        {"do": "reset"},
+        {"do": "makeMaster", "ref": "Skyrim.esm|0x00077CAB"},
+        {"check": "layout", "pointer": "/displays", "absent": true, "why": "a setup made with Make master lists no displays"},
+        {"do": "enable", "ref": "Skyrim.esm|0x000E2DA6"},
+        {"do": "enable", "ref": "Skyrim.esm|0x000E2DAF"},
+        {"do": "require", "enabled": "Skyrim.esm|0x000E2DAF", "why": "the mid weapon racks start disabled"},
+        {"do": "displayUse", "ref": "Skyrim.esm|0x000E2DA6"},
+        {"do": "displayUse", "ref": "Skyrim.esm|0x000E2DA6", "on": false},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x000E2DA6", "ignored": true}},
+        {"do": "snapshot", "name": "useall"},
+        {"do": "displayUseAll", "kind": "rack"},
+        {"check": "notify", "regex": "Dova Stash: \\d+ displays? used now"},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x000E2DAF"}},
+        {"check": "layout", "pointer": "/displays", "lacks": {"ref": "Skyrim.esm|0x000E2DAF", "ignored": true}},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x000E2DA6", "ignored": true}},
+        {"check": "conserved", "snapshot": "useall"},
+        {"do": "reset"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
       "id": "3.7-mannequin",
       "title": "A mannequin in use takes armor on Deposit (the template lists it: dressed from storage by the first Deposit)",
       "steps": [
@@ -656,7 +681,7 @@
     },
     {
       "id": "3.7-armorset",
-      "title": "Mannequin armor set (Iron, named by its cuirass): stored on the mannequin's entry, Auto removes it; no item moves; the Displays page marks the mannequin you look at",
+      "title": "Mannequin armor set (Iron, named by its cuirass): stored on the mannequin's entry, Auto removes it; no item moves; the Displays page marks the mannequin you look at; a set chosen after Stop using is refused and the mannequin stays off",
       "steps": [
         {
           "do": "require",
@@ -709,12 +734,212 @@
           "within": 3
         },
         {
+          "do": "displayUse",
+          "ref": "Skyrim.esm|0x00102D4C",
+          "on": false
+        },
+        {
+          "do": "chooseArmorSet",
+          "ref": "Skyrim.esm|0x00102D4C",
+          "set": "Skyrim.esm|0x00012E49"
+        },
+        {
+          "check": "notify",
+          "contains": "isn't used",
+          "within": 3
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "contains": {
+            "ref": "Skyrim.esm|0x00102D4C",
+            "ignored": true
+          }
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "lacks": {
+            "ref": "Skyrim.esm|0x00102D4C",
+            "set": "Skyrim.esm|0x00012E49"
+          }
+        },
+        {
+          "do": "displayUse",
+          "ref": "Skyrim.esm|0x00102D4C",
+          "on": true
+        },
+        {
           "check": "conserved",
           "snapshot": "armorset"
         },
         {
           "check": "noErrors"
         }
+      ]
+    },
+    {
+      "id": "6.2-mb-armorset",
+      "title": "Hotkey at the mannequin (message boxes): Armor set... (Auto) opens the set box with [x] Auto; choosing Iron says it wears it and stores the set, the display menu then shows it; [ ] Auto says it picks its own set",
+      "steps": [
+        {
+          "do": "require",
+          "enabled": "Skyrim.esm|0x00102D4C",
+          "why": "the Vlindrel mannequin starts disabled (3.7-mannequin enables it)"
+        },
+        {
+          "do": "settings",
+          "set": {
+            "iMode": 1
+          }
+        },
+        {
+          "do": "displayUse",
+          "ref": "Skyrim.esm|0x00102D4C",
+          "on": true
+        },
+        {
+          "do": "chooseArmorSet",
+          "ref": "Skyrim.esm|0x00102D4C",
+          "set": null
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00012E49",
+          "count": 1
+        },
+        {
+          "do": "hotkey",
+          "target": "Skyrim.esm|0x00102D4C"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Armor set... (Auto)"
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Armor set... ("
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "[x] Auto",
+            "[ ] Iron"
+          ],
+          "body": ": Armor set",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "[ ] Iron"
+        },
+        {
+          "check": "notify",
+          "contains": " wears ",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "contains": {
+            "ref": "Skyrim.esm|0x00102D4C",
+            "set": "Skyrim.esm|0x00012E49"
+          },
+          "within": 5
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Armor set... (Iron"
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Armor set... ("
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "[ ] Auto",
+            "[x] Iron"
+          ],
+          "body": ": Armor set",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "[ ] Auto"
+        },
+        {
+          "check": "notify",
+          "contains": "picks its own set",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/displays",
+          "lacks": {
+            "ref": "Skyrim.esm|0x00102D4C",
+            "set": "Skyrim.esm|0x00012E49"
+          },
+          "within": 5
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Armor set... (Auto)"
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "index": -1
+        },
+        {
+          "do": "removeitem",
+          "item": "Skyrim.esm|0x00012E49",
+          "count": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "6.2-lists-armorset", "title": "Hotkey at the mannequin (UIExtensions lists): Armor set... (Auto) opens the set list with [x] Auto; choosing Iron says it wears it and the display list comes back; < Back returns to it; [ ] Auto says it picks its own set",
+      "steps": [
+        {"do": "require", "enabled": "Skyrim.esm|0x00102D4C", "why": "the Vlindrel mannequin starts disabled (3.7-mannequin enables it)"},
+        {"do": "require", "plugin": "UIExtensions.esp", "why": "list mode"},
+        {"do": "settings", "set": {"iMode": 0}},
+        {"do": "displayUse", "ref": "Skyrim.esm|0x00102D4C", "on": true},
+        {"do": "chooseArmorSet", "ref": "Skyrim.esm|0x00102D4C", "set": null},
+        {"do": "additem", "item": "Skyrim.esm|0x00012E49", "count": 1},
+        {"do": "hotkey", "target": "Skyrim.esm|0x00102D4C"},
+        {"check": "menuEntries", "contains": ["Armor set... (Auto)"], "within": 5},
+        {"do": "choose", "entry": "Armor set... ("},
+        {"check": "menuEntries", "contains": ["< Back", "[x] Auto", "[ ] Iron"], "includes": [": Armor set"], "within": 5},
+        {"do": "choose", "entry": "[ ] Iron"},
+        {"check": "notify", "contains": " wears ", "within": 5},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x00102D4C", "set": "Skyrim.esm|0x00012E49"}, "within": 5},
+        {"check": "menuEntries", "contains": ["Armor set... (Iron"], "within": 5},
+        {"do": "choose", "entry": "Armor set... ("},
+        {"check": "menuEntries", "contains": ["< Back", "[ ] Auto", "[x] Iron"], "within": 5},
+        {"do": "choose", "entry": "< Back"},
+        {"check": "menuEntries", "contains": ["Armor set... (Iron"], "within": 5},
+        {"do": "choose", "entry": "Armor set... ("},
+        {"check": "menuEntries", "contains": ["[ ] Auto"], "within": 5},
+        {"do": "choose", "entry": "[ ] Auto"},
+        {"check": "notify", "contains": "picks its own set", "within": 5},
+        {"check": "layout", "pointer": "/displays", "lacks": {"ref": "Skyrim.esm|0x00102D4C", "set": "Skyrim.esm|0x00012E49"}, "within": 5},
+        {"check": "menuEntries", "contains": ["Armor set... (Auto)"], "within": 5},
+        {"do": "choose", "index": -1},
+        {"do": "settings", "set": {"iMode": 1}},
+        {"do": "removeitem", "item": "Skyrim.esm|0x00012E49", "count": 1},
+        {"check": "noErrors"}
       ]
     },
     {

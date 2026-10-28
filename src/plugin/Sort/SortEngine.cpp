@@ -1,5 +1,7 @@
 #include "Sort/SortEngine.h"
 
+#include <unordered_map>
+
 #include "Game/ArmorIndex.h"
 #include "Game/Eligibility.h"
 #include "Game/FormUtil.h"
@@ -25,8 +27,14 @@ namespace dova::sort
 			explicit Availability(const home::Home& a_home, bool a_quiet = false) :
 				_home(&a_home),
 				_quiet(a_quiet),
-				_cache(std::make_shared<std::map<core::FormRef, bool>>())
+				_cache(std::make_shared<std::map<core::FormRef, bool>>()),
+				_unvisited(std::make_shared<std::set<core::FormRef>>())
 			{}
+
+			// Refused only because its area has not been visited this session (a persistent reference whose cell
+			// was never loaded): it takes items again once the player has been there. Asked after operator().
+			[[nodiscard]] bool Unvisited(const core::FormRef& a_ref) const { return _unvisited->contains(a_ref); }
+			[[nodiscard]] bool AnyUnvisited() const { return !_unvisited->empty(); }
 
 			bool operator()(const core::FormRef& a_ref) const
 			{
@@ -38,6 +46,9 @@ namespace dova::sort
 				const auto verdict = ref ? home::CheckHomeContainer(ref, *_home, &reach) :
 				                           game::Verdict::Reject(_home->MultiCell() ? "not in memory (in an area of the home that is not loaded and not persistent, or its plugin is missing)" :
 				                                                                      "reference not found (plugin missing?)");
+				if (!verdict.ok && ref && !ref->GetParentCell() && reach == core::Reach::Unreachable) {
+					_unvisited->insert(a_ref);
+				}
 				if (!verdict.ok) {
 					// Out of reach from this area of a multi-cell home is expected, not a problem, and so is furniture
 					// not built yet (Hearthfire): debug. Use template reports those once (Controller CountUnavailable).
@@ -57,7 +68,47 @@ namespace dova::sort
 			const home::Home*                             _home;
 			bool                                          _quiet{ false };
 			std::shared_ptr<std::map<core::FormRef, bool>> _cache;
+			std::shared_ptr<std::set<core::FormRef>>       _unvisited;
 		};
+
+		// Name of the area an unvisited container stands in (its editor location: an interior area by cell, an
+		// exterior one by worldspace and grid, once known), else "".
+		std::string AreaOfUnvisited(const home::Home& a_home, const core::FormRef& a_container)
+		{
+			auto* ref = game::LookupRef(a_container);
+			if (!ref) {
+				return {};
+			}
+			RE::NiPoint3 pos;
+			RE::NiPoint3 rot;
+			RE::TESForm* where = nullptr;
+			if (!ref->GetEditorLocation(pos, rot, where, nullptr) || !where) {
+				return {};
+			}
+			if (const auto* cell = where->As<RE::TESObjectCELL>()) {
+				const auto* area = a_home.AreaById(cell->GetFormID());
+				return area ? area->name : std::string{};
+			}
+			const auto grid = core::GridOf(pos.x, pos.y);
+			for (const auto& area : a_home.areas) {
+				if (area.grid && *area.grid == grid && area.worldspace == where->GetFormID()) {
+					return area.name;
+				}
+			}
+			return {};
+		}
+
+		// Why Deposit leaves stranded items with the player (DESIGN §6.7): "visit <area> first" when a container they
+		// belong in waits for its area to be visited, else the master is away, else nothing here takes them.
+		std::string StrandedReason(const home::Home& a_home, const core::Layout& a_layout, const Availability& a_available,
+			const std::optional<core::FormRef>& a_waitsFor)
+		{
+			if (a_waitsFor) {
+				const auto area = AreaOfUnvisited(a_home, *a_waitsFor);
+				return area.empty() ? "visit its area first"s : std::format("visit {} first", area);
+			}
+			return a_layout.master && !a_available(*a_layout.master) ? "master not here"s : "no container here takes them"s;
+		}
 
 		std::vector<core::ContainerContents> SnapshotManaged(const core::Layout& a_layout, const Availability& a_available, game::StackTable& a_stacks)
 		{
@@ -88,12 +139,46 @@ namespace dova::sort
 			return out;
 		}
 
-		// Every stack in the snapshots, as display stock (all of it may go on display).
+		// What a container's base record stocks it with (the home mod's own items: a pre-filled chest, a
+		// vanilla alchemy sack's salt). Keyed by base form ID.
+		std::unordered_map<RE::FormID, std::int32_t> BaseStock(const core::FormRef& a_container)
+		{
+			std::unordered_map<RE::FormID, std::int32_t> out;
+			auto*                                        ref = game::LookupRef(a_container);
+			auto*                                        container = ref ? ref->GetContainer() : nullptr;
+			if (!container) {
+				return out;
+			}
+			container->ForEachContainerObject([&](RE::ContainerObject& a_entry) {
+				if (a_entry.obj && a_entry.count > 0) {
+					out[a_entry.obj->GetFormID()] += a_entry.count;
+				}
+				return RE::BSContainer::ForEachResult::kContinue;
+			});
+			return out;
+		}
+
+		// Every stack in the snapshots, as display stock, less what the container's base record stocks it with:
+		// the home mod's own items were never the player's, so they never go on display (DESIGN §8.4; a home
+		// mod's test chest holding every plaque's item put them all up on a fresh game).
 		void AddStock(std::vector<core::DisplayStock>& a_stocks, const std::vector<core::ContainerContents>& a_contents)
 		{
 			for (const auto& c : a_contents) {
+				auto base = BaseStock(c.ref);
 				for (const auto& item : c.items) {
-					a_stocks.push_back(core::DisplayStock{ core::ContainerRef(c.ref), item, item.count });
+					auto count = item.count;
+					if (!base.empty()) {
+						if (auto* form = game::LookupForm(item.form)) {
+							if (auto it = base.find(form->GetFormID()); it != base.end() && it->second > 0) {
+								const auto taken = std::min(it->second, count);
+								it->second -= taken;
+								count -= taken;
+							}
+						}
+					}
+					if (count > 0) {
+						a_stocks.push_back(core::DisplayStock{ core::ContainerRef(c.ref), item, count });
+					}
 				}
 			}
 		}
@@ -219,7 +304,7 @@ namespace dova::sort
 		}
 	}
 
-	Result Run(home::Home& a_home, Op a_op, std::string_view a_pattern)
+	Result Run(home::Home& a_home, Op a_op, std::string_view a_pattern, const std::optional<core::FormRef>& a_source)
 	{
 		Result result;
 		if (!a_home.layout) {
@@ -238,8 +323,12 @@ namespace dova::sort
 		const auto& categories = home::Store::Get().Categories();
 		Availability available(a_home);
 		core::SortPlanner planner(layout, categories, available);
+		if (a_home.extra) {
+			planner.SetPlayerArea(a_home.here);  // this area's master takes the leftovers while the home's is away
+		}
 		game::StackTable  stacks;
 		std::vector<core::Move> moves;
+		std::optional<core::FormRef> waitsFor;  // Deposit: a container stranded items belong in, its area not visited yet
 		std::vector<core::Move> restock;  // Deposit: what Restock after Deposit takes (bRestockAfterDeposit)
 		display::Prepared displays;
 		const auto        sorting = Settings::GetSingleton().GetSorting();
@@ -277,6 +366,23 @@ namespace dova::sort
 						stranded += inventory[i].count;
 					}
 				}
+				if (stranded > 0 && available.AnyUnvisited()) {
+					// Planned again as if the unvisited containers were here: where the stranded items would go. Only
+					// the reason the HUD gives comes from it; nothing is moved by this plan.
+					core::SortPlanner wide(layout, categories, [available](const core::FormRef& a_ref) { return available(a_ref) || available.Unvisited(a_ref); });
+					if (a_home.extra) {
+						wide.SetPlayerArea(a_home.here);
+					}
+					std::vector<core::StackDecision> whyWide;
+					(void)wide.Deposit(inventory, keep, &whyWide);
+					for (std::size_t i = 0; i < why.size() && i < whyWide.size(); ++i) {
+						if (why[i].outcome == core::StackDecision::Outcome::NoDestination && whyWide[i].outcome == core::StackDecision::Outcome::Move &&
+							whyWide[i].destination && available.Unvisited(whyWide[i].destination->container)) {
+							waitsFor = whyWide[i].destination->container;
+							break;
+						}
+					}
+				}
 				std::vector<core::ContainerContents> stored;
 				if (fill || restocks) {
 					stored = SnapshotManaged(layout, available, stacks);
@@ -294,16 +400,18 @@ namespace dova::sort
 			break;
 		case Op::Distribute:
 			{
-				if (!layout.master || !available(*layout.master)) {
+				// The home's master, or an area master (an inbox too, DESIGN §6.7): its leftovers stay in it.
+				const auto source = a_source ? a_source : layout.master;
+				if (!source || !layout.IsAnyMaster(*source) || !available(*source)) {
 					result.message = "Dova Stash: the master container is unavailable";
 					result.failed = true;
 					return result;
 				}
-				auto* master = game::LookupRef(*layout.master);
+				auto* master = game::LookupRef(*source);
 				const auto                       contents = game::SnapshotInventory(master, stacks);
 				std::vector<core::StackDecision> why;
 				const bool                       explain = spdlog::should_log(spdlog::level::info);
-				moves = planner.Distribute(contents, explain ? &why : nullptr);
+				moves = planner.Distribute(contents, *source, explain ? &why : nullptr);
 				if (explain) {
 					LogDecisions(a_op, contents, why);
 				}
@@ -348,8 +456,7 @@ namespace dova::sort
 			case Op::Deposit:
 				if (stranded > 0) {
 					// Everything waits for an area that is not loaded (DESIGN §6.7): say so, not "nothing to deposit".
-					const bool away = layout.master && !available(*layout.master);
-					result.message = std::format("Dova Stash: nothing deposited ({} left: {})", Plural(stranded, "item"), away ? "master not here" : "no container here takes them");
+					result.message = std::format("Dova Stash: nothing deposited ({} left: {})", Plural(stranded, "item"), StrandedReason(a_home, layout, available, waitsFor));
 				} else {
 					result.message = "Dova Stash: nothing to deposit";
 				}
@@ -399,8 +506,7 @@ namespace dova::sort
 			}
 			if (stranded > 0) {
 				// The master and their containers are in an area that is not loaded (DESIGN §6.7): they wait for it.
-				const bool away = layout.master && !available(*layout.master);
-				result.message += std::format(" ({} left: {})", Plural(stranded, "item"), away ? "master not here" : "no container here takes them");
+				result.message += std::format(" ({} left: {})", Plural(stranded, "item"), StrandedReason(a_home, layout, available, waitsFor));
 			}
 			break;
 		case Op::Distribute:
@@ -462,6 +568,9 @@ namespace dova::sort
 		const auto&       layout = *a_home.layout;
 		Availability      available(a_home);
 		core::SortPlanner planner(layout, home::Store::Get().Categories(), available);
+		if (a_home.extra) {
+			planner.SetPlayerArea(a_home.here);
+		}
 		game::StackTable  stacks;
 		const auto        inventory = game::SnapshotInventory(player, stacks);
 		std::vector<core::StackDecision> why;

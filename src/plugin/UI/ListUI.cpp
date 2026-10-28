@@ -64,13 +64,40 @@ namespace dova::ui
 			return entries;
 		}
 
+		bool Show(std::shared_ptr<const List> a_list, std::int32_t a_select = -1);
+
+		// The items of `a_all` from `a_start` on, as one page of at most uiext::kMaxListEntries entries: when the rest
+		// does not fit, the page ends with "More..." (the next page, whose "< Back" comes back to this one).
+		std::shared_ptr<const List> PageOf(const std::shared_ptr<const List>& a_all, std::size_t a_start, std::function<void()> a_onBack)
+		{
+			auto       page = std::make_shared<List>(List{ a_all->title, {}, std::move(a_onBack) });
+			const auto room = uiext::kMaxListEntries - FirstItem(*page);
+			const auto begin = a_all->items.begin() + static_cast<std::ptrdiff_t>(std::min(a_start, a_all->items.size()));
+			if (static_cast<std::size_t>(a_all->items.end() - begin) <= room) {
+				page->items.assign(begin, a_all->items.end());
+				return page;
+			}
+			const auto shown = room - 1;
+			page->items.assign(begin, begin + static_cast<std::ptrdiff_t>(shown));
+			page->items.push_back({ "More...", [a_all, a_start, shown, back = page->onBack]() {
+									   const auto again = [a_all, a_start, back]() { Show(PageOf(a_all, a_start, back)); };
+									   Show(PageOf(a_all, a_start + shown, again));
+								   } });
+			return page;
+		}
+
 		// Shows `a_list` (see Entries), with the Dova Stash logo above it and entry `a_select` selected
 		// (-1: the menu's default). "< Back" and cancelling run `onBack`. Toggles and the header keep
 		// the menu open and update it in place; when the menu cannot do that (its SWF lacks what
 		// uiext needs) choosing them closes it like any entry, and the list reopens on the same entry.
+		// A list longer than UIListMenu takes is paged (PageOf; lists with toggles stay short).
 		// Returns false if the list could not open.
-		bool Show(std::shared_ptr<const List> a_list, std::int32_t a_select = -1)
+		bool Show(std::shared_ptr<const List> a_list, std::int32_t a_select)
 		{
+			if (!a_list->rebuild && FirstItem(*a_list) + a_list->items.size() > uiext::kMaxListEntries) {
+				logger::debug("List: \"{}\" has {} items; shown in pages", a_list->title, a_list->items.size());
+				return Show(PageOf(a_list, 0, a_list->onBack), a_select);
+			}
 			// The list on screen: a toggle replaces it with the rebuilt one, while the menu stays open.
 			auto               current = std::make_shared<std::shared_ptr<const List>>(a_list);
 			uiext::ListOptions options;
@@ -209,7 +236,7 @@ namespace dova::ui
 		auto* ref = a_container ? game::LookupRef(*a_container) : nullptr;
 		if (!home->layout) {
 			_editor->OpenSetupPrompt(*home, ref);
-		} else if (ref && !home->layout->IsMaster(*a_container)) {
+		} else if (ref && !home->layout->IsAnyMaster(*a_container)) {
 			_editor->OpenContainerMenu(*home, ref);
 		} else {
 			_editor->OpenMasterMenu(*home, ref);
@@ -231,11 +258,7 @@ namespace dova::ui
 		if (!home) {
 			return;
 		}
-		RE::TESObjectREFR* master = nullptr;
-		if (home->layout && home->layout->master) {
-			master = game::LookupRef(*home->layout->master);
-		}
-		OpenMasterMenu(*home, master);
+		OpenMasterMenu(*home, home::CatchAllHere(*home));  // as the hotkey opens it (Controller::OnHotkey)
 	}
 
 	void ListUI::OpenSetupPrompt(home::Home& a_home, RE::TESObjectREFR* a_container)
@@ -288,6 +311,18 @@ namespace dova::ui
 		}
 	}
 
+	void ListUI::OpenPartOfPrompt(home::Home& a_home, std::string_view a_template)
+	{
+		if (ListOpening()) {
+			return;
+		}
+		std::vector<Item> items;
+		items.push_back({ std::format(kUsePartOfTemplate, a_template), [cellId = a_home.cellId]() { Controller::Get().UsePartOfTemplate(cellId); } });
+		if (!ShowList(a_home.name, std::move(items))) {
+			IStashUI::OpenPartOfPrompt(a_home, a_template);
+		}
+	}
+
 	void ListUI::OpenMasterMenu(home::Home& a_home, RE::TESObjectREFR* a_master)
 	{
 		if (ListOpening()) {
@@ -302,7 +337,8 @@ namespace dova::ui
 			items.push_back({ "Restock", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::Restock); } });
 		}
 		items.push_back({ "Sort all", [cellId]() { Controller::Get().RunOperation(cellId, sort::Op::SortAll); } });
-		items.push_back({ "Advanced...", [this, cellId]() { OpenAdvanced(cellId); } });  // Retrieve, Browse, the template, save, reset, the panel
+		items.push_back({ "Retrieve...", [this, cellId]() { OpenRetrieve(cellId); } });
+		items.push_back({ "Advanced...", [this, cellId]() { OpenAdvanced(cellId); } });  // Browse, the template, save, reset, the panel
 		if (a_home.layout && a_home.layout->HasSellChest()) {
 			for (auto& entry : SellEntries(a_home, std::nullopt, [this, cellId]() { ReopenMaster(cellId); })) {
 				items.push_back({ std::move(entry.first), std::move(entry.second) });
@@ -321,7 +357,7 @@ namespace dova::ui
 									 ListUnavailable(*this);
 								 }
 							 } });
-			items.push_back({ std::format(kRemoveArea, a_home.name), [this, cellId, cell = area->cell, question = std::format(kConfirmRemoveArea, area->name, a_home.name)]() {
+			items.push_back({ std::format(kRemoveArea, a_home.DisplayName()), [this, cellId, cell = area->cell, question = std::format(kConfirmRemoveArea, area->name, a_home.DisplayName())]() {
 								 Confirm(question, [cellId, cell]() { Controller::Get().RemoveArea(cellId, cell); }, [this, cellId]() { ReopenMaster(cellId); });
 							 } });
 		}
@@ -394,6 +430,11 @@ namespace dova::ui
 								 Controller::Get().ReopenDisplayMenu(cellId, ref);
 							 } });
 		}
+		if (a_menu.notShown > 0) {
+			// Past UIListMenu's 128 entries: say where the rest are. Choosing it shows the picker again.
+			items.push_back({ _editorIsPanel ? "More sets: Dova Stash > Displays"s : std::format("({} more sets)", a_menu.notShown),
+				[cellId = a_menu.cellId, ref = a_menu.ref]() { OpenArmorSets(cellId, ref); } });
+		}
 		if (!ShowList(std::format("{}: Armor set", a_menu.name), std::move(items),
 				[cellId = a_menu.cellId, ref = a_menu.ref]() { Controller::Get().ReopenDisplayMenu(cellId, ref); })) {
 			IStashUI::OpenArmorSetMenu(a_menu);
@@ -431,11 +472,11 @@ namespace dova::ui
 			for (const auto& root : RootCategories()) {
 				const auto  children = ChildCategories(root);
 				const auto  all = root + ".*";
-				std::string mark = "[ ]";
+				auto        mark = kMarkNone;
 				if (HasPattern(binding, all) || HasPattern(binding, "*") || (children.empty() && Covers(binding, root))) {
-					mark = "[x]";
+					mark = kMarkAll;
 				} else if (Covers(binding, root) || std::ranges::any_of(children, [&](const std::string& id) { return Covers(binding, id); })) {
-					mark = "[~]";
+					mark = kMarkSome;
 				}
 				if (children.empty()) {
 					items.push_back({ std::format("{} {}{}", mark, CategoryName(root), LearnedSuffix(learned, all)),
@@ -486,7 +527,6 @@ namespace dova::ui
 		}
 		// Everyday actions first, the one that asks last.
 		std::vector<Item> items;
-		items.push_back({ "Retrieve...", [this, a_cellId]() { OpenRetrieve(a_cellId); } });
 		items.push_back({ "Browse containers...", [this, a_cellId]() { OpenBrowse(a_cellId); } });
 		if (home->BestTemplate()) {
 			// Asks only when it would replace changes of the player's own, or may not fit (as the panel does).
@@ -528,7 +568,15 @@ namespace dova::ui
 		}
 
 		std::vector<Item> items;
-		items.push_back({ std::format("Everything ({})", total), [a_cellId]() { Controller::Get().RunOperation(a_cellId, sort::Op::Retrieve, "*"); }, icons::ForPattern("*") });
+		items.push_back({ std::format("Everything ({})", total), [this, a_cellId, total]() {
+							 if (total <= kRetrieveAllAskAbove) {
+								 Controller::Get().RunOperation(a_cellId, sort::Op::Retrieve, "*");
+								 return;
+							 }
+							 Confirm(std::format(kConfirmRetrieveAll, total), [a_cellId]() { Controller::Get().RunOperation(a_cellId, sort::Op::Retrieve, "*"); },
+								 [this, a_cellId]() { OpenRetrieve(a_cellId); });
+						 },
+			icons::ForPattern("*") });
 		for (const auto& root : RootCategories()) {
 			const auto all = root + ".*";
 			const auto n = CountMatching(counts, all);
@@ -544,7 +592,7 @@ namespace dova::ui
 				items.push_back({ std::format("{}... ({})", CategoryName(root), n), [this, a_cellId, root]() { OpenRetrieveGroup(a_cellId, root); }, icons::ForCategory(root) });
 			}
 		}
-		if (!ShowList("Retrieve", std::move(items), [this, a_cellId]() { OpenAdvanced(a_cellId); })) {
+		if (!ShowList("Retrieve", std::move(items), [this, a_cellId]() { ReopenMaster(a_cellId); })) {
 			ListUnavailable(*this);
 		}
 	}
@@ -590,6 +638,9 @@ namespace dova::ui
 		};
 		if (home->layout->master) {
 			add(*home->layout->master, "master");
+		}
+		for (const auto& [m, role] : AreaMasterRoles(*home)) {
+			add(m, role);  // an area's master (DESIGN §6.7): it holds that area's leftovers
 		}
 		for (const auto& c : home->layout->containers) {
 			if (c.ignored) {

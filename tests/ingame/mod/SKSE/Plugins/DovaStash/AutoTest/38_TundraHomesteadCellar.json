@@ -29,7 +29,7 @@
         },
         {
           "check": "notify",
-          "regex": "Dova Stash: Tundra Homestead setup enabled$",
+          "regex": "Dova Stash: Tundra Homestead is set up$",
           "why": "the cellar's containers wait for their area (not in memory from the hall): no count of unavailable ones"
         },
         {
@@ -123,13 +123,72 @@
       ]
     },
     {
+      "id": "3.9-tundra-b4",
+      "title": "The cellar's chest is an inbox like the master: a sword put in it moves on when it is closed (to the cellar safe or a display), and nothing is learned",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "0EEJSSE001HouseBasement"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x00013989",
+          "count": 1
+        },
+        {
+          "do": "snapshot",
+          "name": "inbox"
+        },
+        {
+          "do": "openContainer",
+          "ref": "ccEEJSSE001-Hstead.esm|0x00000F85"
+        },
+        {
+          "do": "store",
+          "to": "ccEEJSSE001-Hstead.esm|0x00000F85",
+          "item": "Skyrim.esm|0x00013989",
+          "count": 1
+        },
+        {
+          "do": "wait",
+          "seconds": 1
+        },
+        {
+          "do": "closeMenu"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "ccEEJSSE001-Hstead.esm|0x00000F85",
+          "item": "Skyrim.esm|0x00013989",
+          "from": "inbox",
+          "eq": 0
+        },
+        {
+          "check": "layout",
+          "pointer": "/learned/Skyrim.esm|0x00013989",
+          "absent": true,
+          "within": 5
+        },
+        {
+          "check": "conserved",
+          "snapshot": "inbox"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
       "id": "3.9-tundra-b2",
       "title": "Deposit in an area without a master of its own: the HUD says it waits for the master, not 'nothing to deposit'",
-      "manual": "the merged Tundra Homestead template gives the cellar its own master (cells[].master), so this home has no such area now; the hotkey title '(master not here)' is checked in 3.9-tundra-b3"
+      "manual": "the merged Tundra Homestead template gives the cellar its own master (cells[].master), so this home has no such area now; 3.9-tundra-b3 checks the title names no missing master"
     },
     {
       "id": "3.9-tundra-b3",
-      "title": "Hotkey in the cellar at nothing: the master menu is titled '(master not here)'",
+      "title": "Hotkey in the cellar at nothing: the master menu, titled plainly, as the cellar's own master takes the leftovers",
       "steps": [
         {
           "do": "aim",
@@ -143,8 +202,9 @@
           "contains": [
             "Deposit"
           ],
-          "body": "Dova Stash: Tundra Homestead (master not here)",
-          "within": 5
+          "body": "Dova Stash: Tundra Homestead",
+          "within": 5,
+          "bodyLacks": "(master not here)"
         },
         {
           "do": "choose",
@@ -157,6 +217,53 @@
         {
           "check": "noErrors"
         }
+      ]
+    },
+    {
+      "id": "3.9-tundra-b5",
+      "title": "Hotkey at the cellar's own master (cells[].master): the master menu, never Ignore or Make sell chest...",
+      "steps": [
+        {
+          "do": "hotkey",
+          "target": "ccEEJSSE001-Hstead.esm|0x00000F85"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Deposit",
+            "Sort all"
+          ],
+          "lacks": [
+            "Ignore",
+            "Make sell chest...",
+            "Categories..."
+          ],
+          "body": "Dova Stash: Tundra Homestead",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "index": -1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "6.2.5-tundra-browse", "title": "Advanced... > Browse containers... in the cellar: the cellar's master is listed as \"<container> - Cellar master (N items)\"",
+      "steps": [
+        {"do": "enter", "coc": "0EEJSSE001HouseBasement"},
+        {"do": "aim", "ref": null},
+        {"do": "hotkey"},
+        {"check": "menuEntries", "contains": ["Advanced..."], "within": 5},
+        {"do": "choose", "entry": "Advanced..."},
+        {"check": "menuEntries", "contains": ["Browse containers..."], "within": 5},
+        {"do": "choose", "entry": "Browse containers..."},
+        {"check": "menuEntries", "includes": [" - Cellar master ("], "body": "Browse containers", "within": 5},
+        {"do": "choose", "entry": "Cancel"},
+        {"do": "aim", "clear": true},
+        {"check": "noErrors"}
       ]
     },
     {
@@ -261,6 +368,83 @@
       ]
     },
     {
+      "id": "3.9-tundra-i",
+      "title": "Hotkey at a cellar container: Make master of Cellar... makes it the cellar's master (cells[].master); the hall's master stays",
+      "steps": [
+        {
+          "do": "enter",
+          "coc": "0EEJSSE001HouseBasement"
+        },
+        {
+          "do": "hotkey",
+          "target": "ccEEJSSE001-Hstead.esm|0x00000DBB"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "More..."
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "More...",
+          "why": "page 1 holds five options: Categories..., Open, Rename..., Clear categories..., Ignore"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Make master of Cellar..."
+          ],
+          "lacks": [
+            "Make master..."
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Make master of Cellar..."
+        },
+        {
+          "check": "menuEntries",
+          "eq": [
+            "Yes",
+            "No"
+          ],
+          "body": "the master of Cellar?"
+        },
+        {
+          "do": "choose",
+          "entry": "Yes"
+        },
+        {
+          "check": "notify",
+          "contains": "is now the master of Cellar",
+          "within": 5
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells/0/master",
+          "eq": "ccEEJSSE001-Hstead.esm|0x00000DBB"
+        },
+        {
+          "check": "layout",
+          "pointer": "/master",
+          "eq": "ccEEJSSE001-Hstead.esm|0x00084A88"
+        },
+        {
+          "check": "layout",
+          "pointer": "/containers",
+          "lacks": {
+            "ref": "ccEEJSSE001-Hstead.esm|0x00000DBB"
+          }
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
       "id": "3.9-tundra-f",
       "title": "Reset in the cellar removes the whole home's layout; the cellar is its own home again, with no template of its own (the hall offers the merged one)",
       "steps": [
@@ -287,6 +471,102 @@
           "check": "bestTemplate",
           "source": null,
           "why": "the cellar has no template of its own: the merged Tundra Homestead template lists it, and only its main cell offers it"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-h",
+      "title": "The cellar with no setup anywhere: the hotkey offers only Use template \"Tundra Homestead\" (no setup of its own); Cancel changes nothing",
+      "steps": [
+        {
+          "do": "aim",
+          "ref": null
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "menuEntries",
+          "eq": ["Use template \"Tundra Homestead\"", "Cancel"],
+          "body": "Dova Stash: part of Tundra Homestead",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Cancel"
+        },
+        {
+          "check": "layoutFile",
+          "exists": false
+        },
+        {
+          "check": "home",
+          "layout": false
+        },
+        {
+          "do": "aim",
+          "clear": true
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9-tundra-h2",
+      "title": "The cellar with no setup anywhere: Use template \"Tundra Homestead\" sets up the whole home from here, and the cellar is an area of it",
+      "steps": [
+        {
+          "do": "aim",
+          "ref": null
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "menuEntries",
+          "contains": ["Use template \"Tundra Homestead\""],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Use template \"Tundra Homestead\""
+        },
+        {
+          "check": "notify",
+          "regex": "Dova Stash: Tundra Homestead is set up",
+          "within": 5
+        },
+        {
+          "check": "log",
+          "contains": "Template Templates/CreationClub/TundraHomestead.json: set up"
+        },
+        {
+          "check": "layoutFile",
+          "exists": true
+        },
+        {
+          "check": "layout",
+          "pointer": "/basedOn",
+          "contains": "Templates/CreationClub/TundraHomestead.json@"
+        },
+        {
+          "check": "layout",
+          "pointer": "/cells",
+          "contains": {"cell": "ccEEJSSE001-Hstead.esm|0x00000B06"}
+        },
+        {
+          "check": "home",
+          "is": true,
+          "name": "Tundra Homestead",
+          "layout": true
+        },
+        {
+          "do": "aim",
+          "clear": true
         },
         {
           "check": "noErrors"

@@ -191,7 +191,7 @@ namespace dova::editor
 			++total.homes;
 			std::string cells = h.cellRef;
 			for (const auto& e : h.extra) {
-				cells += std::format(" + {} ({}{})", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely ? "" : ", storage behind a door");
+				cells += std::format(" + {} ({}{})", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely || e.exterior ? "" : ", storage behind a door");
 			}
 			// Usable storage over the home's cells (home::UsableContainer: the rail's and the drawer's count).
 			int usable = 0, displays = 0;

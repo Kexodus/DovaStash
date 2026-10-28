@@ -1,5 +1,6 @@
 ; Dova Stash settings.
 ; Location: Data/SKSE/Plugins/DovaStash.ini. Missing keys fall back to the defaults shown here.
+; Made from DovaStash.ini.default on the first start; installing an update never replaces it.
 
 [General]
 ; Log verbosity for My Games/Skyrim Special Edition/SKSE/DovaStash.log

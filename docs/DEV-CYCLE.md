@@ -23,6 +23,14 @@ the script is `tools/devcycle/dovastash-dev-cycle.js`. Every agent in it runs on
 
 Nothing is ever committed by the cycle. The working tree accumulates the fixes; the user commits.
 
+## Delegation policy (2026-10-25)
+
+Per Anthropic's "when to fold subagents into your main agent loop": the coordinator does small work itself
+(questions, single-file fixes, doc and changelog edits); subagents are for runs that take minutes (game,
+editor), read-heavy investigations, and this cycle's parallel batches. One agent per coupled area per round
+(the lanes above), never one per ask, so agents don't collide on PanelRender/Strings.h, the build tree or
+the single game. Measure before reshaping: compare each round's scores with round 1.
+
 ## Standing decisions baked into the script (`DECISIONS`, applied from round 2)
 
 - Displays in templates are optional; shipped templates need not list any.
@@ -49,3 +57,21 @@ Nothing is ever committed by the cycle. The working tree accumulates the fixes; 
   session `89e343e5-cc88-4d00-ae00-3b4551bf5997`. Stopped at the start of round 2 on the owner's request.
 - 2026-10-23: scheduled to resume Tuesday 2026-10-27 22:00 local from that run id (session-only cron; if the
   session is gone, relaunch with the same script and run id, or a fresh run).
+- 2026-10-28: round 4: the plugin fixer could not run the in-game suite (session 0, `run.ps1` exit 2), so the
+  cell-change hang stays open.
+- 2026-10-28: round 5: `run.ps1` now hands a session-0 run to the desktop session (TESTING §9.2). Runs:
+  `20261028-011117` (+ wynter `20261028-013235`) all plans pass 155 / fail 10 (before fixes); `20261028-013814`
+  plans 10-18, 20-25, 38 pass 161 / fail 4 / skip 1 (3.9.4 anvil menu did not open, environmental) / manual 13;
+  `20261028-020304` plan 38 pass 13 / fail 0 / manual 2. To bisect a hang, read the debug and trace lines listed
+  in TESTING §9.5 (*Cell change (&lt;source&gt;): start* with no *done*, *Task #N*, *AutoTest: wait*, *AutoTest:
+  console*, *Overlay: first frame*).
+- 2026-10-28: round 6 (the last of MAX_ROUNDS=6) done; the run ended after 78 agents, no errors. Final scores
+  (ease / function): core 9/9, hotkey menus 9/9, panel 9/9, data-templates 9/9, docs 9/8, editor 8/8,
+  build-tooling 8/8, gameplay 8/7. Nothing reached 10. The graders' remaining lists are in the run's journal
+  (`subagents/workflows/wf_a909487f-fc4/journal.jsonl`, last eight `grade:*` results). Recurring blockers:
+  the main in-game run twice ended silently inside plan 23 (Windstad 3.9.4-grounds, after "Crafting from
+  storage (got up)"), so plans 30-37, 39, 41-46 and 51-59 have no result on the final DLL; UIExtensions lists
+  cut off at 128 entries; the Retrieve tree collapses after each Retrieve (node IDs carry the count); the
+  manual ImGui pass of TESTING §5.1-5.8 is still unrecorded. Separately the same day: the Whitepeak Tower
+  display-stock bug (a home's own base-record stock went on its plaques) was fixed outside the cycle and plan
+  47 passes 5/5 (`20261028-024118`). A new round starts from this run id with a raised MAX_ROUNDS, or fresh.

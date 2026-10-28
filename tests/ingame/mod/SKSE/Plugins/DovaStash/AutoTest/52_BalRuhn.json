@@ -17,7 +17,7 @@
       "id": "3.6-balruhn", "title": "Use template, Deposit spreads the loot",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Bal Ruhn setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Bal Ruhn is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/BalRuhn.json@"},
         {"check": "log", "since": "run", "regex": ": template Templates/Mods/BalRuhn\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "mtBalRuhn.esp|0x000018DC"},

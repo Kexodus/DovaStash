@@ -131,6 +131,48 @@ namespace dova::editor::ui::detail
 		return a_gameName;
 	}
 
+	// A screenshot run that asked for a home (--home, --cell, --mod, --drafts, --select) cannot open one without a
+	// workspace (no MO2 instance or Data folder found, or the one given did not open): the error it prints, then it saves
+	// the image and exits 1. None when nothing was asked or the workspace opened.
+	inline std::optional<std::string> NoHomeOpenError(bool a_askedHome, bool a_workspace, std::string_view a_wsError)
+	{
+		if (!a_askedHome || a_workspace) {
+			return std::nullopt;
+		}
+		return "error: no home open (" + std::string(a_wsError.empty() ? std::string_view("no workspace") : a_wsError) + ")";
+	}
+
+	// A joined cell's area master (DESIGN §6.7 `cells[].master`: its catch-all while the home's master is out of
+	// reach): the entry whose master `a_ref` is, never for the home's own master. Not listed in `containers`.
+	inline const core::HomeCell* AreaMasterCell(const core::Layout& a_layout, const core::FormRef& a_ref)
+	{
+		if (a_layout.IsMaster(a_ref)) {
+			return nullptr;
+		}
+		const auto it = std::ranges::find_if(a_layout.cells, [&](const core::HomeCell& c) { return c.master && *c.master == a_ref; });
+		return it != a_layout.cells.end() ? &*it : nullptr;
+	}
+	inline bool IsAreaMaster(const core::Layout& a_layout, const core::FormRef& a_ref) { return AreaMasterCell(a_layout, a_ref) != nullptr; }
+
+	// Makes `a_ref` the area master of the joined cell `a_cell` (nullopt: none), as *Make master* does for the home:
+	// the new one leaves `containers`, the old one is handed back in `a_previous` to list again as a plain container.
+	// False (nothing changed) when `a_cell` is not joined or `a_ref` is the home's master.
+	inline bool SetAreaMaster(core::Layout& a_layout, const core::FormRef& a_cell, const std::optional<core::FormRef>& a_ref,
+		std::optional<core::FormRef>& a_previous)
+	{
+		a_previous.reset();
+		const auto it = std::ranges::find_if(a_layout.cells, [&](const core::HomeCell& c) { return c.cell == a_cell; });
+		if (it == a_layout.cells.end() || (a_ref && a_layout.IsMaster(*a_ref)) || it->master == a_ref) {
+			return false;
+		}
+		a_previous = it->master;
+		it->master = a_ref;
+		if (a_ref) {
+			std::erase_if(a_layout.containers, [&](const core::ContainerBinding& b) { return b.ref == *a_ref; });
+		}
+		return true;
+	}
+
 	// The plan's colours per layer (the 3D view's outlines use the same).
 	inline ImU32 ColorOf(const home::PlacedRef& a_ref, Layer a_layer)
 	{

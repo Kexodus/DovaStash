@@ -79,6 +79,20 @@ namespace dova::editor::ui
 			if (w::PrimaryButton("Open", _mo2Path[0] != '\0') || enter) {
 				ApplySetup(_mo2Path[0] ? std::optional(PathFromUtf8(_mo2Path)) : std::nullopt, std::nullopt);
 			}
+			// The Skyrim instances MO2 registered (nxmhandler.ini): one click opens one, none opens unasked.
+			if (!_registeredInstances) {
+				_registeredInstances = mo2::RegisteredInstances();
+			}
+			for (const auto& dir : *_registeredInstances) {
+				const auto path = PathToUtf8(dir);
+				ImGui::PushID(path.c_str());
+				if (w::LinkButton(path.c_str())) {
+					std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", path.c_str());
+					ApplySetup(dir, std::nullopt);
+				}
+				w::Tip("Open this MO2 instance (MO2 lists it for Nexus links)");
+				ImGui::PopID();
+			}
 			if (_wsError.starts_with(Workspace::kNoInstance)) {
 				w::MutedWrapped(kPickSetup);  // nothing failed: nothing was given (the command-line wording is for the console)
 			} else if (!_wsError.empty()) {

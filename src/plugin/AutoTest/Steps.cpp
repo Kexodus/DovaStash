@@ -342,7 +342,9 @@ namespace dova::autotest
 		}
 
 		// The player, every container of the player's cell, what its displays hold (a mannequin's worn armor;
-		// a rack's weapon lies in the world: every weapon and shield within a rack's trigger bounds, as "world")
+		// a rack's weapon lies in the world: every weapon and shield within a rack's trigger bounds, as "world";
+		// an item plaque made for one item that shows it (its script's placed flag): that item, which the script
+		// keeps in no inventory, so a copy put up is held, not lost)
 		// and, in a home over several cells (DESIGN §6.7), the layout's containers in its other cells that are in
 		// memory (persistent ones): a Deposit from the grounds into the hall, or onto a mannequin, is a move, not a
 		// loss. Other loose items are left out: NPCs pick them up or eat them, which is not Dova Stash's doing.
@@ -375,6 +377,9 @@ namespace dova::autotest
 					if (d.kind == core::DisplayKind::Mannequin && object && !seen.contains(object)) {
 						Collect(snap, "mannequin " + game::Describe(object), object);
 						seen.insert(object);
+					} else if (d.kind == core::DisplayKind::Item && object && d.placed.value_or(false) && d.items.size() == 1) {
+						const auto item = game::ToFormRef(d.items.front());
+						snap.holders["plaque " + game::Describe(object)][item ? item->ToString() : game::Describe(d.items.front())] += 1;
 					}
 				}
 			}
@@ -785,7 +790,8 @@ namespace dova::autotest
 			if (a_kind == "menuEntries") {
 				// The hotkey menu that is up: "contains" (each text starts an entry), "lacks" (no entry starts with
 				// it), "eq" (exactly these entries, in order), "order" (entries starting with these texts, in this order,
-				// others between them allowed), "body" (a message box's text contains it).
+				// others between them allowed), "includes" (entries that contain these texts anywhere, in this order:
+				// "Chest - Cellar master ("), "body" (a message box's text contains it), "bodyLacks" (it does not).
 				return Check(s, c, [s]() {
 					std::string source;
 					const auto  entries = MenuEntries(&source);
@@ -820,9 +826,31 @@ namespace dova::autotest
 						}
 						last = at;
 					}
+					std::int32_t lastIn = -1;
+					for (const auto& want : s.value("includes", Json::array())) {
+						const auto   text = want.get<std::string>();
+						std::int32_t at = -1;
+						for (std::size_t i = static_cast<std::size_t>(lastIn + 1); i < entries.size(); ++i) {
+							if (entries[i].find(text) != std::string::npos) {
+								at = static_cast<std::int32_t>(i);
+								break;
+							}
+						}
+						if (at < 0) {
+							problems += std::format("{}no entry with \"{}\" after entry {}", problems.empty() ? "" : "; ", text, lastIn);
+							break;
+						}
+						lastIn = at;
+					}
 					if (s.contains("body")) {
 						const auto body = MessageBoxText();
 						if (body.find(s["body"].get<std::string>()) == std::string::npos) {
+							problems += std::format("{}body is \"{}\"", problems.empty() ? "" : "; ", body);
+						}
+					}
+					if (s.contains("bodyLacks")) {  // the message box's text does not contain it
+						const auto body = MessageBoxText();
+						if (body.find(s["bodyLacks"].get<std::string>()) != std::string::npos) {
 							problems += std::format("{}body is \"{}\"", problems.empty() ? "" : "; ", body);
 						}
 					}
@@ -974,7 +1002,7 @@ namespace dova::autotest
 			if (a_kind == "displayHolds") {
 				// What a display holds now: "ref" (the display: rack activator, mannequin, case or bookshelf container) and
 				// "item" (a base form; "holds": false for "does not hold it"). A mannequin, case or bookshelf: its inventory
-				// (game::DisplayHolds); a rack: a loose reference of the item inside its trigger's bounds. "refs" (an array in
+				// (game::DisplayHolds); an item plaque: its script's placed flag (the item itself is gone into the script); a rack: a loose reference of the item inside its trigger's bounds. "refs" (an array in
 				// place of "ref"): one of those displays holds it (none of them, with "holds": false), for a home with many
 				// racks or shelves where the filler picks which one.
 				return Check(s, c, [s]() {
@@ -1018,6 +1046,12 @@ namespace dova::autotest
 								judged = true;
 								detail = std::format("rack {}", here ? "holds it" : "does not hold it");
 							}
+						} else if (found->kind == core::DisplayKind::Item) {
+							// An item plaque's script keeps no inventory: it shows a model once given the item (its placed flag).
+							const bool here = found->placed.value_or(false) && std::ranges::find(found->items, item) != found->items.end();
+							holds = holds || here;
+							judged = found->placed.has_value();
+							detail = !found->placed ? "the plaque's script has no placed flag" : here ? "item plaque shows it" : "item plaque does not show it";
 						} else {
 							const auto held = game::DisplayHolds(*found);
 							const bool here = std::ranges::find(held, item) != held.end();
@@ -1214,11 +1248,17 @@ namespace dova::autotest
 		Wait WaitFor(std::string a_what, double a_seconds, std::function<bool()> a_done, Context& a_ctx, bool a_abortOnTimeout = true,
 			std::function<void()> a_then = {})
 		{
+			// Bisecting a hang (a cell change): every wait logs its start and its end (debug); a start with no end
+			// is the wait the game stopped in.
 			Wait wait;
 			wait.what = a_what;
-			wait.deadline = Clock::now() + std::chrono::milliseconds(static_cast<std::int64_t>(a_seconds * 1000.0));
+			const auto started = Clock::now();
+			wait.deadline = started + std::chrono::milliseconds(static_cast<std::int64_t>(a_seconds * 1000.0));
 			wait.done = std::move(a_done);
-			wait.finish = [&a_ctx, a_what, a_seconds, a_abortOnTimeout, then = std::move(a_then)](bool a_timedOut) {
+			logger::debug("AutoTest: wait: {} (up to {} s)", a_what, a_seconds);
+			wait.finish = [&a_ctx, a_what, a_seconds, a_abortOnTimeout, started, then = std::move(a_then)](bool a_timedOut) {
+				logger::debug("AutoTest: wait: {} {} after {} ms", a_what, a_timedOut ? "timed out" : "done",
+					std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count());
 				if (a_timedOut) {
 					a_ctx.Record(false, a_what, std::format("timed out after {} s", a_seconds));
 					if (a_abortOnTimeout) {
@@ -1385,7 +1425,18 @@ namespace dova::autotest
 			}
 			if (a_kind == "require") {
 				// The home as this game has it: furniture a player buys or builds first (Breezehome's racks, Hearthfire)
-				// may be off. Then the test is skipped, not failed.
+				// may be off. Then the test is skipped, not failed. "plugin": a plugin the test needs (UIExtensions.esp
+				// for a list-mode test in a plan that runs without it), skipped the same way when it is not loaded.
+				if (s.contains("plugin")) {
+					const auto  name = s["plugin"].get<std::string>();
+					auto*       data = RE::TESDataHandler::GetSingleton();
+					const bool  loaded = data && (data->LookupLoadedModByName(name) || data->LookupLoadedLightModByName(name));
+					if (!loaded) {
+						c.skipReason = std::format("{} is not loaded ({})", name, s.value("why", "the test needs it"s));
+						c.abortTest = true;
+					}
+					return std::nullopt;
+				}
 				const auto ref = Ref(s.value("enabled", Json()));
 				auto*      object = ref ? game::LookupRef(*ref) : nullptr;
 				if (!object || object->IsDisabled()) {
@@ -1604,6 +1655,36 @@ namespace dova::autotest
 					++added;
 				}
 				logger::info("AutoTest: added {} different misc items", added);
+				return std::nullopt;
+			}
+			if (a_kind == "learnMany") {
+				// A long learned list at once: the first `count` ordinary misc items of Skyrim.esm (as additemMany picks
+				// them) learned for "to" (a container of the setup), written to the setup file. For list paging checks.
+				auto*      home = CurrentHome();
+				const auto to = Ref(s.value("to", Json()));
+				auto*      dh = RE::TESDataHandler::GetSingleton();
+				if (!home || !home->layout || !to || !dh) {
+					AbortTest(c, a_kind, "no setup here, or no \"to\"");
+					return std::nullopt;
+				}
+				const auto count = s.value("count", 130);
+				int        learned = 0;
+				for (auto* misc : dh->GetFormArray<RE::TESObjectMISC>()) {
+					if (learned >= count) {
+						break;
+					}
+					const char* name = misc ? misc->GetName() : nullptr;
+					if (!misc || !name || !*name || misc->GetGoldValue() <= 0 || (misc->GetFormID() >> 24) != 0 || misc->GetFormID() == 0xF ||
+						misc->GetFormID() == 0xA) {
+						continue;
+					}
+					if (const auto ref = game::ToFormRef(misc)) {
+						home->layout->learned[*ref] = *to;
+						++learned;
+					}
+				}
+				home::HomeRegistry::Get().Save(*home);
+				logger::info("AutoTest: {} misc items learned for {}", learned, to->ToString());
 				return std::nullopt;
 			}
 			if (a_kind == "removeitem") {
@@ -1839,6 +1920,40 @@ namespace dova::autotest
 				if (const auto ref = cell ? refArg() : std::nullopt) {
 					Controller::Get().SetDisplayUsed(*cell, *ref, s.value("on", true));
 				}
+				return std::nullopt;
+			}
+			if (a_kind == "displayUseAll") {
+				// The Displays page's "Use all N <kind>s...": every display of "kind" ("rack", "mannequin", "item", "case",
+				// "bookshelf") in the player's cell that the setup does not list, through Controller::UseDisplays (ignored
+				// ones are listed, so they stay off).
+				const auto cell = cellId();
+				const auto kind = core::ParseDisplayKind(s.value("kind", ""s));
+				auto*      home = CurrentHome();
+				if (!cell || !kind || !home || !home->layout || !PlayerCell()) {
+					AbortTest(c, a_kind, !kind ? "unknown kind" : "no setup here");
+					return std::nullopt;
+				}
+				std::vector<core::FormRef> refs;
+				for (const auto& d : game::FindDisplays(PlayerCell())) {
+					const auto ref = d.kind == *kind ? game::ToFormRef(RE::TESForm::LookupByID(d.ref)) : std::nullopt;
+					if (ref && !home->layout->FindDisplay(*ref)) {
+						refs.push_back(*ref);
+					}
+				}
+				logger::info("AutoTest: use all {} {} display(s) not in the setup", refs.size(), core::DisplayKindName(*kind));
+				Controller::Get().UseDisplays(*cell, refs);
+				return std::nullopt;
+			}
+			if (a_kind == "activate") {
+				// The player activates "ref" (a plaque hands back what it shows; a door, a lever).
+				const auto ref = refArg();
+				auto*      object = ref ? game::LookupRef(*ref) : nullptr;
+				if (!object || !player) {
+					AbortTest(c, a_kind, "ref not found");
+					return std::nullopt;
+				}
+				logger::info("AutoTest: activating {}", Name(object));
+				object->ActivateRef(player, 0, nullptr, 0, false);
 				return std::nullopt;
 			}
 			if (a_kind == "displayCategories") {
@@ -2224,7 +2339,16 @@ namespace dova::autotest
 						if (!p || !st) {
 							return;
 						}
-						st->ActivateRef(p, 0, nullptr, 0, false);
+						// The MoveTo can seat the player by itself (the menu opens while settling): activating the station then
+						// gets them up and closes the menu that is opening, which twice preceded a silent game exit (Windstad's
+						// grounds smelter, TESTING §9.5). Then only wait for it. Seated with no menu (a seat the MoveTo left,
+						// with no furniture event): activating it now is what opens the menu (waiting did not, run 20261028-044030).
+						auto*      ui = RE::UI::GetSingleton();
+						if (ui && ui->IsMenuOpen(menu)) {
+							logger::info("AutoTest: {} already open at {}; not activating it again", menu, Name(st));
+						} else {
+							st->ActivateRef(p, 0, nullptr, 0, false);
+						}
 						auto wait = WaitFor(std::format("{} open", menu), timeout, menuUp, c);
 						wait.deadline = Clock::now() + 6s;
 						// Activating the station from the plugin may not seat the player: then the console does it.
@@ -2243,17 +2367,18 @@ namespace dova::autotest
 								}
 								auto* p = game::Player();
 								auto* st = RE::TESForm::LookupByID<RE::TESObjectREFR>(stationId);
-								logger::info("AutoTest: the station still did not open {} (open menus: {}); moving to it and activating again", menu, OpenMenus());
+								logger::info("AutoTest: the station still did not open {} (open menus: {}); moving to it, then activating again", menu, OpenMenus());
 								if (p && st) {
 									p->MoveTo(st);
 								}
-								Console("activate player", st);
 								// Then keep at it until the menu opens: 6 s after the last activation (or the last moment the
 								// menu was up: it can open and close again while the player sits down), activate the station
 								// again. Seated at it, the menu is on its way: activate again only after 10 s seated. Never
 								// move the player here: a MoveTo unseats them and closes a menu that is opening. A timeout
 								// now means the station really opens nothing.
-								auto lastTry = std::make_shared<Clock::time_point>(Clock::now());
+								// The first activation 2 s after the MoveTo (not with it: the MoveTo's late "got up" can close the
+								// menu that activation opens).
+								auto lastTry = std::make_shared<Clock::time_point>(Clock::now() - 4s);
 								auto seatedSince = std::make_shared<std::optional<Clock::time_point>>();
 								auto retry = [menuUp, menu, stationId, lastTry, seatedSince]() {
 									if (menuUp()) {
@@ -2283,10 +2408,18 @@ namespace dova::autotest
 									*lastTry = Clock::now();
 									seatedSince->reset();
 									logger::info("AutoTest: {} still not open (open menus: {}{}); activating {} again", menu, OpenMenus(), seated ? ", seated" : "", Name(st));
+									if (seated) {
+										// Seated 10 s with no menu (and none opening: checked above): a seat the station never answered
+										// (a MoveTo can leave one, with no furniture event). Activating it again does nothing there;
+										// standing the player at it does. Activate on the next try, 6 s on: right after the MoveTo, its
+										// late "got up" closed the menu the activation had just opened (run 20261028-044838).
+										p->MoveTo(st);
+										return false;
+									}
 									Console("activate player", st);
 									return false;
 								};
-								auto last = WaitFor(std::format("{} open", menu), timeout, retry, c);
+								auto last = WaitFor(std::format("{} open", menu), timeout + 20.0, retry, c);
 								if (skipIfClosed) {
 									last.finish = [&c, menu, stationId, timeout](bool a_timedOut3) {
 										if (!a_timedOut3) {
@@ -2578,6 +2711,7 @@ namespace dova::autotest
 		script->SetCommand(a_command);
 		script->CompileAndRun(a_target);
 		delete script;
+		logger::debug("AutoTest: console: {} returned", a_command);  // a hang inside the command leaves no such line
 	}
 
 	bool InCell(std::optional<RE::FormID> a_cell)

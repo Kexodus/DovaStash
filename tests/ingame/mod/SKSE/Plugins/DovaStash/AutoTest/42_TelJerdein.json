@@ -100,7 +100,7 @@
         },
         {
           "check": "notify",
-          "regex": "setup enabled",
+          "regex": "is set up",
           "since": "action",
           "within": 5
         },
@@ -293,6 +293,72 @@
           "item": "Skyrim.esm|0x0003EADD",
           "from": "back",
           "ge": 1
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "3.9b-TelJerdein",
+      "title": "Foyer: a potion with no container (its container ignored) goes to the home's master (persistent: in reach from the Foyer, so it comes before the Foyer's own master, DESIGN 6.7); none stays with the player",
+      "steps": [
+        {
+          "do": "enter",
+          "cell": "rmp_telvannihearthfires.esp|0x0000AABB"
+        },
+        {
+          "do": "ignore",
+          "ref": "rmp_telvannihearthfires.esp|0x000AD226"
+        },
+        {
+          "check": "notify",
+          "contains": "is now ignored"
+        },
+        {
+          "do": "additem",
+          "item": "Skyrim.esm|0x0003EADD",
+          "count": 2
+        },
+        {
+          "do": "snapshot",
+          "name": "foyerhomeless"
+        },
+        {
+          "do": "op",
+          "op": "Deposit"
+        },
+        {
+          "do": "waitIdle"
+        },
+        {
+          "check": "count",
+          "in": "rmp_telvannihearthfires.esp|0x00084894",
+          "item": "Skyrim.esm|0x0003EADD",
+          "from": "foyerhomeless",
+          "ge": 2
+        },
+        {
+          "check": "count",
+          "item": "Skyrim.esm|0x0003EADD",
+          "eq": 0
+        },
+        {
+          "check": "conserved",
+          "snapshot": "foyerhomeless",
+          "ignore": [
+            "Skyrim.esm|0x000209A6",
+            "Skyrim.esm|0x00080697"
+          ]
+        },
+        {
+          "do": "ignore",
+          "ref": "rmp_telvannihearthfires.esp|0x000AD226",
+          "on": false
+        },
+        {
+          "check": "notify",
+          "contains": "is managed again"
         },
         {
           "check": "noErrors"

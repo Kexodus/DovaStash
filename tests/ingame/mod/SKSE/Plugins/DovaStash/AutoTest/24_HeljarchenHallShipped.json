@@ -12,7 +12,7 @@
         {"check": "home", "is": true, "name": "Heljarchen Hall"},
         {"check": "bestTemplate", "source": "Templates/Vanilla/HeljarchenHall.json"},
         {"do": "useTemplate"},
-        {"check": "notify", "regex": "Dova Stash: Heljarchen Hall setup enabled"},
+        {"check": "notify", "regex": "Dova Stash: Heljarchen Hall is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Vanilla/HeljarchenHall.json@"},
         {"check": "layout", "pointer": "/cells", "contains": {"cell": "HearthFires.esm|0x00016A55", "label": "Cellar"}},
         {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 4},

@@ -17,7 +17,8 @@ namespace dova::ui
 	// "Use this rack" when it is not used. When it is: "Categories... (Bows)" for racks, mannequins and
 	// bookshelves (`a_openCategories` shows the picker; its icon is the first chosen category's, else the
 	// weapons/armor/books one), "Armor set... (Auto)" for mannequins (UI/ArmorSetMenu.h), "Fill now" while it is
-	// empty (a mannequin with a chosen set: while it can take more of it), "Stop using this rack".
+	// empty (a mannequin with a chosen set: while it can take more of it), "Take down" for an item plaque that shows
+	// its item (activates it for the player: the item comes back), "Stop using this rack".
 	[[nodiscard]] std::vector<DisplayOption> DisplayMenuOptions(const DisplayMenu& a_menu, std::function<void()> a_openCategories);
 
 	// What a display's category picker offers, as patterns: the loaded categories it can take

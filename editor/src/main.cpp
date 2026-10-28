@@ -19,7 +19,8 @@
 
 namespace
 {
-	void ConnectConsole()
+	// `a_alloc`: a console of its own when the parent has none (commands); a screenshot run only attaches, for its errors.
+	void ConnectConsole(bool a_alloc = true)
 	{
 		const auto usable = [](DWORD a_which) {
 			const HANDLE h = ::GetStdHandle(a_which);
@@ -28,7 +29,7 @@ namespace
 		if (usable(STD_OUTPUT_HANDLE)) {
 			return;  // redirected to a pipe or file: the C runtime already writes there
 		}
-		if (::AttachConsole(ATTACH_PARENT_PROCESS) || ::AllocConsole()) {
+		if (::AttachConsole(ATTACH_PARENT_PROCESS) || (a_alloc && ::AllocConsole())) {
 			FILE* f = nullptr;
 			freopen_s(&f, "CONOUT$", "w", stdout);
 			freopen_s(&f, "CONOUT$", "w", stderr);
@@ -55,6 +56,9 @@ int wmain(int argc, wchar_t** argv)
 		std::fflush(stderr);
 		return rc;
 	}
+	if (parsed.screenshot) {
+		ConnectConsole(false);  // errors, a timeout, no interactive desktop: stderr too (docs/EDITOR.md §5)
+	}
 	dova::editor::ui::GuiOptions gui;
 	gui.mod = parsed.mod;
 	gui.cell = parsed.cell;
@@ -75,6 +79,7 @@ int wmain(int argc, wchar_t** argv)
 	gui.filter = parsed.tableFilter;
 	gui.quick = parsed.quick;
 	gui.window = parsed.window;
+	gui.timeout = parsed.timeout;
 	if (gui.screenshot && !gui.window) {
 		gui.window = std::pair{ 1600, 900 };  // the guide's figures: the same size on every display
 	}

@@ -13,7 +13,7 @@ namespace dova::home
 {
 	namespace
 	{
-		// Whole-home templates (DESIGN Â§6.7): a cell the home's layout lists whose own setup is only what a template
+		// Whole-home templates (DESIGN §6.7): a cell the home's layout lists whose own setup is only what a template
 		// made by itself (auto-enable on the first visit: Lakeview Manor Cellar; core::AbsorbableCells) joins the
 		// home. Its file is backed up and removed, the Reset path (.bak next to it; the copy outside Data moves to
 		// history with the next write). Anything of the player's in it, or a file that cannot be read, keeps it a
@@ -142,6 +142,15 @@ namespace dova::home
 		return *resolution.chosen < templates.size() ? &templates[*resolution.chosen] : nullptr;
 	}
 
+	const core::TemplateCandidate* Home::PartOfTemplate() const
+	{
+		if (layout || !resolution.partOf) {
+			return nullptr;
+		}
+		const auto templates = Store::Get().Templates();
+		return *resolution.partOf < templates.size() ? &templates[*resolution.partOf] : nullptr;
+	}
+
 	HomeRegistry& HomeRegistry::Get()
 	{
 		static HomeRegistry registry;
@@ -234,6 +243,11 @@ namespace dova::home
 		display->cellId = _home->cellId;
 		display->name = _home->name;
 		display->layout = _home->layout;
+		for (const auto& area : _home->areas) {
+			if (area.id != 0) {
+				display->areaCells.push_back(area.id);
+			}
+		}
 		display->fronts = _home->fronts;
 		for (const auto& [front, container] : _home->fronts) {
 			auto& anchor = display->frontOf[container];
@@ -460,6 +474,31 @@ namespace dova::home
 			LogAreas(a_home);
 		}
 		return Save(a_home);
+	}
+
+	bool HomeRegistry::CanSetUpMainCell(const core::TemplateCandidate& a_whole) const
+	{
+		return a_whole.layout.cell && !Store::Get().HasPlayerLayoutFile(*a_whole.layout.cell);
+	}
+
+	bool HomeRegistry::ApplyTemplateToMainCell(const core::TemplateCandidate& a_whole)
+	{
+		if (!CanSetUpMainCell(a_whole)) {
+			logger::info("Template {}: its main cell has a setup file (or names none); not applied from {}", a_whole.source, _home ? _home->name : "here"s);
+			return false;
+		}
+		const auto whole = a_whole;  // a_whole lives in the store, which the save may rescan
+		Home       main;
+		main.cell = *whole.layout.cell;
+		main.here = main.cell;
+		main.name = MainCellName(main);
+		BuildAreas(main);
+		logger::info("Template {}: set up {} ({}) from {}", whole.source, main.name, main.cell.ToString(), _home ? _home->name : "here"s);
+		if (!ApplyTemplate(main, whole)) {
+			return false;
+		}
+		_stale = true;  // the next Current() loads this cell as an area of that home
+		return true;
 	}
 
 	bool HomeRegistry::SetTemplateHidden(Home& a_home, std::string_view a_source, bool a_hidden)

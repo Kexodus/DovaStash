@@ -30,7 +30,7 @@ namespace dova::ui::panel
 			return a_text;
 		}
 
-		// "Rack", "Mannequin", "Plaque", "Display case"; a kind added later goes by its own name.
+		// "Rack", "Mannequin", "Plaque", "Display case", "Bookshelf"; a kind added later goes by its own name.
 		std::string KindName(core::DisplayKind a_kind)
 		{
 			switch (a_kind) {
@@ -42,14 +42,30 @@ namespace dova::ui::panel
 				return text::kDispKindItem;
 			case core::DisplayKind::Case:
 				return text::kDispKindCase;
+			case core::DisplayKind::Bookshelf:
+				return text::kDispKindBookshelf;
 			default:
 				return Capitalize(std::string(core::DisplayKindName(a_kind)));
 			}
 		}
 
-		// "racks", "display cases", "bookshelves".
+		// "racks", "display cases", "bookshelves"; a kind added later by English rules.
 		std::string KindPlural(core::DisplayKind a_kind)
 		{
+			switch (a_kind) {
+			case core::DisplayKind::Rack:
+				return text::kDispKindRacks;
+			case core::DisplayKind::Mannequin:
+				return text::kDispKindMannequins;
+			case core::DisplayKind::Item:
+				return text::kDispKindPlaques;
+			case core::DisplayKind::Case:
+				return text::kDispKindCases;
+			case core::DisplayKind::Bookshelf:
+				return text::kDispKindBookshelves;
+			default:
+				break;
+			}
 			auto name = core::ToLower(KindName(a_kind));
 			if (name.ends_with('f')) {
 				name.pop_back();

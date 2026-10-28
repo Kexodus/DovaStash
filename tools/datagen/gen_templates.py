@@ -12,8 +12,10 @@ nearest bound container: "Bookshelf (by the library chest)", numbered when the s
 goes in "note".
 
 Labels, one form everywhere (hotkey lists, panel): "<Kind> (by the <landmark>)", "<Kind> (by the <landmark>, 2)" for
-repeats; "(second)", "(third)" only where there is no landmark. A landmark is never the kind itself ("Bookshelf (by the
-bookshelves)") and names at most 3 of one kind while another landmark is about as near.
+repeats; "(second)", "(third)" only where there is no landmark; a short place where no landmark fits ("(east)", "(back
+room)", "(upgrade)"). What a container holds goes before its kind ("Food barrel"), never in the parentheses
+(esm_dump.label_problem; `check` warns too). A landmark is never the kind itself ("Bookshelf (by the bookshelves)") and
+names at most 3 of one kind while another landmark is about as near.
 
 Displays (DESIGN 8.4) come from the plugin data too: every bookshelf, named weapon rack (weapon, shield and dagger
 racks, plaques, the parts of a coat-of-arms rack) and mannequin of the home's own plugins, without categories (each
@@ -69,17 +71,28 @@ CONFLICTS = {
 # Then: one template per multi-cell home (DESIGN 6.7): Lakeview Manor, Windstad Manor and Heljarchen Hall with their cellar
 # and grounds (1.2.0), Tundra Homestead with its cellar and Myrwatch with its gallery (1.1.0); the cellar and gallery
 # templates are retired (RETIRED; each home's `replaces` names them).
+# Then: an own master for each area of Tel Jerdein and Niflholm, and Winter Cove's master in the main hall (its storage
+# room's chest that area's master) (1.1.0); what a container holds out of the parentheses of its label (Lost Hall, Severin
+# Manor, Tundra Homestead), the gallery's containers called so in Myrwatch, and a generic note for a container that goes
+# away later (Nchuanthumz, Proudspire Manor): one patch more.
+# Then: no repeat label without its first (the Hearthfire storage room chests, Hendraheim's wardrobe), "Grounds chest":
+# one patch more (Severin Manor's armory sack: in its 1.0.4, not shipped yet).
+# Then: "(back room, 2)", not "(back room, second)" (the Hearthfire homes): one patch more.
+# Then: the Hearthfire notes say where cellar leftovers go and which of the containers sharing a category takes it: one
+# patch more.
 VERSIONS = {
-    "Vanilla/LakeviewManor.json": "1.2.0", "Vanilla/WindstadManor.json": "1.2.0", "Vanilla/HeljarchenHall.json": "1.2.0",
-    "CreationClub/TundraHomestead.json": "1.1.0", "CreationClub/Myrwatch.json": "1.1.0",
+    "Vanilla/LakeviewManor.json": "1.2.3", "Vanilla/WindstadManor.json": "1.2.3", "Vanilla/HeljarchenHall.json": "1.2.3",
+    "CreationClub/Hendraheim.json": "1.0.4",
+    "CreationClub/TundraHomestead.json": "1.1.1", "CreationClub/Myrwatch.json": "1.1.1",
+    "Vanilla/SeverinManor.json": "1.0.4", "CreationClub/Nchuanthumz.json": "1.0.4", "Vanilla/ProudspireManor.json": "1.0.4",
     "CreationClub/DeadMansDread.json": "1.0.1", "Vanilla/ArchMagesQuarters.json": "1.0.1",
     "Vanilla/Breezehome.json": "1.0.2", "CreationClub/GallowsHall.json": "1.0.2",
     "CreationClub/GoldenhillsPlantation.json": "1.0.3", "Vanilla/Honeyside.json": "1.0.3",
-    "Mods/Niflholm.json": "1.0.1",
+    "Mods/Niflholm.json": "1.1.0",
     "Mods/PinegroveLodge.json": "1.0.2", "Mods/BalRuhn.json": "1.0.1", "Mods/WuthRein.json": "1.0.2",
     "Mods/Ebongrove.json": "1.0.2", "Mods/BlackFurRefuge.json": "1.0.1",
-    "Mods/SicariusRefuge.json": "1.0.2", "Mods/TelJerdein.json": "1.0.1", "Mods/Antennaria.json": "1.0.1",
-    "Mods/WinterCove.json": "1.0.2", "Mods/LostHall.json": "1.0.1", "Mods/SecretCellar.json": "1.0.1",
+    "Mods/SicariusRefuge.json": "1.0.2", "Mods/TelJerdein.json": "1.1.0", "Mods/Antennaria.json": "1.0.1",
+    "Mods/WinterCove.json": "1.1.0", "Mods/LostHall.json": "1.0.2", "Mods/SecretCellar.json": "1.0.1",
 }
 DEFAULT_VERSION = "1.0.3"
 # Templates no longer shipped: merged into their home's one template (whole_home). Deleted when found.
@@ -141,9 +154,10 @@ def sentence(name):
 LABEL_RX = re.compile(r"^(?P<kind>.+?)(?: \((?P<inner>[^()]*)\))?$")
 
 
-def check_label(label):
+def check_label(label, areas=()):
     """One form for every label (module docstring): no "by the" outside the parentheses, the number after the
-    landmark, ordinals only without one."""
+    landmark, ordinals only without one, what it holds never in the parentheses (esm_dump.label_problem; `areas`: the
+    area names a label may give instead of a landmark)."""
     m = LABEL_RX.match(label)
     inner = m.group("inner") or ""
     assert " by the " not in m.group("kind") and " next to the " not in m.group("kind"), f"locator outside (): {label}"
@@ -153,6 +167,8 @@ def check_label(label):
     if any(p.startswith("by the ") for p in parts):
         assert not any(p in ("second", "third", "fourth") for p in parts), f"ordinal next to a landmark: {label}"
         assert not names_kind(parts[0], m.group("kind")), f"named after itself: {label}"
+    problem = E.label_problem(label, areas)
+    assert not problem, f"{label}: {problem}"
 
 
 def names_kind(landmark, kind):
@@ -230,7 +246,7 @@ def label_ignored(entries, conts, master_ref, areas=None, kinds=None, extra=None
         text = f"{kind} ({pick_landmark(kind, anchors, pos, seen, cell if areas else None, areas)}"
         seen[text] = seen.get(text, 0) + 1
         e["label"] = text + (f", {seen[text]})" if seen[text] > 1 else ")")
-        check_label(e["label"])
+        check_label(e["label"], set((areas or {}).values()) | {"another area"})
     return anchors
 
 
@@ -249,7 +265,7 @@ def display_entries(displays, entries, anchors, areas=None):
             text = f"{name} ({pick_landmark(name, anchors, x['position'], seen, x['cellRef'] if areas else None, areas)}"
             seen[text] = seen.get(text, 0) + 1
             labels[x["ref"]] = text + (f", {seen[text]})" if seen[text] > 1 else ")")
-            check_label(labels[x["ref"]])
+            check_label(labels[x["ref"]], set((areas or {}).values()) | {"another area"})
     return [{"ref": x["ref"], "label": labels[x["ref"]]} for x in displays]
 
 
@@ -272,7 +288,7 @@ def auto_ignores(conts, bound, extra_ignores, include_plugins):
         elif d["baseEditorId"] == "PlayerBookShelfContainer":
             reason = "Scripted bookshelf: it only holds books and hands everything else back."
         elif ep.get("oppositeOfParent") and not divert:
-            reason = "Goes away with a house upgrade: anything inside would be lost."
+            reason = "Goes away later (an upgrade or a quest): anything inside would be lost."
         if reason:
             res.append({"ref": d["ref"], "label": name, "ignored": True, "note": reason})
     return res
@@ -291,13 +307,15 @@ def build(name, file, cell, requires, master, bindings, extra_ignores=None, auto
     (DESIGN 6.7), [(cell, area label)]; bindings and displays may be in any of them. `skip_displays`: displays left
     out ({ref: why}). `landmarks`: [(ref, "by the ...")] of unbound containers or displays that name the displays
     near them, where no bound container is near. `master_name`: what the note calls the master when the game gives
-    it no name. `kinds`: see label_ignored. `write`: False for a part of a whole home (whole_home writes the file)."""
+    it no name. `kinds`: see label_ignored. `write`: False for a part of a whole home (whole_home writes the file).
+    A `cells` entry may name the area's own master as a third item (`cells[].master`, DESIGN 6.7): a container of that
+    cell, used there while the home's master is out of reach (not persistent); it is neither bound nor ignored."""
     lo = lo or LO
-    cells = cells or []
+    cells = [(c[0], c[1], c[2] if len(c) > 2 else None) for c in (cells or [])]
     conts = cell_containers(cell, lo)
-    for extra_cell, _label in cells:
+    for extra_cell, _label, _m in cells:
         conts.update(cell_containers(extra_cell, lo))
-    areas = {extra_cell: label for extra_cell, label in cells} | ({cell: name} if cells else {})
+    areas = {extra_cell: label for extra_cell, label, _m in cells} | ({cell: name} if cells else {})
     extra_ignores = {k.lower(): v for k, v in (extra_ignores or {}).items()}
     bound = {}
     entries = []
@@ -316,6 +334,13 @@ def build(name, file, cell, requires, master, bindings, extra_ignores=None, auto
     assert mk in conts and not conts[mk]["respawns"], f"{name}: bad master {master}"
     assert mk not in bound
     bound[mk] = True
+    for extra_cell, _label, area_master in cells:
+        if area_master:
+            am = area_master.lower()
+            assert am in conts and conts[am]["cellRef"] == extra_cell, f"{name}: area master {area_master} is not in {extra_cell}"
+            assert not conts[am]["respawns"] and not conts[am]["startsDisabled"], f"{name}: bad area master {area_master}"
+            assert am not in bound and am not in extra_ignores, f"{name}: area master {area_master} is bound or ignored"
+            bound[am] = True
     include = {p.lower() for p in requires}
     if auto:
         entries += auto_ignores(conts, bound, extra_ignores, include)
@@ -329,7 +354,7 @@ def build(name, file, cell, requires, master, bindings, extra_ignores=None, auto
             assert shared or c not in seen_cats, f"{name}: category {c} bound twice ({seen_cats[c]} / {e['ref']})"
             seen_cats[c] = e["ref"]
     skip = {k.lower() for k in (skip_displays or {})}
-    found = [x for c in [cell] + [c for c, _l in cells] for x in cell_displays(c, include, lo)]
+    found = [x for c in [cell] + [c for c, _l, _m in cells] for x in cell_displays(c, include, lo)]
     assert skip <= {x["ref"].lower() for x in found}, f"{name}: skip_displays names a ref that is not a display"
     found = [x for x in found if x["ref"].lower() not in skip]
     where = {k: (d["position"], d["cellRef"]) for k, d in conts.items()} | {x["ref"].lower(): (x["position"], x["cellRef"])
@@ -348,7 +373,8 @@ def build(name, file, cell, requires, master, bindings, extra_ignores=None, auto
         "requires": requires,
         **({"conflicts": CONFLICTS[file]} if file in CONFLICTS else {}),
         "cell": cell,
-        **({"cells": [{"cell": c, "label": l} for c, l in cells]} if cells else {}),
+        **({"cells": [{"cell": c, "label": l, **({"master": conts[m.lower()]["ref"]} if m else {})} for c, l, m in cells]}
+           if cells else {}),
         "master": conts[mk]["ref"],
         "containers": entries,
         **({"displays": displays} if displays else {}),
@@ -468,10 +494,10 @@ build("Severin Manor", "Vanilla/SeverinManor.json", D + "00017EBE", ["Skyrim.esm
     (D + "00036EF4", "Master bedroom chest (corner)", ["armor.clothing"]),
     (D + "00036E03", "Armory large sack (by the mannequins)", ["weapons.*"]),
     (D + "00036EF1", "Armory large sack (by the weapon racks)", ARM),
-    (D + "00036E04", "Armory large sack (second)", ["ammo.*"]),
-    (D + "000359BF", "Alchemy lab sack (ingredients)", ["alchemy.ingredients"]),
-    (D + "000359C0", "Alchemy lab sack (potions)", ["alchemy.potions"]),
-    (D + "000359C1", "Alchemy lab sack (poisons)", ["alchemy.poisons"]),
+    (D + "00036E04", "Armory large sack", ["ammo.*"]),
+    (D + "000359BF", "Alchemy lab ingredients sack", ["alchemy.ingredients"]),
+    (D + "000359C0", "Alchemy lab potions sack", ["alchemy.potions"]),
+    (D + "000359C1", "Alchemy lab poisons sack", ["alchemy.poisons"]),
     (D + "00036EC6", "Kitchen barrel (upper floor)", ["alchemy.food"]),
     (D + "00036E95", "Smithy barrel", ["misc.ores_ingots", "misc.dwemer"]),
     (D + "00036F62", "Lower hall large sack", ["misc.hides_pelts", "misc.animal_parts"]),
@@ -486,7 +512,7 @@ HF_MAIN = {
     ("02", "007"): ("Main hall chest (east)", ["misc.ores_ingots", "misc.tools"]),
     ("02", "016"): ("Main hall safe (back room)", ["misc.gems", "armor.jewelry"]),
     ("02", "018"): ("Main hall display wardrobe (back room)", ["misc.dwemer"]),
-    ("02", "019"): ("Main hall display wardrobe (back room, second)", ["misc.hides_pelts", "misc.animal_parts"]),
+    ("02", "019"): ("Main hall display wardrobe (back room, 2)", ["misc.hides_pelts", "misc.animal_parts"]),
     ("02", "020"): ("Main hall cupboard (back room)", ["alchemy.food"]),
     ("02", "025"): ("Main hall upstairs low wardrobe", ["keys"]),
     ("02", "032"): ("Main hall upstairs wardrobe", ["armor.clothing"]),
@@ -579,13 +605,78 @@ def hearthfire(name, file, cell, rules, master_rx, wings=None, write=True):
     return build(name, file, cell, VAN_HF, master, bindings, shared=bool(wings), write=write)
 
 
+def area_labels(part, area):
+    """`part`'s labels with the area's word in front of each bound container's ("Armory cupboard" -> "Gallery armory
+    cupboard"), and the landmarks named after them changed to match; a container named only by its kind keeps its own
+    landmark ("Large sack (by the tanning rack)" -> "Gallery large sack (by the tanning rack)")."""
+    swap = {}
+    containers = []
+    for e in part["containers"]:
+        if e.get("ignored"):
+            containers.append(e)
+            continue
+        m = LABEL_RX.match(e["label"])
+        kind = m.group("kind")
+        new = f"{area} {kind[0].lower()}{kind[1:]}" + (f" ({m.group('inner')})" if m.group("inner") else "")
+        if kind.lower() not in GENERIC:
+            swap[place(e["label"])] = place(new)
+        check_label(new)
+        containers.append({**e, "label": new})
+    def landmarks(x):
+        label = x["label"]
+        for old, new in swap.items():
+            label = re.sub(r"\(" + re.escape(old) + r"(?=[,)])", "(" + new, label)
+        return {**x, "label": label}
+    return {**part, "containers": [landmarks(e) for e in containers], "displays": [landmarks(x) for x in part.get("displays", [])]}
+
+
+ORDINALS = ["", "", "second", "third", "fourth", "fifth"]
+
+
+def label_ordinal(label):
+    """(kind, landmark or None, n): "Chest" (1), "Chest (second)" (2), "Chest (by the table)" (1), "Chest (by the
+    table, 2)" (2)."""
+    if m := re.fullmatch(r"(.*) \((.*), (\d+)\)", label):
+        return m.group(1), m.group(2), int(m.group(3))
+    if m := re.fullmatch(r"(.*) \((.*)\)", label):
+        if m.group(2) in ORDINALS[2:]:
+            return m.group(1), None, ORDINALS.index(m.group(2))
+        return m.group(1), m.group(2), 1
+    return label, None, 1
+
+
+def format_ordinal(kind, inner, n):
+    if inner:
+        return f"{kind} ({inner})" if n == 1 else f"{kind} ({inner}, {n})"
+    return kind if n == 1 else f"{kind} ({ORDINALS[n]})"
+
+
+def renumber(items, dropped):
+    """Shifts the repeats of each dropped label down ('(second)' becomes the first, ', 3' becomes ', 2'), so no label
+    numbers a container whose first is not listed (tools/README.md: ', 2' and '(second)' mark repeats)."""
+    for gone in dropped:
+        kind, inner, n = label_ordinal(gone)
+        taken = {x["label"] for x in items}
+        for x in sorted(items, key=lambda x: label_ordinal(x["label"])[2]):
+            k, i, m = label_ordinal(x["label"])
+            if (k, i) == (kind, inner) and m > n:
+                new = format_ordinal(k, i, m - 1)
+                if new not in taken:
+                    taken.discard(x["label"])
+                    x["label"] = new
+                    taken.add(new)
+    return items
+
+
 def whole_home(name, file, main, other, cells, replaces, first=(), moved=(), lo=None, note=None, relabel_main=(), area_note=None):
     """A home over several cells as its one template (DESIGN 6.7), from its single-cell parts as built (not written):
     `first` (bindings in the other cells listed before the main's: [(ref, label, categories)]), the main part's containers
     without the categories in `moved` (another cell's container takes them; a container left with none is dropped), then
-    `other`'s containers and both parts' displays; `cells` [(cell, area label)]. The other part's master is its area's
-    master (`cells[].master`: used there while the home's master is out of reach), so its labels stay as they were: a
-    setup made from the retired template (`replaces`, paths under Templates/) is then taken in untouched. A label that
+    `other`'s containers and both parts' displays; `cells` [(cell, area label)]. The main part's repeats of a dropped
+    container's label move down (renumber). The other part's master is its area's
+    master (`cells[].master`: used there while the home's master is out of reach), so a setup made from the retired
+    template (`replaces`, paths under Templates/) is taken in untouched while the other part's labels stay as they were
+    (Myrwatch's gallery calls its containers so, `area_labels`: its retired template never shipped). A label that
     would come twice is changed in the main part (`relabel_main`: (old, new) text). `note`: the main part's note without
     what only it needs; `area_note`: a sentence on the other area's master."""
     lo = lo or LO
@@ -603,16 +694,27 @@ def whole_home(name, file, main, other, cells, replaces, first=(), moved=(), lo=
         for old, new in relabel_main:
             label = label.replace(old, new)
         return {**x, "label": label}
+    kept, dropped = [], []
     for e in main["containers"]:
         e = relabel(e)
         if e.get("categories"):
             cats = [c for c in e["categories"] if c not in moved]
             if not cats:
+                dropped.append(e["label"])
                 continue
             e = {**e, "categories": cats}
-        entries.append(e)
+        kept.append(e)
+    main_displays = [relabel(x) for x in main.get("displays", [])]
+    renamed = {id(e): e["label"] for e in kept}
+    renumber(kept, dropped)
+    renamed = {renamed[id(e)]: e["label"] for e in kept if renamed[id(e)] != e["label"]}
+    for d in main_displays:
+        # A display named after a renumbered container ("Weapon rack (by the storage room chest (second))").
+        for old, new in renamed.items():
+            d["label"] = d["label"].replace(old.lower(), new.lower()).replace(old, new)
+    entries += kept
     entries += other["containers"]
-    displays = [relabel(x) for x in main.get("displays", [])] + other.get("displays", [])
+    displays = main_displays + other.get("displays", [])
     labels = [e["label"] for e in entries if not e.get("ignored")]
     assert len(labels) == len(set(labels)), f"{name}: a label comes twice"
     names = ["the " + label.lower() for _c, label in cells]
@@ -652,8 +754,10 @@ for house, cell, cellar, n in [("Lakeview Manor", H + "00002FEC", H + "00004849"
     grounds, yards, grounds_chest = HF_FULL[n]
     whole_home(house, f"Vanilla/{fname}.json", main_doc, cellar_doc,
                [(cellar, "Cellar"), (grounds, "Grounds")] + [(y, "Smelter yard") for y in yards], [f"Vanilla/{fname}Cellar.json"],
-               first=[(grounds_chest, "Grounds chest (outside)", ["misc.building_materials"])],
-               moved={"misc.building_materials", "misc.ores_ingots"})
+               first=[(grounds_chest, "Grounds chest", ["misc.building_materials"])],
+               moved={"misc.building_materials", "misc.ores_ingots"},
+               area_note="In the cellar the master is out of reach: what has no container there goes to the cellar's chest. "
+                         "Where containers share a category, the first one built, in list order, takes it.")
 
 # ------------------------------------------------------------------ Creation Club
 U = "Update.esm|0x"
@@ -661,7 +765,7 @@ U = "Update.esm|0x"
 T = "ccEEJSSE001-Hstead.esm|0x"
 TH_DOC = build("Tundra Homestead", "CreationClub/TundraHomestead.json", T + "0000087F",
       ["Skyrim.esm", "Update.esm", "ccEEJSSE001-Hstead.esm"], T + "00084A88", [
-    (T + "00000A65", "Ingredients cupboard (alchemy corner)", ["alchemy.ingredients"]),
+    (T + "00000A65", "Alchemy corner ingredients cupboard", ["alchemy.ingredients"]),
     (T + "0000098D", "Apothecary's satchel (by the alchemy lab)", ["alchemy.potions", "alchemy.poisons"]),
     (T + "00000908", "Alchemy corner cupboard", ["misc.animal_parts"]),
     (T + "00000A3C", "Shrine cupboard (by the enchanter)", ["soulgems.*"]),
@@ -672,7 +776,7 @@ TH_DOC = build("Tundra Homestead", "CreationClub/TundraHomestead.json", T + "000
     (T + "00000FEF", "Kitchen low cupboard", ["alchemy.food"]),
     (T + "00000FAF", "Bedroom dresser", ["armor.clothing"]),
     (T + "00000FBA", "Bedroom cupboard", ARM + ["weapons.*", "ammo.*"]),
-    (T + "0000098F", "Small chest (sitting room)", ["misc.ores_ingots", "misc.hides_pelts"]),
+    (T + "0000098F", "Sitting room small chest", ["misc.ores_ingots", "misc.hides_pelts"]),
     (T + "00000A1D", "Sitting room strong box", ["misc.dwemer", "misc.tools", "misc.building_materials"]),
 ], write=False)
 TH_CELLAR_DOC = build("Tundra Homestead Cellar", "CreationClub/TundraHomesteadCellar.json", T + "00000B06",
@@ -719,9 +823,10 @@ GALLERY_DOC = build("Myrwatch Gallery", "CreationClub/MyrwatchGallery.json", M +
 
 # The tower with its gallery (tests/ingame plan 31): the tower's containers first, then the gallery's; where both bind a
 # category, the one in the player's cell is used (the other is not loaded).
-whole_home("Myrwatch", "CreationClub/Myrwatch.json", MYRWATCH_DOC, GALLERY_DOC,
+# The gallery's containers are called so ("Gallery armory cupboard"), as the Tundra Homestead cellar's and the Hearthfire
+# cellars' are.
+whole_home("Myrwatch", "CreationClub/Myrwatch.json", MYRWATCH_DOC, area_labels(GALLERY_DOC, "Gallery"),
            [(M + "0000092C", "Gallery")], ["CreationClub/MyrwatchGallery.json"], note=base_note("chest"),
-           relabel_main=(("Armory cupboard", "Tower armory cupboard"), ("(by the armory cupboard", "(by the tower armory cupboard")),
            area_note="In the gallery the master is out of reach: what has no container there goes to the gallery's wardrobe.")
 
 SF = "ccEEJSSE003-Hollow.esl|0x"
@@ -749,7 +854,7 @@ build("Hendraheim", "CreationClub/Hendraheim.json", U + "00002FD9",
       ["Skyrim.esm", "Update.esm", "ccEEJSSE004-Hall.esl"], HH + "00000A81", [
     (HH + "000008DE", "Safe", ["armor.jewelry", "misc.gems"]),
     (HH + "00000F82", "Bedroom wardrobe", ["armor.clothing"]),
-    (HH + "00000FF2", "Wardrobe (second)", ARM),
+    (HH + "00000FF2", "Wardrobe", ARM),
     (HH + "00000881", "Narrow dresser (by the bench)", ["weapons.*"]),
     (HH + "00000955", "Drawers (by the beds)", ["ammo.*"]),
     (HH + "000008A5", "Narrow dresser (by the oven)", ["alchemy.food"]),
@@ -874,6 +979,10 @@ build("Arch-Mage's Quarters", "Vanilla/ArchMagesQuarters.json", S + "000CAB92", 
 # Homes the Lux patch hub supports, each tested in game (tests/ingame plans 51-55, 57). Built only when the home's
 # plugin is in the MO2 mods folder; otherwise the shipped file is left as it is.
 MO2 = Path(os.environ.get("DOVASTASH_MO2") or r"E:\modding\Kexodus Skyrim")
+
+
+# The note of a home whose areas each have a master of their own (`cells[].master`).
+AREA_NOTE = "In another area the master is out of reach: what has no container there goes to that area's own master."
 
 
 def mod_home(name, file, plugin, cell, master, bindings, extra_ignores=None, cells=None, shared=False, **kw):
@@ -1055,9 +1164,11 @@ mod_home("Niflholm", "Mods/Niflholm.json", "Niflholm.esp", NF + "00005913", NF +
     (NF + "001AF905", "Guest house knapsack", ["misc.clutter"]),
 ], extra_ignores={NF + "0017C6C2": "Runs a script on what you put in (the mod's sell cupboard).",
                   NF + "0017C6C1": "Runs a script on what you put in (the mod's drop cupboard)."},
-   cells=[(NF + "00001880", "Niflholm"), (NF + "00007A95", "Niflholm Mage Hall"), (NF + "000077D9", "Niflholm Living Hall"),
-          (NF + "000199A1", "Niflholm Storage"), (NF + "001AA4CF", "Niflholm Guest House"),
-          (NF + "0024829C", "Niflholm Hidden Cellar")], shared=True,
+   # The master is not persistent: each area has a chest of its own for what has no container there (`cells[].master`).
+   cells=[(NF + "00001880", "Niflholm", NF + "000E41EC"), (NF + "00007A95", "Niflholm Mage Hall", NF + "000416F3"),
+          (NF + "000077D9", "Niflholm Living Hall", NF + "000B6541"), (NF + "000199A1", "Niflholm Storage", NF + "00097CD8"),
+          (NF + "001AA4CF", "Niflholm Guest House", NF + "001AA5A1"), (NF + "0024829C", "Niflholm Hidden Cellar", NF + "002483D9")],
+   shared=True, note=AREA_NOTE,
    # Nothing is bound in the storage room or the living hall: unbound furniture names the ignored containers there.
    landmarks=[(NF + "00097CD8", "by the noble chest"), (NF + "00019A9C", "by the knapsack"), (NF + "00019ABD", "by the sacks"),
               (NF + "00200EBE", "by the drawers"), (NF + "00200ED5", "by the cupboards"),
@@ -1080,7 +1191,8 @@ mod_home("Tel Jerdein", "Mods/TelJerdein.json", "rmp_telvannihearthfires.esp", T
     (TJ + "0011CDE1", "Foyer large sack", ["misc.dwemer"]),
     (TJ + "000A3004", "Root cellar wardrobe", ["misc.building_materials", "misc.tools"]),
     (TJ + "00127090", "Root cellar chest", ["misc.animal_parts"]),
-], cells=[(TJ + "0000AABB", "Tel Jerdein - Foyer"), (TJ + "0008EADA", "Tel Jerdein - Root Cellar")])
+], cells=[(TJ + "0000AABB", "Tel Jerdein - Foyer", TJ + "00075488"), (TJ + "0008EADA", "Tel Jerdein - Root Cellar", TJ + "0012708F")],
+   note=AREA_NOTE)
 
 AN = "Antennaria.esp|0x"
 mod_home("Antennaria", "Mods/Antennaria.json", "Antennaria.esp", AN + "00000D62", AN + "0000B018", [
@@ -1105,9 +1217,9 @@ mod_home("Antennaria", "Mods/Antennaria.json", "Antennaria.esp", AN + "00000D62"
 WC = "Winter Cove.esp|0x"
 # The storage room's chests are persistent: reached from the main hall too. The main hall's own containers are not:
 # they are used while the player is there (soul gems before the Scrolls chest, the same pattern listed first; clothes and
-# jewelry by their exact ids before the Armor chest's armor.*), and the storage room's chests otherwise. The master is
-# not persistent either: from the main hall, what has no container stays with the player.
-mod_home("Winter Cove", "Mods/WinterCove.json", "Winter Cove.esp", WC + "00000D62", WC + "000216D8", [
+# jewelry by their exact ids before the Armor chest's armor.*), and the storage room's chests otherwise. The master is a
+# main hall chest; the storage room's own chest (not persistent) is that area's master.
+mod_home("Winter Cove", "Mods/WinterCove.json", "Winter Cove.esp", WC + "00000D62", WC + "00023D65", [
     (WC + "00012A70", "Soul gems", ["soulgems.*"]),
     (WC + "0001CA30", "Wardrobe (by the soul gems)", ["armor.clothing"]),
     (WC + "0001CA33", "End table (by the wardrobe)", ["armor.jewelry"]),
@@ -1124,8 +1236,8 @@ mod_home("Winter Cove", "Mods/WinterCove.json", "Winter Cove.esp", WC + "00000D6
     (WC + "000216D4", "Weapons", ["weapons.*", "ammo.*"]),
     (WC + "000216D5", "Ingots", ["misc.ores_ingots", "misc.dwemer", "misc.tools"]),
     (WC + "000216D7", "Leather and strips", ["misc.hides_pelts", "misc.animal_parts"]),
-], cells=[(WC + "0000E30B", "Winter Cove storage")], master_name="storage chest", shared=True,
-   note="From the main hall it is out of reach: what has no container stays with you.",
+], cells=[(WC + "0000E30B", "Winter Cove storage", WC + "000216D8")], shared=True,
+   note="In the storage room the master is out of reach: what has no container there goes to the storage room's chest.",
    # The armory's own pieces name its racks.
    landmarks=[(WC + "000324A7", "by the shield racks"), (WC + "00032A21", "by the shield racks"),
               (WC + "00032A25", "by the mannequin"), (WC + "00032489", "by the weapon racks")])
@@ -1135,8 +1247,8 @@ UV = "gonkishvampdens.esp|0x"
 mod_home("Lost Hall", "Mods/LostHall.json", "gonkishvampdens.esp", UV + "000736AA", UV + "00082A50", [
     (UV + "000739DF", "End table (by the wardrobes)", ["books.*"]),
     (UV + "000739FE", "Wardrobe", ["armor.clothing"]),
-    (UV + "00082B6A", "Barrel (food)", ["alchemy.food"]),
-    (UV + "00082B6B", "Barrel (ingredients)", ["alchemy.ingredients"]),
+    (UV + "00082B6A", "Food barrel", ["alchemy.food"]),
+    (UV + "00082B6B", "Ingredients barrel", ["alchemy.ingredients"]),
     (UV + "000739F3", "Wardrobe (by the cupboard)", ARM),
     (UV + "000739F2", "Wardrobe (by the cupboard, 2)", ["weapons.*", "ammo.*"]),
     (UV + "000739F4", "Cupboard (by the wardrobes)", ["alchemy.potions", "alchemy.poisons"]),

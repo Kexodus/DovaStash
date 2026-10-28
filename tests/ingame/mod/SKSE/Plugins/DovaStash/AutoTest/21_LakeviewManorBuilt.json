@@ -44,7 +44,7 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "Dova Stash: .* setup enabled"
+          "regex": "Dova Stash: .* is set up"
         },
         {
           "check": "log",
@@ -74,24 +74,63 @@
         },
         {
           "check": "noErrors"
-        },
-        {
-          "do": "enter",
-          "coc": "BYOHHouse1Exterior"
-        },
-        {
-          "do": "buyHome"
-        },
-        {
-          "do": "enter",
-          "coc": "BYOHHouse1FalkreathBasement"
-        },
-        {
-          "do": "buyHome"
-        },
-        {
-          "do": "enter"
         }
+      ]
+    },
+    {
+      "id": "3.9.1-unvisited",
+      "title": "Deposit with no master in reach: the HUD says why and the items stay on the player (master away; master in an area not visited yet this session, then visited)",
+      "steps": [
+        {"do": "enter"},
+        {"do": "writeLayout", "text": "{\"$schema\": \"dovastash-layout-1\", \"name\": \"Lakeview Manor\", \"author\": \"Player\", \"version\": \"1.0.0\", \"cell\": \"HearthFires.esm|0x00002FEC\", \"master\": \"HearthFires.esm|0x0000BE8A\", \"cells\": [{\"cell\": \"HearthFires.esm|0x00004849\", \"label\": \"Cellar\"}, {\"cell\": \"Skyrim.esm|0x00009BF7\", \"label\": \"Grounds\"}]}", "why": "the master is the cellar's knapsack: not persistent, so not in memory from the hall"},
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"do": "enter"},
+        {"check": "layout", "pointer": "/master", "eq": "HearthFires.esm|0x0000BE8A"},
+        {"do": "clearInventory"},
+        {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 4},
+        {"do": "snapshot", "name": "away"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "notify", "contains": "Dova Stash: nothing deposited (4 items left: master not here)"},
+        {"check": "count", "in": "player", "item": "Skyrim.esm|0x0005ACE4", "eq": 4},
+        {"check": "conserved", "snapshot": "away"},
+        {"do": "writeLayout", "text": "{\"$schema\": \"dovastash-layout-1\", \"name\": \"Lakeview Manor\", \"author\": \"Player\", \"version\": \"1.0.0\", \"cell\": \"HearthFires.esm|0x00002FEC\", \"master\": \"HearthFires.esm|0x00003068\", \"cells\": [{\"cell\": \"HearthFires.esm|0x00004849\", \"label\": \"Cellar\"}, {\"cell\": \"Skyrim.esm|0x00009BF7\", \"label\": \"Grounds\"}]}", "why": "the master is the grounds chest: persistent, in an exterior cell not visited yet this session (no parent cell)"},
+        {"do": "enter", "coc": "WhiterunBanneredMare"},
+        {"do": "enter"},
+        {"check": "layout", "pointer": "/master", "eq": "HearthFires.esm|0x00003068"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "notify", "regex": "Dova Stash: nothing deposited \\(4 items left: visit (Grounds|its area) first\\)"},
+        {"check": "log", "contains": "Container HearthFires.esm|0x00003068 unavailable: not loaded here (its area has not been visited this session)"},
+        {"check": "count", "in": "player", "item": "Skyrim.esm|0x0005ACE4", "eq": 4},
+        {"check": "conserved", "snapshot": "away"},
+        {"do": "enter", "coc": "BYOHHouse1Exterior"},
+        {"do": "buyHome"},
+        {"do": "require", "enabled": "HearthFires.esm|0x00003068", "why": "the grounds chest comes with the built house"},
+        {"do": "enter"},
+        {"do": "snapshot", "name": "visited", "why": "buying the house stocks the home (building materials, produce)"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "count", "in": "HearthFires.esm|0x00003068", "item": "Skyrim.esm|0x0005ACE4", "from": "visited", "ge": 4, "within": 3},
+        {"check": "count", "in": "player", "item": "Skyrim.esm|0x0005ACE4", "eq": 0},
+        {"check": "conserved", "snapshot": "visited"},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "3.9.1-visit",
+      "title": "The template back (after 3.9.1-unvisited's test setups), and every area of the built house visited",
+      "steps": [
+        {"do": "enter"},
+        {"do": "useTemplate", "source": "Templates/Vanilla/LakeviewManor.json"},
+        {"check": "layout", "pointer": "/master", "eq": "HearthFires.esm|0x0000309E", "within": 5},
+        {"check": "layout", "pointer": "/cells", "contains": {"cell": "HearthFires.esm|0x00004849", "label": "Cellar"}},
+        {"do": "enter", "coc": "BYOHHouse1Exterior"},
+        {"do": "buyHome"},
+        {"do": "enter", "coc": "BYOHHouse1FalkreathBasement"},
+        {"do": "buyHome"},
+        {"do": "enter"},
+        {"check": "noErrors"}
       ]
     },
     {
@@ -399,7 +438,8 @@
         },
         {
           "do": "sit",
-          "ref": "HearthFires.esm|0x000051CB"
+          "ref": "HearthFires.esm|0x000051CB",
+          "skipIfClosed": true
         },
         {
           "check": "crafting",
@@ -575,6 +615,70 @@
         {
           "check": "conserved",
           "snapshot": "tan"
+        },
+        {
+          "check": "noErrors"
+        }
+      ]
+    },
+    {
+      "id": "6.2.5-lakeview-browse",
+      "title": "Message boxes, Browse containers... in a big home (more than 3 pages): one line per area (\"<area> (N)...\"), the masters first; Cancel changes nothing",
+      "steps": [
+        {
+          "do": "enter"
+        },
+        {
+          "do": "settings",
+          "set": {
+            "iMode": 1
+          }
+        },
+        {
+          "do": "aim",
+          "ref": null
+        },
+        {
+          "do": "hotkey"
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Advanced..."
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Advanced..."
+        },
+        {
+          "check": "menuEntries",
+          "contains": [
+            "Browse containers..."
+          ],
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Browse containers..."
+        },
+        {
+          "check": "menuEntries",
+          "includes": [
+            " - master (",
+            ")..."
+          ],
+          "body": "Browse containers",
+          "within": 5
+        },
+        {
+          "do": "choose",
+          "entry": "Cancel"
+        },
+        {
+          "do": "aim",
+          "clear": true
         },
         {
           "check": "noErrors"
@@ -1025,7 +1129,7 @@
         },
         {
           "check": "notify",
-          "regex": "Dova Stash: Lakeview Manor setup enabled"
+          "regex": "Dova Stash: Lakeview Manor is set up"
         },
         {
           "check": "log",

@@ -58,8 +58,17 @@ namespace dova::editor::ui
 	void EditorApp::GroupHomes()
 	{
 		_homeGroups.clear();
+		_homeNameClash.clear();
 		if (!_homes || !_ws) {
 			return;
+		}
+		// Two homes of one name (a vanilla home and a mod's copy of it): their rows add the cell's EditorID.
+		std::unordered_map<std::string, int> names;
+		for (const auto& h : _homes->homes) {
+			++names[core::ToLower(h.name)];
+		}
+		for (const auto& h : _homes->homes) {
+			_homeNameClash.push_back(names[core::ToLower(h.name)] > 1 && !h.editorId.empty());
 		}
 		// Plugin (lower case) -> the mod providing it: the enabled mod with the highest priority (MO2's rule), -1 the game's Data folder.
 		std::unordered_map<std::string, int> owner;
@@ -318,7 +327,7 @@ namespace dova::editor::ui
 			}
 		}
 		for (const auto& e : a_home.extra) {
-			w::Muted(std::format("Also {} ({}){}", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely ? "" : ": storage behind a door").c_str());
+			w::Muted(std::format("Also {} ({}){}", e.name.empty() ? e.editorId : e.name, e.cellRef, e.likely || e.exterior ? "" : ": storage behind a door").c_str());
 		}
 		w::Muted(("Why: " + (a_home.candidate.reasons.empty() ? std::string("only containers") : Join(a_home.candidate.reasons))).c_str());
 		w::Muted(a_home.plugin.c_str());
@@ -427,9 +436,16 @@ namespace dova::editor::ui
 					ImGui::SameLine(0.0f, t.gap);
 					const std::string summary =
 						std::format("{} homes · {} plugins · {:.1f} s", _homes->homes.size(), _homes->lo ? _homes->lo->PluginCount() : 0, static_cast<double>(_homes->ms) / 1000.0);
-					ImGui::PushClipRect(ImGui::GetCursorScreenPos(), ImVec2(ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - 30.0f * t.scale, ImGui::GetCursorScreenPos().y + 50.0f), true);
-					w::Muted(summary.c_str());
+					// A narrow rail (a large text size): the home count only, the rest in the tooltip.
+					const float right = ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - 30.0f * t.scale;
+					const bool  fits = ImGui::GetCursorScreenPos().x + ImGui::CalcTextSize(summary.c_str()).x <= right;
+					const auto  shown = fits ? summary : std::format("· {} homes", _homes->homes.size());
+					ImGui::PushClipRect(ImGui::GetCursorScreenPos(), ImVec2(right, ImGui::GetCursorScreenPos().y + 50.0f), true);
+					w::Muted(shown.c_str());
 					ImGui::PopClipRect();
+					if (!fits) {
+						w::Tip(summary.c_str());
+					}
 				}
 				ImGui::PopFont();
 			}
@@ -481,11 +497,21 @@ namespace dova::editor::ui
 			w::Kind     kind = w::Kind::Neutral;
 			const auto  chip = HomeChip(a_i, &kind);
 			const auto  st = a_i < static_cast<int>(_homes->storage.size()) ? _homes->storage[static_cast<std::size_t>(a_i)] : HomesData::Storage{ h.containers, h.displays };
-			const auto  cells = h.extra.size() + 1;
-			const auto  templates = TemplateCount(h);
-			const auto  summary = Summary(st.containers, st.displays, cells, templates, a_compact ? SummaryForm::Counts : SummaryForm::Full);
-			const auto  summaryShort = Summary(st.containers, st.displays, cells, templates, a_compact ? SummaryForm::Counts : SummaryForm::Short);
-			const auto  counts = Summary(st.containers, st.displays, cells, templates, SummaryForm::Counts);  // narrower still: the cells and templates win
+			const auto  list = HomeTemplates(h);
+			const auto  templates = list.size();
+			// The cells of the template it opens on (the open one, else the game's first: a Grounds exterior the
+			// home finder does not join counts), else the finder's.
+			const core::Layout* tl = IsOpenHome(a_i) && _cell ? &_cell->layout : !list.empty() ? &list.front()->layout : nullptr;
+			const auto          cells = tl && tl->cell ? core::HomeCellRefs(*tl->cell, tl->cells).size() : h.extra.size() + 1;
+			auto        summary = Summary(st.containers, st.displays, cells, templates, a_compact ? SummaryForm::Counts : SummaryForm::Full);
+			auto        summaryShort = Summary(st.containers, st.displays, cells, templates, a_compact ? SummaryForm::Counts : SummaryForm::Short);
+			auto        counts = Summary(st.containers, st.displays, cells, templates, SummaryForm::Counts);  // narrower still: the cells and templates win
+			if (static_cast<std::size_t>(a_i) < _homeNameClash.size() && _homeNameClash[static_cast<std::size_t>(a_i)]) {
+				// Another home has this name: its cell's EditorID tells them apart, kept down to the narrowest form.
+				summary += " · " + h.editorId;
+				summaryShort += " · " + h.editorId;
+				counts = h.editorId;
+			}
 			ImGui::PushID(a_i);
 			if (w::HomeRow("home", h.name.c_str(), summary.c_str(), summaryShort.c_str(), chip.c_str(), kind, IsOpenHome(a_i), _railCursor == a_i, HomeUnsaved(a_i), false,
 					counts.c_str())) {
@@ -536,7 +562,7 @@ namespace dova::editor::ui
 			const auto      homes = std::format("{} home{}", shown.size(), shown.size() == 1 ? "" : "s");
 			const auto      note = mod && mod->nexusId ? std::format("Nexus {}  ·  {}", *mod->nexusId, homes) : homes;
 			ImGui::PushID(g.mod);
-			if (w::GroupHeader("group", ModName(*_ws, g.mod).c_str(), note.c_str(), open) && a_search.empty()) {
+			if (w::GroupHeader("group", ModName(*_ws, g.mod).c_str(), note.c_str(), open, homes.c_str()) && a_search.empty()) {
 				if (open) {
 					_collapsedGroups.erase(g.mod);
 				} else {
@@ -556,6 +582,9 @@ namespace dova::editor::ui
 			};
 			if (ImGui::BeginItemTooltip()) {
 				ImGui::TextUnformatted(ModName(*_ws, g.mod).c_str());
+				if (mod && mod->nexusId) {
+					w::Muted(std::format("Nexus {}", *mod->nexusId).c_str());
+				}
 				if (g.mod != -2) {
 					ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0f);
 					w::Muted(Join(mod ? mod->plugins : _ws->BasePlugins()).c_str());
@@ -603,7 +632,7 @@ namespace dova::editor::ui
 				ImGui::PushID(i);
 				bool       open = true;
 				const auto note = m.nexusId ? std::format("{}  ·  no homes", *m.nexusId) : std::string("no homes");
-				w::GroupHeader("group", m.name.c_str(), note.c_str(), open);
+				w::GroupHeader("group", m.name.c_str(), note.c_str(), open, "no homes");
 				ImGui::PushFont(t.smallFont);
 				ImGui::Indent(t.pad);
 				const bool anyCells = _selectedMod == i;

@@ -202,7 +202,7 @@ namespace dova::icons
 		if (!ref) {
 			return row;
 		}
-		if (a_layout.IsMaster(*ref)) {
+		if (a_layout.IsAnyMaster(*ref)) {
 			row.icons.push_back(ForPattern("*"));
 			return row;
 		}
@@ -237,7 +237,7 @@ namespace dova::icons
 		if (!ref) {
 			return {};
 		}
-		if (a_layout.IsMaster(*ref)) {
+		if (a_layout.IsAnyMaster(*ref)) {
 			// The inbox for everything: SkyUI's "All" category icon.
 			return WithPlayerSources(core::IconRef{ std::string(core::kSkyUICategoryIcons), "inv_all", std::nullopt });
 		}

@@ -5,6 +5,8 @@
 #   SKSE/Plugins/DovaStash.ini          created if missing; otherwise kept, and only [Sections] that the
 #                                       default INI has but it lacks are appended (new settings show up
 #                                       without touching the user's values)
+#   SKSE/Plugins/DovaStash.ini.default  the shipped defaults, as the release zip has them (Settings::Load makes
+#                                       DovaStash.ini from it when that file is missing)
 #   SKSE/Plugins/DovaStash/...          exact mirror of dist/Data/SKSE/Plugins/DovaStash (if present): files dist no
 #                                       longer has are removed (a renamed template would stay live otherwise),
 #                                       except what the plugin or the player writes (Layouts/, Backups/,
@@ -34,8 +36,24 @@ foreach(_entry IN LISTS _top)
 	endif()
 endforeach()
 if(_stray)
+	# root/ holding only tools/stress_loot.py's old output (ds_*.txt, ds_manifest.csv): name it and give the command.
+	set(_legacy FALSE)
+	if(_stray STREQUAL "root" AND IS_DIRECTORY "${DEPLOY_DIR}/root")
+		file(GLOB_RECURSE _rootFiles RELATIVE "${DEPLOY_DIR}/root" "${DEPLOY_DIR}/root/*")
+		set(_legacy TRUE)
+		foreach(_f IN LISTS _rootFiles)
+			if(NOT _f MATCHES "^ds_[^/]*\\.txt$" AND NOT _f STREQUAL "ds_manifest.csv")
+				set(_legacy FALSE)
+			endif()
+		endforeach()
+	endif()
 	string(REPLACE ";" ", " _stray "${_stray}")
-	message(WARNING "Deploy: ${DEPLOY_DIR} has entries no build writes: ${_stray}. Remove them unless they belong there.")
+	if(_legacy)
+		message(WARNING "Deploy: ${DEPLOY_DIR}/root holds only the old output of tools/stress_loot.py (ds_*.txt, ds_manifest.csv), "
+			"which Root Builder copies into the game folder. Remove it: cmake -E rm -rf \"${DEPLOY_DIR}/root\"")
+	else()
+		message(WARNING "Deploy: ${DEPLOY_DIR} has entries no build writes: ${_stray}. Remove them unless they belong there.")
+	endif()
 endif()
 
 # The game locks the DLL (and PDB) while it runs: report that instead of failing the build, and still
@@ -56,6 +74,7 @@ if(DEFINED PDB AND EXISTS "${PDB}")
 endif()
 
 if(DEFINED DEFAULT_INI AND EXISTS "${DEFAULT_INI}")
+	file(COPY_FILE "${DEFAULT_INI}" "${_plugins}/DovaStash.ini.default" ONLY_IF_DIFFERENT)
 	if(NOT EXISTS "${_plugins}/DovaStash.ini")
 		file(COPY_FILE "${DEFAULT_INI}" "${_plugins}/DovaStash.ini")
 		message(STATUS "Deployed default DovaStash.ini")

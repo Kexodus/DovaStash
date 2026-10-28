@@ -77,12 +77,33 @@ namespace dova::display
 			bool                returned{ false };  // Bookshelf: it left the shelf after UpdateBooks and went back
 		};
 
-		// A book on a shelf before its UpdateBooks: the shelf's count, and the copies of it already in the world.
+		// A book on a shelf before its UpdateBooks: the shelf's count, the copies of it already in the world, and the
+		// containers of the shelf's cell that held it (a book the shelf's script moved into one is found there).
 		struct ShelfWatch
 		{
-			std::int32_t         count{ 0 };
-			std::set<RE::FormID> loose;
+			std::int32_t                       count{ 0 };
+			std::set<RE::FormID>               loose;
+			std::map<RE::FormID, std::int32_t> held;
 		};
+
+		// Every container in the shelf's cell but the shelf, with how many of `a_book` it holds (none: left out).
+		std::map<RE::FormID, std::int32_t> BookHolders(RE::TESObjectREFR* a_shelf, RE::TESBoundObject* a_book)
+		{
+			std::map<RE::FormID, std::int32_t> out;
+			auto*                              cell = a_shelf ? a_shelf->GetParentCell() : nullptr;
+			if (!cell || !a_book) {
+				return out;
+			}
+			cell->ForEachReference([&](RE::TESObjectREFR* a_ref) {
+				if (a_ref && a_ref != a_shelf && !a_ref->IsDeleted() && game::IsContainerRef(a_ref)) {
+					if (const auto n = game::LiveCount(a_ref, a_book); n > 0) {
+						out.emplace(a_ref->GetFormID(), n);
+					}
+				}
+				return RE::BSContainer::ForEachResult::kContinue;
+			});
+			return out;
+		}
 
 		// Where a weapon from a container is dropped before it goes up: in the open in front of the player,
 		// like the equipped weapon WeaponRackActivateSCRIPT drops (DropObject).
@@ -566,7 +587,7 @@ namespace dova::display
 				for (auto i = a_first; i < a_last; ++i) {
 					auto* object = _shelves[i].stack.object;
 					if (_shelves[i].accepted && shelf && !_watch.contains(object)) {
-						_watch[object] = ShelfWatch{ game::LiveCount(shelf, object), game::LooseBooks(display, object) };
+						_watch[object] = ShelfWatch{ game::LiveCount(shelf, object), game::LooseBooks(display, object), BookHolders(shelf, object) };
 					}
 				}
 				_refresh = game::RefreshBookshelf(display);
@@ -632,7 +653,7 @@ namespace dova::display
 				}
 				const auto& display = _shelves[a_first].display;
 				auto*       shelf = Ref(display.ref);
-				for (const auto& [object, watch] : _watch) {
+				for (auto& [object, watch] : _watch) {
 					auto lost = shelf ? watch.count - game::LiveCount(shelf, object) : 0;
 					if (lost <= 0) {
 						continue;
@@ -645,7 +666,7 @@ namespace dova::display
 						if (s.accepted && !s.returned && s.stack.object == object) {
 							s.returned = true;
 							--lost;
-							Returned(s, fresh);
+							Returned(s, fresh, watch.held);
 						}
 					}
 				}
@@ -655,7 +676,9 @@ namespace dova::display
 
 			// A book that left the shelf after its UpdateBooks: its loose copy (if found) is removed and the book
 			// goes back where it came from. If no copy is found and the player's count went up, the player took it.
-			void Returned(const Step& a_step, std::set<RE::FormID>& a_fresh)
+			// Else a container of the cell that holds one more than before (`a_held`, counted before the shelf's
+			// UpdateBooks; what is found is counted in) gives that copy back; only when none does is a copy made.
+			void Returned(const Step& a_step, std::set<RE::FormID>& a_fresh, std::map<RE::FormID, std::int32_t>& a_held)
 			{
 				--_placed;
 				++_skipped;
@@ -691,6 +714,32 @@ namespace dova::display
 					return;
 				}
 				game::ItemMover::SuppressScope suppress;
+				if (!copy) {
+					// The shelf's script may have moved the book into a container of the cell: that copy goes back.
+					auto* shelfRef = Ref(a_step.display.ref);
+					for (const auto& [id, n] : BookHolders(shelfRef, a_step.stack.object)) {
+						auto& had = a_held[id];
+						if (n <= had) {
+							continue;
+						}
+						++had;  // counted in: another lost copy looks for one more
+						auto* holder = RE::TESForm::LookupByID<RE::TESObjectREFR>(id);
+						if (!holder || holder == source) {
+							logger::info("Display: {} is in {} again", a_step.item, game::Describe(holder));
+							return;
+						}
+						const auto was = game::LiveCount(source, a_step.stack.object);
+						holder->RemoveItem(a_step.stack.object, 1, RE::ITEM_REMOVE_REASON::kStoreInContainer, nullptr, source);
+						if (game::LiveCount(source, a_step.stack.object) == was + 1) {
+							logger::info("Display: {} was in {}; it went back to {}", a_step.item, game::Describe(holder),
+								Holder(source == player ? game::kPlayerRefID : a_step.stack.owner));
+							return;
+						}
+						logger::warn("Display: {} is in {} and could not be moved back; it stays there", a_step.item, game::Describe(holder));
+						return;
+					}
+					logger::info("Display: {} was found nowhere in the cell; a copy goes back", a_step.item);
+				}
 				const auto before = game::LiveCount(source, a_step.stack.object);
 				source->AddObjectToContainer(a_step.stack.object, nullptr, 1, nullptr);
 				if (game::LiveCount(source, a_step.stack.object) != before + 1) {
@@ -868,7 +917,7 @@ namespace dova::display
 			// A container the layout uses for storage is a container, not a case or a bookshelf.
 			const auto ref = RefOf(d.ref);
 			const auto* binding = ref ? layout.FindContainer(*ref) : nullptr;
-			return ref && (layout.IsMaster(*ref) || (binding && !binding->ignored));
+			return ref && (layout.IsAnyMaster(*ref) || (binding && !binding->ignored));
 		});
 		if (found.empty()) {
 			return out;

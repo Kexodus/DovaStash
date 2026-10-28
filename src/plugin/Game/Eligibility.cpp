@@ -246,7 +246,10 @@ namespace dova::game
 			return Verdict::Reject("not in this home's cell", "container is not in this home's cell");
 		}
 		if (IsEffectivelyDisabled(a_ref)) {
-			auto verdict = Verdict::Reject("not built yet", "container is disabled (not built yet?)");
+			// "Not built yet" unless xEdit undeleted it (nothing ever enables that one). Not only with an enable parent:
+			// Hearthfire furniture starts disabled with none (its build script enables it, e.g. HearthFires.esm|0x0000E265).
+			auto verdict = !IsUndeletedRef(a_ref) ? Verdict::Reject("not built yet", "container is disabled (not built yet?)") :
+			                                        Verdict::Reject("disabled", "container is disabled (deleted reference)");
 			verdict.notBuilt = true;
 			return verdict;
 		}

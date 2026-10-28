@@ -543,7 +543,7 @@ namespace dova::core
 			}
 			// A container the template makes the sell chest: the player's own item bindings to it would send those
 			// items to be sold, so they are not carried over (never lose an item).
-			const bool newSellChest = c.sell && !c.ignored && !layout.IsMaster(c.ref) && !a_existing->IsSellChest(c.ref);
+			const bool newSellChest = layout.IsSellChest(c.ref) && !a_existing->IsSellChest(c.ref);
 			for (const auto& f : old->forms) {
 				if (!newSellChest && std::ranges::find(c.forms, f) == c.forms.end()) {
 					c.forms.push_back(f);
@@ -561,7 +561,7 @@ namespace dova::core
 		// categories, so the template's category bindings decide where categories go, while learned
 		// destinations, explicit forms, labels and ignored flags survive.
 		for (const auto& old : a_existing->containers) {
-			if (layout.FindContainer(old.ref) || layout.IsMaster(old.ref)) {
+			if (layout.FindContainer(old.ref) || layout.IsAnyMaster(old.ref)) {
 				continue;
 			}
 			ContainerBinding c = old;
@@ -569,8 +569,8 @@ namespace dova::core
 			c.sell = false;  // a role, like the master: it comes from the template (DESIGN §8.8)
 			layout.containers.push_back(std::move(c));
 		}
-		// The previous master, if the template uses another one, stays known as a plain container.
-		if (a_existing->master && !layout.IsMaster(*a_existing->master) && !layout.FindContainer(*a_existing->master)) {
+		// The previous master, if the template uses another one (and not as an area's), stays known as a plain container.
+		if (a_existing->master && !layout.IsAnyMaster(*a_existing->master) && !layout.FindContainer(*a_existing->master)) {
 			ContainerBinding c;
 			c.ref = *a_existing->master;
 			c.label = "Previous master";
@@ -613,18 +613,18 @@ namespace dova::core
 			}
 		}
 
-		// Learned destinations: every entry whose container is still part of the layout (not the master), except a
+		// Learned destinations: every entry whose container is still part of the layout (not the master or an area's), except a
 		// container the template makes the sell chest (Deposit would sell what the player put there).
 		const auto newSellChest = [&](const FormRef& a_ref) { return layout.IsSellChest(a_ref) && !a_existing->IsSellChest(a_ref); };
 		for (const auto& [form, container] : a_existing->learned) {
-			if (layout.FindContainer(container) && !layout.IsMaster(container) && !newSellChest(container)) {
+			if (layout.FindContainer(container) && !layout.IsAnyMaster(container) && !newSellChest(container)) {
 				layout.learned.emplace(form, container);
 			}
 		}
 		layout.unparsedLearned = a_existing->unparsedLearned;
 		// Declined category suggestions (Learning.h): the player's answers for containers still in the layout.
 		for (const auto& [container, ids] : a_existing->declined) {
-			if (layout.FindContainer(container) && !layout.IsMaster(container) && !newSellChest(container)) {
+			if (layout.FindContainer(container) && !layout.IsAnyMaster(container) && !newSellChest(container)) {
 				layout.declined.emplace(container, ids);
 			}
 		}
@@ -732,7 +732,7 @@ namespace dova::core
 				return std::ranges::any_of(out.containers, [&](const ContainerBinding& c) { return std::ranges::find(c.forms, a_form) != c.forms.end(); });
 			};
 			for (const auto& [form, container] : a_layout.learned) {
-				if (out.IsMaster(container) || boundExplicitly(form)) {
+				if (out.IsAnyMaster(container) || boundExplicitly(form)) {
 					continue;
 				}
 				auto* binding = out.FindContainer(container);

@@ -150,6 +150,20 @@ namespace dova
 	{
 		const std::filesystem::path path{ kPath };
 
+		// The release ships DovaStash.ini.default, never DovaStash.ini: the player's file is made from it on the first
+		// load, outside the mod's own files (under MO2: in overwrite), so installing an update never resets it.
+		if (std::error_code ec; !std::filesystem::exists(path, ec)) {
+			auto shipped = path;
+			shipped += ".default";
+			if (std::filesystem::exists(shipped, ec)) {
+				if (std::filesystem::copy_file(shipped, path, ec)) {
+					logger::info("Settings: created {} from the shipped defaults", kPath);
+				} else {
+					logger::warn("Settings: could not create {} from {} ({}), using defaults", kPath, shipped.filename().string(), ec.message());
+				}
+			}
+		}
+
 		CSimpleIniA ini;
 		ini.SetUnicode();
 		const auto rc = ini.LoadFile(path.string().c_str());

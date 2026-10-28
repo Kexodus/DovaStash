@@ -251,8 +251,10 @@ add_custom_target(DovaStash_deploy
 )
 
 # The release zip (one installable archive): cmake --build --preset plugin-release --target DovaStash_package
-# Stages build/release/Dova Stash/ (DLL, PDB, the default INI as DovaStash.ini, dist data, Interface, the editor of
-# build/editor and the user guide PDF) and zips it to build/release/DovaStash-<version>.zip (cmake/Package.cmake).
+# Stages build/release/Dova Stash/ (DLL, PDB, the default INI as DovaStash.ini.default, dist data, Interface, the
+# editor of build/editor and the user guide PDF) and zips it to build/release/DovaStash-<version>.zip
+# (cmake/Package.cmake). A missing editor or guide stops it unless PACKAGE_ALLOW_PARTIAL is ON.
+option(PACKAGE_ALLOW_PARTIAL "Let DovaStash_package zip without the editor or the user guide (test zips only)" OFF)
 add_custom_target(DovaStash_package
 	COMMAND "${CMAKE_COMMAND}"
 		"-DDLL=$<TARGET_FILE:DovaStash>"
@@ -264,6 +266,7 @@ add_custom_target(DovaStash_package
 		"-DGUIDE_PDF=${PROJECT_SOURCE_DIR}/presskit/guide/DovaStashEditor-UserGuide.pdf"
 		"-DOUT_DIR=${PROJECT_SOURCE_DIR}/build/release"
 		"-DVERSION=${PROJECT_VERSION}"
+		"-DPACKAGE_ALLOW_PARTIAL=${PACKAGE_ALLOW_PARTIAL}"
 		-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Package.cmake"
 	DEPENDS DovaStash
 	COMMENT "Packaging Dova Stash ${PROJECT_VERSION} into build/release"

@@ -3,6 +3,7 @@
   "name": "Breezehome",
   "home": "Skyrim.esm|0x000165A8",
   "coc": "WhiterunBreezehome",
+  "templates": ["NotInstalledHome.json"],
   "tests": [
     {
       "id": "1.1", "title": "Template offered on the first visit",
@@ -307,7 +308,7 @@
       "id": "3.6", "title": "Use template, Deposit spreads the loot, Re-apply keeps the player's data",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Breezehome setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Breezehome is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Vanilla/Breezehome.json@"},
         {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000F3922"},
         {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 2},
@@ -348,6 +349,7 @@
         {"do": "unbind", "ref": "Skyrim.esm|0x000CB437", "category": "books.*"},
         {"check": "panel", "ownChanges": false},
         {"check": "panel", "catalogue": {"source": "Templates/Vanilla/Breezehome.json", "installed": true}},
+        {"check": "panel", "catalogue": {"source": "Templates/AutoTest/NotInstalledHome.json", "installed": false}},
         {"check": "panel", "aimed": null},
         {"do": "aim", "ref": "Skyrim.esm|0x000CB437"},
         {"check": "panel", "aimed": "Skyrim.esm|0x000CB437", "managed": true},
@@ -541,8 +543,8 @@
         {"do": "exitDoor"},
         {"check": "home", "is": false},
         {"do": "addArea", "label": "Grounds"},
-        {"check": "notify", "contains": "Dova Stash: Grounds is now part of Breezehome"},
-        {"check": "log", "regex": "Add area: .* is now part of Breezehome"},
+        {"check": "notify", "regex": "Dova Stash: Grounds is now part of (AutoTest )?Breezehome"},
+        {"check": "log", "regex": "Add area: .* is now part of (AutoTest )?Breezehome"},
         {"check": "layout", "pointer": "/cells", "contains": {"label": "Grounds"}},
         {"check": "home", "is": true, "name": "Breezehome"},
         {"do": "renameArea", "label": "Yard"},
@@ -552,7 +554,7 @@
         {"do": "op", "op": "Deposit"},
         {"check": "log", "contains": "Deposit in Breezehome"},
         {"do": "removeArea"},
-        {"check": "notify", "contains": "is no longer part of Breezehome"},
+        {"check": "notify", "regex": "is no longer part of (AutoTest )?Breezehome"},
         {"check": "layout", "pointer": "/cells", "absent": true},
         {"do": "enter"},
         {"check": "noErrors"}

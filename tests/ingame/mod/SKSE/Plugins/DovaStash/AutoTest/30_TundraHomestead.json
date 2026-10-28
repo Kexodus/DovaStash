@@ -12,7 +12,7 @@
         {"check": "home", "is": true, "layout": false},
         {"check": "log", "since": "plan", "regex": "template: Tundra Homestead v[0-9.]+ by Dova Stash"},
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Tundra Homestead setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Tundra Homestead is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/CreationClub/TundraHomestead.json@"},
         {"check": "layout", "pointer": "/cells", "contains": {"cell": "ccEEJSSE001-Hstead.esm|0x00000B06", "label": "Cellar"}},
         {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 5},

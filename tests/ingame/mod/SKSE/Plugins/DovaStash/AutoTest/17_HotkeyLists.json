@@ -20,22 +20,50 @@
       ]
     },
     {
-      "id": "6.2-lists-master", "title": "Master list (Advanced... right after Sort all), then Advanced (with Save as template... and Reset home...), Retrieve, < Back, < Back: each list has its header and entries",
+      "id": "6.2-lists-master", "title": "Master list (Retrieve... and Advanced... right after Sort all), Retrieve, < Back, then Advanced (with Save as template... and Reset home...), < Back: each list has its header and entries",
       "steps": [
         {"do": "additem", "item": "Skyrim.esm|0x0003EADD", "count": 1},
         {"do": "op", "op": "Deposit"},
         {"do": "waitIdle"},
         {"do": "hotkey"},
-        {"check": "menuEntries", "contains": ["-- Breezehome --", "Deposit", "Sort all", "Advanced..."], "lacks": ["< Back", "Save as template...", "Reset home..."]},
-        {"do": "choose", "entry": "Advanced..."},
-        {"check": "menuEntries", "contains": ["-- Advanced --", "< Back", "Retrieve...", "Browse containers...", "Re-apply template \"", "Save as template...", "Reset home...", "Open panel..."]},
+        {"check": "menuEntries", "contains": ["-- Breezehome --", "Deposit", "Sort all", "Retrieve...", "Advanced..."], "order": ["Sort all", "Retrieve...", "Advanced..."], "lacks": ["< Back", "Save as template...", "Reset home..."]},
         {"do": "choose", "entry": "Retrieve..."},
         {"check": "menuEntries", "contains": ["-- Retrieve --", "< Back", "Everything ("]},
         {"do": "choose", "entry": "< Back"},
-        {"check": "menuEntries", "contains": ["-- Advanced --", "Retrieve..."]},
+        {"check": "menuEntries", "contains": ["-- Breezehome --", "Retrieve..."]},
+        {"do": "choose", "entry": "Advanced..."},
+        {"check": "menuEntries", "contains": ["-- Advanced --", "< Back", "Browse containers...", "Re-apply template \"", "Save as template...", "Reset home...", "Open panel..."], "lacks": ["Retrieve..."]},
         {"do": "choose", "entry": "< Back"},
         {"check": "menuEntries", "contains": ["-- Breezehome --", "Deposit"]},
         {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2.4-lists-everything", "title": "Retrieve... > Everything with more than 50 items stored asks first (\"Retrieve N items?\"); No brings Retrieve back and moves nothing, Yes retrieves them all (then Deposit puts them back)",
+      "steps": [
+        {"do": "clearInventory"},
+        {"do": "additemMany", "count": 60},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"do": "snapshot", "name": "everything"},
+        {"do": "hotkey"},
+        {"check": "menuEntries", "contains": ["Retrieve..."], "within": 5},
+        {"do": "choose", "entry": "Retrieve..."},
+        {"check": "menuEntries", "contains": ["Everything ("], "within": 5},
+        {"do": "choose", "entry": "Everything ("},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "You may be over-encumbered", "within": 5},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["-- Retrieve --", "Everything ("], "within": 5},
+        {"check": "count", "item": "Skyrim.esm|0x0005ACE4", "eq": 0, "why": "No retrieved nothing (the player carries no iron ingot after clearInventory)"},
+        {"do": "choose", "entry": "Everything ("},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "You may be over-encumbered", "within": 5},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "notify", "contains": "Dova Stash: retrieved ", "within": 10},
+        {"check": "conserved", "snapshot": "everything"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "conserved", "snapshot": "everything"},
         {"check": "noErrors"}
       ]
     },
@@ -59,6 +87,26 @@
         {"check": "menuEntries", "contains": ["< Back"]},
         {"do": "choose", "entry": "< Back"},
         {"check": "menuEntries", "contains": ["Categories... ("]},
+        {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2-lists-pages", "title": "A list longer than UIListMenu takes (128 entries) is paged: 130 learned items give \"Learned items\" a first page ending in More..., the second page holds the rest, < Back returns to the first; Forget all clears them",
+      "steps": [
+        {"do": "learnMany", "to": "Skyrim.esm|0x0010EB84", "count": 130},
+        {"do": "hotkey", "target": "Skyrim.esm|0x0010EB84"},
+        {"check": "menuEntries", "contains": ["Learned items (130)..."], "within": 5},
+        {"do": "choose", "entry": "Learned items ("},
+        {"check": "menuEntries", "contains": ["< Back", "Forget all 130 learned items...", "More..."], "within": 5},
+        {"do": "choose", "entry": "More..."},
+        {"check": "menuEntries", "contains": ["< Back", "Forget "], "lacks": ["More...", "Forget all 130 learned items..."], "within": 5},
+        {"do": "choose", "entry": "< Back"},
+        {"check": "menuEntries", "contains": ["Forget all 130 learned items...", "More..."], "within": 5},
+        {"do": "choose", "entry": "Forget all 130 learned items..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "within": 5},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "menuEntries", "contains": ["Categories... ("], "lacks": ["Learned items ("], "within": 5},
         {"do": "choose", "index": -1},
         {"check": "noErrors"}
       ]
@@ -116,7 +164,7 @@
       ]
     },
     {
-      "id": "6.2-lists-display", "title": "Display menu as a list: Use this rack, then the menu reopens with Categories..., Fill now, Stop using this rack",
+      "id": "6.2-lists-display", "title": "Display menu as a list: Use this rack, then the menu reopens with Categories..., Fill now, Stop using this rack; Categories... toggles All Weapons on and off, < Back returns to it",
       "steps": [
         {"do": "enable", "ref": "Skyrim.esm|0x00102A41"},
         {"do": "require", "enabled": "Skyrim.esm|0x00102A41", "why": "Breezehome's racks come with the living room decoration"},
@@ -126,6 +174,15 @@
         {"do": "choose", "entry": "Use this rack"},
         {"check": "notify", "contains": "is used now"},
         {"check": "menuEntries", "contains": ["-- Weapon Rack --", "Categories... (", "Fill now", "Stop using this rack"], "within": 5},
+        {"do": "choose", "entry": "Categories... ("},
+        {"check": "menuEntries", "contains": ["< Back", "[ ] All Weapons"], "within": 5},
+        {"do": "choose", "entry": "[ ] All Weapons"},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x00102A41", "categories": ["weapons.*"]}, "within": 5},
+        {"check": "menuEntries", "contains": ["[x] All Weapons"], "within": 5},
+        {"do": "choose", "entry": "[x] All Weapons"},
+        {"check": "layout", "pointer": "/displays", "lacks": {"ref": "Skyrim.esm|0x00102A41", "categories": ["weapons.*"]}, "within": 5},
+        {"do": "choose", "entry": "< Back"},
+        {"check": "menuEntries", "contains": ["-- Weapon Rack --", "Fill now"], "within": 5},
         {"do": "choose", "index": -1},
         {"check": "noErrors"}
       ]

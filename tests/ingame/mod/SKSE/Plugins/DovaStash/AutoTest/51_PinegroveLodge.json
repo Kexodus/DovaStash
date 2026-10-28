@@ -17,7 +17,7 @@
       "id": "3.6-pinegrove", "title": "Use template: the setup is the shipped template, master is the lodge's chest",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Pinegrove Lodge setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Pinegrove Lodge is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/PinegroveLodge.json@"},
         {"check": "log", "since": "run", "regex": ": template Templates/Mods/PinegroveLodge\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "Eli_Pinegrove Lodge.esp|0x001315AD"},

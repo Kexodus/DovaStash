@@ -16,3 +16,12 @@ endif()
 
 include(Catch)
 catch_discover_tests(dova_tests)
+
+# The data checker's rules that need no game files (tools/tests, stdlib Python): the cross-file rules, the label form,
+# the catch-all of each area.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+	add_test(NAME esm_dump_check COMMAND Python3::Interpreter -I -B "${PROJECT_SOURCE_DIR}/tools/tests/test_esm_dump_check.py")
+else()
+	message(WARNING "Python 3 not found: the esm_dump_check test is not run")
+endif()

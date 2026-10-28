@@ -322,6 +322,24 @@ TEST_CASE("Sell chest in the layout file", "[sell][layout]")
 		CHECK_FALSE(l->HasSellChest());
 		CHECK(std::ranges::any_of(d.Items(), [](const Diagnostic& x) { return x.message.find("sell chest") != std::string::npos; }));
 	}
+	SECTION("never an area master")
+	{
+		constexpr std::string_view kAreaSell = R"({
+			"$schema": "dovastash-layout-1",
+			"cell": "Skyrim.esm|0x000165A7",
+			"master": "Skyrim.esm|0x00000A00",
+			"cells": [ { "cell": "Skyrim.esm|0x000165A8", "label": "Cellar", "master": "Skyrim.esm|0x00000A05" } ],
+			"containers": [ { "ref": "Skyrim.esm|0x00000A05", "sell": true } ]
+		})";
+		Diagnostics d;
+		const auto  l = ParseLayoutText(kAreaSell, "test.json", d);
+		REQUIRE(l);
+		CHECK_FALSE(l->IsSellChest(Sk(0xA05)));
+		CHECK_FALSE(l->HasSellChest());
+		CHECK(std::ranges::any_of(d.Items(), [](const Diagnostic& x) {
+			return x.message.find("cells[0].master: an area master can't be the sell chest") != std::string::npos;
+		}));
+	}
 	SECTION("a plain container writes no sell key")
 	{
 		Layout plain;

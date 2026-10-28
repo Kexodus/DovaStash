@@ -395,8 +395,10 @@ namespace dova::sort::crafting
 		void OnStationLeft()
 		{
 			if (auto* ui = RE::UI::GetSingleton(); ui && ui->IsMenuOpen(RE::CraftingMenu::MENU_NAME)) {
+				logger::debug("Crafting supply: got up with the crafting menu still open; finished when it closes");
 				return;  // returned when the menu closes
 			}
+			logger::debug("Crafting supply: got up (no crafting menu open)");
 			Finish("got up");
 		}
 

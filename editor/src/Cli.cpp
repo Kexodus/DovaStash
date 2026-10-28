@@ -584,7 +584,7 @@ namespace dova::editor
 		       "                        loads --mod/--plugin with its masters, else the base game\n"
 		       "  --cell <cell> --draft print a draft template for the cell (dovastash-layout-1)\n"
 		       "                        (--save-to <folder> [--author <name>]: save it as the window does, into\n"
-		       "                        <folder>/SKSE/Plugins/DovaStash/Templates/<author>/<name>.json, with backup)\n"
+		       "                        <folder>/SKSE/Plugins/DovaStash/Templates/<home>/<author>.json, with backup)\n"
 		       "  --render-cell <cell> --screenshot <out.png>\n"
 		       "                        draw the cell in 3D without a window (loads like --cell); options:\n"
 		       "                        --size WxH, --camera x,y,z,yaw,pitch (degrees), --select <ref> [--frame],\n"
@@ -608,7 +608,8 @@ namespace dova::editor
 		       "  --gui                 open the window even with --mod/--cell (they preselect)\n"
 		       "  --mod <name or id>    the rail shows that mod's homes; with --cell, the cell is searched in its plugins\n"
 		       "  --cell <cell>         open that cell (a home of the rail opens with its draft)\n"
-		       "  --home <text>         open the first home whose name contains it (again: those homes in turn,\n"
+		       "  --home <text>         open the home whose cell EditorID or name is it, else the first whose name\n"
+		       "                        contains it (again: those homes in turn,\n"
 		       "                        each once the previous one's 3D view has loaded; --screenshot: the last)\n"
 		       "  --drafts              start \"Draft all homes\"; the rail shows the homes without a template\n"
 		       "                        (with --home: that home's Draft panel; --only <text> is the same as --home)\n"
@@ -633,7 +634,13 @@ namespace dova::editor
 		       "                        \"Receives nothing\"); repeatable\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit; the\n"
 		       "                        run starts from the default state and writes none (no state.json change;\n"
-		       "                        it logs to %TEMP%\\DovaStashEditor\\editor-run.log, as console commands do)\n"
+		       "                        it logs to %TEMP%\\DovaStashEditor\\editor-run.log, as console commands do);\n"
+		       "                        exit 1 on an error (stderr and the log, no message box) and when the home\n"
+		       "                        asked for cannot open (none matches, no instance found), 4 when it times\n"
+		       "                        out; without an interactive desktop (session 0) it draws off-screen at\n"
+		       "                        --window size (a window run without --screenshot exits 3 there)\n"
+		       "  --timeout <s>         --screenshot's limit (default 180 s): then it saves what it has, logs what it\n"
+		       "                        waited for and exits 4\n"
 		       "  --state <file>        read and write this state file instead of state.json (also with --screenshot;\n"
 		       "                        screenshots keep the text at 100 % unless --text-size is given)\n"
 		       "  (no --mod/--cell/--home/--drafts: the start panel)\n"
@@ -768,6 +775,14 @@ namespace dova::editor
 						a.window = std::pair{ static_cast<int>(n[0]), static_cast<int>(n[1]) };
 					} else {
 						a.errors.push_back("--window wants WIDTHxHEIGHT (at least 320x240)");
+					}
+				}
+			} else if (s == "--timeout") {
+				if (auto v = value()) {
+					if (const long n = std::strtol(v->c_str(), nullptr, 10); n >= 1 && n <= 86400) {
+						a.timeout = static_cast<int>(n);
+					} else {
+						a.errors.push_back("--timeout wants seconds (1 to 86400)");
 					}
 				}
 			} else if (s == "--nif-info") {

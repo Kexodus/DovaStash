@@ -34,16 +34,16 @@ No ESP is needed.
   hotkey: *Add this area*, give it a name), so the forge outside crafts from what is stored inside and Deposit
   works in every area. The multi-cell homes (Hearthfire, Tundra Homestead, Myrwatch) ship as one template each,
   cellar, gallery and grounds included, as do the mod homes over several cells. A cellar set up by its old template
-  joins the home when you apply the new one.
+  joins the home when you apply the new one, and the hotkey in the cellar of a home not set up yet sets up the whole
+  home.
 - **Templates:** a ready-made setup per home, as shareable JSON. 32 are included: 19 for every vanilla,
-  Hearthfire and Creation Club home (the multi-cell homes as one template each, cellar, gallery and grounds
+  Hearthfire, Dragonborn and Creation Club home (the multi-cell homes as one template each, cellar, gallery and grounds
   included) and 13 for mod homes (Pinegrove Lodge, Bal Ruhn, Wuth Rein, Ebongrove, Hydda, Black Fur Refuge,
   Sicarius' Refuge, Niflholm, Tel Jerdein, Antennaria, Winter Cove, and Unique Vampire Dens' Lost Hall and Secret
-  Cellar). Most shipped templates also fill the home's racks, mannequins and bookshelves; turn on any others with K. Save your own from
-  inside the game (hotkey menu → Advanced... → Save as template...), learned
-  items included, to share it or to get the setup back after a reset. A template can also pre-define the
-  home's racks, mannequins and bookshelves, down to the exact weapon or armor set, even from other mods: a missing mod's
-  items are skipped (one line in the log) and the rest of the template still works.
+  Cellar). Most also fill the home's racks, mannequins and bookshelves, down to an exact weapon or armor set (a
+  missing mod's items are skipped, the rest works); turn on any others with K. Save your own from inside the game
+  (hotkey menu → Advanced... → Save as template...), learned items included, to share it or to get the setup back
+  after a reset.
 - **Setups backed up outside Data:** every change to a home's setup is also copied to
   `Documents/My Games/Skyrim Special Edition/SKSE/DovaStash/Backups`, which MO2's overwrite cleanup never
   touches. Enter a home whose setup is gone and the hotkey offers *Restore your last setup*.
@@ -63,7 +63,10 @@ No ESP is needed.
   it the master. Then press **K** and choose **Deposit**.
 - Controller: no button by default; bind one under Settings > Hotkey > Gamepad.
 - Settings: SKSE Menu Framework > Dova Stash > Settings, or `Data/SKSE/Plugins/DovaStash.ini`. Every change
-  applies without a restart.
+  applies without a restart. The zip ships `DovaStash.ini.default`; Dova Stash creates `DovaStash.ini` from it on
+  the first start. Coming from 0.2.4 or earlier: that version kept `DovaStash.ini` in the mod folder, so if your mod
+  manager replaces the folder your settings go back to the defaults once (set the hotkey again). From now on,
+  updates keep them.
 
 ## Documentation
 | Doc | Covers |
@@ -89,7 +92,8 @@ A standalone program for making home templates without the game, in one window: 
 your MO2 load order under its mod (search by name or Nexus mod id); a click opens the home in a Creation Kit style
 3D view or as a floor plan, with a draft already made from the home itself. Click a container, rack or mannequin to
 make it the master, give it categories, ignore it or use a display, review the draft's suggestions, check, then save
-the template into a "Dova Stash Templates" mod. Run it as an MO2 executable. See [docs/EDITOR.md](docs/EDITOR.md) (§9: how to try it); build
+the template into a "Dova Stash Templates" mod. It ships in the release zip as `Tools/DovaStashEditor.exe`, with its
+guide beside it (`Tools/DovaStashEditor-UserGuide.pdf`); run it as an MO2 executable. See [docs/EDITOR.md](docs/EDITOR.md) (§9: how to try it); build
 it with `cmake --preset editor && cmake --build --preset editor-release`.
 
 ## License

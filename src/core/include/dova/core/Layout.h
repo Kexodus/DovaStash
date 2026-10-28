@@ -41,6 +41,7 @@
 //   gold/lockpick/torch keeps. Write `"inherit": false` to replace the globals. A quota rule's `restock`
 //   (bool) is written after `quota`, only when true; a value of another type is a warning and kept verbatim.
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <map>
@@ -102,6 +103,9 @@ namespace dova::core
 		std::vector<std::string> never;    // same vocabulary
 		std::vector<QuotaRule>   quotas;
 		nlohmann::json           unparsedQuotas = nlohmann::json::array();  // invalid rules, written back verbatim
+		// Parallel to unparsedQuotas: how many parsed rules came before each one, so it is written back in its place
+		// (rules are first-match). Missing entries: written last.
+		std::vector<std::size_t> unparsedQuotaSlots;
 		bool                     quotasKeyIsRules{ false };  // loaded from "rules" instead of "quotas"
 		nlohmann::json           extra = nlohmann::json::object();
 
@@ -186,7 +190,12 @@ namespace dova::core
 		[[nodiscard]] const DisplayBinding*   FindDisplay(const FormRef& a_ref) const;
 		[[nodiscard]] DisplayBinding*         FindDisplay(const FormRef& a_ref);
 		[[nodiscard]] bool                    IsMaster(const FormRef& a_ref) const { return master && *master == a_ref; }
-		// A container marked "sell" that is neither ignored nor the master (DESIGN §8.8).
+		// The master or an area master (`cells[].master`, DESIGN §6.7): an inbox, never learned into.
+		[[nodiscard]] bool IsAnyMaster(const FormRef& a_ref) const
+		{
+			return IsMaster(a_ref) || std::ranges::any_of(cells, [&](const HomeCell& c) { return c.master && *c.master == a_ref; });
+		}
+		// A container marked "sell" that is neither ignored nor the master or an area master (DESIGN §8.8).
 		[[nodiscard]] bool IsSellChest(const FormRef& a_ref) const;
 		[[nodiscard]] bool HasSellChest() const;
 	};

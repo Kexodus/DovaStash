@@ -52,13 +52,7 @@ namespace dova::ui::panel
 
 		std::string PatternLabel(std::string_view a_pattern)
 		{
-			if (a_pattern == "*") {
-				return "Everything";
-			}
-			if (a_pattern.ends_with(".*")) {
-				return "All " + CategoryName(a_pattern.substr(0, a_pattern.size() - 2));
-			}
-			return CategoryName(a_pattern);
+			return PatternName(a_pattern, [](std::string_view a_id) -> std::optional<std::string> { return CategoryName(a_id); });
 		}
 
 		std::vector<core::Diagnostic> Dedupe(const std::vector<core::Diagnostic>& a_items)
@@ -77,15 +71,36 @@ namespace dova::ui::panel
 		{
 			switch (REL::Module::GetRuntime()) {
 			case REL::Module::Runtime::AE:
-				return "Skyrim AE";
+				return text::kRuntimeAE;
 			case REL::Module::Runtime::SE:
-				return "Skyrim SE";
+				return text::kRuntimeSE;
 			case REL::Module::Runtime::VR:
-				return "Skyrim VR";
+				return text::kRuntimeVR;
 			default:
-				return "Skyrim";
+				return text::kRuntimeOther;
 			}
 		}
+	}
+
+	std::string PatternName(std::string_view a_pattern, const std::function<std::optional<std::string>(std::string_view)>& a_nameOf)
+	{
+		if (a_pattern == "*") {
+			return text::kEverything;
+		}
+		if (a_pattern.ends_with(".*")) {
+			const auto name = a_nameOf(a_pattern.substr(0, a_pattern.size() - 2));
+			return name ? std::format(text::kAllOf, *name) : std::string(a_pattern);
+		}
+		const auto name = a_nameOf(a_pattern);
+		return name ? *name : std::string(a_pattern);
+	}
+
+	std::string PatternName(const CategoryTree& a_tree, std::string_view a_pattern)
+	{
+		return PatternName(a_pattern, [&](std::string_view a_id) -> std::optional<std::string> {
+			const auto it = std::ranges::find_if(a_tree.nodes, [&](const CategoryNode& n) { return core::IEquals(n.id, a_id); });
+			return it != a_tree.nodes.end() ? std::optional<std::string>(it->name) : std::nullopt;
+		});
 	}
 
 	PanelModel& PanelModel::Get()
@@ -304,7 +319,7 @@ namespace dova::ui::panel
 			home = home::HomeRegistry::Get().Current(&reason);  // OfferArea may have loaded the cell
 		}
 		if (!home) {
-			snap->notHomeReason = reason.empty() ? "not a player home"s : reason;
+			snap->notHomeReason = reason.empty() ? std::string(text::kNotAHome) : reason;
 			publish();
 			return;
 		}
@@ -335,6 +350,15 @@ namespace dova::ui::panel
 			snap->layoutAuthor = layout->author;
 			snap->layoutVersion = layout->version;
 			snap->basedOn = layout->basedOn;
+			if (layout->basedOn) {
+				// "<source>@<version>" (core::MakeBasedOn): the template's name and version, when it is loaded.
+				const auto& based = *layout->basedOn;
+				const auto  at = based.rfind('@');
+				const auto  source = based.substr(0, at);
+				const auto  templates = home::Store::Get().Templates();
+				const auto  it = std::ranges::find_if(templates, [&](const core::TemplateCandidate& t) { return core::IEquals(t.source, source); });
+				snap->basedOnText = it != templates.end() && at != std::string::npos ? std::format(text::kHeaderBasedOnName, it->layout.name, based.substr(at + 1)) : based;
+			}
 			snap->keep = layout->keep;
 			if (layout->keep) {
 				nameKeep(*layout->keep);
@@ -398,8 +422,7 @@ namespace dova::ui::panel
 			}
 			core::Reach reach = core::Reach::Here;
 			const auto  verdict = ref ? home::CheckHomeContainer(ref, *home, &reach) :
-			                            game::Verdict::Reject(home->MultiCell() ? "not in memory here (in another area and not persistent, or its plugin is missing)" :
-			                                                                      "reference not found (plugin missing?)");
+			                            game::Verdict::Reject(home->MultiCell() ? text::kRefNotInMemory : text::kRefNotFound);
 			row.available = verdict.ok;
 			row.reason = verdict.reason;
 			row.warning = verdict.warning;
@@ -407,6 +430,12 @@ namespace dova::ui::panel
 				const auto* area = home::AreaOf(*home, ref);
 				row.area = area ? area->name : std::string{};
 				row.remote = verdict.ok;
+			}
+			if (home->MultiCell() && ref) {
+				if (const auto* area = home::AreaOf(*home, ref); area && !area->main) {
+					row.extraArea = area->cell;
+					row.extraAreaName = area->name;
+				}
 			}
 			snap->containers.push_back(std::move(row));
 		};
@@ -492,7 +521,7 @@ namespace dova::ui::panel
 				row.itemText = item.ToString();
 				auto*       form = game::LookupForm(item);
 				const char* name = form ? form->GetName() : nullptr;
-				row.itemName = name && *name ? std::string(name) : (form ? row.itemText : row.itemText + " (not loaded)");
+				row.itemName = name && *name ? std::string(name) : (form ? row.itemText : row.itemText + text::kNotLoadedSuffix);
 				row.containerText = container.ToString();
 				const auto* binding = layout->FindContainer(container);
 				row.containerManaged = binding != nullptr;

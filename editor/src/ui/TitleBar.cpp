@@ -241,11 +241,23 @@ namespace dova::editor::ui
 		ImGui::EndChild();
 	}
 
+	bool EditorApp::SaveMakesCopy()
+	{
+		if (!_cell || ErrorCount(*_cell) > 0 || _cell->dirty || (_cell->filePath.empty() && _cell->savedPath.empty())) {
+			return false;
+		}
+		const auto      target = TemplatePath(*_cell);
+		std::error_code ec;
+		return !(!_cell->filePath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->filePath), ec)) &&
+		       !(!_cell->savedPath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->savedPath), ec));
+	}
+
 	void EditorApp::DrawSaveButton()
 	{
 		const int errors = _cell ? ErrorCount(*_cell) : 0;
 		// The filled button only when there is something to save: a change, or a draft not saved yet. An unchanged
-		// template is a plain button: "Save a copy" when it is not already the file Save writes (a shipped one).
+		// template is a plain button: "Save a copy" when it is not already the file Save writes (a shipped one,
+		// SaveMakesCopy; the palette's entry says the same).
 		const bool unsavedWork = _cell && (_cell->dirty || (_cell->filePath.empty() && _cell->savedPath.empty()));
 		if (!_cell || errors > 0 || unsavedWork) {
 			if (w::PrimaryButton("Save", _cell != nullptr && errors == 0, !_cell ? "Open a home first" : "The checks find errors: see Checks")) {

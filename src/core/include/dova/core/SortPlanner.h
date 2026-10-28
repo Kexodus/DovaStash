@@ -6,8 +6,8 @@
 // Destination precedence for an item (first that applies):
 //   1. explicit per-item binding: a non-ignored container whose "forms" lists the item's base form (or
 //      the item it is made from, ItemInfo::family: an enchanted variant follows its root item)
-//   2. learned destination for the base form, else for its family root, if it is a non-ignored,
-//      non-master container of the layout
+//   2. learned destination for the base form, else for its family root, if it is a non-ignored container of
+//      the layout that is neither the master nor an area master
 //   3. categories: the item's matching categories are tried best-first (CategorySet::MatchAll); for the
 //      first category that any non-ignored container binds, the container with the most specific
 //      matching pattern wins (exact > deeper wildcard > shallower wildcard > "*"), ties go to the
@@ -22,7 +22,9 @@
 //
 // Operations:
 // - Deposit:    player -> destination, leaving what the keep rules keep (partial stacks allowed).
-// - Distribute: master -> destinations; homeless items stay in the master.
+// - Distribute: master -> destinations; homeless items stay in the master. An area master (DESIGN §6.7) is an
+//               inbox too: Distribute from it (the source overload, with SetPlayerArea set to its area) spreads
+//               it the same way, and its homeless items stay in it.
 // - SortAll:    every sort source (available master, or available non-ignored container with at
 //               least one category binding or explicit "forms" entry) -> its destination. Homeless
 //               items found outside the master go to the master. Containers without bindings (e.g.
@@ -169,6 +171,11 @@ namespace dova::core
 			std::vector<StackDecision>* a_explain = nullptr) const;
 		[[nodiscard]] std::vector<Move> Distribute(std::span<const ItemInfo> a_masterContents,
 			std::vector<StackDecision>* a_explain = nullptr) const;
+		// From `a_source`: the master or an area master (Layout::IsAnyMaster). Anything else, or a source that is not
+		// available, moves nothing (every stack: NoDestination). Homeless: its destination is a master or the source.
+		[[nodiscard]] std::vector<Move> Distribute(std::span<const ItemInfo> a_contents, const FormRef& a_source,
+			std::vector<StackDecision>* a_explain = nullptr) const;
+		// Homeless items in an area master stay there, as with Distribute.
 		[[nodiscard]] std::vector<Move> SortAll(std::span<const ContainerContents> a_containers) const;
 		[[nodiscard]] std::vector<Move> Retrieve(std::span<const ContainerContents> a_containers, std::string_view a_pattern) const;
 		// `a_inventory` is the player's; `a_explain`, when given, receives one line per restocking rule.
@@ -201,7 +208,7 @@ namespace dova::core
 		Updated,          // entry now points to a different container
 		Unchanged,        // already learned there, or (smart overload) already the natural destination
 		Removed,          // smart overload: a stale entry was removed because the container is the natural destination
-		RejectedMaster,   // never learn the master
+		RejectedMaster,   // never learn the master or an area master (Layout::IsAnyMaster)
 		RejectedIgnored,  // never learn ignored containers
 		RejectedItem      // smart overload: quest / non-playable / nameless items are not learned
 	};

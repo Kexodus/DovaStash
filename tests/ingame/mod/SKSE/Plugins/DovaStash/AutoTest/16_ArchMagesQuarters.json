@@ -500,7 +500,7 @@
         },
         {
           "check": "notify",
-          "contains": "Dova Stash: Arch-Mage's Quarters setup enabled"
+          "contains": "Dova Stash: Arch-Mage's Quarters is set up"
         },
         {
           "check": "layout",

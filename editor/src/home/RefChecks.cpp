@@ -62,6 +62,12 @@ namespace dova::editor::home
 		if (a_layout.master) {
 			container(*a_layout.master, "master", true, true);
 		}
+		for (std::size_t i = 0; i < a_layout.cells.size(); ++i) {
+			// An area master (DESIGN §6.7): a container of the home, bound like the others.
+			if (const auto& m = a_layout.cells[i].master; m && !a_layout.IsMaster(*m) && !a_layout.FindContainer(*m)) {
+				container(*m, std::format("cells[{}].master", i), true, false);
+			}
+		}
 		for (std::size_t i = 0; i < a_layout.containers.size(); ++i) {
 			const auto& c = a_layout.containers[i];
 			if (a_layout.IsMaster(c.ref)) {

@@ -12,7 +12,7 @@ namespace dova::ui
 	namespace
 	{
 		constexpr std::size_t kMaxChoices = 100;  // UIListMenu takes at most 128 entries
-		constexpr std::size_t kMaxBoxOthers = 14;  // message boxes: Auto, the complete sets and these (3 pages)
+		constexpr std::size_t kMaxBoxChoices = 15;  // message boxes: 3 pages at most
 
 		// Many mannequins have no name (Whitepeak Tower's, home mods' copies): menus and labels call one "Mannequin",
 		// as the display menu does (Controller's DisplayName).
@@ -29,25 +29,39 @@ namespace dova::ui
 		}
 
 		// The message-box picker, paged like every message-box menu (ShowOptions); Back on the first page goes to
-		// the display menu. Five sets a box: Auto, the complete sets, the current one and the 14 most complete others;
-		// the panel's Displays page lists every set.
+		// the display menu. At most 15 entries (3 pages): Auto, the current set, then the complete sets, then the most
+		// complete others (the order of `choices`); the panel's Displays page lists every set.
 		void ShowSetBox(const ArmorSetMenu& a_menu)
 		{
-			std::vector<MenuOption> options;
-			std::size_t             others = 0;
-			bool                    trimmed = false;
+			std::vector<const ArmorSetChoice*> picked;
 			for (const auto& c : a_menu.choices) {
-				if (c.set && !c.complete && !c.current && others++ >= kMaxBoxOthers) {
-					trimmed = true;
-					continue;
+				if (!c.set || c.current) {
+					picked.push_back(&c);  // Auto (first), and the current set right after it
 				}
-				options.push_back({ c.text, [cellId = a_menu.cellId, ref = a_menu.ref, set = c.set]() {
+			}
+			std::ranges::stable_sort(picked, [](const auto* a_lhs, const auto* a_rhs) { return !a_lhs->set && a_rhs->set; });
+			std::size_t notShown = a_menu.notShown;
+			for (const auto& c : a_menu.choices) {
+				if (c.set && !c.current) {
+					if (picked.size() < kMaxBoxChoices) {
+						picked.push_back(&c);
+					} else {
+						++notShown;
+					}
+				}
+			}
+			std::vector<MenuOption> options;
+			for (const auto* c : picked) {
+				options.push_back({ c->text, [cellId = a_menu.cellId, ref = a_menu.ref, set = c->set]() {
 									   ChooseArmorSet(cellId, ref, set);
 									   Controller::Get().ReopenDisplayMenu(cellId, ref);
 								   } });
 			}
-			const bool morePanel = trimmed && menu_framework::IsLoaded();
-			ShowOptions(std::format("Dova Stash: {}: Armor set{}", a_menu.name, morePanel ? "\nMore sets: Dova Stash > Displays"sv : ""sv), std::move(options),
+			std::string more;
+			if (notShown > 0) {
+				more = menu_framework::IsLoaded() ? "\nMore sets: Dova Stash > Displays"s : std::format("\n({} more sets not shown)", notShown);
+			}
+			ShowOptions(std::format("Dova Stash: {}: Armor set{}", a_menu.name, more), std::move(options),
 				[cellId = a_menu.cellId, ref = a_menu.ref]() { Controller::Get().ReopenDisplayMenu(cellId, ref); });
 		}
 	}
@@ -100,7 +114,8 @@ namespace dova::ui
 		menu->choices.push_back({ std::format("{} Auto", automatic ? "[x]" : "[ ]"), std::nullopt, false, automatic });
 		for (const auto& r : rows) {
 			if (menu->choices.size() > kMaxChoices) {
-				break;
+				++menu->notShown;
+				continue;
 			}
 			const auto& set = index->sets[r.set];
 			menu->choices.push_back({ std::format("{} {} ({}/{})", current == r.set ? "[x]" : "[ ]", set.name, r.coverage.have, r.coverage.total), set.id,
@@ -124,12 +139,20 @@ namespace dova::ui
 		auto*      ref = game::LookupRef(a_mannequin);
 		const auto name = MannequinName(ref);
 		auto*      binding = home->layout->FindDisplay(a_mannequin);
+		if (binding && binding->ignored) {
+			// Turned off by the player (Stop using): a set does not turn it back on.
+			logger::info("Mannequin {} in {}: set not chosen (not used)", game::Describe(ref), home->name);
+			Controller::Get().Notify(std::format("Dova Stash: {} isn't used", name), true);
+			return;
+		}
 		if (!binding) {
-			core::DisplayBinding entry;
-			entry.ref = a_mannequin;
-			entry.label = name;
-			home->layout->displays.push_back(std::move(entry));
-			binding = &home->layout->displays.back();
+			// Not in the layout yet: used first, with every check Use makes (a mannequin script, alive, built).
+			Controller::Get().SetDisplayUsed(a_cellId, a_mannequin, true);
+			home = registry.CurrentIf(a_cellId);
+			binding = home && home->layout ? home->layout->FindDisplay(a_mannequin) : nullptr;
+			if (!binding || binding->ignored) {
+				return;  // refused: SetDisplayUsed said why
+			}
 		}
 		const auto index = game::GetArmorIndex();
 		const auto set = a_set ? game::SetOf(*index, *a_set) : std::nullopt;
@@ -138,7 +161,6 @@ namespace dova::ui
 		} else {
 			binding->set = a_set;  // Auto, or a set that is not loaded (kept as it is)
 		}
-		binding->ignored = false;
 		registry.Save(*home);
 
 		if (!binding->set) {

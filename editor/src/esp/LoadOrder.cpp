@@ -448,6 +448,65 @@ namespace dova::editor::esp
 		return out;
 	}
 
+	std::vector<RecordRef> LoadOrder::PluginCellRefRecords(std::uint32_t a_plugin, const FormKey& a_cell)
+	{
+		std::vector<RecordRef> out;
+		if (a_plugin >= _plugins.size()) {
+			return out;
+		}
+		auto        noDescend = [](const GroupHeader&) { return false; };
+		const auto& dir = Directory(a_plugin);
+		const auto& plugin = *_plugins[a_plugin].plugin;
+		if (const auto it = dir.children.find(a_cell); it != dir.children.end()) {
+			for (const auto& g : it->second) {
+				auto onRecord = [&](const RecordHeader& r) {
+					if (r.type == kREFR || r.type == kACHR) {
+						out.push_back(RecordRef{ a_plugin, r.type, r.flags, r.rawId, r.offset });
+					}
+				};
+				plugin.Walk(g.offset + 24, g.offset + g.size, noDescend, onRecord);
+			}
+		}
+		const auto* cell = FindCell(a_cell);
+		if (!cell || !cell->world || cell->worldPersistent) {
+			return out;
+		}
+		const auto subs = Read(cell->rec);
+		const auto xclc = subs.Get(MakeSig("XCLC"));
+		if (!xclc || xclc->size() < 8) {
+			return out;
+		}
+		const auto gx = esp::Read<std::int32_t>(*xclc, 0);
+		const auto gy = esp::Read<std::int32_t>(*xclc, 4);
+		for (const auto& c : dir.cells) {
+			if (!c.worldPersistent || c.world != cell->world) {
+				continue;
+			}
+			const auto it = dir.children.find(c.key);
+			if (it == dir.children.end()) {
+				continue;
+			}
+			for (const auto& g : it->second) {
+				if (g.type != 8) {
+					continue;
+				}
+				auto onRecord = [&](const RecordHeader& r) {
+					if (r.type != kREFR && r.type != kACHR) {
+						return;
+					}
+					const auto rs = plugin.ReadSubrecords(r.offset);
+					const auto pos = rs.Get(MakeSig("DATA"));
+					if (pos && pos->size() >= 8 && static_cast<std::int32_t>(std::floor(esp::Read<float>(*pos, 0) / 4096.0f)) == gx &&
+						static_cast<std::int32_t>(std::floor(esp::Read<float>(*pos, 4) / 4096.0f)) == gy) {
+						out.push_back(RecordRef{ a_plugin, r.type, r.flags, r.rawId, r.offset });
+					}
+				};
+				plugin.Walk(g.offset + 24, g.offset + g.size, noDescend, onRecord);
+			}
+		}
+		return out;
+	}
+
 	std::optional<RecordRef> LoadOrder::CellLandRecord(const FormKey& a_cell)
 	{
 		std::optional<RecordRef> found;

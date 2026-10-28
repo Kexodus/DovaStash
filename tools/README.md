@@ -148,13 +148,20 @@ format.) To write one from scratch:
    - With `cells`, refs may be in any of the home's cells; the result lists the bound containers that are
      `onlyReachableInTheirCell` (not persistent; an area's own `master` is not listed), and `cellsChecked`. Bad
      `cells` entries are errors, the main cell listed again or a duplicate a warning. An area's `master` must be a
-     container in that area's cell; it is checked as the master is (respawning, starts disabled).
+     container in that area's cell; it is checked as the master is (respawning, starts disabled; one that starts
+     disabled while the home's master is persistent is listed in `areaMastersBuiltLater`, not warned about: that
+     master covers the area until it is built, DESIGN §6.7). When the master is
+     in reach only in its own cell (not persistent), an area with no master in reach there (its own, or a persistent
+     one) is a warning: a Deposit there would leave homeless items with the player. An area without a single container
+     cannot have one: it is listed in `areasWithoutContainers` instead.
    - Across the files it checks: a cell (main or in `cells`) in two templates under `Templates` (not
      `Templates/User`) is an error (a home ships as one template), and so is a `replaces` entry that still ships.
    - It fails on refs that are not containers in the declared cell, respawning bound containers, duplicate refs,
      unknown categories, display entries that point at nothing in the cell, and plugins that are missing
      from `requires`. Display items and sets from plugins that are not loaded are listed in
      `optionalPlugins` instead (they are optional); from a loaded plugin they must exist.
+   - Labels: one whose parentheses say what the container holds (`Barrel (food)`) or give a long place is a warning;
+     the form is the shipped templates' (`datagen/` below).
    - Container `forms` and the form refs in `keep` are hard references: their syntax is checked, the item must
      exist (when its plugin is loaded) and its plugin must be in `requires`. `categories` may be one pattern or a
      list.
@@ -223,6 +230,12 @@ developer's instance.
 
 In game: `bat ds_vanilla`, and so on. Use a throwaway save, because scripted items run their scripts when added.
 
+## Self-tests
+
+`python -I tools/tests/test_esm_dump_check.py` tests the `check` rules that need no game files: the cross-file
+rules (a cell in two shipped templates, a `replaces` entry that still ships), the label form, a repeat label
+without its first and each area's catch-all. `ctest --preset core-tests` runs it too (`esm_dump_check`).
+
 ## `datagen/` (maintainers)
 
 The scripts that produce the shipped data:
@@ -238,7 +251,12 @@ The scripts that produce the shipped data:
   sentence case and where it stands, after the nearest bound container (`Bookshelf (by the library chest)`,
   numbered when the same label comes again), and the reason goes in `"note"`. Every label has one form:
   `<Kind> (by the <landmark>)`, `<Kind> (by the <landmark>, 2)` for repeats, `(second)` only where there is no
-  landmark (the script checks every label). A landmark is never the kind itself (`Bookshelf (by the bookshelves)`)
+  landmark, a short place where no landmark fits (`(east)`, `(back room)`, `(upgrade)`); what a container holds goes
+  before its kind (`Food barrel`), never in the parentheses (the script checks every label, as `check` does). A
+  repeat needs its first in the same list: `check` warns about `Chest (by the table, 2)` without `Chest (by the
+  table)`, or `Wardrobe (second)` without `Wardrobe`, and about a word after the landmark (`(back room, second)`: use
+  `, 2`); a merged home renumbers what is left when it drops a part's
+  container. A landmark is never the kind itself (`Bookshelf (by the bookshelves)`)
   and names at most 3 of one kind while another landmark is about as near (within 300 units); in a home over several
   cells only landmarks of the same cell count, else the area's name. `displays` lists every bookshelf, named weapon rack and
   mannequin of the home's own plugins, without categories or a set (each takes what fits it; mannequins pick a
@@ -249,7 +267,8 @@ The scripts that produce the shipped data:
   another kind than its game name when that name would invite using it, and `master_name` (or `note`) fixes what the
   note says. `misc.curios` is bound wherever `misc.gems` is. A Hearthfire wing's other two
   choices (`HF_WINGS`) bind their furniture too: a category bound in several places is a fallback chain, and
-  unbuilt furniture is skipped. `cells` (`build`, `mod_home`) makes a home over several cells (DESIGN 6.7);
+  unbuilt furniture is skipped. `cells` (`build`, `mod_home`) makes a home over several cells (DESIGN 6.7); an entry's
+  third item is that area's own `master`, where the home's master is not persistent (Tel Jerdein, Niflholm, Winter Cove);
   `whole_home` joins a house and its cellar or gallery (and the Hearthfire grounds) into the home's one template, under
   its own name; the cellar's or gallery's old master becomes that area's `master`, and `replaces` names the retired
   file. `RETIRED` lists the files no longer shipped: the script deletes them. `VERSIONS` holds each template's version: raise it with every change to the

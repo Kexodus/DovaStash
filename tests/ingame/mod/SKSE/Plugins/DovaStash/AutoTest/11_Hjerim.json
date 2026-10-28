@@ -137,7 +137,7 @@
         {"do": "enable", "ref": "Skyrim.esm|0x000DF5AC"},
         {"do": "require", "enabled": "Skyrim.esm|0x000DF5AC", "why": "the template master starts disabled"},
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Hjerim setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Hjerim is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Vanilla/Hjerim.json@"},
         {"check": "layout", "pointer": "/master", "eq": "Skyrim.esm|0x000DF5AC"},
         {"do": "additem", "item": "Skyrim.esm|0x0005ACE4", "count": 5},

@@ -5,8 +5,11 @@
 // WARP device, and hand-built SE meshes (NIF): a textured BSTriShape (vertices, bounds, texture path), a
 // collision-only model, a black card and a shape of material alpha 0 (left out: the model is invisible),
 // state.json saved and read back with no --state, the game-data checks of the Checks panel
-// (home::CheckTemplateRefs) on a hand-made cell, the floor heights are measured from (ui::detail::FloorOf), and the
-// home finder on hand-made plugins (home::FindAllHomes: a cell a template names stays a home after an override).
+// (home::CheckTemplateRefs) on a hand-made cell, a cellar's area master (ui::detail::SetAreaMaster, the file, the
+// checks) and a home with an exterior cell, the floor heights are measured from (ui::detail::FloorOf), and the
+// home finder on hand-made plugins (home::FindAllHomes: a cell a template names stays a home after an override; a
+// hall's Grounds outside joined, the world's own chest there left out of its draft), and Hearthfire's built rooms in a
+// draft (home::BuildDraftObjects: listed, keyed by their room).
 
 #include <algorithm>
 #include <cmath>
@@ -31,6 +34,8 @@
 #include "esp/Bsa.h"
 #include "home/Drafts.h"
 #include "home/RefChecks.h"
+#include "Util.h"
+#include "mo2/Instance.h"
 #include "render/Dds.h"
 #include "render/Nif.h"
 #include "ui/Common.h"
@@ -587,6 +592,156 @@ namespace
 		Check(!homes.empty() && homes.front().name == "Test Home", "homes: listed under its first name");
 	}
 
+	// The grounds (home::FindAllHomes, home::DraftHome): a hall whose load door leads out to an exterior cell another
+	// plugin defines, where the hall's own plugin places a chest, joins that cell as "Grounds", and its draft lists that
+	// chest but not the world's own one beside it; a hut whose door leads to a cell its plugin does not edit joins none.
+	void GroundsTests(const fs::path& a_dir)
+	{
+		const auto root = a_dir / L"grounds";
+		std::error_code ec;
+		fs::create_directories(root, ec);
+		auto place = [](float a_x, float a_y) {
+			std::string out;
+			Put(out, a_x);
+			Put(out, a_y);
+			for (int i = 0; i < 4; ++i) {
+				Put(out, 0.0f);
+			}
+			return out;
+		};
+		auto id = [](std::uint32_t a_id) {
+			std::string out;
+			Put(out, a_id);
+			return out;
+		};
+		auto grid = [](std::int32_t a_x, std::int32_t a_y) {
+			std::string out;
+			Put(out, a_x);
+			Put(out, a_y);
+			return out;
+		};
+		auto teleport = [&](std::uint32_t a_door, float a_x, float a_y) { return id(a_door) + place(a_x, a_y) + std::string(4, '\0'); };
+		auto ref = [&](std::uint32_t a_id, std::uint32_t a_base, float a_x, float a_y, const std::string& a_more = {}) {
+			return Record("REFR", a_id, Sub("NAME", id(a_base)) + Sub("DATA", place(a_x, a_y)) + a_more);
+		};
+		const std::string inside("\x01", 1);
+		// Skyrim.esm: a chest, a door, a worldspace with the door outside (persistent) and two exterior cells, the
+		// first with a chest of its own.
+		const auto master =
+			Record("TES4", 0, Sub("HEDR", std::string(12, '\0')), 1) + Group(Label("CONT"), 0, Record("CONT", 0x800, Sub("EDID", Z("TestChest")) + Sub("FULL", Z("Chest")))) +
+			Group(Label("DOOR"), 0, Record("DOOR", 0x801, Sub("EDID", Z("TestDoor")))) +
+			Group(Label("WRLD"), 0,
+				Record("WRLD", 0x900, Sub("EDID", Z("TestWorld"))) +
+					Group(0x900, 1,
+						Record("CELL", 0x901, Sub("DATA", std::string("\x02", 1))) + Group(0x901, 6, Group(0x901, 8, ref(0x902, 0x801, 100.0f, 100.0f))) +
+							Group(0, 4,
+								Group(0, 5,
+									Record("CELL", 0x903, Sub("EDID", Z("TestGrounds")) + Sub("XCLC", grid(0, 0))) + Group(0x903, 6, Group(0x903, 9, ref(0x904, 0x800, 200.0f, 200.0f))) +
+										Record("CELL", 0x906, Sub("EDID", Z("TestFarAway")) + Sub("XCLC", grid(5, 5)))))));
+		// Home.esp: the hall (player owned, a chest, its door out to (0, 0)), a hut (its door out to (5, 5)), and the
+		// cell at (0, 0) edited with the hall's chest outside.
+		const auto owner = Sub("XOWN", id(0x7));
+		const auto hall = Record("CELL", 0x01000A01, Sub("EDID", Z("TestHall")) + Sub("FULL", Z("Test Hall")) + Sub("DATA", inside) + owner) +
+		                  Group(0x01000A01, 6, Group(0x01000A01, 9, ref(0x01000A02, 0x801, 0.0f, 0.0f, Sub("XTEL", teleport(0x902, 100.0f, 100.0f))) + ref(0x01000A03, 0x800, 50.0f, 0.0f)));
+		const auto hut = Record("CELL", 0x01000A05, Sub("EDID", Z("TestHut")) + Sub("FULL", Z("Test Hut")) + Sub("DATA", inside) + owner) +
+		                 Group(0x01000A05, 6, Group(0x01000A05, 9, ref(0x01000A06, 0x801, 0.0f, 0.0f, Sub("XTEL", teleport(0x902, 5 * 4096.0f + 100.0f, 5 * 4096.0f + 100.0f))) +
+		                                                         ref(0x01000A07, 0x800, 50.0f, 0.0f)));
+		const auto home = Record("TES4", 0, Sub("HEDR", std::string(12, '\0')) + Sub("MAST", Z("Skyrim.esm")) + Sub("DATA", std::string(8, '\0'))) +
+		                  Group(Label("CELL"), 0, Group(0, 2, Group(0, 3, hall + hut))) +
+		                  Group(Label("WRLD"), 0,
+							  Group(0x900, 1,
+								  Group(0, 4,
+									  Group(0, 5,
+										  Record("CELL", 0x903, Sub("EDID", Z("TestGrounds")) + Sub("XCLC", grid(0, 0))) +
+											  Group(0x903, 6, Group(0x903, 9, ref(0x01000A04, 0x800, 300.0f, 300.0f)))))));
+		std::ofstream(root / L"Skyrim.esm", std::ios::binary).write(master.data(), static_cast<std::streamsize>(master.size()));
+		std::ofstream(root / L"Home.esp", std::ios::binary).write(home.data(), static_cast<std::streamsize>(home.size()));
+
+		DataFiles files;
+		files.AddRoot(root);
+		esp::LoadOrder           lo(files, "english");
+		std::vector<std::string> errors;
+		Check(lo.AddWithMasters("Home.esp", errors) && errors.empty(), "grounds: the fixture plugins load");
+		const auto homes = home::FindAllHomes(lo);
+		const auto hallIt = std::ranges::find_if(homes, [](const home::HomeEntry& h) { return h.name == "Test Hall"; });
+		const auto hutIt = std::ranges::find_if(homes, [](const home::HomeEntry& h) { return h.name == "Test Hut"; });
+		Check(homes.size() == 2 && hallIt != homes.end() && hutIt != homes.end(), std::format("grounds: two homes ({})", homes.size()));
+		if (hallIt == homes.end() || hutIt == homes.end()) {
+			return;
+		}
+		Check(hallIt->extra.size() == 1 && hallIt->extra.front().exterior && hallIt->extra.front().name == "Grounds" && hallIt->extra.front().cellRef == "Skyrim.esm|0x00000903",
+			std::format("grounds: the hall joins the cell its chest is in outside ({} cells)", hallIt->extra.size()));
+		Check(hutIt->extra.empty(), "grounds: a cell its plugin does not edit is not joined");
+		const auto draft = home::DraftHome(lo, *hallIt, home::DraftContext{});
+		Check(draft.layout.cells.size() == 1 && draft.layout.cells.front().label == "Grounds", "grounds: the draft lists it as Grounds");
+		auto listed = [&](std::string_view a_ref) { return std::ranges::any_of(draft.objects, [&](const core::DraftObject& o) { return o.id == a_ref; }); };
+		Check(listed("Home.esp|0x00000A04") && listed("Home.esp|0x00000A03"), "grounds: the draft has the hall's chests, inside and out");
+		Check(!listed("Skyrim.esm|0x00000904"), "grounds: the world's own chest outside is no part of the home");
+	}
+
+	// Hearthfire's built rooms (home::BuildDraftObjects): a piece the house's script enables (initially disabled, no
+	// enable parent, "BYOHHouse1InteriorRoom06Part..." EditorID) is listed and appears later with its room's key, as is a
+	// container whose enable parent is such a piece, and a workbench whose EditorID names the room another way; a
+	// container only a quest brings (disabled, no parent, no room) is left out.
+	void HearthfireRoomTests(const fs::path& a_dir)
+	{
+		const auto root = a_dir / L"rooms";
+		std::error_code ec;
+		fs::create_directories(root, ec);
+		auto id = [](std::uint32_t a_id) {
+			std::string out;
+			Put(out, a_id);
+			return out;
+		};
+		std::string pos;
+		for (int i = 0; i < 6; ++i) {
+			Put(pos, 0.0f);
+		}
+		constexpr std::uint32_t disabled = 0x800;
+		auto ref = [&](std::uint32_t a_id, std::uint32_t a_base, const char* a_editorId, const std::string& a_more = {}) {
+			const std::string edid = *a_editorId ? Sub("EDID", Z(a_editorId)) : std::string{};
+			return Record("REFR", a_id, edid + Sub("NAME", id(a_base)) + Sub("DATA", pos) + a_more, disabled);
+		};
+		const auto refs = ref(0xE02, 0xE10, "BYOHHouse1InteriorRoom06Part007Chest02") + ref(0xE03, 0xE11, "BYOHHouse1InteriorRoom06Part010ShelfTall01") +
+		                  ref(0xE04, 0xE10, "", Sub("XESP", id(0xE03) + id(0))) + ref(0xE05, 0xE10, "TestQuestChest") +
+		                  ref(0xE06, 0xE12, "BYOHHouse1InteriorWorkbenchRoom08Ref");
+		const auto plugin = Record("TES4", 0, Sub("HEDR", std::string(12, '\0')), 1) +
+		                    Group(Label("CONT"), 0, Record("CONT", 0xE10, Sub("EDID", Z("TestChest")) + Sub("FULL", Z("Chest")))) +
+		                    Group(Label("STAT"), 0, Record("STAT", 0xE11, Sub("EDID", Z("TestShelf")))) +
+		                    Group(Label("FURN"), 0, Record("FURN", 0xE12, Sub("EDID", Z("TestWorkbench")) + Sub("FULL", Z("Carpenter's Workbench")))) +
+		                    Group(Label("CELL"), 0,
+								Group(0, 2, Group(0, 3, Record("CELL", 0xE01, Sub("EDID", Z("TestHouse")) + Sub("FULL", Z("Test House")) + Sub("DATA", std::string("\x01", 1))) +
+															Group(0xE01, 6, Group(0xE01, 9, refs)))));
+		std::ofstream(root / L"House.esm", std::ios::binary).write(plugin.data(), static_cast<std::streamsize>(plugin.size()));
+
+		DataFiles files;
+		files.AddRoot(root);
+		esp::LoadOrder           lo(files, "english");
+		std::vector<std::string> errors;
+		Check(lo.AddWithMasters("House.esm", errors) && errors.empty(), "rooms: the fixture plugin loads");
+		const auto cellKey = lo.ParseFormRef("House.esm|0x00000E01");
+		const auto cell = cellKey ? home::LoadCell(lo, *cellKey, home::LoadCellOptions{ .resolveDoors = false }) : std::nullopt;
+		Check(cell.has_value(), "rooms: the cell loads");
+		if (!cell) {
+			return;
+		}
+		const auto objects = home::BuildDraftObjects(lo, std::span(&*cell, 1), nullptr);
+		auto find = [&](std::string_view a_ref) -> const core::DraftObject* {
+			const auto it = std::ranges::find_if(objects, [&](const core::DraftObject& o) { return o.id == a_ref; });
+			return it != objects.end() ? &*it : nullptr;
+		};
+		const auto* chest = find("House.esm|0x00000E02");
+		const auto* child = find("House.esm|0x00000E04");
+		const auto* bench = find("House.esm|0x00000E06");
+		Check(chest && chest->appearsLater && chest->appearsWith == "BYOHHouse1Room06",
+			std::format("rooms: the room's chest is listed, appearing with its room ({})", chest ? chest->appearsWith : "-"));
+		Check(child && child->appearsWith == "BYOHHouse1Room06", std::format("rooms: a container its piece enables has the room's key ({})", child ? child->appearsWith : "-"));
+		Check(bench && bench->appearsWith == "BYOHHouse1Room08", std::format("rooms: the workbench's EditorID names its room ({})", bench ? bench->appearsWith : "-"));
+		Check(!find("House.esm|0x00000E05"), "rooms: a container only a quest brings is left out");
+		Check(home::WingName("BYOHHouse1Room06") == "Storage room" && home::WingName("BYOHHouse3Room09") == "Armory" && home::WingName("House.esm|0x00000E03").empty(),
+			"rooms: the wing names");
+	}
+
 	// --compare: a scripted bookshelf the template ignores and lists under displays, the draft only as a display, agrees.
 	void CompareTests()
 	{
@@ -605,6 +760,132 @@ namespace
 		const auto r = home::CompareToTemplate(draft, tmpl, core::CategorySet{});
 		Check(r.ignoredInTemplate == 2, std::format("compare: two ignored in the template ({})", r.ignoredInTemplate));
 		Check(r.ignoredAgree == 1, std::format("compare: the bookshelf listed only as a display agrees, the unlisted chest does not ({})", r.ignoredAgree));
+	}
+
+	// A Tundra-shaped home: the cellar's area master (cells[].master) is shown as one, set from the Selection panel's
+	// Make this area's master (ui::detail::SetAreaMaster), round-trips through the file, and is checked against the cells.
+	void AreaMasterTests()
+	{
+		const std::string_view text = R"({
+			"name": "Tundra Homestead", "version": "1.0.0", "cell": "Skyrim.esm|0x00000050",
+			"cells": [{ "cell": "Skyrim.esm|0x00000060", "label": "Cellar", "master": "Skyrim.esm|0x00000F85", "note": "the cellar chest" }],
+			"master": "Skyrim.esm|0x00000100",
+			"containers": [{ "ref": "Skyrim.esm|0x00000F86", "label": "Barrel" }]
+		})";
+		core::Diagnostics diags;
+		auto              l = core::ParseLayoutText(text, "tundra", diags);
+		Check(l.has_value() && !diags.HasErrors(), "area master: the layout parses");
+		if (!l) {
+			return;
+		}
+		const core::FormRef chest{ "Skyrim.esm", 0xF85 }, barrel{ "Skyrim.esm", 0xF86 }, cellar{ "Skyrim.esm", 0x60 };
+		const auto*         area = ui::detail::AreaMasterCell(*l, chest);
+		Check(area && area->label == "Cellar", "area master: the cellar's chest is its area master");
+		Check(!ui::detail::IsAreaMaster(*l, barrel) && !ui::detail::IsAreaMaster(*l, *l->master), "area master: a plain container and the home's master are not");
+		std::optional<core::FormRef> previous;
+		Check(!ui::detail::SetAreaMaster(*l, cellar, *l->master, previous), "area master: the home's master cannot be an area's");
+		Check(ui::detail::SetAreaMaster(*l, cellar, barrel, previous) && previous == chest, "area master: another one hands the old one back");
+		Check(!l->FindContainer(barrel), "area master: the new one leaves containers");
+		const auto back = core::ParseLayoutText(core::SerializeLayout(*l), "saved", diags);
+		Check(back && back->cells.size() == 1 && back->cells.front().master == barrel && back->cells.front().note == "the cellar chest",
+			"area master: saved and read back with the cell's note");
+
+		// The checks: an area master in none of the home's cells is an error, as a container would be.
+		std::vector<home::PlacedRef> refs(2);
+		for (auto& r : refs) {
+			r.baseType = esp::MakeSig("CONT");
+			r.baseEditorId = "Chest";
+		}
+		home::RefIndex index;
+		index.emplace(*l->master, &refs[0]);
+		core::Diagnostics checks;
+		home::CheckTemplateRefs(*l, { &index, true, true, {} }, "template", checks);
+		const auto lines = checks.Items();
+		Check(std::ranges::any_of(lines, [](const core::Diagnostic& d) { return d.message.starts_with("cells[0].master: Skyrim.esm|0x00000F86 is not a reference"); }),
+			"area master: one in none of the home's cells is reported");
+		index.emplace(barrel, &refs[1]);
+		core::Diagnostics fine;
+		home::CheckTemplateRefs(*l, { &index, true, true, {} }, "template", fine);
+		Check(fine.Items().empty(), std::format("area master: one in the cellar is fine ({} lines)", fine.Items().size()));
+	}
+
+	// A home that lists an exterior (Hearthfire's Grounds): once every cell is read the checks are complete, so a
+	// reference in none of them is one error.
+	void ExteriorCellCheckTests()
+	{
+		const core::FormRef hall{ "HearthFires.esm", 0x2FEC }, cellar{ "HearthFires.esm", 0x4849 }, grounds{ "Skyrim.esm", 0x9BF7 };
+		core::Layout        l;
+		l.cell = hall;
+		l.cells = { core::HomeCell{ cellar, "Cellar" }, core::HomeCell{ grounds, "Grounds" } };
+		l.master = core::FormRef{ "HearthFires.esm", 0x100 };
+		core::ContainerBinding outside, typo;
+		outside.ref = core::FormRef{ "Skyrim.esm", 0x500 };  // a barrel on the grounds
+		typo.ref = core::FormRef{ "HearthFires.esm", 0x999 };
+		l.containers = { outside, typo };
+		std::vector<home::PlacedRef> refs(2);
+		for (auto& r : refs) {
+			r.baseType = esp::MakeSig("CONT");
+			r.baseEditorId = "Chest";
+		}
+		home::RefIndex index;
+		index.emplace(*l.master, &refs[0]);
+		index.emplace(outside.ref, &refs[1]);
+		core::Diagnostics diags;
+		home::CheckTemplateRefs(l, { &index, true, true, {} }, "template", diags);
+		const auto errors = std::ranges::count_if(diags.Items(), [](const core::Diagnostic& d) { return d.message.contains("is not a reference"); });
+		Check(errors == 1 && std::ranges::any_of(diags.Items(), [](const core::Diagnostic& d) { return d.message.starts_with("containers[1]: HearthFires.esm|0x00000999"); }),
+			std::format("exterior: with the grounds read, the typo is the one error ({})", errors));
+	}
+
+	// Opening a home unattended: --home prefers an exact cell EditorID (two homes called Breezehome), and a screenshot
+	// run that asked for a home without an instance fails (exit 1) instead of saving the start panel.
+	void OpenHomeTests()
+	{
+		std::vector<home::HomeEntry> homes(3);
+		homes[0].name = "Breezehome";
+		homes[0].editorId = "WhiterunBreezehome";
+		homes[1].name = "Breezehome";
+		homes[1].editorId = "WyntersBreezehomeRedux";
+		homes[2].name = "Honeyside";
+		homes[2].editorId = "RiftenHoneyside";
+		Check(home::FindHome(homes, "wyntersbreezehomeredux") == 1, "--home: an exact EditorID wins over the first name");
+		Check(home::FindHome(homes, "Breezehome") == 0, "--home: an exact name, the first of two");
+		Check(home::FindHome(homes, "honey") == 2, "--home: else a part of the name");
+		Check(!home::FindHome(homes, "Nonexistent Zzz"), "--home: none matches");
+
+		const auto error = ui::detail::NoHomeOpenError(true, false, "no MO2 instance found: pass --mo2");
+		Check(error && *error == "error: no home open (no MO2 instance found: pass --mo2)", "no instance: --home is an error");
+		Check(!ui::detail::NoHomeOpenError(true, true, ""), "an instance: --home goes on");
+		Check(!ui::detail::NoHomeOpenError(false, false, "no MO2 instance found"), "no instance, nothing asked: the start panel");
+	}
+
+	// MO2's own list of instances (nxmhandler.ini): the Skyrim ones with a ModOrganizer.ini, not Enderal's or Fallout's.
+	void RegisteredInstancesTests(const fs::path& a_dir)
+	{
+		const auto root = a_dir / L"nxm";
+		std::error_code ec;
+		for (const auto* name : { L"Skyrim", L"Enderal", L"Fallout", L"Missing" }) {
+			fs::create_directories(root / name, ec);
+		}
+		std::ofstream(root / L"Skyrim" / L"ModOrganizer.ini") << "[General]\ngameName=Skyrim Special Edition\n";
+		std::ofstream(root / L"Enderal" / L"ModOrganizer.ini") << "[General]\ngameName=Enderal Special Edition\n";
+		std::ofstream(root / L"Fallout" / L"ModOrganizer.ini") << "[General]\ngameName=Fallout 4\n";
+		auto exe = [&](const wchar_t* a_name) {
+			std::string p = PathToUtf8(root / a_name / L"ModOrganizer.exe");
+			std::string out;
+			for (const char c : p) {
+				out += c == '\\' ? std::string("\\\\") : std::string(1, c);
+			}
+			return out;
+		};
+		std::ofstream(root / L"nxmhandler.ini") << "[General]\nnoregister=false\n\n[handlers]\nsize=4\n"
+		                                        << "1\\games=fallout4\n1\\executable=" << exe(L"Fallout") << "\n"
+		                                        << "2\\games=\"enderalse,skyrim,skyrimse,enderal\"\n2\\executable=" << exe(L"Enderal") << "\n"
+		                                        << "3\\games=\"skyrimse,skyrim\"\n3\\executable=" << exe(L"Missing") << "\n"
+		                                        << "4\\games=\"skyrimse,skyrim\"\n4\\executable=" << exe(L"Skyrim") << "\n";
+		const auto found = mo2::RegisteredInstances(root / L"nxmhandler.ini");
+		Check(found.size() == 1 && fs::equivalent(found.front(), root / L"Skyrim", ec),
+			std::format("nxmhandler.ini: the Skyrim instance only ({} found)", found.size()));
 	}
 }
 
@@ -627,7 +908,13 @@ int main()
 	RefCheckTests();
 	FloorTests();
 	CompareTests();
+	AreaMasterTests();
+	ExteriorCellCheckTests();
 	HomeFinderTests(dir);
+	GroundsTests(dir);
+	HearthfireRoomTests(dir);
+	OpenHomeTests();
+	RegisteredInstancesTests(dir);
 	fs::remove_all(dir, ec);
 	std::printf("%d of %d checks passed\n", g_checks - g_failed, g_checks);
 	return g_failed == 0 ? 0 : 1;

@@ -71,7 +71,7 @@ namespace dova::integrations::quickloot
 				}
 				return {};
 			}
-			if (a_home.layout->IsMaster(dest->container)) {
+			if (a_home.layout->IsAnyMaster(dest->container)) {
 				return {};  // no better place than the inbox: nothing useful to say
 			}
 			// The container's in-game name (which is the player's custom name when they renamed it).

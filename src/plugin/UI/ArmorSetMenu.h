@@ -24,6 +24,7 @@ namespace dova::ui
 		core::FormRef               ref;   // the mannequin
 		std::string                 name;  // "Mannequin"
 		std::vector<ArmorSetChoice> choices;
+		std::size_t                 notShown{ 0 };  // sets the player has that `choices` leaves out (past kMaxChoices)
 	};
 
 	// "Ebony" or "Auto": the set the mannequin's layout entry names (for "Armor set... (Ebony)").
@@ -32,7 +33,8 @@ namespace dova::ui
 	// Builds the picker for the mannequin and opens it in the world UI.
 	void OpenArmorSets(RE::FormID a_cellId, const core::FormRef& a_mannequin);
 
-	// Stores the choice (nullopt: Auto) in the mannequin's layout entry, adding the entry (used) if it has
-	// none, saves the layout and tells the player. Also used by the Menu Framework Displays page's set picker.
+	// Stores the choice (nullopt: Auto) in the mannequin's layout entry, saves the layout and tells the player.
+	// A mannequin with no entry is used first (Controller::SetDisplayUsed, with its checks; nothing is chosen when
+	// that refuses); one the player stopped using is refused. Also used by the Menu Framework Displays page's set picker.
 	void ChooseArmorSet(RE::FormID a_cellId, const core::FormRef& a_mannequin, std::optional<core::FormRef> a_set);
 }

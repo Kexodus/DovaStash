@@ -43,7 +43,7 @@ namespace dova::editor::ui
 		auto add = [&](std::string a_label, std::string a_key, bool a_enabled, std::function<void()> a_run) {
 			out.push_back({ std::move(a_label), std::move(a_key), a_enabled, std::move(a_run) });
 		};
-		add("Save", "Ctrl+S", cell, [this] { RequestSave(); });
+		add(SaveMakesCopy() ? "Save a copy" : "Save", "Ctrl+S", cell, [this] { RequestSave(); });  // as the title row's button
 		add("Save as...", "", cell, [this] { SaveTemplateAs(*_cell); });
 		add("Open template file...", "Ctrl+O", _ws != nullptr, [this] { OpenTemplateFile(); });
 		add("Rescan load order", "F5", _ws != nullptr, [this] { Rescan(); });

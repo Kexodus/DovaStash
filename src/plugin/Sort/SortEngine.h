@@ -28,10 +28,11 @@ namespace dova::sort
 		bool        failed{ false };  // the action could not run (the panel shows `message` red)
 	};
 
-	// `a_pattern` is used by Retrieve only. The home must be the player's current cell. Deposit restocks
+	// `a_pattern` is used by Retrieve only; `a_source` by Distribute only: the master (the default) or an area
+	// master (Layout::IsAnyMaster, DESIGN §6.7), which is an inbox too. The home must be the player's current cell. Deposit restocks
 	// afterwards, in the same pass, when [Sorting] bRestockAfterDeposit is on and a quota rule restocks; what
 	// goes on display is never restocked.
-	[[nodiscard]] Result Run(home::Home& a_home, Op a_op, std::string_view a_pattern = {});
+	[[nodiscard]] Result Run(home::Home& a_home, Op a_op, std::string_view a_pattern = {}, const std::optional<core::FormRef>& a_source = std::nullopt);
 
 	// A keep quota in force in this home restocks (the hotkey menus then offer Restock).
 	[[nodiscard]] bool Restocks(const home::Home& a_home);

@@ -10,9 +10,16 @@ procedure and the lessons from the first runs. Do not re-read the harness source
 
 ## 0. Preconditions (check, don't assume)
 
+- **The desktop session.** The game runs in the logged-on user's desktop session. An agent shell in session 0 can
+  run `run.ps1` directly: it hands the run to a one-shot scheduled task in the desktop session (same arguments plus
+  `-NoHandoff`, output streamed back, its exit code; files in `%TEMP%\DovaStashAutoTest\handoff-<stamp>\`, the
+  newest 5 kept, older ones removed when a handoff starts). Exit 2
+  only when nobody is logged on, the task cannot be made, or `-NoHandoff` is passed (it refuses instead). A leftover
+  Steam, or Steam only in another session, is refused (exit 2) before the run changes anything: no run folder, no
+  `summary.txt`, no quarantine, no profile save, no watchdog.
 - **One game at a time.** The runner enforces it: it holds `%TEMP%\DovaStashAutoTest\.lock` and counts a running
-  `SkyrimSE.exe` or an AutoTest MO2 as busy (exit 2). Never kill a `SkyrimSE.exe` you did not start without the
-  user's OK; wait with `-WaitMinutes 30` instead.
+  `SkyrimSE.exe` or an AutoTest MO2 a live run owns as busy (exit 2). Never kill a `SkyrimSE.exe` you did not start
+  without the user's OK; wait with `-WaitMinutes 30` instead. What an earlier run left (§5) is not a reason to wait.
 - **The user's MO2 window stays open.** The runner uses `ModOrganizer.exe --multiple` and restores
   `selected_profile`; don't close MO2.
 - **Worktrees share `.git`.** Never `git fetch --depth` / any shallow command (it made the main repo shallow
@@ -60,9 +67,14 @@ notes), the blocked plans and `pass N, fail N, xpass N, xfail N, blocked N (N pl
 folder (`build/autotest/<date-time>/`); `-ListAll` prints every test, and `<run folder>\summary.txt` always lists
 every test. When plans ran in an extra profile, the last line sums both runs (`all: pass N, fail N, xpass N, blocked
 N, skip N, manual N; exit <code>`): read `summary.txt` or that line, not the child run's tail. The runner keeps the
-newest 20 run folders. Never open `DovaStash.log` whole (several MB for a full run); grep the test's slice. Exit codes: 0 green;
+newest 20 run folders, every run younger than 48 h and the newest full run (`Plans: all`). Never open `DovaStash.log` whole (several MB for a full run); grep the test's slice. Exit codes: 0 green;
 1 a failure, an xpass, a blocked plan (also plans left out for a missing plugin, unless `-AllowNotRun`) or a run that
 did not finish; 2 busy or a setup problem; 3 the game did not start; 4 no results file.
+
+A game that exits by itself mid-run is named in `stopped.txt` and `summary.txt`: *the game exited by itself after
+<test id> (exit code N; crash log: <name>|none; Windows event: <faulting module>|none[; dump: ...])*. The plans with
+no result yet then run once more in a run of their own (new folder, `-Only` those plans; `-NoResume` turns it off),
+and the `all:` line adds its counts. A header of a run that did not finish ends *(results last said: <state>)*.
 
 ## 3. A failure: narrow, then read
 
@@ -96,6 +108,12 @@ did not finish; 2 busy or a setup problem; 3 the game did not start; 4 no result
 - **Message boxes block every other menu.** A box nobody answers (SkyUI MCM warning, Survival Mode) makes
   container/crafting menus never open; list it in `_run.json` `messageBoxes`. A stuck box looks like a feature bug.
 - **QuickLoot IE needs SkyUI** or it stops the game at the main menu with a dialog (the runner saves `dialog.txt`).
+- **Crash Logger is in the profile** (when installed; `install.ps1` warns otherwise): a crash leaves `crash-*.log`,
+  copied into the run folder. A crash after `qqq` (engine teardown, run 20261028-044838's `BSFaceGenModel`) is not a
+  test failure.
+- **Never activate a crafting station whose menu is open or opening.** It gets the player up and closes the menu;
+  it preceded silent game exits (runs 20261028-011117, 021524). `sit` now only waits then, and leaves 2-6 s after a
+  MoveTo before activating.
 - **MO2's overwrite folder is shared.** The runner moves the run's files out to `<run>/written/`; a plan whose home
   already has a layout file is `blocked`, so it never touches the user's setups.
 - **Leftovers from an aborted run** (layouts, backups, `Templates/User/AutoTest*` in overwrite, `selected_profile`
@@ -106,17 +124,26 @@ did not finish; 2 busy or a setup problem; 3 the game did not start; 4 no result
   (or `<run>/earlier/`), listed, never put back. Other leftovers (the player's own) are moved to
   `<run>/preexisting/` and back afterwards (`-NoQuarantine` refuses with a list instead, exit 2). Never delete them
   by hand.
+- **Processes an earlier run left**: an AutoTest MO2 (`--multiple -p "Dova Stash AutoTest"`) or a Steam started as
+  `steam://run/489830` (session 0, its game gone) with no `running.json` and no live runner. The runner ends them
+  itself, or stops (exit 2) with the `Stop-Process -Id <pid>` command to run. They are safe to end, unlike the
+  player's MO2 window or a Skyrim you did not start.
 - **MO2 may drop the VFS** if `skse64_loader` exits early; the runner retries up to 3 times. A "no results file" with
   no game log usually means that or a DLL without the harness (the deployed one predates it).
-- **A message box left open kills the rest of the run.** The hotkey in `iMode = 1`, a template offer and the category
+- **A message box left open blocks every later menu.** The hotkey in `iMode = 1`, a template offer and the category
   question are message boxes; `closeMenu` cannot close them and every later container/crafting menu stays shut. The
-  harness fails the test that leaves one open (*left a message box open*): answer it (`answerMessageBox`) or check the
-  log/layout instead of pressing the hotkey.
-- **Plans run on the shipped templates.** No current plan uses a test template. The option stays: a plan may
-  declare test templates (`"templates": ["X.json"]`, files in `mod/.../Templates/AutoTest/`), loaded only while that
-  plan runs (`Store::ScopeTestTemplates`, `AutoTest.cpp`); `install.ps1` leaves out undeclared ones and warns about a
-  test template no plan declares. Plans 21-23 and 38 use the shipped `*Full.json` templates, plans 41-46 and 51-57
-  the shipped `Templates/Mods` ones.
+  harness fails the test that leaves one open (*left a message box open*), then closes it with its last button
+  (Cancel / No) so later tests and plans don't fail too: answer it (`answerMessageBox`) or check the log/layout
+  instead of pressing the hotkey.
+- **Plans run on the shipped templates.** Plans 21-23 and 38 use the shipped merged templates
+  (`LakeviewManor`/`WindstadManor`/`HeljarchenHall`/`TundraHomestead.json`), plans 41-46 and 51-57 the shipped
+  `Templates/Mods` ones. A plan may also declare test templates (`"templates": ["X.json"]`, files in
+  `mod/.../Templates/AutoTest/`), loaded only while that plan runs (`Store::ScopeTestTemplates`, `AutoTest.cpp`):
+  plan 10 declares `NotInstalledHome.json`, plan 19 `BreezehomeMayNotFit.json`, plan 21 `LakeviewManorCellar.json` (a copy of the retired cellar
+  template, for 3.9.6), plan 47 `WhitepeakTowerKexodus.json`. `install.ps1` leaves out undeclared ones and warns about
+  a test template no plan declares.
+- **Saved templates do not outlive their plan.** At each plan's start the harness removes `Templates/User/AutoTest *.json`
+  (what an earlier plan's `export` saved), so a saved copy never outranks the shipped template a later plan checks.
 - **`layout`/`layoutFile`/`backupFile` checks read the plan's home file**, whatever cell the player stands in: another
   cell's own setup can only be proven through the log ("Applied template ... to <home>") or counts.
 - **`log` checks with `since: "action"`** miss lines the action itself logged; leave the scope off unless needed.

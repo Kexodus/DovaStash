@@ -97,9 +97,33 @@ namespace dova::ui
 		return a_what.empty() || core::IEquals(a_what, name) ? std::format("{} ({})", name, count) : std::format("{} - {} ({})", name, a_what, count);
 	}
 
+	std::vector<std::pair<core::FormRef, std::string>> AreaMasterRoles(const home::Home& a_home)
+	{
+		std::vector<std::pair<core::FormRef, std::string>> out;
+		if (!a_home.layout) {
+			return out;
+		}
+		const auto& cells = a_home.layout->cells;
+		for (const auto& m : core::AreaMasters(cells, a_home.layout->master)) {
+			const auto entry = std::ranges::find_if(cells, [&](const core::HomeCell& c) { return c.master && *c.master == m; });
+			std::string area;
+			if (entry != cells.end()) {
+				const auto it = std::ranges::find(a_home.areas, entry->cell, &home::Area::cell);
+				area = it != a_home.areas.end() ? it->name : entry->label;
+			}
+			out.emplace_back(m, area.empty() ? std::string("master") : std::format(kAreaMasterRole, area));
+		}
+		return out;
+	}
+
 	std::string MakeMasterQuestion(std::string_view a_name, bool a_forgetsSetup)
 	{
 		return a_forgetsSetup ? std::format(kConfirmMakeMasterForgets, a_name) : std::format(kConfirmMakeMaster, a_name);
+	}
+
+	std::string MakeAreaMasterQuestion(std::string_view a_name, std::string_view a_area, bool a_forgetsSetup)
+	{
+		return a_forgetsSetup ? std::format(kConfirmMakeAreaMasterForgets, a_name, a_area) : std::format(kConfirmMakeAreaMaster, a_name, a_area);
 	}
 
 	std::vector<MenuEntry> ContainerMenuEntries(home::Home& a_home, RE::TESObjectREFR* a_container, const ContainerMenuHooks& a_hooks)
@@ -153,10 +177,19 @@ namespace dova::ui
 						   } });
 		}
 		// What Make master forgets (DESIGN §10.3): the container's binding (categories, sell chest, ignored) and the
-		// items learned for it.
-		out.push_back({ kMakeMasterEntry, [confirm, cellId, ref = *ref, question = MakeMasterQuestion(name, binding || learned > 0)]() {
-						   confirm(question, [cellId, ref]() { Controller::Get().MakeMaster(cellId, ref); });
-					   } });
+		// items learned for it. A container in an extra area of a multi-cell home becomes that area's master (DESIGN
+		// §6.7): the container's area, not the player's (the hotkey reaches across the border of a loaded exterior area).
+		const auto* area = a_home.MultiCell() ? home::AreaOf(a_home, a_container) : nullptr;
+		if (area && !area->main) {
+			out.push_back({ std::format(kMakeAreaMasterEntry, area->name),
+				[confirm, cellId, ref = *ref, areaCell = area->cell, question = MakeAreaMasterQuestion(name, area->name, binding || learned > 0)]() {
+					confirm(question, [cellId, ref, areaCell]() { Controller::Get().MakeAreaMaster(cellId, ref, areaCell); });
+				} });
+		} else {
+			out.push_back({ kMakeMasterEntry, [confirm, cellId, ref = *ref, question = MakeMasterQuestion(name, binding || learned > 0)]() {
+							   confirm(question, [cellId, ref]() { Controller::Get().MakeMaster(cellId, ref); });
+						   } });
+		}
 		if (a_hooks.openPanel) {
 			out.push_back({ kOpenPanel, a_hooks.openPanel });
 		}
@@ -278,7 +311,8 @@ namespace dova::ui
 	{
 		ContainerRole role;
 		auto          home = home::HomeRegistry::Get().Display();
-		if (!a_ref || !home || !home->layout || a_ref->GetParentCell() == nullptr || a_ref->GetParentCell()->GetFormID() != home->cellId) {
+		// Any cell of the home: the hotkey also takes a container across the border of a loaded area (DESIGN §6.7).
+		if (!a_ref || !home || !home->layout || a_ref->GetParentCell() == nullptr || !home->InHome(a_ref->GetParentCell()->GetFormID())) {
 			return role;
 		}
 		role.home = home;
@@ -287,7 +321,7 @@ namespace dova::ui
 			return role;
 		}
 		const auto& layout = *home->layout;
-		if (layout.IsMaster(*ref)) {
+		if (layout.IsAnyMaster(*ref)) {  // the home's master or an area's (cells[].master): an inbox either way
 			role.kind = ContainerRole::Kind::Master;
 			return role;
 		}

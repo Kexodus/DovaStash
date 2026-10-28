@@ -1,6 +1,7 @@
 #include "UI/DisplayMenu.h"
 
 #include "Controller.h"
+#include "Game/FormUtil.h"
 #include "Home/Store.h"
 #include "Icons/IconService.h"
 #include "UI/ArmorSetMenu.h"
@@ -125,6 +126,16 @@ namespace dova::ui
 		}
 		if (!a_menu.full) {
 			out.push_back({ "Fill now", [cellId, ref]() { Controller::Get().FillDisplay(cellId, ref); } });
+		} else if (a_menu.kind == core::DisplayKind::Item) {
+			// An item plaque's script keeps the item it shows in no container: activated for the player, it hands it back.
+			out.push_back({ "Take down", [ref]() {
+							   auto* plaque = game::LookupRef(ref);
+							   auto* player = game::Player();
+							   if (plaque && player) {
+								   logger::info("Display: taking down what {} shows (activated for the player)", game::Describe(plaque));
+								   plaque->ActivateRef(player, 0, nullptr, 0, false);
+							   }
+						   } });
 		}
 		out.push_back({ std::format("Stop using this {}", Noun(a_menu.kind)), [cellId, ref]() { Controller::Get().SetDisplayUsed(cellId, ref, false); } });
 		return out;

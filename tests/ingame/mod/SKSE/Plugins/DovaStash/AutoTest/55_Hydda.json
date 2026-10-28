@@ -17,7 +17,7 @@
       "id": "3.6-hydda", "title": "Use template, Deposit spreads potions, food and ingredients",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Hydda setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Hydda is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/Hydda.json@"},
         {"check": "log", "since": "run", "regex": ": template Templates/Mods/Hydda\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "Eli_WitchyHaus.esp|0x00051C1D"},

@@ -448,12 +448,12 @@ namespace dova::core
 	bool Layout::IsSellChest(const FormRef& a_ref) const
 	{
 		const auto* c = FindContainer(a_ref);
-		return c && c->sell && !c->ignored && !IsMaster(a_ref);
+		return c && c->sell && !c->ignored && !IsAnyMaster(a_ref);
 	}
 
 	bool Layout::HasSellChest() const
 	{
-		return std::ranges::any_of(containers, [&](const ContainerBinding& c) { return c.sell && !c.ignored && !IsMaster(c.ref); });
+		return std::ranges::any_of(containers, [&](const ContainerBinding& c) { return c.sell && !c.ignored && !IsAnyMaster(c.ref); });
 	}
 
 	// --- Keep config -------------------------------------------------------------------------------
@@ -497,6 +497,7 @@ namespace dova::core
 						keep.quotas.push_back(std::move(*rule));
 					} else {
 						keep.unparsedQuotas.push_back(value[i]);
+						keep.unparsedQuotaSlots.push_back(keep.quotas.size());
 					}
 				}
 			} else {
@@ -524,12 +525,19 @@ namespace dova::core
 			out["never"] = a_keep.never;
 		}
 		if (!a_keep.quotas.empty() || !a_keep.unparsedQuotas.empty()) {
-			ojson rules = ojson::array();
-			for (const auto& r : a_keep.quotas) {
-				rules.push_back(QuotaRuleToJson(r));
-			}
-			for (const auto& r : a_keep.unparsedQuotas) {
-				rules.push_back(ToOrdered(r));
+			// Each invalid rule goes back where it was among the parsed ones (first match wins, so order counts).
+			ojson       rules = ojson::array();
+			std::size_t bad = 0;
+			const auto  slot = [&](std::size_t a_bad) {
+				return a_bad < a_keep.unparsedQuotaSlots.size() ? a_keep.unparsedQuotaSlots[a_bad] : a_keep.quotas.size();
+			};
+			for (std::size_t p = 0; p <= a_keep.quotas.size(); ++p) {
+				while (bad < a_keep.unparsedQuotas.size() && (slot(bad) <= p || p == a_keep.quotas.size())) {
+					rules.push_back(ToOrdered(a_keep.unparsedQuotas[bad++]));
+				}
+				if (p < a_keep.quotas.size()) {
+					rules.push_back(QuotaRuleToJson(a_keep.quotas[p]));
+				}
 			}
 			out[a_keep.quotasKeyIsRules ? "rules" : "quotas"] = std::move(rules);
 		}
@@ -745,6 +753,25 @@ namespace dova::core
 			}
 			if (const auto* c = layout.FindContainer(*layout.master); c && c->sell) {
 				a_diags.Warn(source, "the master container can't be the sell chest (\"sell\" ignored)");
+			}
+			if (const auto* c = layout.FindContainer(*layout.master); c && !c->ignored && !c->sell) {
+				a_diags.Warn(source, "the master container is also listed in \"containers\" (its categories are used, it stays the catch-all)");
+			}
+		}
+		for (std::size_t i = 0; i < layout.cells.size(); ++i) {
+			const auto& area = layout.cells[i].master;
+			if (!area || layout.IsMaster(*area)) {
+				continue;
+			}
+			const auto where = "cells[" + std::to_string(i) + "].master";
+			if (const auto* c = layout.FindContainer(*area); c && c->ignored) {
+				a_diags.Warn(source, where + " is also listed as ignored");
+			}
+			if (const auto* c = layout.FindContainer(*area); c && c->sell) {
+				a_diags.Warn(source, where + ": an area master can't be the sell chest (\"sell\" ignored)");
+			}
+			if (const auto* c = layout.FindContainer(*area); c && !c->ignored && !c->sell) {
+				a_diags.Warn(source, where + ": an area master is also listed in \"containers\" (its categories are used, it stays the area's catch-all)");
 			}
 		}
 		return layout;

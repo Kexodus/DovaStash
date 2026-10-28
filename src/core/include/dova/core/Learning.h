@@ -7,7 +7,7 @@
 // that the container does not bind yet, the plugin asks once ("Send all Books to End Table?"). Core
 // decides *what* to suggest from plain data; the plugin classifies the learned items (it needs the
 // game's forms) and asks the question.
-// - The container must be a non-ignored, non-master container of the layout.
+// - The container must be a non-ignored container of the layout that is neither the master nor an area master.
 // - Not suggested: a category one of the container's own patterns already covers; one listed in
 //   `Layout::declined` for that container (the player said No); one another non-ignored container
 //   binds by its exact id (adding it here too would only compete on list order). A wider pattern

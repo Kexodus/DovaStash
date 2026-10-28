@@ -17,7 +17,7 @@
       "id": "3.6-ebongrove", "title": "Use template, Deposit spreads weapons, potions and soul gems",
       "steps": [
         {"do": "useTemplate"},
-        {"check": "notify", "contains": "Dova Stash: Ebongrove setup enabled"},
+        {"check": "notify", "contains": "Dova Stash: Ebongrove is set up"},
         {"check": "layout", "pointer": "/basedOn", "contains": "Templates/Mods/Ebongrove.json@"},
         {"check": "log", "since": "run", "regex": ": template Templates/Mods/Ebongrove\\.json fits: "},
         {"check": "layout", "pointer": "/master", "eq": "Undriel_Ebongrove.esp|0x0009BB37"},

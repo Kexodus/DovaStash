@@ -20,12 +20,12 @@
       ]
     },
     {
-      "id": "6.2-mb-master", "title": "Master menu (Advanced... before the sell entries), Advanced (Reset home... on page 1), Retrieve and Back",
+      "id": "6.2-mb-master", "title": "Master menu (Retrieve... and Advanced... before the sell entries), Advanced on one page (no lone 6th entry), Back",
       "steps": [
         {"do": "hotkey"},
-        {"check": "menuEntries", "order": ["Deposit", "Sort all", "Advanced..."], "body": "Dova Stash: Breezehome", "within": 5},
+        {"check": "menuEntries", "order": ["Deposit", "Sort all", "Retrieve...", "Advanced..."], "body": "Dova Stash: Breezehome", "within": 5},
         {"do": "choose", "entry": "Advanced..."},
-        {"check": "menuEntries", "order": ["Retrieve...", "Browse containers...", "Re-apply template \"", "Save as template...", "Reset home...", "More...", "Back", "Cancel"], "body": "Dova Stash: Breezehome: Advanced"},
+        {"check": "menuEntries", "order": ["Browse containers...", "Re-apply template \"", "Save as template...", "Reset home...", "Back", "Cancel"], "lacks": ["Retrieve...", "More..."], "body": "Dova Stash: Breezehome: Advanced"},
         {"do": "choose", "entry": "Reset home..."},
         {"check": "menuEntries", "eq": ["Yes", "No"], "body": "Reset Breezehome?"},
         {"do": "choose", "entry": "No"},
@@ -34,6 +34,34 @@
         {"do": "choose", "entry": "Back"},
         {"check": "menuEntries", "contains": ["Deposit"], "body": "Dova Stash: Breezehome", "within": 5},
         {"do": "choose", "index": -1},
+        {"check": "noErrors"}
+      ]
+    },
+    {
+      "id": "6.2.4-mb-everything", "title": "Retrieve... > Everything with more than 50 items stored asks first (\"Retrieve N items?\"); No brings Retrieve back and moves nothing, Yes retrieves them all (then Deposit puts them back)",
+      "steps": [
+        {"do": "clearInventory"},
+        {"do": "additemMany", "count": 60},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"do": "snapshot", "name": "everything"},
+        {"do": "hotkey"},
+        {"check": "menuEntries", "contains": ["Retrieve..."], "within": 5},
+        {"do": "choose", "entry": "Retrieve..."},
+        {"check": "menuEntries", "contains": ["Everything ("], "within": 5},
+        {"do": "choose", "entry": "Everything ("},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "You may be over-encumbered", "within": 5},
+        {"do": "choose", "entry": "No"},
+        {"check": "menuEntries", "contains": ["Everything ("], "within": 5},
+        {"check": "count", "item": "Skyrim.esm|0x0005ACE4", "eq": 0, "why": "No retrieved nothing (the player carries no iron ingot after clearInventory)"},
+        {"do": "choose", "entry": "Everything ("},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "You may be over-encumbered", "within": 5},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "notify", "contains": "Dova Stash: retrieved ", "within": 10},
+        {"check": "conserved", "snapshot": "everything"},
+        {"do": "op", "op": "Deposit"},
+        {"do": "waitIdle"},
+        {"check": "conserved", "snapshot": "everything"},
         {"check": "noErrors"}
       ]
     },
@@ -609,6 +637,29 @@
         {
           "check": "noErrors"
         }
+      ]
+    },
+    {
+      "id": "6.2-mb-display", "title": "Display menu as message boxes: a rack's Categories... box says nothing chosen takes anything that fits; a toggle reopens the same page, Back returns to the display menu",
+      "steps": [
+        {"do": "enter"},
+        {"do": "enable", "ref": "Skyrim.esm|0x00102A41"},
+        {"do": "require", "enabled": "Skyrim.esm|0x00102A41", "why": "Breezehome's racks come with the living room decoration"},
+        {"do": "displayUse", "ref": "Skyrim.esm|0x00102A41", "on": true},
+        {"do": "hotkey", "target": "Skyrim.esm|0x00102A41"},
+        {"check": "menuEntries", "contains": ["Categories... (", "Stop using this rack"], "within": 5},
+        {"do": "choose", "entry": "Categories... ("},
+        {"check": "menuEntries", "contains": ["[ ] All Weapons"], "body": "(nothing chosen: anything that fits)", "within": 5},
+        {"do": "choose", "entry": "[ ] All Weapons"},
+        {"check": "layout", "pointer": "/displays", "contains": {"ref": "Skyrim.esm|0x00102A41", "categories": ["weapons.*"]}, "within": 5},
+        {"check": "menuEntries", "contains": ["[x] All Weapons"], "body": ": Categories", "within": 5},
+        {"do": "choose", "entry": "[x] All Weapons"},
+        {"check": "layout", "pointer": "/displays", "lacks": {"ref": "Skyrim.esm|0x00102A41", "categories": ["weapons.*"]}, "within": 5},
+        {"check": "menuEntries", "contains": ["[ ] All Weapons"], "body": ": Categories", "within": 5},
+        {"do": "choose", "entry": "Back"},
+        {"check": "menuEntries", "contains": ["Categories... (", "Stop using this rack"], "within": 5},
+        {"do": "choose", "index": -1},
+        {"check": "noErrors"}
       ]
     },
     {

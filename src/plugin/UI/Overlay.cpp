@@ -56,6 +56,7 @@ namespace dova::ui::overlay
 			std::unordered_map<RE::FormID, std::chrono::steady_clock::time_point> lastSeen;  // line-of-sight hysteresis
 			float                                     sinceRescan{ kRescanSeconds };
 			bool                                      visible{ false };
+			RE::FormID                                frameCell{ 0 };  // the player's cell at the last frame (hang bisect)
 		};
 		State g_state;
 
@@ -440,6 +441,24 @@ namespace dova::ui::overlay
 			if (!GetRoot(movie, root)) {
 				return;
 			}
+			// Bisecting the hang at some cell changes: the first frame in a new cell logs its start and end (debug).
+			auto*      frameCell = game::Player() ? game::Player()->GetParentCell() : nullptr;
+			const auto frameCellId = frameCell ? frameCell->GetFormID() : 0;
+			const bool firstFrame = frameCellId != g_state.frameCell;
+			if (firstFrame) {
+				g_state.frameCell = frameCellId;
+				logger::debug("Overlay: first frame in {}: start", frameCell ? game::Describe(frameCell) : "no cell"s);
+			}
+			struct FrameDone
+			{
+				bool on;
+				~FrameDone()
+				{
+					if (on) {
+						logger::debug("Overlay: first frame: done");
+					}
+				}
+			} frameDone{ firstFrame };
 			const auto settings = Settings::GetSingleton().GetOverlay();
 			if (!settings.enabled || !OverlayAllowed()) {
 				Hide(root);

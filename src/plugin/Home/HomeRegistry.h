@@ -49,6 +49,9 @@ namespace dova::home
 
 		[[nodiscard]] bool                           Enabled() const noexcept { return layout.has_value(); }
 		[[nodiscard]] const core::TemplateCandidate* BestTemplate() const;
+		// No setup and no template of its own, but a template of another home lists this cell in its `cells`
+		// (core::LayoutResolution::partOf, DESIGN §6.7): that template, set up from its main cell. Else nullptr.
+		[[nodiscard]] const core::TemplateCandidate* PartOfTemplate() const;
 		// More than one cell in use: containers elsewhere are reached only as Areas.h allows.
 		[[nodiscard]] bool MultiCell() const noexcept { return areas.size() > 1; }
 		[[nodiscard]] const Area* AreaById(RE::FormID a_cell) const;
@@ -65,12 +68,19 @@ namespace dova::home
 		RE::FormID                  cellId{ 0 };
 		std::string                 name;
 		std::optional<core::Layout> layout;
+		std::vector<RE::FormID>     areaCells;  // every loaded cell of the home (Home::areas), the player's included
 		std::unordered_map<RE::FormID, RE::FormID> fronts;    // activator -> container it opens
 		std::unordered_map<RE::FormID, RE::FormID> frontOf;   // container -> one activator that opens it
 		// Per container: the primary categories of the items learned for it with their counts, most items
 		// first (ties in id order; items in no category are left out). Worked out when published, so
 		// display code never looks up or classifies forms.
 		std::map<core::FormRef, std::vector<std::pair<std::string, std::int32_t>>> learnedCategories;
+
+		// `a_cell` is one of the home's cells (the player's, or another area of a multi-cell home).
+		[[nodiscard]] bool InHome(RE::FormID a_cell) const
+		{
+			return a_cell == cellId || std::ranges::find(areaCells, a_cell) != areaCells.end();
+		}
 
 		// The activator that stands for `a_container` on screen, or `a_container` itself.
 		[[nodiscard]] RE::FormID Anchor(RE::FormID a_container) const
@@ -126,6 +136,12 @@ namespace dova::home
 		// Only the setup changes: no item is moved. Refused (false, nothing changed) when the layout file is
 		// broken or the backup fails.
 		bool ApplyTemplate(Home& a_home, const core::TemplateCandidate& a_template);
+		// From a cell another home's template lists (Home::PartOfTemplate, DESIGN §6.7): `a_whole` can be set up from
+		// here, as its main cell (the template's `cell`) has no setup file (its own setup is never replaced from here).
+		[[nodiscard]] bool CanSetUpMainCell(const core::TemplateCandidate& a_whole) const;
+		// Applies `a_whole` to its main cell as ApplyTemplate does there, and saves it; this cell then loads as an area
+		// of that home. Refused (false, nothing changed) when CanSetUpMainCell is not met. No item is moved.
+		bool ApplyTemplateToMainCell(const core::TemplateCandidate& a_whole);
 		// Removes a template from this home (`a_hidden`) or adds it back: core::HideTemplate / UnhideTemplate on the
 		// setup's hiddenTemplates (DESIGN §6.2), then the home's templates are resolved again and the setup is saved.
 		// Only that list changes (and basedOn, when the removed template is the one in use); the file stays on disk and

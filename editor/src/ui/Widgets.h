@@ -287,8 +287,9 @@ namespace dova::editor::ui::w
 	// right-click it with ImGui::BeginPopupContextItem() after.
 	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
 		bool a_cursor, bool a_unsaved, bool a_dim = false, const char* a_summaryShortest = nullptr);
-	// A collapsible group heading in a list (a mod): chevron, name, muted note. Toggles `a_open` on click.
-	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open);
+	// A collapsible group heading in a list (a mod): chevron, name, muted note. Toggles `a_open` on click. When the name
+	// would keep fewer than about 12 characters, the note falls back to `a_noteShort`, then to none.
+	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open, const char* a_noteShort = nullptr);
 	// An accent banner with one action and a close x: 1 when the action is clicked, 2 when closed.
 	int  Banner(const char* a_id, const char* a_text, const char* a_action);
 	void Swatch(std::uint32_t a_colour, const char* a_label);  // a colour square and a label (legends)

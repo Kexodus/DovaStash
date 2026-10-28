@@ -11,11 +11,11 @@
 //
 //   setup prompt:    Restore your last setup, Make <container> the master, Use template "...",
 //                    Add this area to <home>, Open panel...
-//   master list:     Deposit, Restock, Sort all, Advanced..., Sell now / Buy back..., Rename <master>...,
+//   master list:     Deposit, Restock, Sort all, Retrieve..., Advanced..., Sell now / Buy back..., Rename <master>...,
 //                    Restore original name, (in an extra area: Rename <area>..., Remove this area from <home>...)
-//                    Titled "<home> (master not here)" when the master is in another area.
-//   advanced:        Retrieve..., Browse containers..., Use / Re-apply template, Save as template...,
-//                    Reset home..., Open panel...
+//                    Also opened at an area master (cells[].master). Titled "<home> (master not here)" only when
+//                    no master takes the leftovers from here (home::CatchAllHere).
+//   advanced:        Browse containers..., Use / Re-apply template, Save as template..., Reset home..., Open panel...
 //   container list:  Categories... (summary), Open <container>, Sell now / Buy back..., Rename...,
 //                    Restore original name, Learned items (N)..., Clear categories..., Ignore / Stop ignoring,
 //                    Make sell chest... / Stop selling from it, Remove..., Make master..., Open panel...
@@ -49,6 +49,7 @@ namespace dova::ui
 		void OpenMasterMenu(home::Home& a_home, RE::TESObjectREFR* a_master) override;
 		void OpenContainerMenu(home::Home& a_home, RE::TESObjectREFR* a_container) override;
 		void OpenSetupPrompt(home::Home& a_home, RE::TESObjectREFR* a_container) override;
+		void OpenPartOfPrompt(home::Home& a_home, std::string_view a_template) override;
 		void OpenDisplayMenu(const DisplayMenu& a_menu) override;
 		void OpenArmorSetMenu(const ArmorSetMenu& a_menu) override;
 		void Notify(std::string_view a_message, bool a_failed = false) override;

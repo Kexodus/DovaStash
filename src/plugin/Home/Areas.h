@@ -49,6 +49,11 @@ namespace dova::home
 	// checked against its own cell. `a_reach` (optional) receives where it is.
 	[[nodiscard]] game::Verdict CheckHomeContainer(RE::TESObjectREFR* a_ref, const Home& a_home, core::Reach* a_reach = nullptr);
 
+	// The chest that takes what no container takes when an operation runs here (core::SortPlanner::CatchAll with
+	// SetPlayerArea): the home's master when it can be reached from here, else the master of the player's area
+	// (cells[].master), else the first reachable area master in `cells` order; nullptr when there is none. Main thread.
+	[[nodiscard]] RE::TESObjectREFR* CatchAllHere(const Home& a_home);
+
 	// An extra cell may be part of a home (any interior or exterior cell the layout lists) unless it is a
 	// temporary cell or owned by someone else (the player, the player's factions or a player house are fine).
 	[[nodiscard]] game::Verdict CheckExtraCell(RE::TESObjectCELL* a_cell);

@@ -1773,14 +1773,12 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 		return g;
 	}
 
-	std::pair<XMFLOAT3, XMFLOAT3> Scene::SceneBounds(bool a_withDisabled) const
+	std::vector<const SceneRef*> Scene::OverviewRefs(bool a_withDisabled) const
 	{
-		XMFLOAT3 lo{ FLT_MAX, FLT_MAX, FLT_MAX }, hi{ -FLT_MAX, -FLT_MAX, -FLT_MAX };
-		bool     any = false;
 		// Robust bounds, so a stray reference far from the home (a forgotten marker, a prefab stored outside the
 		// rooms) does not shrink the home to a dot: initially disabled references are left out when most of the
 		// home is enabled, then only the largest group of references 1024 units apart or closer counts (the one
-		// with the most containers), and of it the 2nd to 98th percentile on each axis, padded by a tenth of the span.
+		// with the most containers).
 		std::vector<const SceneRef*> refs;
 		std::size_t                  enabled = 0;
 		for (const auto& r : _desc.refs) {
@@ -1806,6 +1804,15 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 			}
 			refs = std::move(kept);
 		}
+		return refs;
+	}
+
+	std::pair<XMFLOAT3, XMFLOAT3> Scene::SceneBounds(bool a_withDisabled) const
+	{
+		XMFLOAT3 lo{ FLT_MAX, FLT_MAX, FLT_MAX }, hi{ -FLT_MAX, -FLT_MAX, -FLT_MAX };
+		bool     any = false;
+		// Of the cluster (OverviewRefs), the 2nd to 98th percentile on each axis, padded by a tenth of the span.
+		const auto refs = OverviewRefs(a_withDisabled);
 		std::array<std::vector<float>, 3> axes;
 		for (const auto* r : refs) {
 			for (std::size_t k = 0; k < 3; ++k) {
@@ -1851,15 +1858,88 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 	{
 		auto [lo, hi] = SceneBounds(a_withDisabled);
 		hi.z = std::max(lo.z, std::min(hi.z, a_roofZ));
-		const XMFLOAT3 c{ (lo.x + hi.x) * 0.5f, (lo.y + hi.y) * 0.5f, (lo.z + hi.z) * 0.5f };
-		const float    radius = std::max(256.0f, 0.5f * std::sqrt((hi.x - lo.x) * (hi.x - lo.x) + (hi.y - lo.y) * (hi.y - lo.y) + (hi.z - lo.z) * (hi.z - lo.z)));
-		Camera         cam;
-		const float    fov = std::min(cam.fovY, 2.0f * std::atan(std::tan(cam.fovY * 0.5f) * a_aspect));
-		const float    dist = radius / std::sin(fov * 0.5f);
+		Camera cam;
 		cam.yaw = std::numbers::pi_v<float> * 0.25f;  // from the south-west, looking north-east
 		cam.pitch = -std::numbers::pi_v<float> * 0.28f;
-		const XMVECTOR f = cam.Forward();
-		XMStoreFloat3(&cam.position, XMVectorSubtract(XMLoadFloat3(&c), XMVectorScale(f, dist)));
+		// Fitted to the kept cluster as it lies on screen from this direction, not to a sphere around its box: its
+		// references (the roof cut's height at most) across and up the view, the 2nd to 98th percentile of each, padded
+		// for the meshes around those points, take about 85 % of the viewport's tighter dimension, centred. A nearly
+		// empty cell: the box's 8 corners instead.
+		constexpr float kFill = 0.85f;
+		const float     tanY = std::tan(cam.fovY * 0.5f);
+		const float     tanX = tanY * std::max(a_aspect, 0.01f);
+		XMFLOAT3        f, r, u;
+		XMStoreFloat3(&f, cam.Forward());
+		XMStoreFloat3(&r, cam.Right());
+		XMStoreFloat3(&u, cam.Up());
+		const auto     dot = [](const XMFLOAT3& a, const XMFLOAT3& b) { return a.x * b.x + a.y * b.y + a.z * b.z; };
+		const XMFLOAT3 c0{ (lo.x + hi.x) * 0.5f, (lo.y + hi.y) * 0.5f, (lo.z + hi.z) * 0.5f };
+		std::vector<XMFLOAT3> points;  // in view space around c0: across, up, along the view
+		const bool            terrain = std::ranges::any_of(_desc.terrain, [](const SceneTerrain& t) { return !t.context; });
+		if (!terrain) {
+			for (const auto* ref : OverviewRefs(a_withDisabled)) {
+				const XMFLOAT3 d{ ref->position[0] - c0.x, ref->position[1] - c0.y, std::min(ref->position[2], hi.z) - c0.z };
+				points.push_back({ dot(d, r), dot(d, u), dot(d, f) });
+			}
+		}
+		const bool spread = points.size() >= 4;
+		if (terrain) {
+			// An exterior: the whole cell from a sphere's distance (its trees and hills stay in front of the camera).
+			const float radius = std::max(256.0f, 0.5f * std::sqrt((hi.x - lo.x) * (hi.x - lo.x) + (hi.y - lo.y) * (hi.y - lo.y) + (hi.z - lo.z) * (hi.z - lo.z)));
+			const float fov = std::min(cam.fovY, 2.0f * std::atan(tanX));
+			const float back = radius / std::sin(fov * 0.5f);
+			cam.position = { c0.x - f.x * back, c0.y - f.y * back, c0.z - f.z * back };
+			return cam;
+		}
+		if (!spread) {
+			points.clear();
+			for (int i = 0; i < 8; ++i) {
+				const XMFLOAT3 d{ ((i & 1) ? hi.x : lo.x) - c0.x, ((i & 2) ? hi.y : lo.y) - c0.y, ((i & 4) ? hi.z : lo.z) - c0.z };
+				points.push_back({ dot(d, r), dot(d, u), dot(d, f) });
+			}
+		}
+		// Where they land on screen (-1..1) for a camera `a_dist` back from c0 moved across by (mx, my): the 2nd to
+		// 98th percentile each way, padded for the meshes around those points (all of the box's corners, unpadded).
+		struct Extent
+		{
+			float x0, x1, y0, y1;
+		};
+		const auto extent = [&](float a_dist, float a_mx, float a_my) {
+			std::vector<float> xs, ys;
+			for (const auto& p : points) {
+				const float depth = std::max(a_dist + p.z, 1.0f);
+				xs.push_back((p.x - a_mx) / (depth * tanX));
+				ys.push_back((p.y - a_my) / (depth * tanY));
+			}
+			std::ranges::sort(xs);
+			std::ranges::sort(ys);
+			const double q = spread ? 0.02 : 0.0;
+			const auto   at = [](const std::vector<float>& v, double a_q) { return v[static_cast<std::size_t>(static_cast<double>(v.size() - 1) * a_q + 0.5)]; };
+			Extent       e{ at(xs, q), at(xs, 1.0 - q), at(ys, q), at(ys, 1.0 - q) };
+			if (spread) {
+				const float padX = (e.x1 - e.x0) * 0.06f + 96.0f / (a_dist * tanX), padY = (e.y1 - e.y0) * 0.06f + 96.0f / (a_dist * tanY);  // a wall or a shelf around its middle
+				e = { e.x0 - padX, e.x1 + padX, e.y0 - padY, e.y1 + padY };
+			}
+			return e;
+		};
+		// A first guess without perspective, then a few passes that centre the extent and scale it to kFill.
+		float x0 = FLT_MAX, x1 = -FLT_MAX, y0 = FLT_MAX, y1 = -FLT_MAX;
+		for (const auto& p : points) {
+			x0 = std::min(x0, p.x);
+			x1 = std::max(x1, p.x);
+			y0 = std::min(y0, p.y);
+			y1 = std::max(y1, p.y);
+		}
+		float mx = (x0 + x1) * 0.5f, my = (y0 + y1) * 0.5f;
+		float dist = std::max({ 400.0f, (x1 - x0) * 0.5f / (kFill * tanX), (y1 - y0) * 0.5f / (kFill * tanY) });
+		for (int pass = 0; pass < 4; ++pass) {
+			const auto e = extent(dist, mx, my);
+			mx += (e.x0 + e.x1) * 0.5f * dist * tanX;
+			my += (e.y0 + e.y1) * 0.5f * dist * tanY;
+			dist = std::max(400.0f, dist * std::max((e.x1 - e.x0) * 0.5f, (e.y1 - e.y0) * 0.5f) / kFill);
+		}
+		const XMFLOAT3 c{ c0.x + r.x * mx + u.x * my, c0.y + r.y * mx + u.y * my, c0.z + r.z * mx + u.z * my };
+		cam.position = { c.x - f.x * dist, c.y - f.y * dist, c.z - f.z * dist };
 		return cam;
 	}
 

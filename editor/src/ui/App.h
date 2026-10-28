@@ -69,6 +69,7 @@ namespace dova::editor::ui
 		bool                       palette{ false };  // open the command palette (Ctrl+K)
 		std::optional<std::string> popover;   // open a popover once the window is ready (screenshots): menu, setup, switcher, filter, draftmenu, layers, colours, camera, paintcat, savedrafts (a dialog), categories (the selection's category picker)
 		std::optional<std::pair<int, int>> window;    // the window's client size (screenshots at 1280 x 720)
+		int                        timeout{ 180 };    // --screenshot: seconds before it saves what it has and exits 4
 		std::optional<std::string> theme;     // a colour theme for this run (ui/Themes.h); the remembered one stays
 		std::optional<float>       textSize;  // the text size for this run (1.5: 150 %, 0: Auto), screenshots too; the remembered one stays
 		std::optional<std::string> layers;    // Layers popover toggles for this run: "effects,-structure" (names, - turns off)
@@ -100,6 +101,9 @@ namespace dova::editor::ui
 		[[nodiscard]] bool ShouldQuit() const noexcept { return _quit; }
 		// A --home matched no home (a screenshot run then exits 1, still writing its image).
 		[[nodiscard]] bool HomeMissing() const noexcept { return _homeMissing; }
+		// A screenshot run: a job failed (stderr and the log said why; exit 1, no message box).
+		[[nodiscard]] bool Failed() const noexcept { return _failed; }
+		[[nodiscard]] std::string WaitingFor() const;  // what Idle() waits on, in words
 
 	private:
 		enum class Panel
@@ -198,6 +202,8 @@ namespace dova::editor::ui
 			std::vector<std::string>        doorText;  // formatted destination cell, parallel to info.doors
 			std::string                     cellText;
 			long long                       ms{ 0 };
+			std::vector<home::CellInfo>     homeCells;       // the template's other cells, read for the checks (ReadHomeCells)
+			std::vector<core::FormRef>      homeCellsAsked;  // each asked for once (one that cannot be read is not asked again)
 
 			// The template being made (starts as the draft, home::DraftTemplate or the home's HomeDraft).
 			core::Layout             layout;
@@ -285,6 +291,8 @@ namespace dova::editor::ui
 		[[nodiscard]] bool        DraftExists() const;                          // the open cell's draft is made (OpenDraft makes it)
 		[[nodiscard]] bool IsOpenHome(int a_index) const;
 		void               CheckRefs(const OpenCell& a_cell, core::Diagnostics& a_diags) const;  // Roles.cpp: home::CheckTemplateRefs on the home's cells
+		void               ReadHomeCells(OpenCell& a_cell);  // Roles.cpp: a job reading the template's cells not read yet (exteriors too), for CheckRefs
+		[[nodiscard]] std::string HomeRefName(const OpenCell& a_cell, const core::FormRef& a_ref) const;  // a reference of any read cell of the home
 		[[nodiscard]] bool HomeUnsaved(int a_index) const;
 		[[nodiscard]] int  ActiveFilterCount() const;
 		void HomeTooltip(const home::HomeEntry& a_home) const;
@@ -326,6 +334,7 @@ namespace dova::editor::ui
 		void Revalidate(OpenCell& a_cell);
 		void RequestSave();  // Save / Ctrl+S: asks first when the file exists or the home has a template
 		void DrawSaveButton();  // the title row's and the Template panel's (TitleBar.cpp): filled only with unsaved work
+		[[nodiscard]] bool SaveMakesCopy();  // Save writes a copy: an unchanged template that is not the file Save writes (a shipped one)
 		void SaveTemplate(OpenCell& a_cell);
 		void SaveTemplateAs(OpenCell& a_cell);
 		void DrawSavePopup();
@@ -339,6 +348,7 @@ namespace dova::editor::ui
 		void                                DrawTemplateList(OpenCell& a_cell);  // Roles.cpp: the home's templates, the open one marked
 		void DrawRoleEditor(OpenCell& a_cell, int a_index);
 		void MakeMaster(OpenCell& a_cell, int a_index);  // the old master becomes a plain container
+		void MakeAreaMaster(OpenCell& a_cell, int a_index, bool a_on);  // the open joined cell's (cells[].master), or not
 		void DrawTemplate(OpenCell& a_cell);  // the inspector's Template panel
 		bool DrawKeepRules(core::Layout& a_layout);
 		// `a_fit`: a display's categories: the picker offers only what it can take (core::DisplayCategoryChoices's
@@ -355,6 +365,7 @@ namespace dova::editor::ui
 		bool                       _dataPicked{ false };  // the Data folder was picked in the window: remembered (state.json "data")
 		std::string                _wsError;
 		char                       _mo2Path[1024]{};
+		std::optional<std::vector<std::filesystem::path>> _registeredInstances;  // MO2's own list (nxmhandler.ini), read once for the start panel
 
 		std::future<std::function<void()>> _job;
 		std::string                        _jobLabel;
@@ -377,6 +388,7 @@ namespace dova::editor::ui
 		int                       _railRevealFrames{ 0 };  // frames spent scrolling to it (the scroll limit settles over a few)
 		std::set<int>             _collapsedGroups;  // mod indices
 		std::vector<HomeModGroup> _homeGroups;
+		std::vector<bool>         _homeNameClash;  // per home: another home in the scan has its name (the rail adds the EditorID)
 		std::vector<PluginScan>   _scans;
 		long long                 _scanMs{ 0 };
 
@@ -477,6 +489,14 @@ namespace dova::editor::ui
 		std::string                     _categorySource;
 		core::DraftRules                _draftRules;
 		std::string                     _draftRulesSource;
+		// The Draft panel's "by the <station>" per object of the open draft (home::NearestStations), made once per draft.
+		struct StationNames
+		{
+			const home::HomeDraft*   draft{ nullptr };
+			std::size_t              objects{ 0 };
+			std::vector<std::string> names;
+		};
+		StationNames _stationNames;
 		std::string                     _templateAuthor;
 		std::string                     _conflictsEdit;  // the Template panel's "Conflicts" field while it is being typed in
 		bool                            _conflictsActive{ false };
@@ -514,6 +534,8 @@ namespace dova::editor::ui
 		bool                        _pendingLayoutDirty{ true };  // false: an opened template file (nothing to save yet)
 		std::string                 _pendingFilePath;
 		bool                        _quit{ false };
+		bool                        _unattended{ false };  // --screenshot: errors to stderr and the log, never a message box
+		bool                        _failed{ false };
 		bool                        _homeMissing{ false };
 		int                         _listHoveredRef{ -1 };   // a row hovered in a panel this frame (the Draft panel's)
 		int                         _listHoverShown{ -1 };   // last frame's: the 3D view highlights it

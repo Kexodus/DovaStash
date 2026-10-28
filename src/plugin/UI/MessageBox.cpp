@@ -76,11 +76,17 @@ namespace dova::ui
 	{
 		void ShowPaged(std::string a_body, std::shared_ptr<const std::vector<MenuOption>> a_options, std::function<void()> a_onBack, std::size_t a_page)
 		{
+			// 5 options a page; the last page takes up to 6, as 6 + Back + Cancel is still 8 buttons (no page for a
+			// lone 6th option).
 			const auto total = a_options->size();
-			const auto pages = std::max<std::size_t>(1, (total + kOptionsPerPage - 1) / kOptionsPerPage);
+			std::vector<std::size_t> starts{ 0 };
+			while (total - starts.back() > kOptionsPerPage + 1) {
+				starts.push_back(starts.back() + kOptionsPerPage);
+			}
+			const auto pages = starts.size();
 			a_page = std::min(a_page, pages - 1);
-			const auto first = a_page * kOptionsPerPage;
-			const auto last = std::min(first + kOptionsPerPage, total);
+			const auto first = starts[a_page];
+			const auto last = a_page + 1 < pages ? starts[a_page + 1] : total;
 
 			std::vector<std::string>           labels;
 			std::vector<std::function<void()>> actions;

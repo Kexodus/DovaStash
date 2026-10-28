@@ -23,4 +23,6 @@ namespace dova::events
 	[[nodiscard]] RE::RefHandle CrosshairTarget() noexcept;
 	// AutoTest's "aim" step: CrosshairTarget reports this handle (0: nothing) until it is cleared (nullopt).
 	void OverrideCrosshair(std::optional<RE::RefHandle> a_handle) noexcept;
+	// True while AutoTest sets the crosshair.
+	[[nodiscard]] bool CrosshairOverridden() noexcept;
 }

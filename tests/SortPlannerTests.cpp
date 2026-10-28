@@ -699,4 +699,65 @@ TEST_CASE("Area masters: the catch-all of an area the home's master cannot be re
 		CHECK(moves[0].to == ContainerRef(cellarChest));
 		CHECK(moves[1].to == ContainerRef(kArmory));
 	}
+	SECTION("an area master is an inbox: never learned into")
+	{
+		const auto sword = Weapon(Sk(0x900), WeaponType::OneHandSword);
+		CHECK(f.layout.IsAnyMaster(cellarChest));
+		CHECK_FALSE(f.layout.IsAnyMaster(kArmory));
+		CHECK(Learn(f.layout, sword, cellarChest, f.categories) == LearnResult::RejectedMaster);
+		CHECK(Learn(f.layout, sword.form, galleryWardrobe) == LearnResult::RejectedMaster);
+		CHECK(f.layout.learned.empty());
+		CHECK_FALSE(f.layout.FindContainer(cellarChest));
+
+		// Older data that learned into it: the entry is not used.
+		f.layout.containers.push_back({ .ref = cellarChest });
+		f.layout.learned.emplace(sword.form, cellarChest);
+		const auto d = f.Dest(sword);
+		REQUIRE(d);
+		CHECK(d->container == kArmory);
+	}
+	SECTION("Distribute from an area master: what has a container leaves it, homeless items stay")
+	{
+		away = { kMaster };
+		SortPlanner planner(f.layout, f.categories, available);
+		planner.SetPlayerArea(cellar);
+		const std::vector          contents{ Weapon(Sk(0x900), WeaponType::OneHandSword), book };
+		std::vector<StackDecision> why;
+		const auto                 moves = planner.Distribute(contents, cellarChest, &why);
+		REQUIRE(moves.size() == 1);
+		CHECK(moves[0].from == ContainerRef(cellarChest));
+		CHECK(moves[0].to == ContainerRef(kArmory));
+		REQUIRE(why.size() == 2);
+		CHECK(why[1].outcome == StackDecision::Outcome::Homeless);
+
+		// With the home's master in reach, homeless items still stay in the area's inbox.
+		away.clear();
+		CHECK(planner.Distribute(std::vector{ book }, cellarChest).empty());
+		// Not a master, or out of reach: nothing moves.
+		CHECK(planner.Distribute(contents, kLooseChest, &why).empty());
+		CHECK(why[0].outcome == StackDecision::Outcome::NoDestination);
+		away = { cellarChest };
+		CHECK(planner.Distribute(contents, cellarChest).empty());
+	}
+	SECTION("Sort all from an area master: what has a container leaves it, homeless items stay")
+	{
+		const auto                           sword = Weapon(Sk(0x900), WeaponType::OneHandSword);
+		const std::vector<ContainerContents> boxes{ { .ref = cellarChest, .items = { sword, book } } };
+		for (const bool homeMasterInReach : { true, false }) {
+			away = homeMasterInReach ? std::set<FormRef>{} : std::set<FormRef>{ kMaster };
+			SortPlanner planner(f.layout, f.categories, available);
+			planner.SetPlayerArea(gallery);
+			const auto moves = planner.SortAll(boxes);
+			REQUIRE(moves.size() == 1);
+			CHECK(moves[0].form == sword.form);
+			CHECK(moves[0].to == ContainerRef(kArmory));
+		}
+		// A homeless item in a plain container still goes to the home's master.
+		away.clear();
+		const SortPlanner                    planner(f.layout, f.categories, available);
+		const std::vector<ContainerContents> armory{ { .ref = kArmory, .items = { book } } };
+		const auto                           moves = planner.SortAll(armory);
+		REQUIRE(moves.size() == 1);
+		CHECK(moves[0].to == ContainerRef(kMaster));
+	}
 }

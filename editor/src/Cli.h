@@ -61,6 +61,7 @@ namespace dova::editor
 		bool                       palette{ false };    // --gui --palette: the command palette open
 		std::optional<std::string> popover;             // --gui --popover <id>: a popover open (screenshots of the guide)
 		std::optional<std::pair<int, int>> window;      // --gui --window WxH: the window's client size
+		int                        timeout{ 180 };      // --gui --screenshot --timeout <s>: then it saves what it has and exits 4
 		std::optional<std::string> theme;               // --gui --theme <name>: a colour theme for this run
 		std::optional<float>       textSize;            // --gui --text-size <percent|auto>: the text size for this run (0: Auto)
 		std::optional<std::string> layers;              // --gui --layers <names>: Layers popover toggles ("effects,-structure")

@@ -91,9 +91,9 @@ namespace dova::ui::panel
 		}
 
 		// The page's inline confirmations (one question at a time).
-		bool ConfirmButton(const std::string& a_label, const std::string& a_key, const std::string& a_question)
+		bool ConfirmButton(const std::string& a_label, const std::string& a_key, const std::string& a_question, std::string_view a_tip = {})
 		{
-			return widgets::ConfirmButton(g_page.confirm, a_label, a_key, a_question);
+			return widgets::ConfirmButton(g_page.confirm, a_label, a_key, a_question, false, a_tip);
 		}
 
 		int StatusRank(const DisplayRow& a_row)
@@ -216,7 +216,7 @@ namespace dova::ui::panel
 					g_page.kind.reset();
 				}
 				for (const auto& k : a_snap.kinds) {
-					const auto label = std::format("{} ({})", k.name, k.total);
+					const auto label = std::format(text::kNameDetail, k.name, k.total);
 					if (ImGui::Selectable(label.c_str(), g_page.kind == k.kind)) {
 						g_page.kind = k.kind;
 					}
@@ -242,25 +242,29 @@ namespace dova::ui::panel
 
 			ImGui::SetNextItemWidth(260.0f);
 			ImGui::InputTextWithHint("##search", text::kDispSearchHint, g_page.search.data(), g_page.search.size());
+			Tooltip(text::kDispSearchTip);
 		}
 
 		void RenderStatusCell(const DisplayRow& a_row)
 		{
 			if (a_row.used) {
 				Colored(kGreen, text::kDispUsed);
+				Tooltip(text::kDispUsedTip);
 			} else if (a_row.ignored) {
 				Disabled(text::kDispIgnored);
 				Tooltip(text::kDispIgnoredTip);
 			} else {
 				Disabled(text::kDispNotUsed);
+				Tooltip(text::kDispNotUsedTip);
 			}
 			if (!a_row.loaded) {
 				ImGui::SameLine();
-				Disabled(std::format("({})", text::kDispNotLoaded));
+				Disabled(std::format(text::kInParens, text::kDispNotLoaded));
 				Tooltip(text::kDispNotLoadedTip);
 			} else if (!a_row.available) {
 				ImGui::SameLine();
-				Colored(kYellow, std::format("({})", text::kDispNotBuilt));
+				Colored(kYellow, std::format(text::kInParens, text::kDispNotBuilt));
+				Tooltip(text::kDispNotBuiltTip);
 			}
 		}
 
@@ -342,8 +346,9 @@ namespace dova::ui::panel
 				return;
 			}
 			const auto summary = a_row.categoriesText.empty() ? (a_row.mannequin ? std::string(text::kDispAnyArmor) : std::string(text::kDispAnyWeapon)) : a_row.categoriesText;
-			if (!ImGui::TreeNode("##categories", "%s", std::format(text::kDispCategories, summary).c_str())) {
-				Tooltip(text::kDispCategoriesTip);
+			const bool open = ImGui::TreeNode("##categories", "%s", std::format(text::kDispCategories, summary).c_str());
+			Tooltip(text::kDispCategoriesTip);  // the section's explanation, open or not
+			if (!open) {
 				return;
 			}
 			const auto cellId = a_snap.cellId;
@@ -365,6 +370,7 @@ namespace dova::ui::panel
 				if (ImGui::Checkbox(choice.label.c_str(), &exact)) {
 					Do([cellId, ref, pattern = choice.pattern]() { Controller::Get().ToggleDisplayCategory(cellId, ref, pattern); });
 				}
+				Tooltip(std::format(text::kPatternIdTip, choice.pattern));
 				ImGui::PopID();
 				if (covered) {
 					ImGui::SameLine();
@@ -381,8 +387,9 @@ namespace dova::ui::panel
 		// player has first. The search over every set lives here (it was the Armor sets page).
 		void RenderArmorSet(const DisplaysSnapshot& a_snap, const DisplayRow& a_row)
 		{
-			if (!ImGui::TreeNode("##armorset", "%s", std::format(text::kDispArmorSet, a_row.setName).c_str())) {
-				Tooltip(text::kDispSetTip);
+			const bool open = ImGui::TreeNode("##armorset", "%s", std::format(text::kDispArmorSet, a_row.setName).c_str());
+			Tooltip(text::kDispSetTip);  // the section's explanation, open or not
+			if (!open) {
 				return;
 			}
 			RenderArmorSetPicker(a_snap.cellId, a_row.ref, a_row.hasSet ? a_row.set : std::nullopt, [](std::function<void()> a_fn) { Do(std::move(a_fn)); });
@@ -392,11 +399,14 @@ namespace dova::ui::panel
 		void RenderSelected(const DisplaysSnapshot& a_snap, const DisplayRow& a_row, bool a_canEdit)
 		{
 			ImGui::SeparatorText(a_row.name.c_str());
-			std::string where = a_row.kindName.empty() ? a_row.refText : std::format("{}, {}", a_row.kindName, a_row.refText);
+			Tooltip(a_row.refText);  // the form reference, for bug reports and template authors
+			std::string where = a_row.kindName;
 			if (!a_row.area.empty()) {
-				where += std::format("  ({})", a_row.area);
+				where += where.empty() ? a_row.area : "  " + std::format(text::kInParens, a_row.area);
 			}
-			Disabled(where);
+			if (!where.empty()) {
+				Disabled(where);
+			}
 			if (!a_canEdit) {
 				return;
 			}
@@ -423,7 +433,11 @@ namespace dova::ui::panel
 				RenderCategories(a_snap, a_row);
 			}
 			if (a_row.mannequin) {
-				RenderArmorSet(a_snap, a_row);
+				if (a_row.used) {
+					RenderArmorSet(a_snap, a_row);
+				} else {
+					Disabled(text::kDispSetNeedsUse);
+				}
 			}
 		}
 
@@ -442,7 +456,7 @@ namespace dova::ui::panel
 				if (k.ignored > 0) {
 					question += ' ' + std::format(text::kDispIgnoredStayOff, k.ignored);
 				}
-				if (ConfirmButton(std::format(text::kDispUseAll, k.unlisted, k.plural), "useall-" + k.name, question)) {
+				if (ConfirmButton(std::format(text::kDispUseAll, k.unlisted, k.plural), "useall-" + k.name, question, text::kDispUseAllTip)) {
 					Do([cellId, refs = k.unlistedRefs]() { Controller::Get().UseDisplays(cellId, refs); });
 				}
 			}

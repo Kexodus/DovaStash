@@ -212,6 +212,34 @@ namespace dova::home
 		return game::CheckContainer(a_ref, cell);
 	}
 
+	RE::TESObjectREFR* CatchAllHere(const Home& a_home)
+	{
+		if (!a_home.layout) {
+			return nullptr;
+		}
+		const auto& layout = *a_home.layout;
+		const auto  reachable = [&](const core::FormRef& a_ref) -> RE::TESObjectREFR* {
+			auto* ref = game::LookupRef(a_ref);
+			return ref && CheckHomeContainer(ref, a_home).ok ? ref : nullptr;
+		};
+		if (layout.master) {
+			if (auto* master = reachable(*layout.master)) {
+				return master;
+			}
+		}
+		if (const auto it = std::ranges::find(layout.cells, a_home.here, &core::HomeCell::cell); it != layout.cells.end() && it->master) {
+			if (auto* own = reachable(*it->master)) {
+				return own;
+			}
+		}
+		for (const auto& m : core::AreaMasters(layout.cells, layout.master)) {
+			if (auto* ref = reachable(m)) {
+				return ref;
+			}
+		}
+		return nullptr;
+	}
+
 	game::Verdict CheckExtraCell(RE::TESObjectCELL* a_cell)
 	{
 		if (!a_cell) {

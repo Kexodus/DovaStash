@@ -38,7 +38,7 @@ namespace dova::core
 
 	std::optional<CategorySuggestion> SuggestCategory(const Layout& a_layout, const FormRef& a_container, const LearnedCategories& a_learned, std::int32_t a_threshold)
 	{
-		if (a_threshold <= 0 || a_layout.IsMaster(a_container)) {
+		if (a_threshold <= 0 || a_layout.IsAnyMaster(a_container)) {
 			return std::nullopt;
 		}
 		const auto* binding = a_layout.FindContainer(a_container);
@@ -128,7 +128,7 @@ namespace dova::core
 
 	std::optional<std::size_t> AcceptSuggestion(Layout& a_layout, const FormRef& a_container, std::string_view a_category, const CategorySet& a_categories, const ItemLookup& a_lookup)
 	{
-		if (a_category.empty() || a_layout.IsMaster(a_container)) {
+		if (a_category.empty() || a_layout.IsAnyMaster(a_container)) {
 			return std::nullopt;
 		}
 		auto* binding = a_layout.FindContainer(a_container);

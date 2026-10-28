@@ -623,3 +623,67 @@ TEST_CASE("A keep entry or declined key that is a broken form reference says wha
 			  "0x00FFFFFF, drop the load-order byte"));
 	CHECK(layout->unparsedDeclined.contains("Skyrim.esm|0x0100000B"));
 }
+
+TEST_CASE("A keep rule that does not parse is written back in its place (rules are first-match)", "[layout][keep]")
+{
+	Diagnostics diags;
+	const auto  keep = ParseKeepConfig(nlohmann::json::parse(R"({ "quotas": [
+		{ "category": "ammo.arrows", "quota": 20 },
+		{ "category": "ammo.*", "quota": -1 },
+		{ "category": "ammo.*", "quota": 5 },
+		{ "quota": 3 }
+	] })"),
+		"keep.json", diags);
+	REQUIRE(keep);
+	CHECK(keep->quotas.size() == 2);
+	CHECK(keep->unparsedQuotas.size() == 2);
+	const auto out = KeepConfigToJson(*keep);
+	REQUIRE(out["quotas"].size() == 4);
+	CHECK(out["quotas"][0]["quota"] == 20);
+	CHECK(out["quotas"][1]["quota"] == -1);
+	CHECK(out["quotas"][2]["quota"] == 5);
+	CHECK_FALSE(out["quotas"][3].contains("category"));
+
+	// A rule added later goes after the bad one that followed the last parsed rule.
+	auto edited = *keep;
+	edited.quotas.push_back({ .category = "potions.*", .quota = 2 });
+	const auto again = KeepConfigToJson(edited);
+	REQUIRE(again["quotas"].size() == 5);
+	CHECK(again["quotas"][1]["quota"] == -1);
+	CHECK(again["quotas"][3]["quota"] == 3);
+	CHECK(again["quotas"][4]["category"] == "potions.*");
+}
+
+TEST_CASE("The master or an area master also listed in containers is a warning", "[layout][cells]")
+{
+	const auto warned = [](const Diagnostics& a_d, std::string_view a_text) {
+		return std::ranges::count_if(a_d.Items(), [&](const Diagnostic& x) { return x.message.find(a_text) != std::string::npos; });
+	};
+	constexpr std::string_view kBoth = R"({
+		"$schema": "dovastash-layout-1",
+		"cell": "Skyrim.esm|0x000165A7",
+		"master": "Skyrim.esm|0x00000A00",
+		"cells": [ { "cell": "Skyrim.esm|0x000165A8", "label": "Cellar", "master": "Skyrim.esm|0x00000A05" } ],
+		"containers": [
+			{ "ref": "Skyrim.esm|0x00000A00", "label": "Chest", "categories": ["misc.gems"] },
+			{ "ref": "Skyrim.esm|0x00000A05", "label": "Cellar chest", "categories": ["misc.tools"] },
+			{ "ref": "Skyrim.esm|0x00000A06", "label": "Barrel" }
+		]
+	})";
+	Diagnostics d;
+	REQUIRE(ParseLayoutText(kBoth, "test.json", d));
+	CHECK(warned(d, "the master container is also listed in \"containers\"") == 1);
+	CHECK(warned(d, "cells[0].master: an area master is also listed in \"containers\"") == 1);
+
+	// Listed as ignored: the ignored warning says it, once.
+	constexpr std::string_view kIgnored = R"({
+		"$schema": "dovastash-layout-1",
+		"cell": "Skyrim.esm|0x000165A7",
+		"master": "Skyrim.esm|0x00000A00",
+		"containers": [ { "ref": "Skyrim.esm|0x00000A00", "ignored": true } ]
+	})";
+	Diagnostics di;
+	REQUIRE(ParseLayoutText(kIgnored, "test.json", di));
+	CHECK(warned(di, "also listed as ignored") == 1);
+	CHECK(warned(di, "also listed in \"containers\"") == 0);
+}

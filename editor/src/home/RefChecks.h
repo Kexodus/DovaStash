@@ -1,7 +1,8 @@
 #pragma once
 
 // The template's references checked against the game data (docs/EDITOR.md §3.1): the part of tools/esm_dump.py
-// `check` that core cannot do without the plugins. Not a reference in the home's cells, not a container, deleted,
+// `check` that core cannot do without the plugins. Not a reference in the home's cells (the master, area masters,
+// containers, displays), not a container, deleted,
 // respawns, removed by a house upgrade, a scripted bookshelf listed as a container, a master that starts disabled.
 // The Checks panel lists them with core::ValidateTemplate's, in esm_dump's words.
 

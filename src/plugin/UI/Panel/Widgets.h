@@ -74,8 +74,10 @@ namespace dova::ui::panel::widgets
 
 	// Inline confirmation for an action that is hard to undo. The button (its label ends in "...") turns into
 	// the yellow question with Yes / No under it. True once, on Yes. `a_pending`: the page's key of the
-	// question being shown (one at a time per page).
-	inline bool ConfirmButton(std::string& a_pending, const std::string& a_label, const std::string& a_key, const std::string& a_question, bool a_small = false)
+	// question being shown (one at a time per page). `a_tip`: the button's tooltip (what it does), not shown on the
+	// question.
+	inline bool ConfirmButton(std::string& a_pending, const std::string& a_label, const std::string& a_key, const std::string& a_question, bool a_small = false,
+		std::string_view a_tip = {})
 	{
 		ImGui::PushID(a_key.c_str());
 		bool confirmed = false;
@@ -84,6 +86,7 @@ namespace dova::ui::panel::widgets
 			if (Button(a_label, a_small)) {
 				a_pending = a_key;
 			}
+			Tooltip(a_tip);
 		} else {
 			ColoredWrapped(kYellow, a_question);
 			if (ImGui::Button(text::kYes)) {

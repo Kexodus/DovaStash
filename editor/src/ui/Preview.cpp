@@ -70,7 +70,7 @@ namespace dova::editor::ui
 		}
 		const auto ref = a_cell.lo->ToFormRef(r.key);
 		if (_colours == Colours::Category) {
-			if (a_cell.layout.IsMaster(ref)) {
+			if (a_cell.layout.IsAnyMaster(ref)) {
 				return kMasterColour;
 			}
 			if (const auto* b = a_cell.layout.FindContainer(ref); b && !b->ignored && !b->categories.empty()) {

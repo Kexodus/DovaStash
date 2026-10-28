@@ -1,4 +1,3 @@
-#Requires -Version 7
 <#
 .SYNOPSIS
   Installs the automated in-game tests into an MO2 instance (docs/TESTING.md, "Automated in-game tests").
@@ -8,7 +7,8 @@
     the instance changes.
   - With -Profile: (re)creates the MO2 profile "Dova Stash AutoTest": base game, DLCs and Creation Club as installed,
     the Unofficial Patches, SKSE, Address Library, SKSE Menu Framework, UIExtensions, QuickLoot IE (and SkyUI, which its loot menu needs), KID, Dova Stash
-    and the two AutoTest mods, nothing else; profile-local INIs for unattended runs (tests/ingame/profile).
+    and the two AutoTest mods, Crash Logger when installed (optional: a crash then leaves a crash-*.log the runner keeps;
+    a warning when it is missing), nothing else; profile-local INIs for unattended runs (tests/ingame/profile).
     The Creation Club and DLC entries are copied from -SourceProfile. No other profile is changed.
   - With -Only <regex>: only the plans whose file name matches are installed (plus _run.json), so one run stays
     under the run timeout. Without it, every plan.
@@ -22,9 +22,25 @@
     in the AutoTest profile only (a build of a branch, without touching the player's mod folder). Without -Dll, a
     DLL left there by an earlier run is removed, so the profile tests the Dova Stash mod's own DLL.
 
+.PARAMETER Mo2
+  The MO2 instance folder (default: $env:DOVASTASH_MO2, else E:\modding\Kexodus Skyrim).
+.PARAMETER ProfileName
+  The test profile to (re)create with -Profile (default "Dova Stash AutoTest").
+.PARAMETER Profile
+  Also (re)creates that profile and its INIs; without it, only the AutoTest mod is mirrored.
+.PARAMETER SourceProfile
+  The profile the DLC and Creation Club entries are copied from (default "Dova Stash Testing").
+.PARAMETER Dll
+  A DovaStash.dll (with its .pdb) to test in the AutoTest profile only; without it, the Dova Stash mod's own DLL.
+.PARAMETER Only
+  A regex on plan file names: only those plans are installed (plus _run.json).
+.PARAMETER ExtraMods
+  Another list of extra home mods instead of tests/ingame/profile/extra-mods.txt (e.g. extra-mods-wynter.txt).
+
 .EXAMPLE
   pwsh -File tests\ingame\install.ps1 -Profile
 #>
+#Requires -Version 7
 [CmdletBinding()]
 param(
 	[string]$Mo2 = $(if ($env:DOVASTASH_MO2) { $env:DOVASTASH_MO2 } else { 'E:\modding\Kexodus Skyrim' }),
@@ -177,6 +193,11 @@ $mods = @(
 )
 foreach ($m in $mods) {
 	if (-not (Test-Path (Join-Path $modsDir $m))) { throw "Mod not installed: $m" }
+}
+# Optional base mods: enabled when installed, a warning when not. Crash Logger writes crash-*.log next to
+# DovaStash.log, which run.ps1 keeps in the run folder: a game that dies mid-run leaves a stack.
+foreach ($m in @('Crash Logger SSE AE VR - PDB support')) {
+	if (Test-Path (Join-Path $modsDir $m)) { $mods += $m } else { Write-Warning "optional mod not installed, left out: $m (a crash during a run then leaves no log)" }
 }
 
 # Extra home mods (tests/ingame/profile/extra-mods.txt): "Mod folder|plugin.esp[,plugin2.esp]" per line.

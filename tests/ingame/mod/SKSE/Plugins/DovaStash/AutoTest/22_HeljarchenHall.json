@@ -41,7 +41,7 @@
         {
           "check": "notify",
           "since": "plan",
-          "regex": "Dova Stash: .* setup enabled"
+          "regex": "Dova Stash: .* is set up"
         },
         {
           "check": "log",
@@ -396,7 +396,8 @@
         },
         {
           "do": "sit",
-          "ref": "HearthFires.esm|0x00016D89"
+          "ref": "HearthFires.esm|0x00016D89",
+          "skipIfClosed": true
         },
         {
           "check": "crafting",
@@ -945,6 +946,27 @@
         {
           "check": "noErrors"
         }
+      ]
+    },
+    {
+      "id": "3.9-heljarchen-border", "title": "In the Smelter yard, the hotkey at the Grounds chest across the border: Make master of Grounds... (the container's area, not the player's) makes it the Grounds' master; the Smelter yard and the home's master stay",
+      "steps": [
+        {"do": "enter", "coc": "BYOHHouse3Exterior03"},
+        {"do": "buyHome"},
+        {"do": "require", "enabled": "HearthFires.esm|0x00010FCE", "why": "the grounds chest comes with the built house"},
+        {"check": "home", "is": true, "layout": true},
+        {"do": "hotkey", "target": "HearthFires.esm|0x00010FCE"},
+        {"check": "menuEntries", "contains": ["More..."], "within": 5},
+        {"do": "choose", "entry": "More..."},
+        {"check": "menuEntries", "contains": ["Make master of Grounds..."], "lacks": ["Make master of Smelter yard...", "Make master..."], "within": 5},
+        {"do": "choose", "entry": "Make master of Grounds..."},
+        {"check": "menuEntries", "eq": ["Yes", "No"], "body": "the master of Grounds?"},
+        {"do": "choose", "entry": "Yes"},
+        {"check": "notify", "contains": "is now the master of Grounds", "within": 5},
+        {"check": "layout", "pointer": "/cells", "contains": {"cell": "Skyrim.esm|0x000090C4", "master": "HearthFires.esm|0x00010FCE"}},
+        {"check": "layout", "pointer": "/cells", "lacks": {"cell": "Skyrim.esm|0x000090A4", "master": "HearthFires.esm|0x00010FCE"}},
+        {"check": "layout", "pointer": "/master", "eq": "HearthFires.esm|0x00016E04"},
+        {"check": "noErrors"}
       ]
     },
     {

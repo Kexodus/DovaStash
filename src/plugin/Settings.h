@@ -151,7 +151,8 @@ namespace dova
 
 		[[nodiscard]] static Settings& GetSingleton() noexcept;
 
-		// Loads kPath (relative to the game's working directory). Logs what it read.
+		// Loads kPath (relative to the game's working directory); when it is missing, it is first made from the
+		// shipped DovaStash.ini.default next to it. Logs what it read.
 		void Load();
 
 		[[nodiscard]] Values Get() const;

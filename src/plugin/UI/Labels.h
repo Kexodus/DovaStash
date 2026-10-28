@@ -15,6 +15,11 @@ namespace dova::ui
 	inline constexpr auto             kMakeMasterEntry = "Make master...";
 	inline constexpr std::string_view kConfirmMakeMaster = "Make {} the master?\nThe current master becomes an ordinary container. No items are moved.";
 	inline constexpr std::string_view kConfirmMakeMasterForgets = "Make {} the master?\nIts categories and learned items are forgotten; the current master becomes an ordinary container. No items are moved.";
+	// In an extra area of a multi-cell home (DESIGN §6.7) the entry makes the area's master (`cells[].master`), not
+	// the home's ("{}": the area's name; the container's, the area's).
+	inline constexpr std::string_view kMakeAreaMasterEntry = "Make master of {}...";
+	inline constexpr std::string_view kConfirmMakeAreaMaster = "Make {} the master of {}?\nAny master the area had becomes an ordinary container. No items are moved.";
+	inline constexpr std::string_view kConfirmMakeAreaMasterForgets = "Make {} the master of {}?\nIts categories and learned items are forgotten; any master the area had becomes an ordinary container. No items are moved.";
 	inline constexpr auto             kClearCategoriesEntry = "Clear categories...";
 	inline constexpr std::string_view kConfirmClearCategories = "Clear the categories of {}?\nIts learned items stay. No items are moved.";
 	// Home backups outside Data (DESIGN §6.6). The setup prompt's first entry ("{}": the copy's date) and the
@@ -24,15 +29,25 @@ namespace dova::ui
 	// Category suggestion after a few learns (DESIGN §8.6): the message box after the container closes and the
 	// panel's container page ask the same ("{}": the category's name, the container's label).
 	inline constexpr std::string_view kSuggestCategory = "Dova Stash: send all {} to {}?";
-	// Multi-cell homes (DESIGN §6.7), the same on every UI surface ("{}": the home's name; the area's name).
+	// Multi-cell homes (DESIGN §6.7), the same on every UI surface ("{}": the home's name; the area's name). The home's
+	// name in these entries, their questions and every HUD notice is its setup's name (Home::DisplayName: the
+	// template's, "AutoTest Breezehome"), else the cell's; menu titles keep the cell's name.
 	inline constexpr std::string_view kAddArea = "Add this area to {}";
 	inline constexpr std::string_view kConfirmAddArea = "Dova Stash: add this area to {}?\nIts containers and crafting stations then work with the rest of the home. No items are moved.";
 	inline constexpr std::string_view kRenameArea = "Rename {}...";  // the area's name
+	// The hotkey in a cell another home's template lists, with no setup anywhere (IStashUI::OpenPartOfPrompt; "{}": the
+	// template's name): the body (the list's title is the cell's name) and its one entry.
+	inline constexpr std::string_view kPartOfBody = "Dova Stash: part of {}";
+	inline constexpr std::string_view kUsePartOfTemplate = "Use template \"{}\"";
 	inline constexpr std::string_view kRemoveArea = "Remove this area from {}...";
 	inline constexpr std::string_view kConfirmRemoveArea = "Remove {} from {}?\nIts containers stay in the setup but are no longer used. No items are moved.";
 	// Hotkey menu entries both in-world UIs show (UIExtensions lists and message boxes) word the same.
 	inline constexpr std::string_view kMakeMasterSetup = "Make {} the master";  // the setup prompt; the container's name
 	inline constexpr auto             kCategoriesEntry = "Categories...";       // a container's category picker
+	// A category group's state in a container's picker (the hotkey list and the panel's tree): all of it, some, none.
+	inline constexpr std::string_view kMarkAll = "[x]";
+	inline constexpr std::string_view kMarkSome = "[~]";
+	inline constexpr std::string_view kMarkNone = "[ ]";
 	inline constexpr std::string_view kLearnedEntry = "Learned items ({})...";  // how many
 	inline constexpr std::string_view kConfirmForgetAll = "Forget {} for {}?\nThey go by category again. No items are moved.";  // "3 learned items", container
 	inline constexpr auto             kOpenPanel = "Open panel...";  // the Menu Framework panel, only when it is loaded
@@ -45,7 +60,11 @@ namespace dova::ui
 	inline constexpr std::string_view kConfirmReapplyTemplate = "Re-apply the template \"{}\"?\nIt undoes your changes to the master, sell chest and categories; learned items, keep rules and ignored containers stay. Your setup is backed up first. No items are moved.";
 	inline constexpr auto             kMayNotFit = "may not fit";  // a template the auto-enable guard doubts (DESIGN §9.1)
 	inline constexpr auto             kMayNotFitNote = "\nIt may not fit this home.";
-	// The home menu's title when the master is in another area, and a container nothing is assigned to (both UIs).
+	// Retrieve > Everything asks first above this many items (both hotkey UIs; "{}": how many). No reopens Retrieve.
+	inline constexpr std::int32_t     kRetrieveAllAskAbove = 50;
+	inline constexpr std::string_view kConfirmRetrieveAll = "Retrieve {} items?\nYou may be over-encumbered. Deposit puts them back.";
+	// The home menu's title when no master takes the leftovers from here (home::CatchAllHere: the home's master is in
+	// another area and this area has none), and a container nothing is assigned to (both UIs).
 	inline constexpr auto kMasterNotHere = "master not here";
 	inline constexpr auto kNotManaged = "not managed yet";
 	// Wants a question before Use template (see kConfirmUseTemplate): the setup has changes of the player's own or
@@ -63,8 +82,13 @@ namespace dova::ui
 	// A Browse containers entry, the same in both hotkey UIs: "Chest - Weapons (12 items)", or "Chest (12 items)"
 	// when `a_what` (its role) is empty or repeats the name. Main thread (counts the inventory).
 	[[nodiscard]] std::string BrowseEntryText(RE::TESObjectREFR* a_ref, std::string_view a_what);
+	// The area masters of a multi-cell home (core::AreaMasters, DESIGN §6.7), each with its Browse role ("Cellar master").
+	inline constexpr std::string_view kAreaMasterRole = "{} master";  // the area's name
+	[[nodiscard]] std::vector<std::pair<core::FormRef, std::string>> AreaMasterRoles(const home::Home& a_home);
 	// kConfirmMakeMaster, or kConfirmMakeMasterForgets when the container has a binding or learned items to lose.
 	[[nodiscard]] std::string MakeMasterQuestion(std::string_view a_name, bool a_forgetsSetup);
+	// The same for the master of the area `a_area` (kConfirmMakeAreaMaster, kConfirmMakeAreaMasterForgets).
+	[[nodiscard]] std::string MakeAreaMasterQuestion(std::string_view a_name, std::string_view a_area, bool a_forgetsSetup);
 
 	// One entry of a hotkey menu (UIExtensions list or message box).
 	struct MenuEntry

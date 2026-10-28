@@ -218,6 +218,8 @@ namespace dova::editor::render
 		// `a_withDisabled` false: initially disabled references never count (they are left out anyway when they are
 		// fewer than three in four).
 		[[nodiscard]] std::pair<DirectX::XMFLOAT3, DirectX::XMFLOAT3>                SceneBounds(bool a_withDisabled = true) const;
+		// The references the overview frames: SceneBounds' cluster (the largest group, with its rule for initially disabled ones).
+		[[nodiscard]] std::vector<const SceneRef*> OverviewRefs(bool a_withDisabled = true) const;
 
 		[[nodiscard]] const SceneDesc& Desc() const noexcept { return _desc; }
 

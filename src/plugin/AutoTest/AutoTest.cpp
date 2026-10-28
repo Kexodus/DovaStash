@@ -6,6 +6,7 @@
 #include "Game/FormUtil.h"
 #include "Home/HomeRegistry.h"
 #include "Home/Store.h"
+#include "UI/MessageBox.h"
 
 #include <DovaStash/Version.h>
 
@@ -21,6 +22,30 @@ namespace dova::autotest
 	namespace
 	{
 		constexpr auto kPlanDir = "Data/SKSE/Plugins/DovaStash/AutoTest"sv;
+		constexpr auto kUserTemplates = "Data/SKSE/Plugins/DovaStash/Templates/User"sv;
+
+		// Removes the "AutoTest *.json" templates an earlier plan saved (Save as template): a saved copy of a home
+		// outranks its shipped template, so it would decide what a later plan of the same home is offered. Only names
+		// that start with "AutoTest " (every plan's export does): never a player's own template.
+		void RemoveTestExports()
+		{
+			std::error_code ec;
+			std::vector<std::filesystem::path> found;
+			for (auto it = std::filesystem::directory_iterator(std::filesystem::path{ kUserTemplates }, ec); !ec && it != std::filesystem::directory_iterator(); it.increment(ec)) {
+				const auto name = it->path().filename().string();
+				if (it->is_regular_file() && name.starts_with("AutoTest ") && core::IEquals(it->path().extension().string(), ".json")) {
+					found.push_back(it->path());
+				}
+			}
+			for (const auto& path : found) {
+				std::error_code rm;
+				if (std::filesystem::remove(path, rm)) {
+					logger::info("AutoTest: removed an earlier plan's export {}", home::Store::PathText(path));
+				} else {
+					logger::warn("AutoTest: could not remove {}: {}", home::Store::PathText(path), rm.message());
+				}
+			}
+		}
 
 		struct Test
 		{
@@ -270,9 +295,14 @@ namespace dova::autotest
 			auto& result = run.results.back();
 			result.seconds = std::chrono::duration<double>(Clock::now() - run.testStarted).count();
 			// A message box left open blocks every container and crafting menu of the tests that follow (and of the
-			// next plans): name the culprit here instead of letting the run cascade.
+			// next plans): name the culprit here, then close it with its last button (Cancel / No on ours) so the
+			// run does not cascade.
 			if (const auto box = MessageBoxText(); !box.empty()) {
 				run.ctx.Record(false, "left a message box open (it blocks every later menu)", box);
+				if (const auto buttons = ui::LastMessageBoxButtons(); box.starts_with("Dova Stash") && !buttons.empty()) {
+					logger::info("AutoTest: closing the message box left open with \"{}\"", buttons.back());
+					PressMessageBoxButton(static_cast<std::int32_t>(buttons.size() - 1));
+				}
 			}
 			if (result.status.empty() && !run.ctx.skipReason.empty() && std::ranges::all_of(result.checks, [](const CheckRecord& c) { return c.ok; })) {
 				result.status = "skip";
@@ -337,6 +367,7 @@ namespace dova::autotest
 					// Test templates only for the plan that declares them: one with a higher priority would shadow the
 					// shipped template of its home in every other plan of the run.
 					home::Store::Get().ScopeTestTemplates(plan.templates);
+					RemoveTestExports();
 					home::Store::Get().ReloadTemplates();
 					home::HomeRegistry::Get().RefreshTemplates();
 					std::string inUse;
@@ -473,6 +504,8 @@ namespace dova::autotest
 					std::ostringstream id;
 					id << std::this_thread::get_id();
 					logger::info("AutoTest: {} opened (event on thread {})", a_event->menuName.c_str(), id.str());
+				} else if (a_event && !a_event->opening && a_event->menuName == RE::CraftingMenu::MENU_NAME) {
+					logger::debug("AutoTest: {} closed", a_event->menuName.c_str());
 				}
 				return RE::BSEventNotifyControl::kContinue;
 			}

@@ -27,7 +27,7 @@ asked for.
 
 ### Category choice: Player Homes
 
-- Everything the mod does happens in a player home. It works in any home, and it ships 42 home
+- Everything the mod does happens in a player home. It works in any home, and it ships 32 home
   templates. People who want better storage in their home browse **Player Homes**.
 - Community template packs for individual homes will naturally go in the same category, so the main
   mod and its add-ons sit next to each other.
@@ -145,13 +145,14 @@ Page fonts: Cinzel, Jost, Noto Sans Runic (SIL Open Font License)
 ```
 Interface/DovaStash/logo.dds
 SKSE/Plugins/DovaStash.dll
-SKSE/Plugins/DovaStash.ini                     (copy of src/plugin/DovaStash.ini.default)
+SKSE/Plugins/DovaStash.ini.default             (src/plugin's; the plugin creates DovaStash.ini from it)
 SKSE/Plugins/DovaStash/Categories/00_Default.json
 SKSE/Plugins/DovaStash/SelfSorting/00_Default.json
-SKSE/Plugins/DovaStash/Templates/Vanilla/*.json        (16 files)
-SKSE/Plugins/DovaStash/Templates/CreationClub/*.json   (13 files)
+SKSE/Plugins/DovaStash/Templates/Vanilla/*.json        (10 files)
+SKSE/Plugins/DovaStash/Templates/CreationClub/*.json   (9 files)
 SKSE/Plugins/DovaStash/Templates/Mods/*.json           (13 files)
 Tools/DovaStashEditor.exe, Tools/DovaStashEditor.com   (the editor build's deploy)
+Tools/DovaStashEditor-UserGuide.pdf                   (presskit/guide)
 LICENSE                                         (optional, but good practice for GPL)
 ```
 

@@ -22,7 +22,7 @@ namespace dova::ui
 		void Notify(std::string_view a_message, bool a_failed = false) override;
 
 	private:
-		// Retrieve..., Browse containers..., Use / Re-apply template, Save as template..., Reset home..., Open panel...
+		// Browse containers..., Use / Re-apply template, Save as template..., Reset home..., Open panel...
 		void OpenAdvancedMenu(RE::FormID a_cellId);
 		void ReopenMasterMenu(RE::FormID a_cellId);
 		void OpenRetrieveMenu(RE::FormID a_cellId);

@@ -1,6 +1,7 @@
 #include "UI/Panel/KeyCapture.h"
 
 #include "Input/InputHandler.h"
+#include "UI/Panel/Strings.h"
 
 #include <fstream>
 #include <limits>
@@ -162,7 +163,7 @@ namespace dova::ui::panel::key_capture
 			auto       clash = GameControlOf(a_code);
 			const auto keys = FrameworkToggleKeys();
 			if (a_code != 0 && (a_code == keys.keyboard || a_code == keys.gamepad)) {
-				clash += clash.empty() ? "the SKSE Menu Framework key" : " and the SKSE Menu Framework key";
+				clash += clash.empty() ? text::kFrameworkKey : text::kFrameworkKeyAlso;
 			}
 			return clash;
 		}

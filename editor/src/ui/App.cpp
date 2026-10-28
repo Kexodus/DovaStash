@@ -105,6 +105,7 @@ namespace dova::editor::ui
 		_context(a_context)
 	{
 		::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+		_unattended = a_gui.screenshot.has_value();
 		// A screenshot run (tests, the guide) neither reads nor writes the author's state.json: its homes'
 		// stages and panel sizes stay theirs. --state or DOVASTASH_EDITOR_STATE give it a file of its own.
 		if (a_gui.state) {
@@ -236,6 +237,12 @@ namespace dova::editor::ui
 		_savedUi = _state.ui;
 		if (_ws) {
 			ScanHomes();
+		} else if (const auto error = NoHomeOpenError(_unattended && (a_gui.home || a_gui.cell || a_gui.mod || a_gui.drafts || a_gui.select), false, _wsError)) {
+			// A screenshot run that cannot honour --home and the like: stderr and the log, the image still saved, exit 1.
+			Log("{}", *error);
+			std::fputs((*error + "\n").c_str(), stderr);
+			std::fflush(stderr);
+			_homeMissing = true;
 		}
 	}
 
@@ -265,6 +272,27 @@ namespace dova::editor::ui
 			return !ArtPending();  // the start panel's art
 		}
 		return _state.ui.view != 0 || !_scene || _scene->Progress().finished;
+	}
+
+	std::string EditorApp::WaitingFor() const
+	{
+		// What Idle() waits on, in words (a screenshot run that times out logs it).
+		if (_job.valid()) {
+			return _jobLabel.empty() ? std::string("a job") : _jobLabel;
+		}
+		if (!_ws) {
+			return "the workspace";
+		}
+		if (!_homes) {
+			return "the homes";
+		}
+		if (!_queue.empty() || !_homeQueue.empty() || _pendingCell || _pendingHome || _pendingDrafts) {
+			return "a home or cell to open";
+		}
+		if (!_cell || _showStart) {
+			return "the start panel's art";
+		}
+		return "the 3D view";
 	}
 
 	void EditorApp::SetStatus(std::string a_text, bool a_bad)
@@ -371,12 +399,23 @@ namespace dova::editor::ui
 	void EditorApp::StartJob(std::string a_label, std::function<std::function<void()>()> a_work)
 	{
 		_jobLabel = std::move(a_label);
-		_job = std::async(std::launch::async, [work = std::move(a_work)]() -> std::function<void()> {
+		_job = std::async(std::launch::async, [this, work = std::move(a_work)]() -> std::function<void()> {
 			try {
 				return work();
 			} catch (const std::exception& e) {
 				std::string what = e.what();
-				return [what]() { ::MessageBoxA(nullptr, what.c_str(), "Dova Stash Editor", MB_ICONERROR); };
+				return [this, what]() {
+					if (_unattended) {
+						// A screenshot run: nobody can dismiss a message box (session 0, a test run): stderr, the log, exit 1.
+						Log("error: {}", what);
+						std::fprintf(stderr, "error: %s\n", what.c_str());
+						std::fflush(stderr);
+						_failed = true;
+						_quit = true;
+						return;
+					}
+					::MessageBoxA(nullptr, what.c_str(), "Dova Stash Editor", MB_ICONERROR);
+				};
 			}
 		});
 	}
@@ -792,14 +831,9 @@ namespace dova::editor::ui
 		if (!_homeQueue.empty() && _homes && _cell && !_pendingHome && !Busy() && _queue.empty() && _scene && _scene->Progress().finished) {
 			const auto wanted = _homeQueue.front();
 			_homeQueue.erase(_homeQueue.begin());
-			bool found = false;
-			for (std::size_t i = 0; i < _homes->homes.size() && !found; ++i) {
-				if (IContains(_homes->homes[i].name, wanted) || IContains(_homes->homes[i].editorId, wanted)) {
-					found = true;
-					OpenHome(static_cast<int>(i));
-				}
-			}
-			if (!found) {
+			if (const auto i = home::FindHome(_homes->homes, wanted)) {
+				OpenHome(static_cast<int>(*i));
+			} else {
 				NoHomeMatches(wanted);
 			}
 		}

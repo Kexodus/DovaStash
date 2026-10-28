@@ -61,4 +61,9 @@ namespace dova::editor::mo2
 	// CurrentInstance), then the folders above the executable and the current directory (e.g. the editor
 	// placed in `<instance>/Mod Tools/`). nullopt when none is found; pass --mo2 then.
 	[[nodiscard]] std::optional<std::filesystem::path> DetectInstance();
+
+	// The Skyrim instances MO2 registered for Nexus links (%LOCALAPPDATA%/ModOrganizer/nxmhandler.ini, or `a_nxmIni`):
+	// each [handlers] entry whose games include skyrimse or skyrimvr, its ModOrganizer.exe's folder when that holds a
+	// ModOrganizer.ini of a Skyrim game (not Enderal's). The start panel offers them; none is opened unasked.
+	[[nodiscard]] std::vector<std::filesystem::path> RegisteredInstances(const std::optional<std::filesystem::path>& a_nxmIni = std::nullopt);
 }

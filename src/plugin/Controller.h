@@ -27,7 +27,8 @@ namespace dova
 
 		// --- triggers (main thread) ------------------------------------------------------------------
 		void OnHotkey(RE::RefHandle a_crosshairTarget);
-		void OnCellMaybeChanged();
+		// `a_source`: what queued it ("actor cell", "cell loaded", "load game"); one change sends up to three.
+		void OnCellMaybeChanged(std::string_view a_source);
 		void OnContainerMenuOpened(RE::FormID a_target);
 		void OnContainerMenuClosed();
 		// Player -> container transfer (TESContainerChangedEvent) — candidate for learning.
@@ -43,9 +44,17 @@ namespace dova
 		void OnPreLoadGame();
 
 		// --- actions (main thread; all validate a_cellId against the current cell) --------------------
-		void RunOperation(RE::FormID a_cellId, sort::Op a_op, std::string a_pattern = {});
+		// `a_source`: Distribute only, the master (default) or an area master to distribute.
+		void RunOperation(RE::FormID a_cellId, sort::Op a_op, std::string a_pattern = {}, std::optional<core::FormRef> a_source = std::nullopt);
 		void MakeMaster(RE::FormID a_cellId, const core::FormRef& a_container);
+		// `a_area` (the container's cell) an extra area of a multi-cell home: makes `a_container` that area's master
+		// (`cells[].master`, DESIGN §6.7), forgetting its binding and learned items as MakeMaster does. The main cell:
+		// MakeMaster.
+		void MakeAreaMaster(RE::FormID a_cellId, const core::FormRef& a_container, const core::FormRef& a_area);
 		void UseTemplate(RE::FormID a_cellId);
+		// In a cell another home's template lists, with no setup anywhere (IStashUI::OpenPartOfPrompt): that template
+		// set up from here for its main cell (HomeRegistry::ApplyTemplateToMainCell); this cell is then an area of it.
+		void UsePartOfTemplate(RE::FormID a_cellId);
 		void ResetHome(RE::FormID a_cellId);
 		// Brings back a copy of this home's setup kept outside Data (DESIGN §6.6): `a_backup` is one of
 		// Store::HomeBackups (anything else is refused); empty means the latest copy. The current setup file,
@@ -192,10 +201,10 @@ namespace dova
 		// Container ref by FormRef if it is currently usable in this home; notifies the reason otherwise.
 		RE::TESObjectREFR* UsableContainer(home::Home& a_home, const core::FormRef& a_container);
 
-		// Sort on arrival (DESIGN §8.1): true when `a_container` is the master of the current home (the
-		// item was put into the master); schedules a Distribute once arrivals stop for a moment.
+		// Sort on arrival (DESIGN §8.1): true when `a_container` is the master or an area master of the current
+		// home (the item was put into an inbox); schedules a Distribute from it once arrivals stop for a moment.
 		bool OnMasterArrival(RE::FormID a_container);
-		void SortArrivals(RE::FormID a_cellId);
+		void SortArrivals(RE::FormID a_cellId, const core::FormRef& a_source);
 		// Learn feedback: batches "this container now holds X" into one notification per burst (with the
 		// undo offer when iLearnUndoSeconds > 0).
 		void ReportLearned(const std::string& a_container, const std::string& a_item);
@@ -218,11 +227,16 @@ namespace dova
 		// Bumped by OnPreLoadGame: a RunWhenContainerMenuClosed retry chain started in the save being left
 		// (Distribute on master close, Browse, Fill now) stops instead of running in the next one.
 		std::uint64_t _loadSerial{ 0 };
+		// The cell OnCellMaybeChanged last handled while it was attached, and when (steady clock): the other
+		// triggers of the same change skip it (an unattached interior is handled again when it has loaded).
+		RE::FormID                            _cellHandled{ 0 };
+		std::chrono::steady_clock::time_point _cellHandledAt{};
 		std::atomic<std::uint64_t> _containerOpens{ 0 };  // ContainerMenus opened so far (Browse: did its activation open one?)
 		// When the last ContainerMenu closed (steady clock ticks): Browse waits for that close to settle.
 		std::atomic<std::int64_t> _containerClosedAt{ 0 };
 		std::uint64_t _arrivalSerial{ 0 };
 		RE::FormID    _arrivalDeferredCell{ 0 };  // arrivals waiting for a paused master menu to close
+		core::FormRef _arrivalDeferredSource;      // ... and the master (or area master) they arrived in
 		std::uint64_t _learnSerial{ 0 };
 		std::map<std::string, std::vector<std::string>> _learnBatch;  // container label -> item names
 		RE::FormID                    _openContainer{ 0 };  // target of the open ContainerMenu (0 = none)

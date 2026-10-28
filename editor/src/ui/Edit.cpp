@@ -163,7 +163,7 @@ namespace dova::editor::ui
 		const auto ref = a_cell.lo->ToFormRef(r.key);
 		std::vector<std::string>* cats = nullptr;
 		if (r.IsContainer() && !r.display) {
-			if (a_cell.layout.IsMaster(ref)) {
+			if (a_cell.layout.IsAnyMaster(ref)) {
 				_paintMessage = "The master takes what has no place: it needs no categories";
 				return true;
 			}
@@ -315,7 +315,7 @@ namespace dova::editor::ui
 		bool changed = false;
 		auto forEach = [&](const std::function<void(core::ContainerBinding&)>& a_fn) {
 			for (std::size_t k = 0; k < refs.size(); ++k) {
-				if (layout.IsMaster(refs[k])) {
+				if (layout.IsAnyMaster(refs[k])) {
 					continue;
 				}
 				auto* b = layout.FindContainer(refs[k]);
@@ -426,6 +426,12 @@ namespace dova::editor::ui
 			if (layout.IsMaster(ref)) {
 				layout.master.reset();
 				++removed;
+			}
+			for (auto& c : layout.cells) {
+				if (c.master == ref) {
+					c.master.reset();  // an area master
+					++removed;
+				}
 			}
 			removed += static_cast<int>(std::erase_if(layout.containers, [&](const core::ContainerBinding& b) { return b.ref == ref; }));
 			removed += static_cast<int>(std::erase_if(layout.displays, [&](const core::DisplayBinding& d) { return d.ref == ref; }));

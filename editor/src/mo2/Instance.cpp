@@ -248,4 +248,52 @@ namespace dova::editor::mo2
 		}
 		return FindIniAbove(fs::current_path(ec));
 	}
+
+	std::vector<fs::path> RegisteredInstances(const std::optional<fs::path>& a_nxmIni)
+	{
+		std::vector<fs::path> out;
+		fs::path              file;
+		if (a_nxmIni) {
+			file = *a_nxmIni;
+		} else {
+			wchar_t local[MAX_PATH];
+			if (!::GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAX_PATH)) {
+				return out;
+			}
+			file = fs::path(local) / L"ModOrganizer" / L"nxmhandler.ini";
+		}
+		const auto ini = IniFile::Load(file);
+		if (!ini) {
+			return out;
+		}
+		int size = 0;
+		if (const auto s = ini->Get("handlers", "size")) {
+			std::from_chars(s->data(), s->data() + s->size(), size);
+		}
+		std::error_code ec;
+		for (int i = 1; i <= std::min(size, 64); ++i) {
+			const auto games = ini->Get("handlers", std::to_string(i) + "\\games");
+			const auto exe = ini->Get("handlers", std::to_string(i) + "\\executable");
+			if (!games || !exe || exe->empty()) {
+				continue;
+			}
+			bool skyrim = false;
+			for (std::string_view rest = *games; !rest.empty();) {
+				const auto comma = rest.find(',');
+				const auto game = Trim(rest.substr(0, comma));
+				skyrim = skyrim || core::IEquals(game, "skyrimse") || core::IEquals(game, "skyrimvr");
+				rest = comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 1);
+			}
+			const auto dir = PathFromUtf8(*exe).parent_path();
+			const auto mo2Ini = IniFile::Load(dir / L"ModOrganizer.ini");
+			if (!skyrim || !mo2Ini || std::ranges::any_of(out, [&](const fs::path& p) { return fs::equivalent(p, dir, ec); })) {
+				continue;
+			}
+			if (const auto name = mo2Ini->Get("General", "gameName"); name && !IContains(*name, "Skyrim")) {
+				continue;  // an Enderal instance also takes skyrimse links
+			}
+			out.push_back(dir);
+		}
+		return out;
+	}
 }

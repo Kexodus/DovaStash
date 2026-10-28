@@ -221,7 +221,7 @@
         },
         {
           "check": "notify",
-          "contains": "Dova Stash: Proudspire Manor setup enabled"
+          "contains": "Dova Stash: Proudspire Manor is set up"
         },
         {
           "check": "layout",
@@ -556,11 +556,11 @@
         },
         {
           "check": "notify",
-          "contains": "Dova Stash: Street is now part of Proudspire Manor"
+          "regex": "Dova Stash: Street is now part of (AutoTest )?Proudspire( Manor)?"
         },
         {
           "check": "log",
-          "regex": "Add area: .* is now part of Proudspire Manor"
+          "regex": "Add area: .* is now part of (AutoTest )?Proudspire( Manor)?"
         },
         {
           "check": "layout",
@@ -592,7 +592,7 @@
         },
         {
           "check": "notify",
-          "contains": "is no longer part of Proudspire Manor"
+          "regex": "is no longer part of (AutoTest )?Proudspire( Manor)?"
         },
         {
           "check": "layout",

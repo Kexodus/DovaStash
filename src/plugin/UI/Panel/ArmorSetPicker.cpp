@@ -93,6 +93,7 @@ namespace dova::ui::panel
 		ImGui::SameLine();
 		ImGui::SetNextItemWidth(220.0f);
 		ImGui::InputTextWithHint("##setsearch", text::kSetsSearchHint, g_picker.search.data(), g_picker.search.size());
+		Tooltip(text::kSetsSearchTip);
 		ImGui::SameLine();
 		ImGui::Checkbox(text::kSetsOnlyHave, &g_picker.onlyHave);
 		Tooltip(text::kSetsOnlyHaveTip);
@@ -152,9 +153,9 @@ namespace dova::ui::panel
 				if (coverage.pieces == 0) {
 					Disabled(text::kNone);
 				} else if (coverage.Complete()) {
-					Colored(kGreen, std::format("{}/{}", coverage.have, coverage.total));
+					Colored(kGreen, std::format(text::kHaveOfTotal, coverage.have, coverage.total));
 				} else {
-					Text(std::format("{}/{}", coverage.have, coverage.total));
+					Text(std::format(text::kHaveOfTotal, coverage.have, coverage.total));
 				}
 				ImGui::PopID();
 			}

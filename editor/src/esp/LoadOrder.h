@@ -128,6 +128,9 @@ namespace dova::editor::esp
 		// Winning REFR/ACHR records placed in the cell. Exterior cells also get the worldspace's persistent
 		// references whose position lies inside the cell's grid square (where the game stores them).
 		[[nodiscard]] std::vector<RecordRef> CellRefRecords(const FormKey& a_cell);
+		// The REFR/ACHR records one plugin has in a cell (its own records, winning or not; an exterior's include that
+		// plugin's persistent references of the worldspace inside the cell's grid square). Cheap: one plugin is read.
+		[[nodiscard]] std::vector<RecordRef> PluginCellRefRecords(std::uint32_t a_plugin, const FormKey& a_cell);
 
 		// The winning LAND record of an exterior cell (terrain heights, normals, colors, textures).
 		[[nodiscard]] std::optional<RecordRef> CellLandRecord(const FormKey& a_cell);

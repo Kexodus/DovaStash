@@ -83,8 +83,9 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 > The chip opens the
 > Template panel; its tooltip says whose it is and the file. The chip names what is open: a home opens on the
 > template the game offers first (*yours* / *shipped* / *auto-draft*, nothing to save), or on its draft when it has
-> none or the draft has unsaved changes; the Draft panel's *Use the draft* opens the draft in place of the
-> template, and the chip reads *draft* whenever the editor's draft is open (a home without a template too: one
+> none or the draft has unsaved changes; the Draft panel's *Use the draft* (a plain button, not the accent one: the
+> template is often better; *The draft and this template: N of M categories the same* under it) opens the draft in
+> place of the template, and the chip reads *draft* whenever the editor's draft is open (a home without a template too: one
 > rule with the rail's chip). *N templates ▾* shows the Template panel's list of the
 > home's templates in the game's order, the same list and count as the rail's row (every cell of the home: the
 > templates of another cell, a cellar, under that cell's name, *Cellar*); click one to open it
@@ -100,19 +101,27 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
   template*, *Show homes with no containers* (off by default: a cell found as a home with no usable chest and no
   template is hidden, unless open), *Only enabled mods*, *Likely homes only*, *Exteriors*, *Group by mod* (default on).
 - One list that replaces **By mod**, **Any cell** and the drafts list:
-  - Grouped by mod (MO2 name, then `Nexus 65088 · 2 homes` muted), the game's Data folder last.
+  - Grouped by mod (MO2 name, then `Nexus 65088 · 2 homes` muted), the game's Data folder last. The name is what an
+    author scans for: the Nexus id shows only beside the whole name, else the note is the count (while the name
+    keeps about 12 characters, then none) and only then is the name cut; the group's tooltip has the full name and
+    the Nexus id.
   - A home row: name, a muted summary in words (`89 chests · 170 displays · 2 cells · 3 templates`; cells and
     templates only when more than one), one status word at the right (*yours* / *shipped* / *auto-draft* / *draft*,
     a chip; *off* when every template of the home names a loaded plugin under `conflicts`; *none* in muted, without
     a pill), the unsaved dot when it is open and dirty. No "+N" anywhere: counts are words. A name the chip would
-    cut (a large text size, a narrow rail) keeps its room: the chip becomes a dot of its colour, *none* goes (the
-    row's tooltip has the word).
+    cut, or that would leave no room for the summary's shortest form (a large text size, a narrow rail), keeps its
+    room: the chip becomes a dot of its colour, *none* goes (the row's tooltip has the word); a summary that still
+    does not fit is left out, never cut to an ellipsis. The cell count is the template's when the home has one
+    (a Hearthfire home's Grounds count). Two homes of one name (vanilla *Breezehome* and a mod's new cell of that
+    name) add their cell's EditorID after the summary (`Breezehome  114 chests · WyntersBreezehomeRedux`), the
+    EditorID alone in the narrowest form.
   - *All cells…* (a mod group's right-click menu; a footer link only under the open home's group, so the rail stays
     a list of homes) turns on the scored "any cell" listing for that mod only (what *Any cell* does today), with its
     evidence in the tooltip and *Likely homes only* respected.
   - Right-click: Open, Draft, Open in Explorer (its template file), Copy form ref.
 - The row of the open home is highlighted; Enter opens the selected row; `↑`/`↓` move.
-- Bottom of the rail: *Rescan (F5)* and the scan summary in one muted line (`124 homes · 302 plugins · 0.9 s`).
+- Bottom of the rail: *Rescan (F5)* and the scan summary in one muted line (`124 homes · 302 plugins · 0.9 s`); a
+  rail too narrow for it (a large text size) keeps `Rescan · 124 homes`, the full line in the tooltip.
 - Collapsed, the rail is a 32 px strip with the `›` handle and the home count.
 
 > **Built:** the storage summary counts what a template can use over the home's cells: containers that do not
@@ -172,7 +181,7 @@ A segmented control at the top: **Selection · Template · Draft · Checks**. Ea
 - **Template**: name, author, version, priority, note (wrapped, as tall as its text up to 5 lines); the cells of
   the home with their labels (join or leave a cell here and from the Doors list); keep rules; the save target;
   *Save* / *Save as…* (*Save* is the title row's button: filled only with something to save, else *Save a copy*
-  or *Save*, the same tooltip).
+  or *Save*, the same tooltip; the command palette's first entry has the same word).
 - **Draft**: today's draft review for **this** home: the master with its one-line reason and runners-up in a
   tooltip, then per container the suggested categories as chips (green / yellow / orange by confidence,
   reason in the tooltip), tick to accept. *Accept all*, *Reject the weak ones*, *Draft again* at the top.
@@ -220,7 +229,8 @@ double click). *Where items go* keeps its sample picker and colour buttons in it
 > (at most half of it); the rail and inspector together take at most 60% of the width, so at 1280x720 the view
 > keeps its room. Cells speak words: category names (*Swords*, *Books (all)*; ids in the tooltip and the filter),
 > scripts as what they do (*bookshelf*, *Hearthfire build*, *critter spawn*), *Height (m)* in metres above the cell's
-> floor, the unit of the Draft panel's `· 1.3 m`: the lowest containers there from the start that stand together
+> floor, the unit of the Draft panel's `· 1.3 m` (its last way to tell rows of one name apart, after the cell, the
+> wing, the nearest station and the side of the room: `Cupboard · Kitchen · by the oven · east`): the lowest containers there from the start that stand together
 > (another within 400 units; one left alone below does not count), leaving out any more than 2000 units from the
 > median (a home overhaul parks the vanilla containers it removes far below; those read `-` and their Notes *out of
 > the home*). *Containers* lists the containers that are not displays (bookshelves and cases are the *Displays*

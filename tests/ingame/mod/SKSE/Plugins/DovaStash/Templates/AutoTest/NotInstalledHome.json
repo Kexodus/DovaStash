@@ -1,0 +1,13 @@
+{
+  "$schema": "dovastash-layout-1",
+  "name": "Not Installed Home (AutoTest)",
+  "note": "Plan 10 only: the plugin of its home is never loaded, so the panel's All templates marks it not installed (Only installed homes hides it).",
+  "author": "Dova Stash AutoTest",
+  "version": "1.0.0",
+  "requires": ["DovaStashAutoTestNoSuchHome.esp"],
+  "cell": "DovaStashAutoTestNoSuchHome.esp|0x00000D62",
+  "master": "DovaStashAutoTestNoSuchHome.esp|0x00000D63",
+  "containers": [
+    {"ref": "DovaStashAutoTestNoSuchHome.esp|0x00000D64", "label": "Chest", "categories": ["weapons.*"]}
+  ]
+}

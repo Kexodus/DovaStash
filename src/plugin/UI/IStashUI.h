@@ -37,6 +37,10 @@ namespace dova::ui
 		// make the container the master, then the template. `a_container` may be null (then only the restore
 		// and template options are shown).
 		virtual void OpenSetupPrompt(home::Home& a_home, RE::TESObjectREFR* a_container) = 0;
+		// A cell another home's template lists (Home::PartOfTemplate, DESIGN §6.7), no setup anywhere: one entry,
+		// Use template "<name>" (Controller::UsePartOfTemplate), which sets up the whole home from here. The default
+		// is a native message box (UI/AreaPrompt.cpp).
+		virtual void OpenPartOfPrompt(home::Home& a_home, std::string_view a_template);
 		// Turn a display on or off, pick its categories, or fill it now. The default is native message boxes
 		// (UI/DisplayMenu.cpp).
 		virtual void OpenDisplayMenu(const DisplayMenu& a_menu);
@@ -55,8 +59,8 @@ namespace dova::ui
 	// The two UI roles (DESIGN §10.3, [UI] iMode):
 	//   world  - what the hotkey opens in the world: UIExtensions lists (ListUI), native message
 	//            boxes (MessageBoxUI), or the Menu Framework panel when iMode = 2.
-	//   editor - full editing ("Advanced..." in the lists): the SKSE Menu Framework panel when loaded
-	//            (not VR), else message boxes. May be the same object as `world`.
+	//   editor - the SKSE Menu Framework panel, reached by "Open panel..." in the hotkey menus (when loaded,
+	//            not VR), else message boxes. May be the same object as `world`.
 	struct StashUIs
 	{
 		std::shared_ptr<IStashUI> world;

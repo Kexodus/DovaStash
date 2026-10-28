@@ -101,7 +101,7 @@
         },
         {
           "check": "notify",
-          "contains": "Dova Stash: Severin Manor setup enabled"
+          "contains": "Dova Stash: Severin Manor is set up"
         },
         {
           "check": "layout",

@@ -71,6 +71,10 @@ namespace dova::ui::panel
 		// whether it is reached from here anyway (persistent, or its cell is loaded).
 		std::string              area;
 		bool                     remote{ false };
+		// The extra area it stands in (its cell and name; nullopt in the main cell): Make master makes it that
+		// area's master, as in the hotkey menus.
+		std::optional<core::FormRef> extraArea;
+		std::string                  extraAreaName;
 	};
 
 	// One cell of a multi-cell home (Home::areas).
@@ -176,6 +180,7 @@ namespace dova::ui::panel
 		std::string                layoutAuthor;
 		std::string                layoutVersion;
 		std::optional<std::string> basedOn;
+		std::string                basedOnText;  // "Breezehome v1.0.2" (the template's name), else basedOn as it is
 		// Applying a template would replace changes the player made (core::HasOwnChanges: a custom setup, or one that
 		// differs from the template it is based on): switching asks first. Worked out on each rebuild, never per frame.
 		bool ownChanges{ false };

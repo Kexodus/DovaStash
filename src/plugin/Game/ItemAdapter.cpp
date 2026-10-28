@@ -499,6 +499,9 @@ namespace dova::game
 			case RE::ExtraDataType::kCount:
 			case RE::ExtraDataType::kUniqueID:
 			case RE::ExtraDataType::kOwnership:
+			case RE::ExtraDataType::kLeveledItem:        // stock a container got from a leveled list
+			case RE::ExtraDataType::kLeveledItemBase:
+			case RE::ExtraDataType::kOriginalReference:  // picked up from the world; no effect on the copy
 				break;
 			default:
 				return true;

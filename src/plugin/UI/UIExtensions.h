@@ -44,6 +44,9 @@ namespace dova::ui::uiext
 	// thread (SKSE task queue).
 	using ChoiceCallback = std::function<void(std::int32_t a_index)>;
 	inline constexpr std::int32_t kNotShown = -2;
+	// UIListMenu.psc buffers 128 entries (skins may assume it): OpenList shows no more; longer lists are paged by the
+	// caller (ListUI's "More...").
+	inline constexpr std::size_t kMaxListEntries = 128;
 
 	struct ListEntry
 	{

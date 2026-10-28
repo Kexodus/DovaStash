@@ -19,6 +19,8 @@
 //     stations crafting stations and displays near it (forge -> ores and ingots, alchemy lab -> ingredients
 //              and potions, enchanter -> soul gems, cooking pot -> food, bookshelves -> books), weaker with
 //              distance and across floors;
+//     wings    the name of the room it stands in (DraftObject::wing: "Armory" -> weapons and armor), shared out
+//              over that room's containers, one category each in turn;
 //     nearby   loose items placed on or next to it, by the categories the caller classified them into (a hint).
 //   A container named for its contents (its display name has a word that is not generic, or a name rule says
 //   so outright) gets only what its name says: stations and nearby items add to those categories, never others.
@@ -41,7 +43,7 @@
 //
 // Rules file (JSON, comments allowed): { "$schema": "dovastash-draftrules-1", "acceptAt", "ignore": [...],
 // "harmlessScripts": [...], "genericWords": [...], "editorIdFactor", "master": {...}, "names": [...],
-// "stations": [...], "nearby": {...}, "fill": [...] }; see
+// "stations": [...], "wings": [...], "nearby": {...}, "fill": [...] }; see
 // DefaultDraftRulesText() for every field. Unknown keys are warnings, malformed rules errors (skipped).
 
 #include <array>
@@ -83,11 +85,19 @@ namespace dova::core
 		std::vector<std::string> scripts;   // base + reference scripts
 		std::array<float, 3>     center{};  // world position of the middle of its bounds
 		std::array<float, 3>     size{};    // extent of its bounds (scaled)
+		// Any kind: not there from the start (initially disabled or enabled by a parent), and what brings it (empty:
+		// unknown): its enable parent, or a key shared by what one script builds together (a Hearthfire wing:
+		// "BYOHHouse1InteriorRoom06" from the reference EditorIDs). A station or loose item that appears later with a
+		// key is evidence only for the containers with the same key.
+		bool        appearsLater{ false };
+		std::string appearsWith;
+		// Containers: the name of the room it stands in, when the caller knows it (a Hearthfire wing: "Armory",
+		// "Library"). Rules "wings" turn it into evidence, as a station next to it would.
+		std::string wing;
 
 		// Containers
 		bool respawns{ false };
 		bool removedByUpgrade{ false };  // disappears when its enable parent appears (a house upgrade)
-		bool appearsLater{ false };      // initially disabled or enabled by a parent: not there from the start
 		bool ownedByOther{ false };      // owned by an NPC or a faction other than the player's
 
 		// Doors
@@ -115,6 +125,16 @@ namespace dova::core
 		std::vector<std::string>              categories;
 		float                                 confidence{ 0.6f };
 		float                                 radius{ 600.0f };  // game units (about 70 per metre)
+	};
+
+	// A room's name says what it holds: its categories are shared out over the containers in it, one each in turn
+	// (the container already hinted at a category first), at `confidence`.
+	struct DraftWingRule
+	{
+		std::string                           label;  // "armory"
+		std::vector<std::vector<std::string>> words;  // any entry, matched against the wing's name
+		std::vector<std::string>              categories;
+		float                                 confidence{ 0.6f };
 	};
 
 	struct DraftIgnoreRule
@@ -158,12 +178,17 @@ namespace dova::core
 		float                         masterEntranceRange{ 1500.0f };
 		std::vector<DraftNameRule>    names;
 		std::vector<DraftStationRule> stations;
+		std::vector<DraftWingRule>    wings;  // first match per wing
 		float                         nearbyRadius{ 96.0f };
 		float                         nearbyConfidence{ 0.25f };   // one item
 		float                         nearbyPerItem{ 0.05f };      // each further item
 		float                         nearbyMax{ 0.45f };
 		std::vector<std::string>      nearbySkip;    // category patterns that say nothing (clutter)
 		std::vector<std::string>      nearbyGroups;  // top-level ids suggested as "<id>.*" ("weapons" -> "weapons.*")
+
+		// A home with more than this many usable containers takes each category once per wing: the containers that
+		// appear later with one `appearsWith` key (rules "areas": {"containers"}).
+		std::size_t areaContainers{ 60 };
 
 		// Groups of categories a home usually has a place for. A group nobody was given goes to the free container
 		// (no accepted category yet) with the strongest evidence for it, even below `acceptAt`, but at least `fillAt`;
