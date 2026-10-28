@@ -101,6 +101,33 @@ namespace dova::editor::ui
 		float ChipGap() { return std::round(4.0f * w::Th().scale); }
 	}
 
+	void RightText(const char* a_text)
+	{
+		const float w = ImGui::CalcTextSize(a_text).x;
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, ImGui::GetContentRegionAvail().x - w));
+		ImGui::TextUnformatted(a_text);
+	}
+
+	void TableHeaders(DrawerTable a_table, std::uint32_t a_rightMask)
+	{
+		ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+		int n = 0;
+		for (const char* name : TableColumns(a_table)) {
+			const int column = n++;
+			if (!ImGui::TableSetColumnIndex(column)) {
+				continue;
+			}
+			if (a_rightMask & (1u << column)) {
+				// TableHeader keeps the sort arrow's room at the cell's right edge: the label ends just before it.
+				const ImGuiStyle& s = ImGui::GetStyle();
+				const float       arrow = ImGui::GetFontSize() + s.FramePadding.x;
+				const float       w = ImGui::CalcTextSize(name).x;
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, ImGui::GetContentRegionAvail().x - arrow - w));
+			}
+			ImGui::TableHeader(name);
+		}
+	}
+
 	std::span<const char* const> TableColumns(DrawerTable a_table)
 	{
 		switch (a_table) {

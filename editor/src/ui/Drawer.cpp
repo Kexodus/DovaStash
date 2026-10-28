@@ -150,7 +150,9 @@ namespace dova::editor::ui
 
 	namespace
 	{
-		constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | kSortableTable;
+		// Rows parted by hairlines, no bands (EDITOR-UX.md §3.5).
+		constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | kSortableTable;
+		constexpr std::uint32_t   kHeightColumn = 1u << 4;  // Containers and Displays: "Height (m)", right-aligned
 
 		// The columns of a drawer table (ui/Tables.h names them); `a_setup` gives a column its flags and width.
 		template <class F>
@@ -356,7 +358,7 @@ namespace dova::editor::ui
 		});
 		SyncSort(view);
 		FilterAndSort(view, rows, DrawerTable::Containers);
-		ImGui::TableHeadersRow();
+		TableHeaders(DrawerTable::Containers, kHeightColumn);
 		for (const auto& row : rows) {
 			const int   i = row.index;
 			const auto& r = a_cell.info.refs[static_cast<std::size_t>(i)];
@@ -380,7 +382,7 @@ namespace dova::editor::ui
 			ImGui::TableNextColumn();
 			w::Mono(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(row.cells[4].text.c_str());
+			RightText(row.cells[4].text.c_str());
 			w::Tip("Metres above the cell's lowest containers");
 			ImGui::TableNextColumn();
 			w::Muted(row.cells[5].text.c_str());
@@ -437,7 +439,7 @@ namespace dova::editor::ui
 		});
 		SyncSort(view);
 		FilterAndSort(view, rows, DrawerTable::Displays);
-		ImGui::TableHeadersRow();
+		TableHeaders(DrawerTable::Displays, kHeightColumn);
 		for (const auto& row : rows) {
 			const int   i = row.index;
 			const auto& r = a_cell.info.refs[static_cast<std::size_t>(i)];
@@ -461,7 +463,7 @@ namespace dova::editor::ui
 			ImGui::TableNextColumn();
 			w::Mono(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(row.cells[4].text.c_str());
+			RightText(row.cells[4].text.c_str());
 			w::Tip("Metres above the cell's lowest containers");
 		}
 		NoMatch(view);

@@ -1326,7 +1326,7 @@ difference.
 | # | Steps | Expected |
 |---|---|---|
 | 8.1 | Start with no arguments (no state file) | Start panel in the middle: the setup in one line, "N player homes, M with templates", three cards. The rail on the left lists the homes by mod; *Game Data folder* holds the base game and DLC homes; *Rescan* and the scan summary at its bottom. Status row: `N homes`, `Ctrl+K commands`. |
-| 8.2 | Rail search: `92177`, then `Whitepeak`, then `Eli_Druid Home.esp` | Each finds Whitepeak Tower or Aldamar under its mod (Nexus id muted). The filter (funnel) with *Only homes without a template* on shows a count badge and hides homes that have one. |
+| 8.2 | Rail search: `92177`, then `Whitepeak`, then `Eli_Druid Home.esp` | Each finds Whitepeak Tower or Aldamar under its mod (Nexus id muted). The filter (funnel) with *Only homes without a template* on shows the count of filters on and hides homes that have one. |
 | 8.3 | Click *Whitepeak Tower* (or `--home "Whitepeak Tower"`) | The tower in 3D from above; `archives` / `meshes` / `textures n/m` progress in the status row, not over the view. Title row: the home's name, chip *shipped* / *yours* / *no template*. Drawer tabs with counts. |
 | 8.4 | Press 2, then 1 (or `--tab plan`) | Plan, then 3D; the selection is the same in both. The floating toolbar stays: *Select*, *Paint*, *Layers*, *Colours*, *Camera*. |
 | 8.5 | Click a chest; Ctrl+click two more; drag a box | Selection panel: its mesh picture, the reference block, *Role*. With three: the bulk editor. A box selects the containers and displays inside. Esc clears. |

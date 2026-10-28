@@ -18,6 +18,7 @@ home, driven by JSON layouts/templates. **Read `docs/DESIGN.md` first** — it i
 | `tools/` | Python helpers (ESM dumper for template authoring) | stdlib only |
 | `editor/` | Dova Stash Editor (`DovaStashEditor.exe`, in development): standalone template editor, Win32 + Dear ImGui + D3D11, reads the MO2 instance and plugins in C++ (port of `esm_dump.py`). Design: `docs/EDITOR.md` | Namespace `dova::editor`. Links `dova_core` (never duplicate a core rule); no CommonLib. Preset `editor`, build dir `build/editor`, off in the other presets (`DOVASTASH_BUILD_EDITOR`) |
 | `presskit/` | Nexus page copy (`nexus-*.txt`), images (`nexus/`, `logo/`) and their sources (`src/`, `render.py`) | Same layout as the cmc repo. Description images load from `main` (raw GitHub URLs); rebuild with `python -I presskit/src/render.py --check-gray` |
+| `.claude/skills/` | Project skills: `ingame-test`, and the design skills `unslop-ui` and `impeccable` (vendored; `PRODUCT.md` and `DESIGN.md` at the root are impeccable's context files, `docs/design-pass/` the before/after shots) | Apply the design skills to the editor by hand (Dear ImGui, no CSS): the rules they settle are `docs/EDITOR-UX.md` §3.5. Don't run impeccable's launcher, browser checks or hook |
 
 ## Core ↔ plugin contract
 

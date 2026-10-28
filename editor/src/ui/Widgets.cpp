@@ -169,7 +169,7 @@ namespace dova::editor::ui::w
 			bool        chevron{ false };
 			int         badge{ 0 };
 			int         badgeOf{ -1 };          // >= 0 and not `badge`: "badge of badgeOf"
-			bool        badgeNeutral{ false };  // a count (bg3, text) instead of an alert (accent)
+			bool        badgeNeutral{ false };  // a count (muted) instead of an alert (accent)
 			bool        badgeZero{ false };     // draw "0" too
 			const char* tooltip{ nullptr };
 			const char* shortcut{ nullptr };
@@ -207,14 +207,15 @@ namespace dova::editor::ui::w
 			l.ts = l.hasText ? TextSize(font, l.label, l.end) : ImVec2(0, 0);
 			l.badgeFont = t.smallFont ? t.smallFont : font;
 			l.badgePx = kBadgePx * t.scale;
-			l.badgeH = std::round((kBadgePx + 5.0f) * t.scale);
+			l.badgeH = l.badgePx;
 			if (a_s.badge > 0 || (a_s.badgeZero && a_s.badge == 0)) {
 				if (a_s.badgeOf >= 0 && a_s.badgeOf != a_s.badge) {
 					std::snprintf(l.badge, sizeof(l.badge), "%d of %d", a_s.badge, a_s.badgeOf);
 				} else {
 					std::snprintf(l.badge, sizeof(l.badge), "%d", a_s.badge);
 				}
-				l.badgeW = std::max(l.badgeH, l.badgeFont->CalcTextSizeA(l.badgePx, FLT_MAX, 0.0f, l.badge).x + 8.0f * t.scale);
+				// Plain text after the label, no pill (EDITOR-UX.md §3.5).
+				l.badgeW = std::round(l.badgeFont->CalcTextSizeA(l.badgePx, FLT_MAX, 0.0f, l.badge).x);
 			}
 			float w = l.padX * 2.0f;
 			if (a_s.hasIcon) {
@@ -249,7 +250,6 @@ namespace dova::editor::ui::w
 			const float       badgeW = l.badgeW;
 			ImFont*           badgeFont = l.badgeFont;
 			const float       badgePx = l.badgePx;
-			const float       badgeH = l.badgeH;
 			Hit               hit;
 			if (!Item(hasText ? label : a_s.id, ImVec2(l.w, h), hit, ImGui::GetStyle().FramePadding.y)) {
 				return false;
@@ -275,12 +275,11 @@ namespace dova::editor::ui::w
 				x += ts.x;
 			}
 			if (badgeW > 0.0f) {
+				// The count as quiet text after the label: muted (text when the tab is active), accent for an alert.
 				x += 5.0f * t.scale;
-				const ImVec2 bmin(x, std::round(bb.Min.y + (h - badgeH) * 0.5f));
-				dl->AddRectFilled(bmin, ImVec2(bmin.x + badgeW, bmin.y + badgeH), a_s.badgeNeutral ? (a_s.active ? t.accentDim : t.bg3) : t.accent, badgeH * 0.5f);
 				const ImVec2 bs = badgeFont->CalcTextSizeA(badgePx, FLT_MAX, 0.0f, badge);
-				dl->AddText(badgeFont, badgePx, ImVec2(std::floor(bmin.x + (badgeW - bs.x) * 0.5f), std::floor(bmin.y + (badgeH - bs.y) * 0.5f)),
-					a_s.badgeNeutral ? (a_s.active ? t.bg0 : t.text) : t.bg0, badge);
+				dl->AddText(badgeFont, badgePx, ImVec2(std::floor(x), std::floor(bb.Min.y + (h - bs.y) * 0.5f)),
+					a_s.badgeNeutral ? (a_s.active ? t.text : t.muted) : t.accent, badge);
 				x += badgeW;
 			}
 			if (a_s.chevron) {
@@ -598,18 +597,16 @@ namespace dova::editor::ui::w
 	{
 		const Theme& t = Th();
 		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
+		// A count is plain text in its colour, never a filled pill (EDITOR-UX.md §3.5).
 		const float  px = kBadgePx * t.scale;
-		const float  h = std::round((kBadgePx + 5.0f) * t.scale);
 		const ImVec2 ts = font->CalcTextSizeA(px, FLT_MAX, 0.0f, a_text);
-		const float  w = std::round(std::max(h, ts.x + 8.0f * t.scale));
+		const float  h = std::round(ts.y);
+		const float  w = std::round(ts.x);
 		ImRect       bb;
 		if (!Static(ImVec2(w, h), bb, (h - ImGui::GetFontSize()) * 0.5f)) {
 			return;
 		}
-		ImDrawList* dl = ImGui::GetWindowDrawList();
-		const bool  neutral = a_kind == Kind::Neutral;
-		dl->AddRectFilled(bb.Min, bb.Max, neutral ? t.bg3 : Colour(a_kind), h * 0.5f);
-		dl->AddText(font, px, ImVec2(std::floor(bb.Min.x + (w - ts.x) * 0.5f), std::floor(bb.Min.y + (h - ts.y) * 0.5f)), neutral ? t.text : t.bg0, a_text);
+		ImGui::GetWindowDrawList()->AddText(font, px, detail::Floor(bb.Min), a_kind == Kind::Neutral ? t.muted : Colour(a_kind), a_text);
 	}
 
 	// ---- Icons ----
@@ -1701,24 +1698,27 @@ namespace dova::editor::ui::w
 
 	namespace
 	{
-		float ChipW(const char* a_text)
+		// A status at the right of a rail row: a 6 px dot in its colour, then the word in muted; a Neutral one is the
+		// word alone (EDITOR-UX.md §3.5: no pill per row). `a_dl` null: the width only.
+		float StatusW(const char* a_text, Kind a_kind)
 		{
 			const Theme& t = Th();
-			return std::round(TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), a_text).x + 16.0f * t.scale);
+			const float  dot = a_kind == Kind::Neutral ? 0.0f : 6.0f * t.scale + 6.0f * t.scale;
+			return std::round(dot + TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), a_text).x);
 		}
 
-		// A chip drawn at `a_min` without an item (rows that draw their own content), as Chip() draws it.
-		void DrawChipAt(ImDrawList* a_dl, ImVec2 a_min, const char* a_text, Kind a_kind)
+		void DrawStatusAt(ImDrawList* a_dl, ImVec2 a_min, float a_rowH, const char* a_text, Kind a_kind)
 		{
 			const Theme& t = Th();
 			ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
 			const ImVec2 ts = TextSize(font, a_text);
-			const float  h = t.chipH;
-			const ImU32  col = Colour(a_kind);
-			const ImVec2 mn = detail::Floor(a_min), mx(mn.x + ChipW(a_text), mn.y + h);
-			a_dl->AddRectFilled(mn, mx, t.bg2, h * 0.5f);
-			a_dl->AddRect(mn, mx, WithAlpha(col, 0.8f), h * 0.5f, 0, 1.0f);
-			Text(a_dl, font, ImVec2(mn.x + 8.0f * t.scale, mn.y + (h - ts.y) * 0.5f), col, a_text);
+			float        x = std::floor(a_min.x);
+			if (a_kind != Kind::Neutral) {
+				const float r = 3.0f * t.scale;
+				a_dl->AddCircleFilled(ImVec2(x + r, std::floor(a_min.y + a_rowH * 0.5f) + 0.5f), r, Colour(a_kind), 16);
+				x += 2.0f * r + 6.0f * t.scale;
+			}
+			Text(a_dl, font, ImVec2(x, std::floor(a_min.y + (a_rowH - ts.y) * 0.5f)), t.muted, a_text);
 		}
 	}
 
@@ -1743,33 +1743,26 @@ namespace dova::editor::ui::w
 		if (a_cursor && !a_selected) {
 			dl->AddRect(p, q, t.accentDim, t.radius);
 		}
-		float right = q.x - t.pad * 0.5f;
-		// A name the chip would cut (a large text size, a narrow rail): the chip becomes a dot of its colour, a quiet
-		// "none" goes (the row's tooltip says it).
-		// The name and the summary's shortest form must fit before the chip, else the dot (the summary keeps its room).
+		float right = q.x - t.pad;
+		// A name the status word would cut (a large text size, a narrow rail): the word goes and the dot stays, a
+		// quiet "none" goes altogether (the row's tooltip says it).
+		// The name and the summary's shortest form must fit before the word, else the dot (the summary keeps its room).
 		const char* shortest = a_summaryShortest && *a_summaryShortest ? a_summaryShortest : a_summaryShort && *a_summaryShort ? a_summaryShort : a_summary;
 		float       need = TextSize(ImGui::GetFont(), a_name).x + (a_unsaved ? 10.0f * t.scale : 0.0f);
 		if (shortest && *shortest) {
 			need += t.gap + TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), shortest).x;
 		}
-		const bool narrow = a_chip && *a_chip && p.x + t.pad + need > right - ChipW(a_chip) - t.gap;
+		const bool narrow = a_chip && *a_chip && p.x + t.pad + need > right - StatusW(a_chip, a_chipKind) - t.gap;
 		if (narrow) {
 			if (a_chipKind != Kind::Neutral) {
-				const float r = std::round(4.0f * t.scale);
-				dl->AddCircleFilled(ImVec2(right - 4.0f * t.scale - r, p.y + h * 0.5f), r, Colour(a_chipKind), 16);
-				right -= 2.0f * r + 4.0f * t.scale + t.gap;
+				const float r = 3.0f * t.scale;
+				dl->AddCircleFilled(ImVec2(right - r, std::floor(p.y + h * 0.5f) + 0.5f), r, Colour(a_chipKind), 16);
+				right -= 2.0f * r + t.gap;
 			}
 		} else if (a_chip && *a_chip) {
-			const float cw = ChipW(a_chip);
-			if (a_chipKind == Kind::Neutral) {
-				// A neutral status ("none") is quiet: its word in muted, where a chip's text would end, without the pill.
-				ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
-				const ImVec2 ts = TextSize(font, a_chip);
-				Text(dl, font, detail::Floor(ImVec2(right - 8.0f * t.scale - ts.x, p.y + (h - ts.y) * 0.5f)), t.muted, a_chip);
-			} else {
-				DrawChipAt(dl, ImVec2(right - cw, p.y + (h - t.chipH) * 0.5f), a_chip, a_chipKind);
-			}
-			right -= cw + t.gap;
+			const float sw = StatusW(a_chip, a_chipKind);
+			DrawStatusAt(dl, ImVec2(right - sw, p.y), h, a_chip, a_chipKind);
+			right -= sw + t.gap;
 		}
 		// Name, dot, summary (the short form, then an ellipsis, when it does not fit before the chip).
 		const float maxX = std::max(right, p.x + 1.0f);

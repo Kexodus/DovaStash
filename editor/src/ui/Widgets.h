@@ -24,7 +24,7 @@ namespace dova::editor::ui::w
 	inline constexpr float kBodyPx = 18.0f;     // Jost, the default font; every line height below is built around it
 	inline constexpr float kSmallPx = 16.0f;    // Jost: captions, chips, section heads, the status row
 	inline constexpr float kMonoPx = 13.0f;     // Cascadia Mono / Consolas: form refs and EditorIDs
-	inline constexpr float kBadgePx = 13.0f;    // Jost in a count badge
+	inline constexpr float kBadgePx = 16.0f;    // Jost: a count after a label (the drawer's tabs), the small size
 
 	// ---- Theme tokens (EDITOR-UX.md §3.1) ----------------------------------------------------------
 	struct Theme
@@ -48,7 +48,7 @@ namespace dova::editor::ui::w
 		// Added by the theme pass (all already scaled).
 		float radius{ 3.0f };     // corners
 		float iconSize{ 18.0f };  // DrawIcon's default size
-		float chipH{ 22.0f };     // chips and key caps
+		float chipH{ 24.0f };     // chips and key caps
 		float stripW{ 32.0f };    // a collapsed rail
 		float stroke{ 1.5f };     // icon strokes
 		ImU32 shadow{ IM_COL32(0, 0, 0, 102) };  // the 1 px rim under popups and overlays (40 % black)
@@ -123,7 +123,7 @@ namespace dova::editor::ui::w
 		Info
 	};
 	ImU32 Colour(Kind a_kind);
-	void  Chip(const char* a_text, Kind a_kind = Kind::Neutral);           // 22 px pill
+	void  Chip(const char* a_text, Kind a_kind = Kind::Neutral);           // 24 px pill
 	bool  ChipButton(const char* a_text, Kind a_kind = Kind::Neutral, bool a_active = false);
 	bool  ChipClose(const char* a_text, Kind a_kind = Kind::Neutral);      // chip with an x; true when the x is clicked
 	void  StatusDot(Kind a_kind, const char* a_tooltip = nullptr);         // a 6 px dot on the baseline (unsaved, state)
@@ -187,8 +187,8 @@ namespace dova::editor::ui::w
 	// Flat toolbar button; `a_active` draws the accent underline (modes). Width fits the text.
 	bool ToolButton(const char* a_label, bool a_active = false, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
 	bool PrimaryButton(const char* a_label, bool a_enabled = true, const char* a_disabledTip = nullptr);  // filled accent (Save)
-	// A ToolButton with a neutral count badge after the label (the drawer's tabs); `a_count` < 0: no badge.
-	// `a_of` >= 0 and not `a_count`: the badge reads "count of of" (253 of 297).
+	// A ToolButton with a count after the label in muted small text (the drawer's tabs; no pill, EDITOR-UX.md §3.5);
+	// `a_count` < 0: no count. `a_of` >= 0 and not `a_count`: the count reads "count of of" (253 of 297).
 	bool TabButton(const char* a_label, bool a_active, int a_count, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr, int a_of = -1);
 	bool LinkButton(const char* a_label);  // text in accent, underline on hover
 	// Segmented control (3D | Plan, the inspector panels). Returns true when `a_value` changed.
@@ -200,7 +200,7 @@ namespace dova::editor::ui::w
 	bool SearchBox(const char* a_id, std::string& a_text, const char* a_hint, float a_width = -1.0f);
 
 	// ---- Popovers (menus anchored to a button) -----------------------------------------------------
-	// A button (label and/or icon, with a count badge when `a_badge` > 0) that opens a popover below it.
+	// A button (label and/or icon, with a count in accent after it when `a_badge` > 0) that opens a popover below it.
 	// Usage: if (BeginPopover("layers", "Layers", Icon::Layers)) { ...; EndPopover(); }
 	bool BeginPopover(const char* a_id, const char* a_label, Icon a_icon = Icon::ChevronDown, int a_badge = 0, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr);
 	void EndPopover();
@@ -248,7 +248,7 @@ namespace dova::editor::ui::w
 	void  EndPanel();
 
 	// ---- Added by the theme pass --------------------------------------------------------------------
-	void  Badge(const char* a_text, Kind a_kind = Kind::Accent);  // a tiny filled count pill ("3")
+	void  Badge(const char* a_text, Kind a_kind = Kind::Accent);  // a small count ("3") in its colour, no pill (Neutral: muted)
 	bool  Toggle(const char* a_label, bool& a_value);              // a small switch, accent when on; true when toggled
 	bool  Slider(const char* a_label, float& a_value, float a_min, float a_max, const char* a_format = "%.2f", bool a_log = false,
 		const char* a_tooltip = nullptr);  // label and value over a thin track, the item width wide; true while it changes
@@ -280,8 +280,8 @@ namespace dova::editor::ui::w
 	void FieldLabel(const char* a_text);                    // a small muted label above an input ("Label", "Note")
 	// A suggestion's confidence as a status: green (the name says so), yellow (a station or items nearby), orange (a hint).
 	[[nodiscard]] Kind ConfidenceKind(float a_confidence);
-	// A row of the homes rail: name, a muted summary after it, a status chip at the right and the unsaved dot (a
-	// Neutral chip is its word in muted, without the pill: "none" stays quiet).
+	// A row of the homes rail: name, a muted summary after it, the status at the right (a 6 px dot in its colour and
+	// the word in muted; a Neutral status is the word alone, so "none" stays quiet) and the unsaved dot.
 	// The summary falls back to `a_summaryShort`, then `a_summaryShortest`, when it does not fit, then ends in "...".
 	// `a_selected` (the open home) is drawn in accent, `a_cursor` (keyboard) with an outline. True on a left click;
 	// right-click it with ImGui::BeginPopupContextItem() after.

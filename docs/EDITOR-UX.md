@@ -97,7 +97,7 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 
 - A search box at the top: home or mod name, plugin, Nexus id. Instant filter. A hint too wide for the box drops
   its last part (*Home, mod, plugin*), then reads *Search*.
-- A filter popover (funnel icon, shows a count badge when any filter is active): *Only homes without a
+- A filter popover (funnel icon, shows the count of active filters after it, in accent): *Only homes without a
   template*, *Show homes with no containers* (off by default: a cell found as a home with no usable chest and no
   template is hidden, unless open), *Only enabled mods*, *Likely homes only*, *Exteriors*, *Group by mod* (default on).
 - One list that replaces **By mod**, **Any cell** and the drafts list:
@@ -106,12 +106,13 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
     keeps about 12 characters, then none) and only then is the name cut; the group's tooltip has the full name and
     the Nexus id.
   - A home row: name, a muted summary in words (`89 chests · 170 displays · 2 cells · 3 templates`; cells and
-    templates only when more than one), one status word at the right (*yours* / *shipped* / *auto-draft* / *draft*,
-    a chip; *off* when every template of the home names a loaded plugin under `conflicts`; *none* in muted, without
-    a pill), the unsaved dot when it is open and dirty. No "+N" anywhere: counts are words. A name the chip would
-    cut, or that would leave no room for the summary's shortest form (a large text size, a narrow rail), keeps its
-    room: the chip becomes a dot of its colour, *none* goes (the row's tooltip has the word); a summary that still
-    does not fit is left out, never cut to an ellipsis. The cell count is the template's when the home has one
+    templates only when more than one), one status word at the right (*yours* / *shipped* / *auto-draft* / *draft*:
+    a 6 px dot in the status colour and the word in muted, never a pill per row, §3.5; *off* when every template of
+    the home names a loaded plugin under `conflicts`; *none* in muted, without a dot), the unsaved dot when it is
+    open and dirty. No "+N" anywhere: counts are words. A name the status word would cut, or that would leave no
+    room for the summary's shortest form (a large text size, a narrow rail), keeps its room: the word goes and the
+    dot stays, *none* goes (the row's tooltip has the word); a summary that still does not fit is left out, never
+    cut to an ellipsis. The cell count is the template's when the home has one
     (a Hearthfire home's Grounds count). Two homes of one name (vanilla *Breezehome* and a mod's new cell of that
     name) add their cell's EditorID after the summary (`Breezehome  114 chests · WyntersBreezehomeRedux`), the
     EditorID alone in the narrowest form.
@@ -214,7 +215,7 @@ Tabs: **Containers · Displays · Doors · Where items go**, the wide tables of 
 third of the height, drag to resize, remembers. Rows select the same object as the view (and frame it on
 double click). *Where items go* keeps its sample picker and colour buttons in its own tab bar row.
 
-> **Built:** the tabs show their counts as small badges: the usable ones, the rail's count for this cell (not
+> **Built:** the tabs show their counts as small muted text after the label (no pill, §3.5): the usable ones, the rail's count for this cell (not
 > respawning, nobody else's, not removed by an upgrade); in a home of more than one cell `252 of 253`, this cell's
 > of the home's (the tooltip: *252 here · 253 in the home*, and how many more this cell has that are not usable);
 > the Draft panel's *Containers N of M* counts the accepted ones of the same home-wide number; the tables' first
@@ -337,7 +338,7 @@ Carbon, Charcoal Dark Slate, Tablet Dark, Cyan Night, Golden Graphite, Ruby Grap
 Tablet Light, Aqua Light Slate, Lavender Classico, Emerald Light Slate. Each fills the same roles (`ui/Themes.cpp`):
 body text at least 7:1 on `bg0` to `bg2`, captions, links and status hues at least 4.5:1; light themes take darker
 status hues and accents so the text on a filled accent (`bg0`) stays readable. The disabled gray, the scrollbar and
-the table's alternate rows follow the tokens. The viewport stays dark in every theme (the 3D view draws its own
+the tables' hairlines follow the tokens. The viewport stays dark in every theme (the 3D view draws its own
 sky; the plan's ground is `bg0` in a dark theme, `#1c1f24` in a light one), and the data colours never change. A
 pick applies before the next frame (the fonts stay) and is remembered as `ui.theme` in `state.json` (empty: Dova
 Stash).
@@ -376,12 +377,39 @@ sets the size for that run.
 - Corners 3 px, borders 1 px `line`, no shadows except the floating toolbar and popovers (a 1 px darker rim).
 - Section head: tracked capitals in `muted`, then a hairline rule to the right edge. No diamonds or other
   ornament; the one divider (empty states, the start panel) is the art set's: the emblem between two hairlines.
-- Chips: 22 px pills with `bg2` fill and a 1 px border in the status gray; text in the same gray.
+- Chips: 24 px pills with `bg2` fill and a 1 px border in the status gray; text in the same gray. A chip is one
+  thing to act on or one word of state in a row of its own (the title row's template word, a category to accept, a
+  quick filter); a status repeated down a list, and every count, is a dot or plain text instead (§3.5).
 - Buttons: flat, `bg2`, hover `bg3`, active `accent` text on `bg2` with an underline. Primary (Save) is
   filled paper with ink text, gray-1 on hover.
 - Icons: drawn with draw-list primitives at 18 px (menu, search, funnel, layers, palette, camera, gear,
   chevrons, check, warning, error, undo, redo, save, close, pin). No icon font.
-- Row height 28 px, inputs 30 px, toolbar 34 px, title row 42 px, status row 28 px, padding 8/6.
+- Row height 28 px, inputs 32 px, toolbar 36 px, title row 44 px, status row 28 px, padding 8, item spacing 8/4.
+- Tables: rows parted by a 1 px hairline, no alternating bands; numbers (*Height (m)*, *Items*) right-aligned with
+  their header.
+
+### 3.5 Design protocol (unslop-ui and impeccable)
+
+The look is checked against two design skills the repo carries under `.claude/skills/` (`unslop-ui`, the anti-slop
+protocol, and `impeccable`, whose Operate-mode guidance fits a tool like this; the root `PRODUCT.md` and `DESIGN.md`
+are their context files, and `docs/design-pass/` has the before/after screenshots of the 2026-10-28 pass). What they
+settle here:
+
+- **4 px grid.** Every height, padding and spacing is a multiple of 4 (28, 32, 36, 44; 8/4). The one exception is
+  the 6 px inline gap inside a row (name · summary, icon · label), a micro gap by the protocol's own rule.
+- **Neutral surfaces, hairline borders.** Already the brand: black, white and grays, 1 px `line` borders, no glow,
+  no shadow but the popovers' 1 px rim.
+- **No pills for counts or repeated status.** A count (the drawer's tabs, the filter button) is plain muted text,
+  accent when it is an alert; a status down a list (the rail) is a 6 px dot and a muted word. A chip stays for one
+  thing to act on.
+- **Numbers on one right edge.** Numeric table columns are right-aligned, header included.
+- **Tables without bands.** Hairlines between rows, not alternating fills.
+- **Copy.** Sentence case for every label and button, no exclamation marks, no emoji, no icon in a tinted box.
+- **Motion.** None beyond ImGui's hover delays; nothing scales or slides.
+
+Two brand rules override the protocol's defaults, on purpose: the wide-tracked capitals (the Cinzel wordmark and
+titles, the Jost section heads) are the art set's own style (`presskit/README.md`, Style), and the icons stay 18 px
+so they sit level with the 18 px body line beside them.
 
 ### 3.4 Art the editor reads from the player's install (optional)
 

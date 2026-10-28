@@ -96,6 +96,10 @@ namespace dova::editor::ui
 	// Call between TableSetupColumn and the rows: the first time it gives `a_view.sort` to ImGui's table, afterwards
 	// it takes the header clicks into it.
 	void SyncSort(TableView& a_view);
+	// The header row (TableHeadersRow) with the columns in `a_rightMask` (bit n: column n) right-aligned, as their
+	// cells are: numbers sit on one right edge (EDITOR-UX.md §3.5). Draw those cells with RightText.
+	void TableHeaders(DrawerTable a_table, std::uint32_t a_rightMask);
+	void RightText(const char* a_text);
 	// Drops the rows the box and the quick filters hide, then sorts the rest stably by `a_view.sort` (the rows come
 	// in the table's own order). Updates the view's counts.
 	void FilterAndSort(TableView& a_view, std::vector<TableRow>& a_rows, DrawerTable a_table);

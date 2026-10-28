@@ -136,7 +136,7 @@ half the height, and the rail and inspector together at most 60% of the width.
    same *usable containers*), a status word (*yours*, *shipped*, *auto-draft*, *draft*, *none*; *off* when every template of the home names a plugin of the load order under `conflicts`, so the game offers none), how many cells and templates it
    has when more than one (`2 cells · 3 templates`; the cells of the template it opens on when it has one, so a
    Hearthfire home counts its Grounds: `3 cells`) and the unsaved dot. One search box takes part of a home or mod name, a plugin, or a Nexus id (`92177` finds Whitepeak Tower);
-   the filter popover (a count badge when one is on) has *Only homes without a template*, *Show homes with no
+   the filter popover (the count of filters on, after the funnel) has *Only homes without a template*, *Show homes with no
    containers* (off: a cell found as a home with no usable chest and no template is hidden), *Only enabled mods*,
    *Likely homes only*, *Exteriors*, *Group by mod*. Up/Down and Enter walk it; right-click: *Open*, *Draft*, *Open
    in Explorer* (its template file), *Copy form ref*. *Rescan* (F5) at the bottom reads the load order again after a

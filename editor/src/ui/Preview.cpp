@@ -334,7 +334,7 @@ namespace dova::editor::ui
 			row.tags = c->master ? kPreviewMaster : c->items.empty() ? kPreviewNothing : kPreviewItems;
 			rows.push_back(std::move(row));
 		}
-		if (ImGui::BeginTable("preview", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | kSortableTable)) {
+		if (ImGui::BeginTable("preview", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | kSortableTable)) {
 			ImGui::TableSetupScrollFreeze(0, 1);
 			const auto columns = TableColumns(DrawerTable::Preview);
 			ImGui::TableSetupColumn(columns[0], ImGuiTableColumnFlags_WidthStretch, 0.3f);
@@ -343,7 +343,7 @@ namespace dova::editor::ui
 			ImGui::TableSetupColumn(columns[3], ImGuiTableColumnFlags_WidthStretch, 0.7f);
 			SyncSort(view);
 			FilterAndSort(view, rows, DrawerTable::Preview);
-			ImGui::TableHeadersRow();
+			TableHeaders(DrawerTable::Preview, 1u << 2);  // Items: right-aligned
 			for (const auto& row : rows) {
 				const auto* c = order[static_cast<std::size_t>(row.index)];
 				const auto  it = p.refIndex.find(c->ref);
@@ -376,7 +376,7 @@ namespace dova::editor::ui
 					ImVec2(pos.x + std::max(wdt * static_cast<float>(c->total) / static_cast<float>(maxTotal), c->total > 0 ? 3.0f : 0.0f), pos.y + 3.0f + h), colour, 2.0f);
 				ImGui::Dummy(ImVec2(wdt, ImGui::GetTextLineHeight()));
 				ImGui::TableNextColumn();
-				ImGui::TextUnformatted(row.cells[2].text.c_str());
+				RightText(row.cells[2].text.c_str());
 				ImGui::TableNextColumn();
 				if (c->items.empty()) {
 					w::Muted(row.cells[3].text.c_str());

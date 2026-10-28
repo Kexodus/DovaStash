@@ -73,18 +73,19 @@ namespace dova::editor::ui::w
 			g_theme.viewport = a_c.dark ? g_theme.bg0 : Rgb(0x1c1f24);
 			g_theme.viewportText = a_c.dark ? g_theme.muted : Rgb(0xb4b4b4);
 			g_theme.scale = a_scale;
-			// Heights around the type scale (Widgets.h): a row is the body line plus 10 px, an input 12 px; the bars
-			// hold an input (toolbar), an input and a margin (title row), a small line (status row).
+			// Heights on the 4 px grid (EDITOR-UX.md §3.5), around the type scale (Widgets.h): a row is the body line
+			// plus 10 px, an input 14 px; the bars hold an input (toolbar), an input and a margin (title row), a small
+			// line (status row).
 			g_theme.rowH = 28.0f * a_scale;
-			g_theme.inputH = 30.0f * a_scale;
-			g_theme.toolbarH = 34.0f * a_scale;
-			g_theme.titleH = 42.0f * a_scale;
+			g_theme.inputH = 32.0f * a_scale;
+			g_theme.toolbarH = 36.0f * a_scale;
+			g_theme.titleH = 44.0f * a_scale;
 			g_theme.statusH = 28.0f * a_scale;
 			g_theme.pad = 8.0f * a_scale;
-			g_theme.gap = 6.0f * a_scale;
+			g_theme.gap = 6.0f * a_scale;  // the one off-grid size: the inline gap inside a row (name · summary, icon · label)
 			g_theme.radius = 3.0f * a_scale;
-			g_theme.iconSize = 18.0f * a_scale;
-			g_theme.chipH = 22.0f * a_scale;  // the small line and 3 px each side
+			g_theme.iconSize = 18.0f * a_scale;  // the body line's height, so an icon sits level with the text beside it
+			g_theme.chipH = 24.0f * a_scale;  // the small line and 4 px each side
 			g_theme.stripW = 32.0f * a_scale;
 			g_theme.stroke = 1.5f * a_scale;
 			g_theme.shadow = IM_COL32(0, 0, 0, a_c.dark ? 102 : 51);
@@ -269,7 +270,7 @@ namespace dova::editor::ui::w
 			const Theme& t = g_theme;
 			ImGuiStyle&  s = ImGui::GetStyle();
 			s = ImGuiStyle();
-			// Metrics at 100 % (EDITOR-UX.md §3.3), scaled below.
+			// Metrics at 100 % (EDITOR-UX.md §3.3), on the 4 px grid (§3.5), scaled below.
 			s.WindowPadding = ImVec2(8, 8);
 			s.WindowRounding = 3;
 			s.WindowBorderSize = 0;
@@ -281,8 +282,8 @@ namespace dova::editor::ui::w
 			s.FramePadding = ImVec2(8, 5);
 			s.FrameRounding = 3;
 			s.FrameBorderSize = 1;
-			s.ItemSpacing = ImVec2(8, 6);
-			s.ItemInnerSpacing = ImVec2(6, 4);
+			s.ItemSpacing = ImVec2(8, 4);
+			s.ItemInnerSpacing = ImVec2(4, 4);
 			s.CellPadding = ImVec2(8, 4);
 			s.IndentSpacing = 16;
 			s.ColumnsMinSpacing = 6;
@@ -299,7 +300,7 @@ namespace dova::editor::ui::w
 			s.TreeLinesSize = 1;
 			s.MenuItemRounding = 3;
 			s.SeparatorTextBorderSize = 1;
-			s.SeparatorTextPadding = ImVec2(8, 3);
+			s.SeparatorTextPadding = ImVec2(8, 4);
 			s.DisplaySafeAreaPadding = ImVec2(4, 4);
 			s.ButtonTextAlign = ImVec2(0.5f, 0.5f);
 			s.HoverDelayShort = 0.25f;
@@ -365,7 +366,7 @@ namespace dova::editor::ui::w
 			c[ImGuiCol_TableBorderStrong] = V4(t.line);
 			c[ImGuiCol_TableBorderLight] = V4(detail::Mix(t.line, t.bg1, 0.7f));
 			c[ImGuiCol_TableRowBg] = none;
-			c[ImGuiCol_TableRowBgAlt] = t.dark ? ImVec4(1, 1, 1, 0.018f) : ImVec4(0, 0, 0, 0.03f);  // a faint band either way
+			c[ImGuiCol_TableRowBgAlt] = none;  // rows are parted by a hairline (TableBorderLight), not by bands
 			c[ImGuiCol_TextLink] = V4(t.accent);
 			c[ImGuiCol_TextSelectedBg] = V4(WithAlpha(t.accent, 0.30f));
 			c[ImGuiCol_TreeLines] = V4(t.line);
