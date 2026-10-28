@@ -99,17 +99,17 @@ namespace dova::editor::ui
 		w::Heading("Nothing selected");
 		w::MutedWrapped("Click a chest, rack or mannequin. Ctrl+click adds, drag boxes.");
 		w::Spacer();
+		// Full width; a narrow panel wraps a label onto a second line rather than cutting it.
 		const float bw = ImGui::GetContentRegionAvail().x;
 		ImGui::BeginDisabled(Busy());
-		if (ImGui::Button("Make the nearest chest the master", ImVec2(bw, 0))) {
+		if (w::Button("Make the nearest chest the master", "The usable chest nearest to the camera (3D) or the plan's middle", nullptr, w::Kind::Neutral, bw)) {
 			MakeNearestMaster(a_cell);
 		}
-		w::Tip("The usable chest nearest to the camera (3D) or the plan's middle");
-		if (ImGui::Button("Draft this home", ImVec2(bw, 0))) {
+		if (w::Button("Draft this home", nullptr, nullptr, w::Kind::Neutral, bw)) {
 			DraftThisHome();
 		}
 		ImGui::EndDisabled();
-		if (ImGui::Button("Open the containers list", ImVec2(bw, 0))) {
+		if (w::Button("Open the containers list", nullptr, nullptr, w::Kind::Neutral, bw)) {
 			_drawerTab = DrawerTab::Containers;
 			_state.ui.drawerOpen = true;
 		}
@@ -204,6 +204,7 @@ namespace dova::editor::ui
 		w::RefBlock("ref", lines, a_cell.refText[static_cast<std::size_t>(a_index)]);
 		DrawRoleEditor(a_cell, a_index);
 		DrawPreviewDetails(a_cell, a_index);
+		DrawRemoveButton(a_cell, a_index);
 	}
 
 	void EditorApp::DrawChecksPanel(OpenCell& a_cell)

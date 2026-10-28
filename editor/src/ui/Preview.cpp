@@ -125,12 +125,22 @@ namespace dova::editor::ui
 		w::TipShortcut("How much of the sample each container would receive (Where items go)", "V");
 		_colours = static_cast<Colours>(mode);
 		w::SectionHead("Legend");
+		// The plan's own colours (Common.h ColorOf); in a colour mode the containers and displays it does not colour fade.
+		const ImU32 container = detail::ColorOf(home::PlacedRef{}, detail::Layer::Container);
+		const ImU32 rack = IM_COL32(80, 190, 230, 255), mannequin = IM_COL32(220, 110, 220, 255), plaque = IM_COL32(240, 170, 60, 255);
+		const ImU32 door = detail::ColorOf(home::PlacedRef{}, detail::Layer::Door), furniture = detail::ColorOf(home::PlacedRef{}, detail::Layer::Furniture);
+		const auto  faded = [](ImU32 a_col) { return (a_col & 0x00FFFFFF) | 0x90000000; };  // as Plan.cpp fills them (the outline fainter)
 		if (_colours == Colours::Fill) {
-			w::Swatch(kFillEmpty, "receives nothing");
-			w::Swatch(kFillLight, std::format("a few (< {})", kHeavyAt).c_str());
-			w::Swatch(kFillHeavy, "many");
-			w::Swatch(kFillMaster, "master: what has no place");
-			w::Small(_sampleKind == 0 ? "Sample: typical haul" : _sampleKind == 1 ? ("Sample: " + _samplePattern).c_str() : "Sample: every item");
+			w::Swatch(kFillEmpty, "Receives nothing");
+			w::Swatch(kFillLight, std::format("A few (under {})", kHeavyAt).c_str());
+			w::Tip("On a display: something goes up");
+			w::Swatch(kFillHeavy, "Many");
+			w::Swatch(kFillMaster, "Master");
+			w::Tip("Takes what has no place");
+			ImGui::PushFont(w::Th().smallFont);
+			w::Muted(_sampleKind == 0 ? "Typical haul" : _sampleKind == 1 ? CategoryText(_samplePattern).c_str() : "Every item");
+			ImGui::PopFont();
+			w::Tip("The sample (Where items go)");
 		} else if (_colours == Colours::Category) {
 			std::vector<std::string> used;
 			for (const auto& c : a_cell.layout.containers) {
@@ -138,7 +148,7 @@ namespace dova::editor::ui
 					used.push_back(c.categories.front());
 				}
 			}
-			w::Swatch(kMasterColour, "master");
+			w::Swatch(kMasterColour, "Master");
 			for (const auto& u : used) {
 				w::Swatch(CategoryColour(u), CategoryText(u).c_str());
 				w::Tip(u.c_str());
@@ -147,14 +157,26 @@ namespace dova::editor::ui
 				w::Muted("No container has categories yet");
 			}
 		} else {
-			// The plan's own colours.
-			w::Swatch(IM_COL32(90, 200, 110, 255), "container");
-			w::Swatch(IM_COL32(230, 70, 60, 255), "respawning container");
-			w::Swatch(IM_COL32(80, 190, 230, 255), "weapon rack");
-			w::Swatch(IM_COL32(220, 110, 220, 255), "mannequin");
-			w::Swatch(IM_COL32(240, 170, 60, 255), "plaque, case, bookshelf");
-			w::Swatch(IM_COL32(240, 220, 80, 255), "door");
-			w::Swatch(IM_COL32(140, 150, 220, 200), "furniture, activators");
+			w::Swatch(container, "Container");
+			w::Swatch(IM_COL32(230, 70, 60, 255), "Respawning container");
+			w::Swatch(rack, "Weapon rack");
+			w::Swatch(mannequin, "Mannequin");
+			w::Swatch(plaque, "Plaque, case, bookshelf");
+			w::Swatch(door, "Door");
+			w::Swatch(furniture, "Furniture, activators");
+		}
+		if (_colours != Colours::None) {
+			// What else the plan draws in colour in this mode: the rest in their own colours, faded when the mode gives them none.
+			w::SectionHead("Other");
+			const bool fill = _colours == Colours::Fill;
+			if (!fill) {
+				w::Swatch(faded(container), "Container, no category");
+			}
+			w::Swatch(faded(rack), fill ? "Weapon rack, nothing goes up" : "Weapon rack, no category");
+			w::Swatch(faded(mannequin), fill ? "Mannequin, nothing goes up" : "Mannequin, no category");
+			w::Swatch(faded(plaque), fill ? "Plaque, case, bookshelf, nothing goes up" : "Plaque, case, bookshelf, no category");
+			w::Swatch(door, "Door");
+			w::Swatch(furniture, "Furniture, activators");
 		}
 	}
 	const esp::ItemCatalog& EditorApp::Catalog(OpenCell& a_cell)
@@ -209,12 +231,19 @@ namespace dova::editor::ui
 		}
 		ImGui::SetNextItemWidth(ImGui::GetFontSize() * 11.0f);
 		const char* kinds[] = { "Typical haul", "One category", "Every item" };
-		ImGui::Combo("##sample", &_sampleKind, kinds, 3);
+		if (w::BeginCombo("##sample", kinds[std::clamp(_sampleKind, 0, 2)])) {
+			for (int k = 0; k < 3; ++k) {
+				if (ImGui::Selectable(kinds[k], k == _sampleKind)) {
+					_sampleKind = k;
+				}
+			}
+			w::EndCombo();
+		}
 		w::Tip("Typical haul: a handful of each kind of loot (base game items first)\nOne category: every item of the load order in it\nEvery item: one of each playable item");
 		if (_sampleKind == 1) {
 			ImGui::SameLine();
 			ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0f);
-			if (ImGui::BeginCombo("##samplecat", _samplePattern.c_str(), ImGuiComboFlags_HeightLarge)) {
+			if (w::BeginCombo("##samplecat", _samplePattern.c_str(), ImGuiComboFlags_HeightLarge)) {
 				for (const auto& c : _categories) {
 					const bool group = c.match.Empty();
 					const auto pattern = group ? c.id + ".*" : c.id;
@@ -222,11 +251,11 @@ namespace dova::editor::ui
 						_samplePattern = pattern;
 					}
 				}
-				ImGui::EndCombo();
+				w::EndCombo();
 			}
 		}
-		ImGui::SameLine();
-		if (w::ToolButton("Run again", false, "Run the planner again", "R")) {
+		ImGui::SameLine(0.0f, w::Th().gap);
+		if (w::Button("Run again", "Run the planner again", "R")) {
 			RunPreview(*_cell);
 		}
 		ImGui::SameLine();
@@ -312,7 +341,7 @@ namespace dova::editor::ui
 			TableRow row;
 			row.index = static_cast<int>(k);
 			row.cells.resize(5);  // [4]: not a column; the category ids, for the filter
-			row.cells[0].text = std::format("{}{}", c->master ? "master: " : "", name);
+			row.cells[0].text = c->master ? name + " master" : name;  // drawn as the name and a muted "master"; the filter finds the word
 			// Fill: by its colour (nothing, a few, many, the master), then by items.
 			const int level = c->master ? 3 : c->total == 0 ? 0 : c->total >= kHeavyAt ? 2 : 1;
 			row.cells[1].number = level * 1e7 + c->total;
@@ -343,7 +372,7 @@ namespace dova::editor::ui
 			ImGui::TableSetupColumn(columns[3], ImGuiTableColumnFlags_WidthStretch, 0.7f);
 			SyncSort(view);
 			FilterAndSort(view, rows, DrawerTable::Preview);
-			TableHeaders(DrawerTable::Preview, 1u << 2);  // Items: right-aligned
+			TableHeaders(DrawerTable::Preview, view, 1u << 2);  // Items: right-aligned
 			for (const auto& row : rows) {
 				const auto* c = order[static_cast<std::size_t>(row.index)];
 				const auto  it = p.refIndex.find(c->ref);
@@ -355,13 +384,18 @@ namespace dova::editor::ui
 				if (c->total == 0 && !c->master) {
 					ImGui::PushStyleColor(ImGuiCol_Text, w::Th().warn);
 				}
-				if (ImGui::Selectable(row.cells[0].text.c_str(), index >= 0 && IsSelected(index),
+				const std::string_view shown = c->master ? std::string_view(row.cells[0].text).substr(0, row.cells[0].text.size() - 7) : std::string_view(row.cells[0].text);
+				if (ImGui::Selectable(std::string(shown).c_str(), index >= 0 && IsSelected(index),
 						ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick) &&
 					index >= 0) {
 					TableRowClick(index);
 				}
 				if (c->total == 0 && !c->master) {
 					ImGui::PopStyleColor();
+				}
+				if (c->master) {
+					ImGui::SameLine(0.0f, w::Th().gap);
+					w::Muted("master");
 				}
 				if (index < 0) {
 					w::Tip("In another cell of the home: open that cell to see it");

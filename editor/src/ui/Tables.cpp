@@ -1,4 +1,4 @@
-// The drawer's tables: sort, filter box and quick filters (Tables.h, docs/EDITOR-UX.md §2.5).
+// The drawer's tables: sort, the filter box and the filters in the column headers (Tables.h, docs/EDITOR-UX.md §2.5).
 
 #include "ui/Tables.h"
 
@@ -22,29 +22,31 @@ namespace dova::editor::ui
 		constexpr const char* kDoorColumns[] = { "Leads to", "Cell", "In the home" };
 		constexpr const char* kPreviewColumns[] = { "Container", "Fill", "Items", "What it receives" };
 
-		// The bits match the tags Drawer.cpp and Preview.cpp give their rows.
+		// The bits match the tags Drawer.cpp and Preview.cpp give their rows; the column is the header that holds the
+		// filter (Role, Notes, Kind, Used, Fill).
 		constexpr QuickFilter kContainerQuick[] = {
-			{ "Master", 1u << 0, 0, "The container for what has no other place" },
-			{ "With categories", 1u << 1, 0, "Containers given categories or items" },
-			{ "No categories", 1u << 2, 0, "Containers in the template with nothing to take" },
-			{ "Ignored", 1u << 3, 0, "Containers the template ignores" },
-			{ "Not listed", 1u << 4, 0, "Containers the template leaves out" },
-			{ "Respawning", 1u << 5, 1, "Containers whose contents respawn" },
+			{ "Master", 1u << 0, 0, 2, "The container for what has no other place" },
+			{ "With categories", 1u << 1, 0, 2, "Containers given categories or items" },
+			{ "No categories", 1u << 2, 0, 2, "Containers in the template with nothing to take" },
+			{ "Ignored", 1u << 3, 0, 2, "Containers the template ignores" },
+			{ "Not listed", 1u << 4, 0, 2, "Containers the template leaves out" },
+			{ "Respawning", 1u << 5, 1, 5, "Containers whose contents respawn" },
 		};
 		constexpr QuickFilter kDisplayQuick[] = {
-			{ "Rack", 1u << 0, 0, "Weapon racks and shield plaques", true },
-			{ "Mannequin", 1u << 1, 0, nullptr, true },
-			{ "Plaque", 1u << 2, 0, "Plaques made for one item", true },
-			{ "Case", 1u << 3, 0, "Display cases", true },
-			{ "Bookshelf", 1u << 4, 0, nullptr, true },
-			{ "Used", 1u << 5, 1, "Displays the template uses" },
-			{ "Unused", 1u << 6, 1, "Displays the template ignores or leaves out" },
+			{ "Rack", 1u << 0, 0, 1, "Weapon racks and shield plaques", true },
+			{ "Mannequin", 1u << 1, 0, 1, nullptr, true },
+			{ "Plaque", 1u << 2, 0, 1, "Plaques made for one item", true },
+			{ "Case", 1u << 3, 0, 1, "Display cases", true },
+			{ "Bookshelf", 1u << 4, 0, 1, nullptr, true },
+			{ "Used", 1u << 5, 1, 2, "Displays the template uses" },
+			{ "Unused", 1u << 6, 1, 2, "Displays the template ignores or leaves out" },
 		};
 		constexpr QuickFilter kPreviewQuick[] = {
-			{ "Master", 1u << 1, 0, nullptr },
-			{ "Receives items", 1u << 2, 0, "Containers some of the sample goes to" },
-			{ "Receives nothing", 1u << 0, 0, "Containers no item of the sample goes to" },
+			{ "Master", 1u << 1, 0, 1, nullptr },
+			{ "Receives items", 1u << 2, 0, 1, "Containers some of the sample goes to" },
+			{ "Receives nothing", 1u << 0, 0, 1, "Containers no item of the sample goes to" },
 		};
+		constexpr int kKindColumn = 1;  // Containers: the objects' kinds (chest, sack, barrel...) filter the Kind column
 
 		int CompareNoCase(std::string_view a_lhs, std::string_view a_rhs)
 		{
@@ -98,7 +100,90 @@ namespace dova::editor::ui
 		}
 
 		float BoxWidth() { return std::round(170.0f * w::Th().scale); }
-		float ChipGap() { return std::round(4.0f * w::Th().scale); }
+
+		// The Kind column lists the objects' kinds (Containers only: the other tables' rows carry no kind).
+		bool KindColumn(DrawerTable a_table, const TableView& a_view, int a_column)
+		{
+			return a_table == DrawerTable::Containers && a_column == kKindColumn && !a_view.kindList.empty();
+		}
+
+		// A column with a funnel: quick filters some row can match, or the kinds.
+		bool Filterable(DrawerTable a_table, const TableView& a_view, int a_column)
+		{
+			if (KindColumn(a_table, a_view, a_column)) {
+				return true;
+			}
+			return std::ranges::any_of(TableQuickFilters(a_table), [&](const QuickFilter& q) { return q.column == a_column && Visible(q, a_view); });
+		}
+
+		// A filter of the column is on.
+		bool FilterOn(DrawerTable a_table, const TableView& a_view, int a_column)
+		{
+			if (KindColumn(a_table, a_view, a_column) && !a_view.kinds.empty()) {
+				return true;
+			}
+			return std::ranges::any_of(TableQuickFilters(a_table), [&](const QuickFilter& q) { return q.column == a_column && (a_view.quick & q.bit) != 0; });
+		}
+
+		// The funnel's popover: the column's checks, the kinds (with their row counts) in the Kind column, Clear.
+		// `a_roomAbove` > 0: the popover opens above the header and the kinds' list fits in that room.
+		void DrawColumnFilter(TableView& a_view, DrawerTable a_table, int a_column, float a_roomAbove)
+		{
+			const auto& t = w::Th();
+			bool        any = false;
+			for (const auto& q : TableQuickFilters(a_table)) {
+				if (q.column != a_column || !Visible(q, a_view)) {
+					continue;
+				}
+				bool v = (a_view.quick & q.bit) != 0;
+				if (w::Check(q.label, v, q.tip)) {
+					a_view.quick ^= q.bit;
+				}
+				any = any || v;
+			}
+			if (KindColumn(a_table, a_view, a_column)) {
+				// The list scrolls rather than leave the window: below the header to the window's bottom, or above it (a
+				// low drawer) to the window's top, less what the popover holds before the list and Clear after it.
+				const ImGuiViewport* vp = ImGui::GetMainViewport();
+				const float          room = a_roomAbove > 0.0f ? a_roomAbove - ImGui::GetCursorPosY() - 1.5f * t.rowH :
+				                                                 vp->WorkPos.y + vp->WorkSize.y - ImGui::GetCursorScreenPos().y - 1.5f * t.rowH;
+				ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f), ImVec2(FLT_MAX, std::max(room, 4.0f * t.rowH)));
+				ImGui::BeginChild("kinds", ImVec2(0.0f, 0.0f), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY);
+				// The counts on one right edge after the widest kind (a check is its 16 px box, 8 px, then the label).
+				float labelW = 0.0f, countW = 0.0f;
+				for (const auto& [kind, n] : a_view.kindList) {
+					labelW = std::max(labelW, ImGui::CalcTextSize(kind.c_str()).x);
+					countW = std::max(countW, ImGui::CalcTextSize(std::to_string(n).c_str()).x);
+				}
+				const float right = ImGui::GetCursorPosX() + std::round(24.0f * t.scale + labelW) + t.pad + countW;
+				for (const auto& [kind, n] : a_view.kindList) {
+					const auto it = std::ranges::find_if(a_view.kinds, [&](const std::string& k) { return core::IEquals(k, kind); });
+					bool       on = it != a_view.kinds.end();
+					if (w::Check(std::format("{}##{}", kind, kind).c_str(), on)) {
+						if (on) {
+							a_view.kinds.push_back(kind);
+						} else {
+							a_view.kinds.erase(it);
+						}
+					}
+					const auto count = std::to_string(n);
+					ImGui::SameLine(right - ImGui::CalcTextSize(count.c_str()).x);
+					w::Muted(count.c_str());
+				}
+				ImGui::EndChild();
+				any = any || !a_view.kinds.empty();
+			}
+			if (any && w::LinkButton("Clear")) {
+				for (const auto& q : TableQuickFilters(a_table)) {
+					if (q.column == a_column) {
+						a_view.quick &= ~q.bit;
+					}
+				}
+				if (KindColumn(a_table, a_view, a_column)) {
+					a_view.kinds.clear();
+				}
+			}
+		}
 	}
 
 	void RightText(const char* a_text)
@@ -108,8 +193,14 @@ namespace dova::editor::ui
 		ImGui::TextUnformatted(a_text);
 	}
 
-	void TableHeaders(DrawerTable a_table, std::uint32_t a_rightMask)
+	void TableHeaders(DrawerTable a_table, TableView& a_view, std::uint32_t a_rightMask)
 	{
+		const auto&       t = w::Th();
+		const ImGuiStyle& s = ImGui::GetStyle();
+		// TableHeader keeps the sort arrow's room at the cell's right edge; the funnel sits before that room.
+		const float arrow = ImGui::GetFontSize() + s.FramePadding.x;
+		const float funnel = std::round(14.0f * t.scale);
+		ImGuiTable* table = ImGui::GetCurrentTable();
 		ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
 		int n = 0;
 		for (const char* name : TableColumns(a_table)) {
@@ -117,14 +208,88 @@ namespace dova::editor::ui
 			if (!ImGui::TableSetColumnIndex(column)) {
 				continue;
 			}
-			if (a_rightMask & (1u << column)) {
-				// TableHeader keeps the sort arrow's room at the cell's right edge: the label ends just before it.
-				const ImGuiStyle& s = ImGui::GetStyle();
-				const float       arrow = ImGui::GetFontSize() + s.FramePadding.x;
-				const float       w = ImGui::CalcTextSize(name).x;
-				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, ImGui::GetContentRegionAvail().x - arrow - w));
+			const bool  filterable = Filterable(a_table, a_view, column);
+			const float funnelW = filterable ? funnel + 4.0f * t.scale : 0.0f;
+			const bool  right = (a_rightMask & (1u << column)) != 0;
+			if (filterable) {
+				ImGui::SetNextItemAllowOverlap();  // the funnel over the header's right end takes the click there
 			}
-			ImGui::TableHeader(name);
+			if (right) {
+				// A number column: the header without its own label or arrow (drawn into an empty clip), then the name
+				// flush right on the figures' edge (RightText's) and the sort arrow at the name's left.
+				const ImVec2 lp = ImGui::GetCursorScreenPos();
+				const float  edge = lp.x + ImGui::GetContentRegionAvail().x - funnelW;
+				ImDrawList*  dl = ImGui::GetWindowDrawList();
+				dl->PushClipRect(lp, lp, false);
+				ImGui::TableHeader(std::format("##{}", name).c_str());
+				dl->PopClipRect();
+				const ImVec2 cmin = ImGui::GetItemRectMin(), cmax = ImGui::GetItemRectMax();
+				const float  tw = ImGui::CalcTextSize(name).x;
+				const float  x = std::max(lp.x, edge - tw);
+				dl->PushClipRect(cmin, cmax, true);
+				dl->AddText(ImVec2(std::floor(x), lp.y), ImGui::GetColorU32(ImGuiCol_Text), name);
+				if (table && column < table->ColumnsCount && table->Columns[column].SortOrder != -1) {
+					// TableHeader's arrow (0.65 of the font), its visible part ending 4 px before the name, centred on the line.
+					const auto& c = table->Columns[column];
+					const float fs = ImGui::GetFontSize();
+					const float ax = x - 0.76f * fs - 4.0f * t.scale;
+					if (c.SortOrder > 0) {
+						// A second or later sort column: its place in the order before the arrow, as TableHeader shows it.
+						const auto  order = std::to_string(c.SortOrder + 1);
+						const float ow = ImGui::CalcTextSize(order.c_str()).x;
+						dl->AddText(ImVec2(std::floor(ax + 0.24f * fs - s.ItemInnerSpacing.x - ow), lp.y), ImGui::GetColorU32(ImGuiCol_Text, 0.7f), order.c_str());
+					}
+					ImGui::RenderArrow(dl, ImVec2(std::floor(ax), std::floor(lp.y + 0.5f * fs * (1.0f - 0.65f))), ImGui::GetColorU32(ImGuiCol_Text),
+						c.SortDirection == ImGuiSortDirection_Ascending ? ImGuiDir_Up : ImGuiDir_Down, 0.65f);
+				}
+				dl->PopClipRect();
+			} else {
+				ImGui::TableHeader(name);
+			}
+			if (static_cast<std::size_t>(column) < a_view.headerTips.size() && !a_view.headerTips[static_cast<std::size_t>(column)].empty()) {
+				w::Tip(a_view.headerTips[static_cast<std::size_t>(column)].c_str());
+			}
+			if (!filterable) {
+				continue;
+			}
+			const ImVec2 hmin = ImGui::GetItemRectMin(), hmax = ImGui::GetItemRectMax();
+			const ImVec2 bmin(std::floor(hmax.x - (right ? 0.0f : arrow) - funnelW), hmin.y);
+			ImGui::PushID(column);
+			ImGui::SetCursorScreenPos(bmin);
+			const bool pressed = ImGui::InvisibleButton("funnel", ImVec2(funnelW, std::max(hmax.y - hmin.y, 1.0f)));
+			const bool hovered = ImGui::IsItemHovered();
+			const bool on = FilterOn(a_table, a_view, column);
+			w::DrawIcon(ImGui::GetWindowDrawList(), w::Icon::Filter, ImVec2(bmin.x + 2.0f * t.scale, std::floor(hmin.y + (hmax.y - hmin.y - funnel) * 0.5f)), funnel,
+				on ? t.accent : hovered ? t.text : t.muted);
+			if (hovered && !ImGui::IsPopupOpen("filter")) {
+				ImGui::SetTooltip("%s", on ? "Filter on: click to change" : "Filter");
+			}
+			if (pressed || a_view.openFilter == column) {
+				a_view.openFilter = -1;
+				ImGui::OpenPopup("filter");
+			}
+			// Under the funnel, as BeginPopover places its popup: left-aligned, right-aligned in the right half. A long
+			// list (the kinds) in a low drawer opens above the header instead, where there is room.
+			const ImGuiViewport* vp = ImGui::GetMainViewport();
+			const bool           atRight = bmin.x + funnelW * 0.5f > vp->WorkPos.x + vp->WorkSize.x * 0.5f;
+			const float          below = vp->WorkPos.y + vp->WorkSize.y - hmax.y - 4.0f * t.scale;
+			const float          above = hmin.y - 4.0f * t.scale - vp->WorkPos.y;
+			const bool           up = KindColumn(a_table, a_view, column) && below < 10.0f * t.rowH && above > below;
+			ImGui::SetNextWindowPos(ImVec2(atRight ? bmin.x + funnelW : bmin.x, up ? hmin.y - 4.0f * t.scale : hmax.y + 4.0f * t.scale), ImGuiCond_Always,
+				ImVec2(atRight ? 1.0f : 0.0f, up ? 1.0f : 0.0f));
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f * t.scale, 6.0f * t.scale));
+			const bool open = ImGui::BeginPopup("filter", ImGuiWindowFlags_NoMove);
+			ImGui::PopStyleVar();
+			if (open) {
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f * t.scale, 4.0f * t.scale));
+				if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !ImGui::GetIO().WantTextInput) {
+					ImGui::CloseCurrentPopup();
+				}
+				DrawColumnFilter(a_view, a_table, column, up ? above : 0.0f);
+				ImGui::PopStyleVar();
+				ImGui::EndPopup();
+			}
+			ImGui::PopID();
 		}
 	}
 
@@ -277,110 +442,23 @@ namespace dova::editor::ui
 		});
 	}
 
-	float FilterBarWidth(const TableView& a_view, DrawerTable a_table, bool a_folded)
+	float FilterBarWidth(const TableView& a_view)
 	{
 		const auto& t = w::Th();
 		float       width = BoxWidth();
-		int         visible = 0, on = 0;
-		for (const auto& q : TableQuickFilters(a_table)) {
-			if (Visible(q, a_view)) {
-				++visible;
-				on += (a_view.quick & q.bit) ? 1 : 0;
-				width += a_folded ? 0.0f : w::ChipWidth(q.label) + ChipGap();
-			}
-		}
-		if (a_folded && visible > 0) {
-			width += w::PopoverWidth("Filters", w::Icon::ChevronDown, on) + t.gap;
-		}
 		if (const auto count = CountText(a_view); !count.empty()) {
 			width += w::TextWidth(count.c_str()) + t.gap;
 		}
-		if (!a_view.kindList.empty()) {
-			width += w::PopoverWidth("Kind", w::Icon::ChevronDown, static_cast<int>(a_view.kinds.size())) + t.gap;
-		}
-		return width + t.gap;  // between the chips and the box
+		return width;
 	}
 
-	void DrawFilterBar(TableView& a_view, DrawerTable a_table, bool a_folded)
+	void DrawFilterBar(TableView& a_view, DrawerTable a_table)
 	{
 		const auto& t = w::Th();
 		ImGui::PushID(TableName(a_table));
 		if (const auto count = CountText(a_view); !count.empty()) {
 			ImGui::AlignTextToFramePadding();
 			w::Muted(count.c_str());
-			ImGui::SameLine(0.0f, t.gap);
-		}
-		bool any = false;
-		if (a_folded) {
-			int visible = 0, on = 0;
-			for (const auto& q : TableQuickFilters(a_table)) {
-				if (Visible(q, a_view)) {
-					++visible;
-					on += (a_view.quick & q.bit) ? 1 : 0;
-				}
-			}
-			if (visible > 0) {
-				if (w::BeginPopover("quickfilters", "Filters", w::Icon::ChevronDown, on, "Quick filters")) {
-					for (const auto& q : TableQuickFilters(a_table)) {
-						if (!Visible(q, a_view)) {
-							continue;
-						}
-						bool v = (a_view.quick & q.bit) != 0;
-						if (w::Check(q.label, v, q.tip)) {
-							a_view.quick ^= q.bit;
-						}
-					}
-					if (on > 0 && w::LinkButton("Clear")) {
-						a_view.quick = 0;
-					}
-					w::EndPopover();
-				}
-				any = true;
-			}
-		} else {
-			for (const auto& q : TableQuickFilters(a_table)) {
-				if (!Visible(q, a_view)) {
-					continue;
-				}
-				const bool on = (a_view.quick & q.bit) != 0;
-				if (w::ChipButton(q.label, w::Kind::Neutral, on)) {
-					a_view.quick ^= q.bit;
-				}
-				w::Tip(q.tip);
-				ImGui::SameLine(0.0f, ChipGap());
-				any = true;
-			}
-		}
-		if (any) {
-			ImGui::SameLine(0.0f, t.gap);
-		}
-		// The objects' kinds (their base names: chest, sack, barrel...), a check each.
-		if (!a_view.kindList.empty()) {
-			if (w::BeginPopover("kind", "Kind", w::Icon::ChevronDown, static_cast<int>(a_view.kinds.size()), "Show only these kinds")) {
-				// The drawer is at the window's bottom: the list scrolls rather than leave the window.
-				const ImGuiViewport* vp = ImGui::GetMainViewport();
-				const float          room = vp->WorkPos.y + vp->WorkSize.y - ImGui::GetCursorScreenPos().y - 3.0f * t.rowH;
-				ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f), ImVec2(FLT_MAX, std::max(room, 4.0f * t.rowH)));
-				ImGui::BeginChild("kinds", ImVec2(0.0f, 0.0f), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY);
-				for (const auto& [kind, n] : a_view.kindList) {
-					const auto it = std::ranges::find_if(a_view.kinds, [&](const std::string& k) { return core::IEquals(k, kind); });
-					bool       on = it != a_view.kinds.end();
-					if (w::Check(std::format("{}##{}", kind, kind).c_str(), on)) {
-						if (on) {
-							a_view.kinds.push_back(kind);
-						} else {
-							a_view.kinds.erase(it);
-						}
-					}
-					ImGui::SameLine();
-					w::Muted(std::to_string(n).c_str());
-				}
-				ImGui::EndChild();
-				if (!a_view.kinds.empty() && w::LinkButton("All kinds")) {
-					a_view.kinds.clear();
-				}
-				w::EndPopover();
-			}
 			ImGui::SameLine(0.0f, t.gap);
 		}
 		w::SearchBox("filter", a_view.filter, "Filter rows", BoxWidth());

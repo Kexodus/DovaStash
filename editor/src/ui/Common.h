@@ -203,10 +203,15 @@ namespace dova::editor::ui::detail
 		}
 	}
 
+	// The name a reference is shown by: the game's name, else (a display) its kind ("Mannequin", never an EditorID such
+	// as PlayerHouseMannequin), else the base's EditorID.
 	inline std::string RefTitle(const home::PlacedRef& a_ref)
 	{
 		if (!a_ref.baseName.empty()) {
 			return a_ref.baseName;
+		}
+		if (a_ref.display) {
+			return home::DisplayWord(a_ref);
 		}
 		if (!a_ref.baseEditorId.empty()) {
 			return a_ref.baseEditorId;
@@ -214,7 +219,6 @@ namespace dova::editor::ui::detail
 		return a_ref.editorId.empty() ? std::string("(unnamed)") : a_ref.editorId;
 	}
 
-	// The game's name for a container or display (the label a new binding gets).
 	// The icon of what a reference is: a door, a chest, a rack, a mannequin, a bookshelf, a plaque or case.
 	inline w::Icon IconOf(const home::PlacedRef& a_ref)
 	{
@@ -236,7 +240,11 @@ namespace dova::editor::ui::detail
 		return a_ref.IsContainer() ? w::Icon::Container : w::Icon::Cube;
 	}
 
-	inline std::string GameName(const home::PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
+	// The game's name for a container or display (the label a new binding gets); a display without one: its kind.
+	inline std::string GameName(const home::PlacedRef& a_ref)
+	{
+		return !a_ref.baseName.empty() ? a_ref.baseName : a_ref.display ? home::DisplayWord(a_ref) : a_ref.baseEditorId;
+	}
 
 	// What kind of object a container is (the Containers table's Kind): chest, sack, barrel, satchel, bookshelf...
 	// From the mesh's file name first (what it looks like), then the base EditorID, then the game's name; "Other".

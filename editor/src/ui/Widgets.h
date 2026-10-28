@@ -106,9 +106,10 @@ namespace dova::editor::ui::w
 	void Muted(const char* a_text);    // body in `muted`
 	void MutedWrapped(const char* a_text);
 	void Small(const char* a_text);
-	void Mono(const char* a_text);     // a form ref or an EditorID
-	// Small caps heading, thin line, diamond at the left (EDITOR-UX.md §3.3); `a_tooltip` adds an info mark.
-	void SectionHead(const char* a_text, const char* a_tooltip = nullptr);
+	void Mono(const char* a_text, ImU32 a_colour = 0);  // a form ref or an EditorID (0: the text colour)
+	// Small tracked capitals, then a hairline to the right edge (EDITOR-UX.md §3.3); `a_tooltip` adds an info mark,
+	// `a_count` a count after the capitals in small muted text, not tracked ("CONTAINERS  20 of 52").
+	void SectionHead(const char* a_text, const char* a_tooltip = nullptr, const char* a_count = nullptr);
 	void Tip(const char* a_text);          // tooltip when the last item is hovered (nullptr/empty: nothing)
 	void Spacer(float a_px = 0.0f);        // vertical space (default: the theme gap)
 
@@ -124,6 +125,8 @@ namespace dova::editor::ui::w
 	};
 	ImU32 Colour(Kind a_kind);
 	void  Chip(const char* a_text, Kind a_kind = Kind::Neutral);           // 24 px pill
+	// A chip to switch on and off (a suggestion to accept): on, a check in the chip's colour before the text in `text` and
+	// a full border; off, the text muted and the border at half strength.
 	bool  ChipButton(const char* a_text, Kind a_kind = Kind::Neutral, bool a_active = false);
 	bool  ChipClose(const char* a_text, Kind a_kind = Kind::Neutral);      // chip with an x; true when the x is clicked
 	void  StatusDot(Kind a_kind, const char* a_tooltip = nullptr);         // a 6 px dot on the baseline (unsaved, state)
@@ -155,7 +158,7 @@ namespace dova::editor::ui::w
 		Home,
 		Cube,     // 3D view
 		Plan,     // floor plan
-		Draft,    // a quill / a sparkle: suggestions
+		Draft,    // a quill: suggestions
 		Plus,
 		Minus,
 		Emblem,   // the Dova Stash mark
@@ -190,7 +193,13 @@ namespace dova::editor::ui::w
 	// A ToolButton with a count after the label in muted small text (the drawer's tabs; no pill, EDITOR-UX.md §3.5);
 	// `a_count` < 0: no count. `a_of` >= 0 and not `a_count`: the count reads "count of of" (253 of 297).
 	bool TabButton(const char* a_label, bool a_active, int a_count, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr, int a_of = -1);
-	bool LinkButton(const char* a_label);  // text in accent, underline on hover
+	bool LinkButton(const char* a_label);  // text in accent, underline on hover (navigation only)
+	// A panel's action (the Draft panel's row, the Template footer, empty states): bg2, a 1 px line border, the input
+	// height, text in `text` (Error: in `error`). `a_width` > 0: that wide, the label wrapped onto more lines when it
+	// does not fit; else as wide as the label.
+	bool Button(const char* a_label, const char* a_tooltip = nullptr, const char* a_shortcut = nullptr, Kind a_kind = Kind::Neutral, float a_width = 0.0f);
+	// The same with an icon before the label, in the label's colour ("Remove from the template": Trash, Error).
+	bool Button(const char* a_label, Icon a_icon, Kind a_kind = Kind::Neutral, const char* a_tooltip = nullptr, float a_width = 0.0f);
 	// Segmented control (3D | Plan, the inspector panels). Returns true when `a_value` changed.
 	bool Segmented(const char* a_id, int& a_value, std::span<const char* const> a_labels, std::span<const char* const> a_tooltips = {});
 
@@ -198,6 +207,11 @@ namespace dova::editor::ui::w
 	// Search box with the magnifier icon and a clear x; returns true when the text changed.
 	bool SearchBox(const char* a_id, char* a_buf, std::size_t a_size, const char* a_hint, float a_width = -1.0f);
 	bool SearchBox(const char* a_id, std::string& a_text, const char* a_hint, float a_width = -1.0f);
+
+	// A dropdown: ImGui's combo without its filled arrow, a muted chevron at the right instead (text on hover).
+	// Pair with EndCombo only when it returned true, as ImGui::BeginCombo.
+	bool BeginCombo(const char* a_id, const char* a_preview, ImGuiComboFlags a_flags = 0);
+	void EndCombo();
 
 	// ---- Popovers (menus anchored to a button) -----------------------------------------------------
 	// A button (label and/or icon, with a count in accent after it when `a_badge` > 0) that opens a popover below it.
@@ -259,7 +273,7 @@ namespace dova::editor::ui::w
 	// A row in a popover menu: label, the shortcut right-aligned in muted. Closes the popup when clicked.
 	bool  MenuRow(const char* a_label, const char* a_shortcut = nullptr, bool a_enabled = true);
 	void  ToolbarDivider();  // a 1 px vertical line between groups in a toolbar or overlay (SameLine first)
-	void  Ornament(float a_width = 0.0f);  // the centred "line ◆ line" divider (start panel, empty states)
+	void  Ornament(float a_width = 0.0f);  // the centred divider: the emblem between two hairlines (start panel, empty states)
 	// Text with a trailing muted part on one line ("Aldamar", "· 0Druid").
 	void  TextWithMuted(const char* a_text, const char* a_muted);
 	// Icon at the cursor as an item (one line high), in `a_colour` (0: text colour).
@@ -308,7 +322,7 @@ namespace dova::editor::ui::w
 	void ClaimLayoutDoubleClick();
 	// Chip flow: the width a chip takes, and SameLine() when the next item of `a_width` still fits before
 	// `a_rightX` (the row's right edge in screen space, taken before the first item).
-	[[nodiscard]] float ChipWidth(const char* a_text, bool a_close = false);
+	[[nodiscard]] float ChipWidth(const char* a_text, bool a_close = false, bool a_active = false);  // a_active: a ChipButton that is on
 	void FlowNext(float a_width, float a_rightX);
 	// A centred heading with a muted second line in a fixed area (the viewport while loading).
 	void CentredMessage(ImVec2 a_min, ImVec2 a_max, const char* a_text, const char* a_sub = nullptr);

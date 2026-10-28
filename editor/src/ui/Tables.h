@@ -61,13 +61,15 @@ namespace dova::editor::ui
 		bool descending{ false };
 	};
 
-	// A quick filter, drawn as a toggle chip next to the box. Chips of one group combine with "or" (a role, a kind),
-	// groups with "and". `ifPresent`: shown only when a row matches it (the display kinds of the home).
+	// A quick filter: a check in the funnel popover of the column it describes (`column`; EDITOR-UX.md §2.5). Filters
+	// of one group combine with "or" (a role, a kind), groups with "and". `ifPresent`: shown only when a row matches
+	// it (the display kinds of the home).
 	struct QuickFilter
 	{
 		const char*   label;
 		std::uint32_t bit;
 		int           group;
+		int           column;
 		const char*   tip;
 		bool          ifPresent{ false };
 	};
@@ -83,6 +85,8 @@ namespace dova::editor::ui
 		std::vector<std::string> kinds;        // the Kind popover's picks (none: every kind)
 		std::vector<std::pair<std::string, int>> kindList;  // the kinds in the table and their rows (last frame)
 		int                  shown{ 0 }, total{ 0 };  // rows after the filters, rows in all (last frame: "N of M")
+		int                  openFilter{ -1 };        // a column whose funnel opens on the next header draw (--popover kind: 1)
+		std::vector<std::string> headerTips;          // per column, the header's tooltip (empty: none); the table sets it each frame
 	};
 
 	// The table's column headers (TableSetupColumn uses them; --sort names them) and quick filters.
@@ -96,9 +100,11 @@ namespace dova::editor::ui
 	// Call between TableSetupColumn and the rows: the first time it gives `a_view.sort` to ImGui's table, afterwards
 	// it takes the header clicks into it.
 	void SyncSort(TableView& a_view);
-	// The header row (TableHeadersRow) with the columns in `a_rightMask` (bit n: column n) right-aligned, as their
-	// cells are: numbers sit on one right edge (EDITOR-UX.md §3.5). Draw those cells with RightText.
-	void TableHeaders(DrawerTable a_table, std::uint32_t a_rightMask);
+	// The header row (TableHeadersRow) with the table's filters in it: a column with quick filters (and the Kind
+	// column of Containers, with the objects' kinds) ends in a funnel, accent while a filter of its is on, that opens
+	// the checks. The columns in `a_rightMask` (bit n: column n) are right-aligned, as their cells are: numbers sit
+	// on one right edge (EDITOR-UX.md §3.5), the sort arrow at the name's left. Draw those cells with RightText.
+	void TableHeaders(DrawerTable a_table, TableView& a_view, std::uint32_t a_rightMask);
 	void RightText(const char* a_text);
 	// Drops the rows the box and the quick filters hide, then sorts the rest stably by `a_view.sort` (the rows come
 	// in the table's own order). Updates the view's counts.
@@ -106,11 +112,10 @@ namespace dova::editor::ui
 	// The box's words, all found (ignoring case) in the row's text.
 	[[nodiscard]] bool MatchesText(const TableRow& a_row, std::string_view a_filter);
 
-	// The tab row's right side: "N of M" when rows are hidden, the quick filters and the box. Width first (to
-	// right-align it), then Draw at the cursor. `a_folded`: the quick filters in a "Filters" popover with a count
-	// of those on (a row too narrow for the chips; the Kind list and the box always show).
-	[[nodiscard]] float FilterBarWidth(const TableView& a_view, DrawerTable a_table, bool a_folded = false);
-	void                DrawFilterBar(TableView& a_view, DrawerTable a_table, bool a_folded = false);
+	// The tab row's right side: "N of M" when rows are hidden, then the box (the filters are in the headers). Width
+	// first (to right-align it), then Draw at the cursor.
+	[[nodiscard]] float FilterBarWidth(const TableView& a_view);
+	void                DrawFilterBar(TableView& a_view, DrawerTable a_table);
 
 	// The command line: "--sort table:column[:desc]" (column by header or number from 1) and "--quick chip".
 	struct SortArg

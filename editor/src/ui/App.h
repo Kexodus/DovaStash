@@ -75,7 +75,7 @@ namespace dova::editor::ui
 		std::optional<std::string> layers;    // Layers popover toggles for this run: "effects,-structure" (names, - turns off)
 		std::vector<std::string>   sort;      // drawer tables' sort for this run: "table:column[:desc]" (ui/Tables.h)
 		std::optional<std::string> filter;    // the drawer tab's filter box
-		std::vector<std::string>   quick;     // the drawer tab's quick filters on (chip labels)
+		std::vector<std::string>   quick;     // the drawer tab's column filters on (their labels)
 	};
 
 	// Win32 + Direct3D 11 + Dear ImGui host (Window.cpp). Returns the process exit code.
@@ -333,7 +333,7 @@ namespace dova::editor::ui
 		void LoadCategories();
 		void Revalidate(OpenCell& a_cell);
 		void RequestSave();  // Save / Ctrl+S: asks first when the file exists or the home has a template
-		void DrawSaveButton();  // the title row's and the Template panel's (TitleBar.cpp): filled only with unsaved work
+		void DrawSaveButton(bool a_panel = false);  // the title row's and the Template panel's (TitleBar.cpp): filled only with unsaved work
 		[[nodiscard]] bool SaveMakesCopy();  // Save writes a copy: an unchanged template that is not the file Save writes (a shipped one)
 		void SaveTemplate(OpenCell& a_cell);
 		void SaveTemplateAs(OpenCell& a_cell);
@@ -347,6 +347,7 @@ namespace dova::editor::ui
 		[[nodiscard]] std::vector<const home::KnownTemplate*> TemplatesFor(const OpenCell& a_cell) const;  // every known template of the home (all its cells)
 		void                                DrawTemplateList(OpenCell& a_cell);  // Roles.cpp: the home's templates, the open one marked
 		void DrawRoleEditor(OpenCell& a_cell, int a_index);
+		void DrawRemoveButton(OpenCell& a_cell, int a_index);  // "Remove from the template", last in the Selection panel
 		void MakeMaster(OpenCell& a_cell, int a_index);  // the old master becomes a plain container
 		void MakeAreaMaster(OpenCell& a_cell, int a_index, bool a_on);  // the open joined cell's (cells[].master), or not
 		void DrawTemplate(OpenCell& a_cell);  // the inspector's Template panel

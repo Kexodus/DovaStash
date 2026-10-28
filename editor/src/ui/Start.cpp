@@ -70,7 +70,7 @@ namespace dova::editor::ui
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 170.0f * t.scale);
 			const bool enter = ImGui::InputTextWithHint("##mo2card", "MO2 instance or Skyrim Data folder", _mo2Path, sizeof(_mo2Path), ImGuiInputTextFlags_EnterReturnsTrue);
 			ImGui::SameLine();
-			if (ImGui::Button("Browse...")) {
+			if (w::Button("Browse...")) {
 				if (auto p = PickFolder()) {
 					std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", p->c_str());
 				}

@@ -99,11 +99,11 @@ one workspace.
   someone else's or go with an upgrade). Every column sorts: click its header (again: descending, a third time: the
   table's own order), Shift+click adds a column; *ignored*, *not listed* and *no categories* sort after real
   categories, the master first. Containers opens in its own order: the master, with categories, without, ignored,
-  not listed, those that start disabled last in each. At the tab row's right: quick filters (Containers: *Master*, *With categories*,
-  *No categories*, *Ignored*, *Not listed*, *Respawning* and a *Kind* ▾ list: chest, sack, barrel, satchel,
-  bookshelf...; Displays: their kinds, *Used*, *Unused*; Where items go: *Master*, *Receives items*, *Receives
-  nothing*; one of a set is enough, sets combine; a row too narrow for them, at a large text size or in a small
-  window, folds them into a *Filters* ▾ list with the count of those on) and a *Filter rows* box (every word must
+  not listed, those that start disabled last in each. The filters sit in the column headers, a funnel each
+  (Containers: *Kind* lists the kinds, chest, sack, barrel, satchel, bookshelf...; *Role* has *Master*, *With
+  categories*, *No categories*, *Ignored*, *Not listed*; *Notes* has *Respawning*; Displays: *Kind* has their kinds,
+  *Used* has *Used*, *Unused*; Where items go: *Fill* has *Master*, *Receives items*, *Receives nothing*; one of a
+  column's set is enough, columns combine; the funnel is white while a filter of its is on). At the tab row's right: a *Filter rows* box (every word must
   be in some column; Esc clears it), always shown, with "N of M" when rows are hidden. Sort and filters last for
   the session, per table. The tables
   speak words: categories by their names (*Swords*, *Books (all)* for `books.*`; the ids in the tooltip and found by
@@ -124,7 +124,9 @@ one workspace.
 
 The rail's, inspector's and drawer's sizes, which are open, and the view persist in `state.json` (§3.6). The
 drawer's height is kept as a share of the window's, so a smaller window keeps its view: the drawer takes at most
-half the height, and the rail and inspector together at most 60% of the width.
+half the height, and the rail and inspector together at most 60% of the width. The view keeps a floor: at least 45%
+of the width and 560 px, half the height between the title and status rows and 320 px (UI size included); where the
+floor bites the inspector gives way down to 30% of the width (never under its 280 px).
 
 1. **Open the setup.** Launched from MO2 the editor finds its instance and profile by itself (§4.2);
    otherwise the start panel asks for the instance folder once (remembered later). `⚙` *Setup* changes it.
@@ -362,9 +364,10 @@ container has a stronger claim on), *Reject the weak ones* (under 50%), *Draft a
 editing `DraftRules.json`; asks when the template has changes). Then the master with the first clause of its reason
 (the whole reason and the runners-up in the tooltip; *Use this one* when the template uses another), and per
 container its suggestions as chips coloured by confidence (green: the name says so, yellow: a station or items
-nearby, orange: a hint; the legend is the tooltip of the *Containers N of M* head: accepted of the home's usable
-containers, the rail's number), the source and reason in the
-tooltip; a click accepts or rejects. A click on a container's name selects it in the view (one in another cell of
+nearby, orange: a hint; the legend is the line *name · nearby · hint* under the *CONTAINERS N of M* head: accepted
+of the home's usable containers, the rail's number), the source and reason in the
+tooltip; a click accepts or rejects, and an accepted chip shows a check before its text in full, a chip not
+accepted is quieter (muted text, a fainter border). A click on a container's name selects it in the view (one in another cell of
 the home opens that cell). Rows of the same name are told apart, in turn: the cell (*Cellar*, *Grounds*), the wing
 (a Hearthfire room: *Storage room*), the nearest station (*by the oven*), the side (*west*/*east* or *south*/*north*
 along the tied rows' long axis, as the plan shows it, north up), then the height above the cell's floor and, only
@@ -424,8 +427,10 @@ the containers that receive nothing (and why: no categories, or nothing of the s
 master, what goes on displays, and stacks with nowhere to go (no master). It re-runs by itself when the template
 changes; *Run again* (R) runs it by hand, the sample picker and the run time sit in the tab's own row. **Colours**
 (both the 3D view and the plan; the toolbar's *Colours* ▾ with the legend, `C` / `V`, or *By fill* / *By category* in
-the tab's row): *by fill* (receives nothing, a few, many, master) or *by category* (each container in its first
-category's colour, one hue per group). Selecting a container shows its predicted items in the Selection panel
+the tab's row): *by fill* (*Receives nothing*, *A few (under 20)*, *Many*, *Master*, then the sample as a muted
+caption) or *by category* (each container in its first category's colour, one hue per group); under *Other* the
+popover names what the plan still draws in its own colours in that mode (displays the mode leaves uncoloured, doors,
+furniture). The table shows the master as its name with a muted *master* after it. Selecting a container shows its predicted items in the Selection panel
 (*Where its items go*). Headless: `--preview <cell> [--sample haul|all|<pattern>] [--draft]`.
 
 ### 3.6 Start panel and to-do list (built)
@@ -625,7 +630,7 @@ author's last session (with `DOVASTASH_EDITOR_STATE` set, to `editor.log` next t
 data already in the plugins: position, Z rotation, scale, and the base record's object bounds (OBND) as a
 footprint. Structure (statics) as faint outlines gives the room shapes; containers green (respawning
 red), racks blue, mannequins magenta, plaques/cases/bookshelves orange, doors yellow, furniture lavender. Wheel zoom,
-right/middle-drag pan, a scale bar, a height range to isolate one floor of a tower, layer toggles, hover
+right/middle-drag pan, a scale bar in metres (1, 2, 5, 10 or 20 m, whichever fits), a height range to isolate one floor of a tower, layer toggles, hover
 tooltips, click-to-select. **Layers** (the *Layers* popover, `L`), one rule for the plan and the 3D view
 (`home::LayerOf`): *Structure* (statics, clutter, loose items, plants, candles and lanterns), *Containers*,
 *Displays*, *Doors*, *Furniture* (furniture, crafting stations and sit markers, activators with a mesh), *People*
@@ -796,8 +801,8 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    remembered one stays), `--text-size <percent|auto>` (the text size for this run, 100 to 250; screenshots keep
    100 % without it, even with `--state`),
    `--sort <table>:<column>[:desc]` (a drawer table sorted by a column, its header or number; repeat it for more
-   columns), `--filter <text>` and `--quick <chip>` (the drawer tab's filter box and quick filters, `--popover kind`
-   opens the Kind list); like `--tab` they apply once, for that run;
+   columns), `--filter <text>` and `--quick <filter>` (the drawer tab's filter box and column filters, `--popover kind`
+   opens the Kind column's funnel); like `--tab` they apply once, for that run;
    `--screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit). A screenshot run
    starts from the default state and writes none: the author's `state.json` (homes in progress, panel sizes) stays
    as it was. `--state <file>` reads and writes that file instead (with or without `--screenshot`), as

@@ -1,7 +1,7 @@
 // The bottom drawer (docs/EDITOR-UX.md §2.5): Containers · Displays · Doors · Where items go, the wide tables.
 // Rows select the same object as the view (Ctrl adds, a double click frames it); on the Doors tab a double click
 // opens the cell a door leads to, and the tick joins that cell to the home. Collapsed it is its tab row; drag the top edge to resize.
-// Every table sorts by any column (Shift+click adds one) and has a filter box with quick filters (ui/Tables.h);
+// Every table sorts by any column (Shift+click adds one), filters from its column headers and has a filter box (ui/Tables.h);
 // rows keep their reference's index, so selection works on the filtered, sorted list.
 
 #include <algorithm>
@@ -99,16 +99,13 @@ namespace dova::editor::ui
 		}
 		const float b = t.toolbarH - 4.0f * t.scale;
 		if (open) {
-			// The table's filter at the right, before the chevron: "N of M", the quick filters, the box.
+			// The table's filter at the right, before the chevron: "N of M" and the box (the filters are in the headers).
 			const auto table = static_cast<DrawerTable>(_drawerTab);
 			auto&      view = Table(_drawerTab);
-			// Too narrow for the chips (a large text size, a small window): they fold into a "Filters" popover, so the
-			// Kind list and the box stay in view.
 			ImGui::SameLine();
 			const float from = ImGui::GetCursorPosX() + 2.0f * t.pad;
-			const bool  folded = from + FilterBarWidth(view, table) > W - b - 2.0f * t.pad;
-			ImGui::SetCursorPosX(std::max(from, W - b - 2.0f * t.pad - FilterBarWidth(view, table, folded)));
-			DrawFilterBar(view, table, folded);
+			ImGui::SetCursorPosX(std::max(from, W - b - 2.0f * t.pad - FilterBarWidth(view)));
+			DrawFilterBar(view, table);
 		}
 		ImGui::SameLine();
 		ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX(), W - b - t.pad));
@@ -212,6 +209,45 @@ namespace dova::editor::ui
 			return {};
 		}
 
+		// The plugin every row's ref in `a_column` shares ("Eli_Druid Home.esp" of "Eli_Druid Home.esp|0x00000E68"), else
+		// empty: then the column shows only the local ids and its header names the plugin.
+		std::string SharedPlugin(const std::vector<TableRow>& a_rows, std::size_t a_column)
+		{
+			std::string_view plugin;
+			for (const auto& r : a_rows) {
+				const std::string_view ref = a_column < r.cells.size() ? std::string_view(r.cells[a_column].text) : std::string_view{};
+				const auto             bar = ref.find('|');
+				if (bar == std::string_view::npos || (!plugin.empty() && !core::IEquals(plugin, ref.substr(0, bar)))) {
+					return {};
+				}
+				plugin = ref.substr(0, bar);
+			}
+			return std::string(plugin);
+		}
+
+		// A ref in a table: mono, muted (the quietest column), the local id alone when the plugin is the header's. A
+		// column narrower than the text keeps its end (the id) and starts with "…". The row's text keeps the full ref
+		// (the filter box searches it).
+		void RefCell(const std::string& a_ref, bool a_local)
+		{
+			std::string_view shown(a_ref);
+			if (const auto bar = shown.find('|'); a_local && bar != std::string_view::npos) {
+				shown.remove_prefix(bar + 1);
+			}
+			ImFont*     font = w::FontOf(w::Font::Mono);
+			const float avail = ImGui::GetContentRegionAvail().x;
+			const auto  width = [&](std::string_view a_s) { return font->CalcTextSizeA(font->LegacySize, FLT_MAX, 0.0f, a_s.data(), a_s.data() + a_s.size()).x; };
+			std::string text(shown);
+			if (avail > 0.0f && width(shown) > avail) {
+				constexpr std::string_view kDots = "\xE2\x80\xA6";  // …
+				while (shown.size() > 1 && width(kDots) + width(shown) > avail) {
+					shown.remove_prefix(1);
+				}
+				text = std::string(kDots) + std::string(shown);
+			}
+			w::Mono(text.c_str(), w::Th().muted);
+		}
+
 		// The table has rows but the filters hide them all.
 		void NoMatch(const TableView& a_view)
 		{
@@ -222,7 +258,7 @@ namespace dova::editor::ui
 			}
 		}
 
-		// The quick filters' bits (ui/Tables.cpp lists the chips).
+		// The column filters' bits (ui/Tables.cpp lists them).
 		enum ContainerTag : std::uint32_t
 		{
 			kMaster = 1u << 0,
@@ -358,7 +394,10 @@ namespace dova::editor::ui
 		});
 		SyncSort(view);
 		FilterAndSort(view, rows, DrawerTable::Containers);
-		TableHeaders(DrawerTable::Containers, kHeightColumn);
+		const auto plugin = SharedPlugin(rows, 3);
+		view.headerTips.assign(6, std::string{});
+		view.headerTips[3] = plugin.empty() ? std::string{} : "Reference · " + plugin;
+		TableHeaders(DrawerTable::Containers, view, kHeightColumn);
 		for (const auto& row : rows) {
 			const int   i = row.index;
 			const auto& r = a_cell.info.refs[static_cast<std::size_t>(i)];
@@ -380,7 +419,8 @@ namespace dova::editor::ui
 				w::Tip(Join(b->categories).c_str());
 			}
 			ImGui::TableNextColumn();
-			w::Mono(row.cells[3].text.c_str());
+			RefCell(row.cells[3].text, !plugin.empty());
+			w::Tip(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
 			RightText(row.cells[4].text.c_str());
 			w::Tip("Metres above the cell's lowest containers");
@@ -439,7 +479,10 @@ namespace dova::editor::ui
 		});
 		SyncSort(view);
 		FilterAndSort(view, rows, DrawerTable::Displays);
-		TableHeaders(DrawerTable::Displays, kHeightColumn);
+		const auto plugin = SharedPlugin(rows, 3);
+		view.headerTips.assign(5, std::string{});
+		view.headerTips[3] = plugin.empty() ? std::string{} : "Reference · " + plugin;
+		TableHeaders(DrawerTable::Displays, view, kHeightColumn);
 		for (const auto& row : rows) {
 			const int   i = row.index;
 			const auto& r = a_cell.info.refs[static_cast<std::size_t>(i)];
@@ -461,7 +504,8 @@ namespace dova::editor::ui
 				w::Tip(row.cells[5].text.c_str());
 			}
 			ImGui::TableNextColumn();
-			w::Mono(row.cells[3].text.c_str());
+			RefCell(row.cells[3].text, !plugin.empty());
+			w::Tip(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
 			RightText(row.cells[4].text.c_str());
 			w::Tip("Metres above the cell's lowest containers");
@@ -528,7 +572,10 @@ namespace dova::editor::ui
 		});
 		SyncSort(view);
 		FilterAndSort(view, rows, DrawerTable::Doors);
-		ImGui::TableHeadersRow();
+		const auto plugin = SharedPlugin(rows, 1);
+		view.headerTips.assign(3, std::string{});
+		view.headerTips[1] = plugin.empty() ? std::string{} : "Cell · " + plugin;
+		TableHeaders(DrawerTable::Doors, view, 0);
 		for (const auto& row : rows) {
 			const auto  i = static_cast<std::size_t>(row.index);
 			const auto& d = a_cell.info.doors[i];
@@ -561,7 +608,8 @@ namespace dova::editor::ui
 			ImGui::SameLine();
 			w::Muted(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
-			w::Mono(row.cells[1].text.c_str());
+			RefCell(row.cells[1].text, !plugin.empty());
+			w::Tip(row.cells[1].text.c_str());
 			ImGui::TableNextColumn();
 			if (d.destinationCell) {
 				const auto ref = a_cell.lo->ToFormRef(*d.destinationCell);

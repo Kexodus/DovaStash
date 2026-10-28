@@ -94,21 +94,6 @@ namespace dova::editor::ui::w
 			a_p.dl->PathStroke(a_p.col, ImDrawFlags_Closed, a_p.th);
 			a_p.Circle(8, 8, 2.1f);
 		}
-
-		void Star(const Pen& a_p, float a_cx, float a_cy, float a_ro, float a_ri, bool a_fill)
-		{
-			const ImVec2 c = a_p.Raw(a_cx, a_cy);
-			for (int i = 0; i < 8; ++i) {
-				const float a = static_cast<float>(i) * kPi / 4.0f - kPi / 2.0f;
-				const float r = (i % 2 == 0 ? a_ro : a_ri) * a_p.u;
-				a_p.dl->PathLineTo(ImVec2(c.x + std::cos(a) * r, c.y + std::sin(a) * r));
-			}
-			if (a_fill) {
-				a_p.dl->PathFillConcave(a_p.col);
-			} else {
-				a_p.dl->PathStroke(a_p.col, ImDrawFlags_Closed, a_p.th);
-			}
-		}
 	}
 
 	void DrawIcon(ImDrawList* a_list, Icon a_icon, ImVec2 a_min, float a_size, ImU32 a_colour)
@@ -237,9 +222,15 @@ namespace dova::editor::ui::w
 			p.Line(2, 8.5f, 6, 8.5f);
 			break;
 		case Icon::Draft:
-			Star(p, 6.8f, 9.2f, 5.6f, 1.7f, false);
-			p.Line(12.5f, 1.8f, 12.5f, 5.8f);
-			p.Line(10.5f, 3.8f, 14.5f, 3.8f);
+			// A quill: the vane rounded at the top right, the shaft from it down to the nib at the bottom left, one barb.
+			p.dl->PathLineTo(p.Raw(4.0f, 12.0f));
+			p.dl->PathLineTo(p.Raw(4.0f, 7.6f));
+			p.dl->PathLineTo(p.Raw(8.4f, 3.2f));
+			p.dl->PathBezierQuadraticCurveTo(p.Raw(13.8f, 2.2f), p.Raw(12.8f, 7.6f), 8);
+			p.dl->PathLineTo(p.Raw(8.4f, 12.0f));
+			p.dl->PathStroke(p.col, ImDrawFlags_Closed, p.th);
+			p.Poly({ { 10.6f, 5.4f }, { 1.8f, 14.2f } });
+			p.Line(10.4f, 10.0f, 6.0f, 10.0f);
 			break;
 		case Icon::Plus:
 			p.Line(8, 3, 8, 13);

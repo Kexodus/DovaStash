@@ -273,28 +273,32 @@ namespace dova::editor::ui
 		for (std::size_t i = 0; i < a_patterns.size(); ++i) {
 			ImGui::PushID(static_cast<int>(i));
 			const auto* cat = _categorySet ? _categorySet->Find(a_patterns[i]) : nullptr;
+			// The chip names the category (Swords, Books (all)); its id is in the tooltip. The pattern is the chip's id.
+			const auto text = CategoryText(a_patterns[i]) + "##" + a_patterns[i];
 			if (i > 0) {
-				w::FlowNext(w::ChipWidth(a_patterns[i].c_str(), true), rightX);
+				w::FlowNext(w::ChipWidth(text.c_str(), true), rightX);
 			}
 			const bool known = cat || a_patterns[i].ends_with("*");
 			// A display's category it can't take: kept, but nothing of it goes up (core::ValidateDisplayCategories).
 			const bool unfit = a_fit && _categorySet && core::PatternFitsDisplay(*_categorySet, a_patterns[i], *a_fit) == false;
-			if (w::ChipClose(a_patterns[i].c_str(), !known ? w::Kind::Error : unfit ? w::Kind::Warn : w::Kind::Accent)) {
+			if (w::ChipClose(text.c_str(), !known ? w::Kind::Error : unfit ? w::Kind::Warn : w::Kind::Accent)) {
 				a_patterns.erase(a_patterns.begin() + static_cast<std::ptrdiff_t>(i));
 				changed = true;
 				ImGui::PopID();
 				break;
 			}
-			w::Tip(unfit ? core::UnfitCategoryMessage(*_categorySet, a_patterns[i], *a_fit).c_str() :
-			       cat   ? cat->name.c_str() :
-			               (a_patterns[i].ends_with("*") ? "A group and everything below it" : "Unknown category"));
+			const auto why = unfit                        ? core::UnfitCategoryMessage(*_categorySet, a_patterns[i], *a_fit) :
+			                 a_patterns[i].ends_with("*") ? std::string("A group and everything below it") :
+			                 cat                          ? std::string{} :
+			                                                std::string("Unknown category");
+			w::Tip((why.empty() ? a_patterns[i] : a_patterns[i] + "\n" + why).c_str());
 			ImGui::PopID();
 		}
 		ImGui::SetNextItemWidth(-FLT_MIN);
 		if (std::exchange(_openCategoryPicker, false)) {
 			ImGui::OpenPopup(ImHashStr("##ComboPopup", 0, ImGui::GetID("##add")));  // --popover categories
 		}
-		if (ImGui::BeginCombo("##add", "+ add", ImGuiComboFlags_HeightLarge)) {
+		if (w::BeginCombo("##add", "+ add", ImGuiComboFlags_HeightLarge)) {
 			static std::string filter;
 			if (ImGui::IsWindowAppearing()) {
 				ImGui::SetKeyboardFocusHere();
@@ -333,7 +337,7 @@ namespace dova::editor::ui
 			if (a_fit && !offered && filter.empty() && !_categories.empty()) {
 				w::Muted("No category this display can hold");
 			}
-			ImGui::EndCombo();
+			w::EndCombo();
 		}
 		ImGui::PopID();
 		return changed;
@@ -357,7 +361,7 @@ namespace dova::editor::ui
 		}
 		bool changed = false;
 		ImGui::SetNextItemWidth(-FLT_MIN);
-		if (ImGui::BeginCombo("##armorset", current.c_str(), ImGuiComboFlags_HeightLarge)) {
+		if (w::BeginCombo("##armorset", current.c_str(), ImGuiComboFlags_HeightLarge)) {
 			if (ImGui::IsWindowAppearing()) {
 				ImGui::SetKeyboardFocusHere();
 			}
@@ -398,7 +402,7 @@ namespace dova::editor::ui
 			if (shown.empty()) {
 				w::Muted("No set matches.");
 			}
-			ImGui::EndCombo();
+			w::EndCombo();
 		}
 		w::Tip(a_set ? "It wears only this set and fills up as the player gets its pieces; nothing is taken off it" :
 		               "Auto: the most complete matching set the player has (its categories, if any, narrow it)");
@@ -471,7 +475,7 @@ namespace dova::editor::ui
 		if ((r.IsContainer() || r.display) && !CellInHome(a_cell)) {
 			w::SectionHead("Role");
 			w::MutedWrapped(std::format("This cell is not part of \"{}\".", layout.name).c_str());
-			if (ImGui::Button("Add this cell to the home")) {
+			if (w::Button("Add this cell to the home")) {
 				core::HomeCell hc;
 				hc.cell = a_cell.lo->ToFormRef(a_cell.info.key);
 				hc.label = a_cell.info.name;
@@ -489,7 +493,7 @@ namespace dova::editor::ui
 				w::Chip("master", w::Kind::Accent);
 				ImGui::SameLine();
 				w::Muted("takes what has no place");
-				if (ImGui::Button("Not the master")) {
+				if (w::Button("Not the master")) {
 					layout.master.reset();
 					core::ContainerBinding b;
 					b.ref = ref;
@@ -501,11 +505,11 @@ namespace dova::editor::ui
 				w::Chip("area master", w::Kind::Accent);
 				ImGui::SameLine();
 				w::Muted("takes what has no place while the master is out of reach");
-				if (ImGui::Button("Not the area master")) {
+				if (w::Button("Not the area master")) {
 					MakeAreaMaster(a_cell, a_index, false);
 				}
-				ImGui::SameLine();
-				if (ImGui::Button("Make master")) {
+				ImGui::SameLine(0.0f, w::Th().gap);
+				if (w::Button("Make master")) {
 					MakeMaster(a_cell, a_index);
 				}
 				w::Tip("The container that takes everything without a place of its own (and the hotkey's target)");
@@ -515,15 +519,15 @@ namespace dova::editor::ui
 				const bool joined = !(layout.cell && *layout.cell == openRef) &&
 				                    std::ranges::any_of(layout.cells, [&](const core::HomeCell& c) { return c.cell == openRef; });
 				ImGui::BeginDisabled(r.respawns);
-				if (ImGui::Button("Make master")) {
+				if (w::Button("Make master")) {
 					MakeMaster(a_cell, a_index);
 				}
 				ImGui::EndDisabled();
 				w::Tip("The container that takes everything without a place of its own (and the hotkey's target)");
 				if (joined) {
-					ImGui::SameLine();
+					ImGui::SameLine(0.0f, w::Th().gap);
 					ImGui::BeginDisabled(r.respawns);
-					if (ImGui::Button("Make this area's master")) {
+					if (w::Button("Make this area's master")) {
 						MakeAreaMaster(a_cell, a_index, true);
 					}
 					ImGui::EndDisabled();
@@ -532,9 +536,9 @@ namespace dova::editor::ui
 				auto* b = layout.FindContainer(ref);
 				if (!b) {
 					if (!joined) {
-						ImGui::SameLine();
+						ImGui::SameLine(0.0f, w::Th().gap);
 					}
-					if (ImGui::Button("Add to the template")) {
+					if (w::Button("Add to the template")) {
 						core::ContainerBinding nb;
 						nb.ref = ref;
 						nb.label = GameName(r);
@@ -565,13 +569,7 @@ namespace dova::editor::ui
 					w::FieldLabel("Note");
 					changed |= NoteField("##note", b->note);
 					w::Tip("For people reading the file");
-					ImGui::PushFont(w::Th().smallFont);
-					if (w::LinkButton("Remove from the template")) {
-						std::erase_if(layout.containers, [&](const core::ContainerBinding& c) { return c.ref == ref; });
-						changed = true;
-					}
-					ImGui::PopFont();
-					w::Tip("Delete");
+					// "Remove from the template" ends the panel, alone on its row (DrawRefDetails, RemoveButton).
 				}
 			}
 		} else if (r.display) {
@@ -632,7 +630,7 @@ namespace dova::editor::ui
 				}
 				w::SectionHead("Door");
 				ImGui::BeginDisabled(!door.destinationCell || Busy());
-				if (ImGui::Button("Open that cell")) {
+				if (w::Button("Open that cell")) {
 					OpenCellAsync(a_cell.lo, *door.destinationCell, true, true);
 				}
 				ImGui::EndDisabled();
@@ -641,6 +639,23 @@ namespace dova::editor::ui
 		}
 		ImGui::PopID();
 		if (changed) {
+			a_cell.dirty = true;
+			Revalidate(a_cell);
+		}
+	}
+
+	void EditorApp::DrawRemoveButton(OpenCell& a_cell, int a_index)
+	{
+		// A container the template lists (not its master): the one destructive action, last in the panel, on its own row.
+		const auto& r = a_cell.info.refs[static_cast<std::size_t>(a_index)];
+		const auto  ref = a_cell.lo->ToFormRef(r.key);
+		auto&       layout = a_cell.layout;
+		if (!r.IsContainer() || !CellInHome(a_cell) || layout.IsMaster(ref) || IsAreaMaster(layout, ref) || !layout.FindContainer(ref)) {
+			return;
+		}
+		w::Spacer(2.0f * w::Th().gap);
+		if (w::Button("Remove from the template", w::Icon::Trash, w::Kind::Error, "Delete")) {
+			std::erase_if(layout.containers, [&](const core::ContainerBinding& c) { return c.ref == ref; });
 			a_cell.dirty = true;
 			Revalidate(a_cell);
 		}
@@ -1019,7 +1034,7 @@ namespace dova::editor::ui
 		bool changed = false;
 		if (!a_layout.keep) {
 			w::Muted("None: the player's own keep rules apply.");
-			if (ImGui::Button("Add keep rules")) {
+			if (w::Button("Add keep rules")) {
 				a_layout.keep.emplace();
 				changed = true;
 			}
@@ -1134,18 +1149,18 @@ namespace dova::editor::ui
 		if (ImGui::IsItemDeactivatedAfterEdit()) {
 			_state.Save();
 		}
-		const float half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-		ImGui::BeginGroup();
+		// Version and Priority side by side: the two labels on one line, the two fields under them, a gap between.
+		const float gap = 2.0f * w::Th().pad;
+		const float half = std::floor((ImGui::GetContentRegionAvail().x - gap) * 0.5f);
+		const float x0 = ImGui::GetCursorPosX();
 		w::FieldLabel("Version");
-		ImGui::SetNextItemWidth(half);
-		changed |= ImGui::InputText("##version", &t.version);
-		ImGui::EndGroup();
-		ImGui::SameLine();
-		ImGui::BeginGroup();
+		ImGui::SameLine(x0 + half + gap);
 		w::FieldLabel("Priority");
 		ImGui::SetNextItemWidth(half);
+		changed |= ImGui::InputText("##version", &t.version);
+		ImGui::SameLine(x0 + half + gap);
+		ImGui::SetNextItemWidth(half);
 		changed |= ImGui::InputInt("##priority", &t.priority, 0);
-		ImGui::EndGroup();
 		w::FieldLabel("Note");
 		changed |= NoteField("##note", t.note);
 		{
@@ -1215,7 +1230,7 @@ namespace dova::editor::ui
 				w::Muted("One cell. A cellar joins from Doors.");
 			}
 			if (CellInHome(a_cell) && !(t.cell && *t.cell == openRef)) {
-				if (ImGui::Button("List this cell's containers")) {
+				if (w::Button("List this cell's containers")) {
 					// The draft's container entries for this cell (labels, respawning and upgrade containers ignored).
 					core::Diagnostics diags;
 					const auto        draft = home::DraftTemplate(*a_cell.lo, a_cell.info, diags);
@@ -1266,14 +1281,14 @@ namespace dova::editor::ui
 			const auto targets = SaveTargets();
 			auto       name = [](const std::string& a_t) { return a_t.empty() ? std::string(home::kTemplatesMod) : a_t; };
 			w::FieldLabel("Save to");
-			if (ImGui::BeginCombo("##target", name(_state.saveTarget).c_str())) {
+			if (w::BeginCombo("##target", name(_state.saveTarget).c_str())) {
 				for (const auto& tg : targets) {
 					if (ImGui::Selectable(name(tg).c_str(), tg == _state.saveTarget)) {
 						_state.saveTarget = tg;
 						_state.Save();
 					}
 				}
-				ImGui::EndCombo();
+				w::EndCombo();
 			}
 			w::Tip(_state.saveTarget.empty() ? "A mod of its own, never MO2's overwrite folder: clearing overwrite cannot delete it" : "An existing mod that holds templates");
 			ImGui::PushTextWrapPos(0.0f);
@@ -1296,13 +1311,13 @@ namespace dova::editor::ui
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + ImGui::GetContentRegionAvail().x, p.y + 1.0f), th.line);
 			ImGui::Dummy(ImVec2(0.0f, th.gap));
-			DrawSaveButton();  // as the title row's: filled only when there is unsaved work, else Save or Save a copy
+			DrawSaveButton(true);  // as the title row's: filled only when there is unsaved work, else Save or Save a copy
 			ImGui::SameLine(0.0f, th.gap);
-			if (w::ToolButton("Save as...", false, "A copy anywhere; the template stays where it is saved")) {
+			if (w::Button("Save as...", "A copy anywhere; the template stays where it is saved")) {
 				SaveTemplateAs(a_cell);
 			}
-			ImGui::SameLine(0.0f, 2.0f * th.scale);
-			if (w::ToolButton("Copy JSON", false, "The template as JSON, to the clipboard")) {
+			ImGui::SameLine(0.0f, th.gap);
+			if (w::Button("Copy JSON", "The template as JSON, to the clipboard")) {
 				ImGui::SetClipboardText(a_cell.json.c_str());
 			}
 		}

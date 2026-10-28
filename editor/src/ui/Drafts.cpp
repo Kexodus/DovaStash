@@ -869,7 +869,7 @@ namespace dova::editor::ui
 				const auto cmp = home::CompareToTemplate(d->layout, a_cell.layout, *_categorySet);
 				agree = std::format("The draft and this template: {} of {} categories the same", cmp.sameDestination, cmp.categories);
 			}
-			if (w::ToolButton("Use the draft", false, ("Open this draft in place of the template (Save writes it as yours)" + (agree.empty() ? "" : "\n" + agree)).c_str())) {
+			if (w::Button("Use the draft", ("Open this draft in place of the template (Save writes it as yours)" + (agree.empty() ? "" : "\n" + agree)).c_str())) {
 				UseDraft();
 			}
 			if (!agree.empty()) {
@@ -882,17 +882,19 @@ namespace dova::editor::ui
 			w::Spacer(t.gap);
 		}
 		const float rowRight = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-		if (w::ToolButton("Accept all", false, "Every suggestion no other container has a stronger claim on")) {
+		if (w::Button("Accept all", "Every suggestion no other container has a stronger claim on")) {
 			AcceptAll();
 		}
-		ImGui::SameLine(0.0f, 2.0f * t.scale);
-		if (w::ToolButton("Reject the weak ones", false, "Every suggestion under 50%")) {
+		if (ImGui::GetItemRectMax().x + t.gap + ImGui::CalcTextSize("Reject the weak ones").x + 24.0f * t.scale <= rowRight) {
+			ImGui::SameLine(0.0f, t.gap);
+		}
+		if (w::Button("Reject the weak ones", "Every suggestion under 50%")) {
 			RejectWeak();
 		}
-		if (ImGui::GetItemRectMax().x + 2.0f * t.scale + ImGui::CalcTextSize("Draft again").x + 20.0f * t.scale <= rowRight) {
-			ImGui::SameLine(0.0f, 2.0f * t.scale);
+		if (ImGui::GetItemRectMax().x + t.gap + ImGui::CalcTextSize("Draft again").x + 24.0f * t.scale <= rowRight) {
+			ImGui::SameLine(0.0f, t.gap);
 		}
-		if (w::ToolButton("Draft again", false, "Make the draft again from the plugins (after editing DraftRules.json)")) {
+		if (w::Button("Draft again", "Make the draft again from the plugins (after editing DraftRules.json)")) {
 			DraftAgain();
 		}
 		ImGui::EndDisabled();
@@ -968,10 +970,17 @@ namespace dova::editor::ui
 				ImGui::PopTextWrapPos();
 				ImGui::EndTooltip();
 			}
-			// The reason in one line: its first clause.
+			// The reason in one line: its first clause, without the name the row above already shows ("Chest: ...").
 			auto reason = d->plan.masterReason;
 			if (const auto cut = reason.find(';'); cut != std::string::npos) {
 				reason.resize(cut);
+			}
+			for (const auto& name : { o.name, o.editorId, o.id, Label(o) }) {
+				if (!name.empty() && reason.size() > name.size() + 2 && reason.starts_with(name) && reason.compare(name.size(), 2, ": ") == 0) {
+					reason.erase(0, name.size() + 2);
+					reason[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(reason[0])));
+					break;
+				}
 			}
 			ImGui::PushFont(t.smallFont);
 			ImGui::PushTextWrapPos(0.0f);
@@ -1005,8 +1014,22 @@ namespace dova::editor::ui
 		if (const auto st = HomeStorageFor(a_cell)) {
 			usable = st->containers;
 		}
-		w::SectionHead(std::format("Containers  {} of {}", accepted, usable).c_str(),
-			"Suggested categories, coloured by where they come from:\n  green: the container's name says so\n  yellow: a station or items nearby\n  orange: a hint\nClick a chip to accept or reject it; hover it for the reason.");
+		w::SectionHead("Containers", "Click a chip to accept or reject it (a check: accepted); hover it for the reason.",
+			std::format("{} of {}", accepted, usable).c_str());
+		// What a chip's colour says: where the suggestion comes from.
+		ImGui::PushFont(t.smallFont);
+		for (const auto& [kind, word, tip] : { std::tuple{ w::Kind::Ok, "name", "The container's name says so" },
+				 std::tuple{ w::Kind::Warn, "nearby", "A station or items nearby" }, std::tuple{ w::Kind::Error, "hint", "A hint" } }) {
+			if (kind != w::Kind::Ok) {
+				ImGui::SameLine(0.0f, 2.0f * t.pad);
+			}
+			w::StatusDot(kind, tip);
+			ImGui::SameLine(0.0f, 4.0f * t.scale);
+			w::Muted(word);
+			w::Tip(tip);
+		}
+		ImGui::PopFont();
+		w::Spacer(2.0f * t.scale);
 
 		std::vector<std::size_t> order(d->plan.containers.size());
 		for (std::size_t k = 0; k < order.size(); ++k) {
@@ -1172,7 +1195,7 @@ namespace dova::editor::ui
 				const auto text = std::format("{} {:.0f}%", CategoryText(s.pattern), s.confidence * 100.0f);
 				ImGui::PushID(static_cast<int>(si));
 				if (si > 0) {
-					w::FlowNext(w::ChipWidth(text.c_str()), rightX);
+					w::FlowNext(w::ChipWidth(text.c_str(), false, on), rightX);
 				}
 				if (w::ChipButton(text.c_str(), w::ConfidenceKind(s.confidence), on) && !busy) {
 					SetSuggestionOn(a_cell, *d, ci, si, !on);

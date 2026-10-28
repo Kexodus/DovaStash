@@ -140,7 +140,8 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
   with its slider) · `Colours ▾` (None / By category / By fill, keys `C` and `V`, with the legend inside the
   popover) · `Camera ▾` (Overview (Home), Frame (F), fly speed, light, outlines). Nothing else on the view.
 - Paint mode replaces the toolbar's second half with the paint bar (category chip, *pick another…*, done).
-- **Hint line** at the bottom of the viewport, muted, one line, changes with mode (select, paint, box).
+- **Hint line** at the bottom of the viewport, muted, one line, changes with mode (select, paint, box); a dark
+  plate (75%, the popovers' rim) behind the text alone keeps it readable over a bright scene.
 - Load progress of meshes and textures appears in the status row, not over the view.
 - Hovering an object shows its name in a small tooltip near the cursor; selection keeps the yellow frame.
 - The start panel (§2.6) draws **inside the viewport area** when no home is open.
@@ -199,8 +200,12 @@ The inspector's panel switches automatically when it helps: selecting something 
 
 > **Built:** the Selection panel shows the object's own mesh (96 px) at the left of its name once the scene has
 > loaded, and its kind with an icon. The Template panel's fields scroll and *Save* / *Save as…* / *Copy JSON*
-> stay pinned at its bottom like a form footer. The Draft panel's colour legend is a tooltip on its *Containers*
-> section head (an info mark). A container has one name in every panel (Draft, Where items go, the tables, the
+> stay pinned at its bottom like a form footer (framed buttons, *Save* filled when there is work to save); *Version*
+> and *Priority* share a row, labels over fields. The Draft panel's colour legend is one muted line of dots under
+> its *CONTAINERS 20 of 52* head (*name · nearby · hint*); an accepted chip has a check before its text. A category
+> chip names the category (*Swords*), its id in the tooltip. *Remove from the template* is the panel's last row, a
+> framed button with a bin in `error`. A display without a game name is named by its kind (*Mannequin*, never
+> `PlayerHouseMannequin`), and kinds read in sentence case (*Rack (any)*). A container has one name in every panel (Draft, Where items go, the tables, the
 > Selection heading): the template's label (a landmark, `Barrel (by the grindstone)`) first, else the game's name.
 > Draft rows still of the same name add their height above the cell's floor (`Barrel · 1.3 m`, the tables' rule,
 > §2.5), then a number when that ties too; hovering a row highlights its container in the 3D view. With a template
@@ -220,15 +225,23 @@ double click). *Where items go* keeps its sample picker and colour buttons in it
 > of the home's (the tooltip: *252 here · 253 in the home*, and how many more this cell has that are not usable);
 > the Draft panel's *Containers N of M* counts the accepted ones of the same home-wide number; the tables' first
 > column has the object's icon. Every
-> column sorts (header click, Shift+click adds a column, a third click returns to the table's order); the tab row
-> ends with the table's quick filters (toggle chips; Containers also a *Kind* ▾ list and a *Kind* column) and a
-> *Filter rows* box, "N of M" when rows are hidden; per table, for the session. A row too narrow for the chips
-> (150 % text at 1366x768) folds them into *Filters* ▾ with a count of those on; *Kind* and the box always show.
+> column sorts (header click, Shift+click adds a column, a third click returns to the table's order); the filters
+> live in the column headers, as a data grid's do: a column with filters ends in a funnel (Containers: *Kind* with
+> the objects' kinds and their counts, *Role* with *Master*, *With categories*, *No categories*, *Ignored*, *Not
+> listed*, *Notes* with *Respawning*; Displays: *Kind* with the display kinds the home has, *Used* with *Used*,
+> *Unused*; Where items go: *Fill* with *Master*, *Receives items*, *Receives nothing*), accent while one of its
+> filters is on, and a click opens the checks with *Clear* under them; one of a column's set is enough, columns
+> combine. The tab row ends with "N of M" when rows are hidden and the *Filter rows* box; per table, for the
+> session. `--quick <filter>` turns one on, `--popover kind` opens the Kind column's funnel.
 > Containers opens in its own order: the master, with categories, without, ignored, not listed, those that start
 > disabled last in each. Doors has no *Open* column: a
 > double click on a row opens the cell, a click selects the door. The drawer's height is a share of the window's
 > (at most half of it); the rail and inspector together take at most 60% of the width, so at 1280x720 the view
-> keeps its room. Cells speak words: category names (*Swords*, *Books (all)*; ids in the tooltip and the filter),
+> keeps its room, and the view has a floor (§6): 45% of the width and 560 px, half the middle's height and 320 px,
+> at every UI size; where it bites the inspector gives way down to 30% of the width. Number columns have their name
+> and sort arrow flush right over the figures; the *Reference* column is muted mono, and when every row shares one
+> plugin it shows the local id alone (`0x00000E68`) with the plugin in the header's tooltip (the filter still finds
+> the full ref). The *Kind* funnel in a low drawer opens above its header, its counts on one right edge. Cells speak words: category names (*Swords*, *Books (all)*; ids in the tooltip and the filter),
 > scripts as what they do (*bookshelf*, *Hearthfire build*, *critter spawn*), *Height (m)* in metres above the cell's
 > floor, the unit of the Draft panel's `· 1.3 m` (its last way to tell rows of one name apart, after the cell, the
 > wing, the nearest station and the side of the room: `Cupboard · Kitchen · by the oven · east`): the lowest containers there from the start that stand together
@@ -378,12 +391,19 @@ sets the size for that run.
 - Section head: tracked capitals in `muted`, then a hairline rule to the right edge. No diamonds or other
   ornament; the one divider (empty states, the start panel) is the art set's: the emblem between two hairlines.
 - Chips: 24 px pills with `bg2` fill and a 1 px border in the status gray; text in the same gray. A chip is one
-  thing to act on or one word of state in a row of its own (the title row's template word, a category to accept, a
-  quick filter); a status repeated down a list, and every count, is a dot or plain text instead (§3.5).
-- Buttons: flat, `bg2`, hover `bg3`, active `accent` text on `bg2` with an underline. Primary (Save) is
-  filled paper with ink text, gray-1 on hover.
+  thing to act on or one word of state in a row of its own (the title row's template word, a category to accept);
+  a status repeated down a list, and every count, is a dot or plain text instead (§3.5). A chip that switches (a
+  suggestion) shows a 12 px check in its colour before `text` and a full border when on; off, muted text and the
+  border at half strength.
+- Buttons, three kinds. *Tool* buttons (`ToolButton`: the floating toolbar, tabs, modes) are flat, hover `bg3`,
+  active `accent` text with an underline. A panel's actions (`Button`: the Draft row, the Template footer, empty
+  states, Setup's *Browse...* and *Export...*) are framed: `bg2`, a 1 px `line` border, input height, hover `bg3`,
+  `text` (a destructive one in `error`, with its icon); a fixed width wraps a long label. Primary (Save) is filled
+  paper with ink text, gray-1 on hover. Links (accent text) are for navigation and for small actions inside a line
+  of text.
+- Dropdowns: the input frame with a muted chevron at its right (`text` on hover), no filled triangle.
 - Icons: drawn with draw-list primitives at 18 px (menu, search, funnel, layers, palette, camera, gear,
-  chevrons, check, warning, error, undo, redo, save, close, pin). No icon font.
+  chevrons, check, warning, error, undo, redo, save, close, pin, a quill for *Draft*). No icon font.
 - Row height 28 px, inputs 32 px, toolbar 36 px, title row 44 px, status row 28 px, padding 8, item spacing 8/4.
 - Tables: rows parted by a 1 px hairline, no alternating bands; numbers (*Height (m)*, *Items*) right-aligned with
   their header.
@@ -474,3 +494,5 @@ after its screenshot (EDITOR.md §5.6).
 - A first-time author opens the editor, sees the rail, clicks a home, clicks a chest, picks a category and
   saves without reading anything.
 - The window at 1280 × 720 is still usable (rail and inspector collapse to strips on demand).
+- The home is the hero at any size: at 1366 × 768 and 150 % the view keeps at least 45% of the width and half the
+  middle's height (App.cpp's floor), and the inspector's empty-state buttons wrap instead of clipping.

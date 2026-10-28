@@ -162,9 +162,14 @@ namespace dova::editor::ui
 			}
 			ImGui::SameLine(0.0f, t.gap);
 			ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - t.chipH) * 0.5f);
-			if (w::ChipButton(chip.c_str(), kind, false) && _cell) {
-				_panel = Panel::Template;
-				_state.ui.inspectorOpen = true;
+			// A word of state in its colour (not a ChipButton: those switch on and off); a click opens the Template panel.
+			w::Chip(chip.c_str(), kind);
+			if (ImGui::IsItemHovered()) {
+				ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+				if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && _cell) {
+					_panel = Panel::Template;
+					_state.ui.inspectorOpen = true;
+				}
 			}
 			// The tooltip adds what the word does not say: whose, and which file.
 			const auto& file = !_cell->filePath.empty() ? _cell->filePath : _cell->savedPath;
@@ -252,7 +257,7 @@ namespace dova::editor::ui
 		       !(!_cell->savedPath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->savedPath), ec));
 	}
 
-	void EditorApp::DrawSaveButton()
+	void EditorApp::DrawSaveButton(bool a_panel)
 	{
 		const int errors = _cell ? ErrorCount(*_cell) : 0;
 		// The filled button only when there is something to save: a change, or a draft not saved yet. An unchanged
@@ -272,7 +277,9 @@ namespace dova::editor::ui
 			const bool      same = (!_cell->filePath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->filePath), ec)) ||
 			                  (!_cell->savedPath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->savedPath), ec));
 			const auto tip = same ? std::format("Save the template\n{}", PathToUtf8(target)) : std::format("Saves a copy into your templates folder\n{}", PathToUtf8(target));
-			if (w::ToolButton(same ? "Save###save" : "Save a copy###save", false, tip.c_str(), "Ctrl+S")) {
+			// The Template panel's footer frames it as its other actions; the title row keeps the flat look.
+			const char* label = same ? "Save###save" : "Save a copy###save";
+			if (a_panel ? w::Button(label, tip.c_str(), "Ctrl+S") : w::ToolButton(label, false, tip.c_str(), "Ctrl+S")) {
 				RequestSave();
 			}
 		}
@@ -399,22 +406,22 @@ namespace dova::editor::ui
 		ImGui::PushItemWidth(360.0f * t.scale);
 		w::FieldLabel("MO2 instance or Data folder");
 		ImGui::InputTextWithHint("##mo2", "MO2 instance or Skyrim Data folder", _mo2Path, sizeof(_mo2Path));
-		ImGui::SameLine();
-		if (ImGui::Button("Browse...")) {
+		ImGui::SameLine(0.0f, t.gap);
+		if (w::Button("Browse...")) {
 			if (auto p = PickFolder()) {
 				std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", p->c_str());
 			}
 		}
 		if (_ws && _ws->Instance() && !_ws->Instance()->profiles.empty()) {
 			w::FieldLabel("Profile");
-			if (ImGui::BeginCombo("##profile", _ws->Profile().c_str())) {
+			if (w::BeginCombo("##profile", _ws->Profile().c_str())) {
 				for (const auto& p : _ws->Instance()->profiles) {
 					if (ImGui::Selectable(p.c_str(), p == _ws->Profile()) && p != _ws->Profile()) {
 						ApplySetup(_ws->Instance()->root, p);
 						break;
 					}
 				}
-				ImGui::EndCombo();
+				w::EndCombo();
 			}
 		}
 		w::FieldLabel("Author");
@@ -431,14 +438,14 @@ namespace dova::editor::ui
 		{
 			const auto targets = SaveTargets();
 			auto       name = [](const std::string& a_t) { return a_t.empty() ? std::string(home::kTemplatesMod) + " (its own mod)" : a_t; };
-			if (ImGui::BeginCombo("##target", name(_state.saveTarget).c_str())) {
+			if (w::BeginCombo("##target", name(_state.saveTarget).c_str())) {
 				for (const auto& tg : targets) {
 					if (ImGui::Selectable(name(tg).c_str(), tg == _state.saveTarget)) {
 						_state.saveTarget = tg;
 						_state.Save();
 					}
 				}
-				ImGui::EndCombo();
+				w::EndCombo();
 			}
 			w::Tip(PathToUtf8(SaveBase()).c_str());
 		}
@@ -446,7 +453,7 @@ namespace dova::editor::ui
 		{
 			// Grouped like xEdit's UI Theme menu; the player's files are read again each time the list opens.
 			const std::string current = w::CurrentTheme().name;
-			if (ImGui::BeginCombo("##theme", current.c_str(), ImGuiComboFlags_HeightLargest)) {
+			if (w::BeginCombo("##theme", current.c_str(), ImGuiComboFlags_HeightLargest)) {
 				if (ImGui::IsWindowAppearing()) {
 					w::RescanThemes();
 				}
@@ -474,12 +481,12 @@ namespace dova::editor::ui
 				group("Dark", [](std::size_t a_i, const w::ThemeColours& a_t) { return a_i > 0 && !a_t.user && a_t.dark; });
 				group("Light", [](std::size_t a_i, const w::ThemeColours& a_t) { return a_i > 0 && !a_t.user && !a_t.dark; });
 				group("Yours", [](std::size_t, const w::ThemeColours& a_t) { return a_t.user; });
-				ImGui::EndCombo();
+				w::EndCombo();
 				if (!picked.empty()) {
 					PickTheme(picked);  // picking the one in effect again reloads its file
 				}
 			}
-			if (w::LinkButton("Export...")) {
+			if (w::Button("Export...")) {
 				ExportTheme();
 			}
 			w::Tip("Writes this theme to a file in the Themes folder and shows it. Edit its hex colours, then pick it under Yours");

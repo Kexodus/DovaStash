@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <format>
 #include <vector>
 
 #include <imgui.h>
@@ -383,13 +384,20 @@ namespace dova::editor::ui
 				}
 			}
 		}
-		// Scale bar (512 units, a little over 7 m) above the hint line, north at the top right.
-		const auto&  t = w::Th();
-		const float  bar = 512.0f * _zoom;
-		const ImVec2 b0(origin.x + t.pad, origin.y + canvasSize.y - t.rowH - 10.0f * t.scale);
+		// Scale bar in metres above the hint line (1, 2, 5, 10 or 20 m, the longest that stays under 160 px), north at
+		// the top right.
+		const auto& t = w::Th();
+		int         metres = 1;
+		for (const int m : { 2, 5, 10, 20 }) {
+			if (static_cast<float>(m) * kUnitsPerMetre * _zoom <= 160.0f * t.scale) {
+				metres = m;
+			}
+		}
+		const float  bar = static_cast<float>(metres) * kUnitsPerMetre * _zoom;
+		const ImVec2 b0(origin.x + t.pad, origin.y + canvasSize.y - t.rowH - 10.0f * t.scale - t.pad);
 		dl->AddLine(b0, ImVec2(b0.x + bar, b0.y), t.viewportText, 2.0f);
 		ImGui::PushFont(t.smallFont);
-		dl->AddText(ImVec2(b0.x, b0.y - ImGui::GetFontSize() - 2.0f), t.viewportText, "512 units");
+		dl->AddText(ImVec2(b0.x, b0.y - ImGui::GetFontSize() - 2.0f), t.viewportText, std::format("{} m", metres).c_str());
 		dl->AddText(ImVec2(origin.x + canvasSize.x - ImGui::GetFontSize() * 1.5f, origin.y + t.pad), t.viewportText, "N");
 		ImGui::PopFont();
 		dl->PopClipRect();

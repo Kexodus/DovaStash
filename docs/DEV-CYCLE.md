@@ -38,6 +38,21 @@ the single game. Measure before reshaping: compare each round's scores with roun
 - Multi-cell homes ship as one merged template per home (`cells`, DESIGN §6.7); in-game plans 21–23 and 38
   must pass on the merged files.
 
+## Design judge (`tools/devcycle/design-judge.js`)
+
+A second, smaller Workflow for the editor's look alone, added 2026-10-28. One round is three agents: **Capture**
+builds `editor-release` and takes a fixed set of twelve screenshots (start panel, selection, the four drawer
+tables with the Kind column filter open, the plan with the colours popover, drafts, template, checks, setup, and
+the window at 1366x768 at 150 % text) into `build/design-judge/r<N>/`; **Judge** loads the `impeccable` skill and
+runs its critique's Assessment A (the ten Nielsen heuristics 0-4, cognitive load, design specificity) plus the
+`unslop-ui` verification checklist over those screenshots and the drawing code, against `PRODUCT.md`,
+`DESIGN.md` and `docs/EDITOR-UX.md` §3.5, and returns an overall 1-10 with issues (severity, the rule broken,
+file:line, the fix in the widget vocabulary of `Widgets.h`); **Fix** is the editor lane, which applies them,
+rebuilds and re-shoots. The loop stops at `TARGET` (9) or `MAX_ROUNDS` (3). The judge never runs impeccable's
+launcher, detector, live mode or hook: the editor is Dear ImGui, not a web page, and the user asked for the web
+checker to be skipped. Run: `Workflow({ scriptPath: "<abs path to tools/devcycle/design-judge.js>" })`; the
+first judge round's findings and what was done with them are in the Status list below.
+
 ## Running it
 
 - New run: `Workflow({ scriptPath: "<abs path to tools/devcycle/dovastash-dev-cycle.js>" })`.
@@ -75,3 +90,7 @@ the single game. Measure before reshaping: compare each round's scores with roun
   manual ImGui pass of TESTING §5.1-5.8 is still unrecorded. Separately the same day: the Whitepeak Tower
   display-stock bug (a home's own base-record stock went on its plaques) was fixed outside the cycle and plan
   47 passes 5/5 (`20261028-024118`). A new round starts from this run id with a raised MAX_ROUNDS, or fresh.
+- 2026-10-28: design judge round 1, run by hand (one Opus judge, one Opus fixer; shots in
+  `build/design-judge/r1` and `r1-after`): overall 7/10, 15 issues (6 major, 8 minor, 1 nit); 13 fixed, 2 skipped
+  by decision (a gray fill ramp, flattening one-home rail groups). The list and the before/after shots are in
+  `docs/design-pass/README.md`. Round 2 starts with the Workflow script.

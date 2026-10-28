@@ -630,7 +630,7 @@ namespace dova::editor
 		       "  --sort <t>:<col>[:desc]  sort a drawer table (containers, displays, doors, preview) by a column\n"
 		       "                        (its header or number); repeat it to add columns\n"
 		       "  --filter <text>       the drawer tab's filter box (every word must match)\n"
-		       "  --quick <chip>        turn a quick filter of the drawer tab on (e.g. Ignored, Respawning, Used,\n"
+		       "  --quick <filter>      turn a column filter of the drawer tab on (e.g. Ignored, Respawning, Used,\n"
 		       "                        \"Receives nothing\"); repeatable\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit; the\n"
 		       "                        run starts from the default state and writes none (no state.json change;\n"
@@ -871,7 +871,7 @@ namespace dova::editor
 				oneOf("--layers", name, kLayers);
 			}
 		}
-		// --quick names a chip of the drawer tab --tab shows (the Containers tab without one).
+		// --quick names a column filter of the drawer tab --tab shows (the Containers tab without one).
 		const auto table = a.tab ? ui::ParseTableName(*a.tab) : std::optional<ui::DrawerTable>{};
 		for (const auto& q : a.quick) {
 			const auto t = table.value_or(ui::DrawerTable::Containers);
@@ -880,7 +880,7 @@ namespace dova::editor
 				for (const auto& f : ui::TableQuickFilters(t)) {
 					chips += (chips.empty() ? "" : ", ") + std::string(f.label);
 				}
-				a.errors.push_back("--quick: the " + std::string(ui::TableName(t)) + " table has no quick filter \"" + q + "\"" +
+				a.errors.push_back("--quick: the " + std::string(ui::TableName(t)) + " table has no filter \"" + q + "\"" +
 				                   (chips.empty() ? std::string(" (it has none)") : " (" + chips + ")"));
 			}
 		}

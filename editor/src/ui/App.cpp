@@ -843,6 +843,8 @@ namespace dova::editor::ui
 				_confirmSaveAll = true;  // the *Save N drafts...* dialog (with --drafts: once the bulk draft is done)
 			} else if (id == "categories") {
 				_openCategoryPicker = true;  // the selection's "+ add" category picker (a combo, not a popover)
+			} else if (id == "kind") {
+				Table(DrawerTab::Containers).openFilter = 1;  // the Kind column's funnel (ui/Tables.cpp)
 			} else {
 				w::OpenPopover(id.c_str());
 			}
@@ -863,10 +865,12 @@ namespace dova::editor::ui
 		const ImVec2 size = ImGui::GetContentRegionAvail();
 		const float  headerH = t.toolbarH + 2.0f * t.scale;
 		float        drawerH = headerH;
-		// The drawer's height is a fraction of the window's, so a smaller window keeps its view; the view keeps half.
+		// The drawer's height is a fraction of the window's, so a smaller window keeps its view; the view keeps half of
+		// the room between the title and status rows, and at least 320 px (a small window at a large text size).
 		_layoutH = std::max(size.y, 1.0f);
 		_drawerMinH = 120.0f * t.scale;
-		_drawerMaxH = std::max(_drawerMinH, size.y * 0.5f - t.titleH - t.statusH);
+		const float between = size.y - t.titleH - t.statusH;
+		_drawerMaxH = std::max(_drawerMinH, std::min(size.y * 0.5f - t.titleH - t.statusH, between - std::max(0.5f * between, 320.0f * t.scale)));
 		if (_state.ui.drawerOpen && _cell) {
 			if (_state.ui.drawerHeight <= 0.0f) {
 				_state.ui.drawerHeight = 1.0f / 3.0f;
@@ -954,12 +958,19 @@ namespace dova::editor::ui
 		ImGui::EndChild();
 	}
 
+	namespace
+	{
+		// What the home keeps between the rail and the inspector: 45 % of the window, and at least 560 px (a small
+		// window at a large text size would otherwise give the panels most of it).
+		float ViewportFloor(float a_width) { return std::max(0.45f * a_width, 560.0f * w::Th().scale); }
+	}
+
 	float EditorApp::RailMaxWidth() const
 	{
 		const auto& t = w::Th();
 		const float W = ImGui::GetMainViewport()->WorkSize.x;
 		const float insp = _state.ui.inspectorOpen ? std::clamp(_state.ui.inspectorWidth, 280.0f * t.scale, std::max(280.0f * t.scale, W * 0.45f)) : t.stripW;
-		return std::max(200.0f * t.scale, std::min(560.0f * t.scale, W * 0.6f - insp));
+		return std::max(200.0f * t.scale, std::min({ 560.0f * t.scale, W * 0.6f - insp, W - ViewportFloor(W) - insp }));
 	}
 
 	float EditorApp::InspectorMaxWidth() const
@@ -969,7 +980,13 @@ namespace dova::editor::ui
 		const auto& t = w::Th();
 		const float W = ImGui::GetMainViewport()->WorkSize.x;
 		const float rail = _state.ui.railOpen ? std::clamp(_state.ui.railWidth, 200.0f * t.scale, RailMaxWidth()) : t.stripW;
-		return std::max(280.0f * t.scale, std::min(W * 0.45f, W * 0.6f - rail));
+		const float regular = std::max(280.0f * t.scale, std::min(W * 0.45f, W * 0.6f - rail));
+		const float room = W - ViewportFloor(W) - rail;  // what the viewport's floor leaves it
+		if (room >= regular) {
+			return regular;
+		}
+		// The floor bites: the inspector gives way down to 30 % of the window (never under its 280 px).
+		return std::max(280.0f * t.scale, std::min(regular, std::max(room, 0.30f * W)));
 	}
 
 	void EditorApp::DrawOverlay(OpenCell& a_cell, ImVec2 a_min, ImVec2 a_max)

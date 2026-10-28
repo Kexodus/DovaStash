@@ -181,5 +181,7 @@ namespace dova::editor::home
 	[[nodiscard]] core::Layout DraftTemplate(esp::LoadOrder& a_lo, const CellInfo& a_cell, core::Diagnostics& a_diags,
 		const core::CategorySet* a_categories = nullptr, const core::DraftRules* a_rules = nullptr);
 
-	[[nodiscard]] std::string DisplayLabel(const PlacedRef& a_ref);  // "rack (Any)", "mannequin", "item (3)"
+	// A display's kind in a word, sentence case: "Rack", "Mannequin", "Plaque", "Case", "Bookshelf" (empty: not a display).
+	[[nodiscard]] std::string DisplayWord(const PlacedRef& a_ref);
+	[[nodiscard]] std::string DisplayLabel(const PlacedRef& a_ref);  // "Rack (any)", "Mannequin", "Plaque (1 item)"
 }

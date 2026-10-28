@@ -376,22 +376,22 @@ namespace dova::editor::ui
 				}
 			});
 		}
-		if (ImGui::Button("Clear their categories")) {
+		if (w::Button("Clear their categories")) {
 			forEach([](core::ContainerBinding& b) { b.categories.clear(); });
 		}
 		w::SectionHead("Ignored");
-		if (ImGui::Button("Ignore all")) {
+		if (w::Button("Ignore all")) {
 			forEach([](core::ContainerBinding& b) { b.ignored = true; });
 		}
-		ImGui::SameLine();
-		if (ImGui::Button("Use all")) {
+		ImGui::SameLine(0.0f, w::Th().gap);
+		if (w::Button("Use all")) {
 			forEach([](core::ContainerBinding& b) { b.ignored = false; });
 		}
 		w::Tip("Respawning containers stay a bad idea: check the notes");
 		w::SectionHead("Note");
 		static std::string note;
 		ImGui::InputTextMultiline("##bulknote", &note, ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 2.5f));
-		if (ImGui::Button("Set on all")) {
+		if (w::Button("Set on all")) {
 			forEach([&](core::ContainerBinding& b) { b.note = note; });
 		}
 		w::Spacer();

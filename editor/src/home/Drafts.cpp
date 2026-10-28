@@ -60,7 +60,8 @@ namespace dova::editor::home
 			a_size = std::abs(n) > std::abs(c) ? std::array{ d, w, h } : std::array{ w, d, h };
 		}
 
-		std::string GameName(const PlacedRef& a_ref) { return a_ref.baseName.empty() ? a_ref.baseEditorId : a_ref.baseName; }
+		// The game's name; a display without one is named by its kind ("Mannequin", not PlayerHouseMannequin).
+		std::string GameName(const PlacedRef& a_ref) { return !a_ref.baseName.empty() ? a_ref.baseName : a_ref.display ? DisplayWord(a_ref) : a_ref.baseEditorId; }
 
 		bool Digit(std::string_view a_text, std::size_t a_at) { return a_at < a_text.size() && a_text[a_at] >= '0' && a_text[a_at] <= '9'; }
 

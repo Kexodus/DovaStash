@@ -394,14 +394,35 @@ namespace dova::editor::home
 		return RefLayer::Structure;
 	}
 
+	std::string DisplayWord(const PlacedRef& a_ref)
+	{
+		if (!a_ref.display) {
+			return {};
+		}
+		switch (*a_ref.display) {
+		case core::DisplayKind::Rack:
+			return "Rack";
+		case core::DisplayKind::Mannequin:
+			return "Mannequin";
+		case core::DisplayKind::Item:
+			return "Plaque";  // made for one item (the Displays table's Plaque filter)
+		case core::DisplayKind::Case:
+			return "Case";
+		case core::DisplayKind::Bookshelf:
+			return "Bookshelf";
+		default:
+			return "Display";
+		}
+	}
+
 	std::string DisplayLabel(const PlacedRef& a_ref)
 	{
 		if (!a_ref.display) {
 			return {};
 		}
-		std::string s(core::DisplayKindName(*a_ref.display));
+		std::string s = DisplayWord(a_ref);
 		if (a_ref.rackType) {
-			static constexpr const char* names[] = { "?", "Any", "Shield", "NoDaggerOrBow", "Dagger", "LargeCase" };
+			static constexpr const char* names[] = { "?", "any", "shield", "no dagger or bow", "dagger", "large case" };
 			const auto                   t = static_cast<int>(*a_ref.rackType);
 			s += " (";
 			s += (t >= 1 && t <= 5) ? names[t] : "?";

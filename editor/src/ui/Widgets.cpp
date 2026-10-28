@@ -307,7 +307,12 @@ namespace dova::editor::ui::w
 			const float  h = t.chipH;
 			const float  padX = 8.0f * t.scale;
 			const float  closeW = a_close ? h - 2.0f * t.scale : 0.0f;
-			const ImVec2 size(std::round(ts.x + 2.0f * padX + closeW - (a_close ? 3.0f * t.scale : 0.0f)), h);
+			// A chip to switch (ChipButton): on shows a check before the text, off is quiet.
+			const bool   toggle = a_button && !a_close;
+			const bool   check = toggle && a_active;
+			const float  checkS = std::round(12.0f * t.scale);
+			const float  checkW = check ? checkS + 4.0f * t.scale : 0.0f;
+			const ImVec2 size(std::round(ts.x + 2.0f * padX + checkW + closeW - (a_close ? 3.0f * t.scale : 0.0f)), h);
 			// Centre the chip on a framed line (an input): text tops align with SameLine'd frames and text.
 			const float baseline = (h - ts.y) * 0.5f;
 			Hit         hit;
@@ -331,9 +336,19 @@ namespace dova::editor::ui::w
 			}
 			const float r = h * 0.5f;
 			dl->AddRectFilled(bb.Min, bb.Max, fill, r);
-			dl->AddRect(bb.Min, bb.Max, a_button && hit.hovered && !a_active ? col : WithAlpha(col, 0.8f), r, 0, 1.0f);
-			const ImU32 textCol = a_kind == Kind::Neutral ? (a_active ? t.text : t.muted) : col;
-			Text(dl, font, ImVec2(bb.Min.x + padX, bb.Min.y + (h - ts.y) * 0.5f), textCol, a_text, end);
+			ImU32 border = WithAlpha(col, 0.8f);
+			ImU32 textCol = a_kind == Kind::Neutral ? (a_active ? t.text : t.muted) : col;
+			if (toggle) {
+				border = a_active || hit.hovered ? col : WithAlpha(col, 0.5f);
+				textCol = a_active ? t.text : t.muted;
+			}
+			dl->AddRect(bb.Min, bb.Max, border, r, 0, 1.0f);
+			float tx = bb.Min.x + padX;
+			if (check) {
+				DrawIcon(dl, Icon::Check, ImVec2(tx - 1.0f * t.scale, std::round(bb.Min.y + (h - checkS) * 0.5f)), checkS, col);
+				tx += checkW;
+			}
+			Text(dl, font, ImVec2(tx, bb.Min.y + (h - ts.y) * 0.5f), textCol, a_text, end);
 			bool closeHit = false;
 			if (a_close) {
 				const ImVec2 c(std::round(bb.Max.x - closeW * 0.5f - 2.0f * t.scale), std::round(bb.Min.y + h * 0.5f));
@@ -444,7 +459,7 @@ namespace dova::editor::ui::w
 		PopFont();
 	}
 
-	void Mono(const char* a_text)
+	void Mono(const char* a_text, ImU32 a_colour)
 	{
 		// The mono line is shorter than the line it sits in (a table row, a label after SameLine): it goes on that
 		// line's baseline, in a line at least as tall, so a form ref stays level with the text beside it.
@@ -465,10 +480,10 @@ namespace dova::editor::ui::w
 		if (!ImGui::ItemAdd(ImRect(pos, pos + size), 0)) {
 			return;
 		}
-		win->DrawList->AddText(font, px, detail::Floor(ImVec2(pos.x, pos.y + dy)), ImGui::GetColorU32(ImGuiCol_Text), a_text, nullptr, wrap);
+		win->DrawList->AddText(font, px, detail::Floor(ImVec2(pos.x, pos.y + dy)), a_colour ? a_colour : ImGui::GetColorU32(ImGuiCol_Text), a_text, nullptr, wrap);
 	}
 
-	void SectionHead(const char* a_text, const char* a_tooltip)
+	void SectionHead(const char* a_text, const char* a_tooltip, const char* a_count)
 	{
 		const Theme& t = Th();
 		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
@@ -486,6 +501,13 @@ namespace dova::editor::ui::w
 		const float  tx = bb.Min.x;
 		const float  tw = Tracked(dl, font, ImVec2(tx, bb.Min.y + (h - font->LegacySize) * 0.5f), t.muted, a_text, tracking, true);
 		float       x0 = std::round(tx + tw + 8.0f * t.scale);
+		if (a_count && *a_count) {
+			// The count as the drawer's tabs draw theirs: small, muted, not tracked.
+			const float  px = kBadgePx * t.scale;
+			const ImVec2 cs = font->CalcTextSizeA(px, FLT_MAX, 0.0f, a_count);
+			dl->AddText(font, px, ImVec2(std::floor(x0 - 2.0f * t.scale), std::floor(bb.Min.y + (h - cs.y) * 0.5f)), t.muted, a_count);
+			x0 = std::round(x0 - 2.0f * t.scale + cs.x + 8.0f * t.scale);
+		}
 		if (a_tooltip && *a_tooltip) {
 			const float  is = std::round(12.0f * t.scale);
 			const ImVec2 ip(x0 - 2.0f * t.scale, std::round(bb.Min.y + (h - is) * 0.5f));
@@ -738,6 +760,80 @@ namespace dova::editor::ui::w
 		return pressed;
 	}
 
+	namespace
+	{
+		// Button's look: bg2, a 1 px line border, hover bg3; the label centred, or wrapped from the left in a fixed width.
+		bool FramedButton(const char* a_label, const Icon* a_icon, Kind a_kind, const char* a_tooltip, const char* a_shortcut, float a_width)
+		{
+			const Theme& t = Th();
+			ImFont*      font = ImGui::GetFont();
+			const char*  end = LabelEnd(a_label);
+			const float  padX = 12.0f * t.scale;
+			const float  is = t.iconSize;
+			const float  iconW = a_icon ? is + 6.0f * t.scale : 0.0f;
+			const ImVec2 one = TextSize(font, a_label, end);
+			const float  w = a_width > 0.0f ? std::round(a_width) : std::round(one.x + iconW + 2.0f * padX);
+			const float  wrap = std::max(1.0f, w - 2.0f * padX - iconW);
+			const bool   wrapped = one.x > wrap + 0.5f;
+			const ImVec2 ts = wrapped ? font->CalcTextSizeA(font->LegacySize, FLT_MAX, wrap, a_label, end) : one;
+			const float  h = std::max(t.inputH, std::round(ts.y + t.inputH - one.y));
+			const bool   disabled = (GImGui->CurrentItemFlags & ImGuiItemFlags_Disabled) != 0;
+			Hit          hit;
+			if (!Item(a_label, ImVec2(w, h), hit, ImGui::GetStyle().FramePadding.y)) {
+				return false;
+			}
+			ImDrawList*   dl = ImGui::GetWindowDrawList();
+			const ImRect& bb = hit.bb;
+			dl->AddRectFilled(bb.Min, bb.Max, !disabled && (hit.hovered || hit.held) ? t.bg3 : t.bg2, t.radius);
+			dl->AddRect(bb.Min, bb.Max, t.line, t.radius, 0, 1.0f);
+			const ImU32 col = disabled ? (t.disabled ? t.disabled : t.muted) : a_kind == Kind::Error ? t.error : t.text;
+			float       x = wrapped ? bb.Min.x + padX : std::round(bb.Min.x + (w - iconW - ts.x) * 0.5f);
+			if (a_icon) {
+				DrawIcon(dl, *a_icon, ImVec2(x, std::round(bb.Min.y + (h - is) * 0.5f)), is, col);
+				x += iconW;
+			}
+			dl->AddText(font, font->LegacySize, detail::Floor(ImVec2(x, bb.Min.y + (h - ts.y) * 0.5f)), col, a_label, end, wrapped ? wrap : 0.0f);
+			TipShortcut(a_tooltip, a_shortcut);
+			return hit.pressed && !disabled;
+		}
+	}
+
+	bool Button(const char* a_label, const char* a_tooltip, const char* a_shortcut, Kind a_kind, float a_width)
+	{
+		return FramedButton(a_label, nullptr, a_kind, a_tooltip, a_shortcut, a_width);
+	}
+
+	bool Button(const char* a_label, Icon a_icon, Kind a_kind, const char* a_tooltip, float a_width)
+	{
+		return FramedButton(a_label, &a_icon, a_kind, a_tooltip, nullptr, a_width);
+	}
+
+	bool BeginCombo(const char* a_id, const char* a_preview, ImGuiComboFlags a_flags)
+	{
+		const Theme& t = Th();
+		// The frame's place, taken before the combo opens its popup (then the current window is the popup's).
+		ImDrawList*  dl = ImGui::GetWindowDrawList();
+		const ImVec2 p = ImGui::GetCursorScreenPos();
+		const ImVec2 q(p.x + ImGui::CalcItemWidth(), p.y + ImGui::GetFrameHeight());
+		const bool   open = ImGui::BeginCombo(a_id, a_preview, a_flags | ImGuiComboFlags_NoArrowButton);
+		const bool   hovered = !open && ImGui::IsItemHovered();
+		const bool   hot = open || hovered;
+		if (!ImGui::GetCurrentWindowRead()->SkipItems || open) {
+			const float cs = std::round(11.0f * t.scale);
+			const float x = std::round(q.x - t.pad - cs);
+			// A long preview runs to the frame's end: the chevron gets its own patch of the frame.
+			dl->AddRectFilled(ImVec2(x - 4.0f * t.scale, p.y + 1.0f), ImVec2(q.x - 1.0f, q.y - 1.0f),
+				ImGui::GetColorU32(hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg), t.radius, ImDrawFlags_RoundCornersRight);
+			DrawIcon(dl, Icon::ChevronDown, ImVec2(x, std::round(p.y + (q.y - p.y - cs) * 0.5f)), cs, hot ? t.text : t.muted);
+		}
+		return open;
+	}
+
+	void EndCombo()
+	{
+		ImGui::EndCombo();
+	}
+
 	bool Segmented(const char* a_id, int& a_value, std::span<const char* const> a_labels, std::span<const char* const> a_tooltips)
 	{
 		const Theme& t = Th();
@@ -750,7 +846,13 @@ namespace dova::editor::ui::w
 		}
 		ImFont*            font = ImGui::GetFont();
 		const float        h = t.inputH;
-		const float        padX = 12.0f * t.scale;
+		// 12 px each side of a label; a narrow panel (the inspector at a large text size) gets less, down to 4 px.
+		float text = 0.0f;
+		for (const char* l : a_labels) {
+			text += TextSize(font, l, LabelEnd(l)).x;
+		}
+		const float        n = static_cast<float>(a_labels.size());
+		const float        padX = std::clamp((ImGui::GetContentRegionAvail().x - text) / (2.0f * n), 4.0f * t.scale, 12.0f * t.scale);
 		std::vector<float> widths;
 		float              total = 0.0f;
 		for (const char* l : a_labels) {
@@ -1500,13 +1602,17 @@ namespace dova::editor::ui::w
 		ImDrawList*  dl = ImGui::GetWindowDrawList();
 		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
 		const ImVec2 ts = TextSize(font, a_text);
-		const float  h = std::round(ts.y + 14.0f * t.scale);
-		const float  y0 = a_viewportMax.y - h;
-		// A soft fade from the view into a darker band so the text reads over any scene.
-		dl->AddRectFilledMultiColor(ImVec2(a_viewportMin.x, y0), a_viewportMax, IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 120), IM_COL32(0, 0, 0, 120));
-		const ImVec2 p(a_viewportMin.x + t.pad + 2.0f * t.scale, a_viewportMax.y - ts.y - 6.0f * t.scale);
+		const ImVec2 p(a_viewportMin.x + t.pad + 2.0f * t.scale + t.pad * 0.5f, a_viewportMax.y - ts.y - 6.0f * t.scale - t.pad * 0.5f);
 		// A narrow view ends the line in "..." rather than cutting a word.
-		const float right = a_viewportMax.x - t.pad;
+		const float right = a_viewportMax.x - t.pad - t.pad * 0.5f;
+		{
+			// A dark plate behind the text alone, so it reads over a bright scene (the viewport's colour: bg0 in a dark
+			// theme, and dark in a light one, as the text on it is light).
+			const ImVec2 b0 = detail::Floor(p - ImVec2(t.pad * 0.5f, t.pad * 0.5f));
+			const ImVec2 b1 = detail::Floor(ImVec2(std::min(p.x + ts.x, right) + t.pad * 0.5f, p.y + ts.y + t.pad * 0.5f));
+			dl->AddRectFilled(b0, b1, WithAlpha(t.viewport ? t.viewport : t.bg0, 0.75f), t.radius);
+			Rim(dl, b0, b1, t.radius);
+		}
 		if (p.x + ts.x > right) {
 			ImGui::PushFont(font, font->LegacySize);
 			for (const auto& [offset, col] : { std::pair{ 1.0f, IM_COL32(0, 0, 0, 160) }, std::pair{ 0.0f, t.viewportText } }) {
@@ -1993,11 +2099,14 @@ namespace dova::editor::ui::w
 		}
 	}
 
-	float ChipWidth(const char* a_text, bool a_close)
+	float ChipWidth(const char* a_text, bool a_close, bool a_active)
 	{
 		const Theme& t = Th();
-		// ChipImpl's size: the text, 8 px each side, the close x.
-		const float w = TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), a_text, LabelEnd(a_text)).x + 16.0f * t.scale;
+		// ChipImpl's size: the text, 8 px each side, the check of a ChipButton that is on, the close x.
+		float w = TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), a_text, LabelEnd(a_text)).x + 16.0f * t.scale;
+		if (a_active && !a_close) {
+			w += std::round(12.0f * t.scale) + 4.0f * t.scale;
+		}
 		return std::round(a_close ? w + t.chipH - 5.0f * t.scale : w);
 	}
 
