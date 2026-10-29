@@ -135,6 +135,7 @@ namespace dova::editor::ui
 			std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", PathToUtf8(_options.mo2 ? *_options.mo2 : *_options.data).c_str());
 		}
 		// Before the command line's overrides: opening saves the state (the instance), and they are for this run.
+		_holdFrames = 3;  // OpenWorkspace and the scan below: under MO2, after the first frames (App.h)
 		OpenWorkspace();
 		const UiLayout remembered = _state.ui;
 		// --tab: the view, a drawer tab or the inspector's Template panel (docs/EDITOR-UX.md §4).
@@ -235,7 +236,10 @@ namespace dova::editor::ui
 			_state.uiOnDisk = remembered;
 		}
 		_savedUi = _state.ui;
-		if (_ws) {
+		if (_ws && _holdFrames > 0 && _ws->UnderVfs()) {
+			_heldHomes = true;
+			Log("started from MO2: the home scan starts after the first frames");
+		} else if (_ws) {
 			ScanHomes();
 		} else if (const auto error = NoHomeOpenError(_unattended && (a_gui.home || a_gui.cell || a_gui.mod || a_gui.drafts || a_gui.select), false, _wsError)) {
 			// A screenshot run that cannot honour --home and the like: stderr and the log, the image still saved, exit 1.
@@ -265,7 +269,7 @@ namespace dova::editor::ui
 		if (!_ws) {
 			return !_job.valid();
 		}
-		if (!_homes || _job.valid() || !_queue.empty() || _pendingCell || _pendingHome || _pendingDrafts || !_homeQueue.empty()) {
+		if (_heldHomes || _heldArt || !_homes || _job.valid() || !_queue.empty() || _pendingCell || _pendingHome || _pendingDrafts || !_homeQueue.empty()) {
 			return false;
 		}
 		if (!_cell || _showStart) {
@@ -390,7 +394,9 @@ namespace dova::editor::ui
 		}
 		// The game-read art (the start panel's backdrop): the same Assets the 3D view uses.
 		ReleaseArt();
-		if (_ws && _device) {
+		if (_ws && _device && _holdFrames > 0 && _ws->UnderVfs()) {
+			_heldArt = true;
+		} else if (_ws && _device) {
 			_assets = std::make_shared<Assets>(_ws->Files().Roots(), Assets::ArchiveList(*_ws));
 			LoadArt(_assets, _device);
 		}
@@ -825,6 +831,16 @@ namespace dova::editor::ui
 	void EditorApp::Frame()
 	{
 		_listHoverShown = std::exchange(_listHoveredRef, -1);
+		// The start-up file work held back under MO2 (App.h): once the first frames are on screen.
+		if (_holdFrames > 0 && --_holdFrames == 0) {
+			if (std::exchange(_heldArt, false) && _ws && _device) {
+				_assets = std::make_shared<Assets>(_ws->Files().Roots(), Assets::ArchiveList(*_ws));
+				LoadArt(_assets, _device);
+			}
+			if (std::exchange(_heldHomes, false) && _ws) {
+				ScanHomes();
+			}
+		}
 		PollJob();
 		ApplyWindowSize();
 		// --home given more than once: the next home once the open one's 3D view has loaded.

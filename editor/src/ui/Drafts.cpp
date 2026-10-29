@@ -120,8 +120,14 @@ namespace dova::editor::ui
 			const auto start = std::chrono::steady_clock::now();
 			auto       data = std::make_shared<HomesData>();
 			auto       setStage = [&](std::string a_stage) {
-                std::scoped_lock lock(progress->mutex);
-                progress->stage = std::move(a_stage);
+				std::scoped_lock lock(progress->mutex);
+				// A stage change, not per plugin ("Reading the cells of X" logs once): shows where a slow scan sits.
+				constexpr std::string_view perPlugin = "Reading the cells of ";
+				const bool samePlugins = a_stage.starts_with(perPlugin) && progress->stage.starts_with(perPlugin);
+				if (progress->stage != a_stage && !samePlugins) {
+					Log("finding homes: {}", a_stage.starts_with(perPlugin) ? std::string("reading the plugins' cells") : a_stage);
+				}
+				progress->stage = std::move(a_stage);
 			};
 			setStage("opening the load order");
 			data->lo = std::shared_ptr<esp::LoadOrder>(ws->OpenLoadOrder(data->errors, [&](std::size_t a_done, std::size_t a_total) {
@@ -170,6 +176,7 @@ namespace dova::editor::ui
 			}
 			data->entries.resize(data->homes.size());
 			data->ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+			Log("finding homes: {} homes in {} ms", data->homes.size(), data->ms);
 			return [this, data]() {
 				_homes = data;
 				GroupHomes();

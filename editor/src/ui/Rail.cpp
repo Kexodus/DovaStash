@@ -386,7 +386,7 @@ namespace dova::editor::ui
 			if (!_ws) {
 				w::EmptyState("No setup", "Pick your MO2 instance or Data folder in the middle panel.");
 			} else {
-				if (!_homes && !_homesRequested) {
+				if (!_homes && !_homesRequested && !_heldHomes) {
 					ScanHomes();
 				}
 				// "Draft all homes" is done: offer to save the drafts of homes without a template.

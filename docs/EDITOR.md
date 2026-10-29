@@ -602,10 +602,14 @@ on disk (size or time) is indexed again before it is read; Rescan (F5) drops eve
 **missing** in the status row means in no loose folder and no archive; a file that exists but cannot be read or
 used (broken, Direct3D refusing it after one retry) counts as **unreadable**, with its reason in the tooltip.
 The editor's log, `%LOCALAPPDATA%\DovaStashEditor\editor.log` (the previous run's is `editor.old.log`), records
-the workspace, the archives opened, each 3D view loaded (counts, memory) and every failed read with its reason
+the workspace, the archives opened, each stage of the home scan (*finding homes: ...*, then how many homes and how
+long), each 3D view loaded (counts, memory) and every failed read with its reason
 (meshes first; a right-click on the status row's *2 meshes, 5 textures missing* copies the same list). Console
 commands and `--screenshot` runs log to `%TEMP%\DovaStashEditor\editor-run.log` instead, so they never replace the
 author's last session (with `DOVASTASH_EDITOR_STATE` set, to `editor.log` next to that file).
+Started from MO2, the editor draws its first frames before it starts reading files in the background (the start
+panel's art, the home scan): one run on a 1,900-mod profile hung on *Finding homes* with MO2's file-hook lock held
+by the main thread, and the hold keeps the main thread's own start-up out of the workers' way.
 
 ### 4.4 Writing templates
 

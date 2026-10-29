@@ -537,6 +537,12 @@ namespace dova::editor::ui
 		std::string                 _pendingFilePath;
 		bool                        _quit{ false };
 		bool                        _unattended{ false };  // --screenshot: errors to stderr and the log, never a message box
+		// Started from MO2: the start-up file work (the start panel's art, the home scan) waits for the first frames, so
+		// the main thread has loaded the graphics driver's libraries before workers call MO2's hooked file functions
+		// (a run that hung on "Finding homes" left MO2's file-hook lock held by the main thread).
+		int                         _holdFrames{ 0 };
+		bool                        _heldArt{ false };
+		bool                        _heldHomes{ false };
 		bool                        _failed{ false };
 		bool                        _homeMissing{ false };
 		int                         _listHoveredRef{ -1 };   // a row hovered in a panel this frame (the Draft panel's)
