@@ -41,7 +41,6 @@ namespace dova::editor::ui
 			return;
 		}
 		if (w::BeginPadded("inspad", ImVec2(0, 0), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse)) {
-			ImGui::Indent(4.0f * t.scale);  // clear of the resize handle on the left edge
 			int        panel = static_cast<int>(_panel);
 			const int  problems = _cell ? ErrorCount(*_cell) + WarningCount(*_cell) : 0;
 			const auto checks = problems > 0 ? std::format("Checks {}###checks", problems) : std::string("Checks###checks");
@@ -50,14 +49,12 @@ namespace dova::editor::ui
 			if (w::Segmented("panel", panel, labels, tips)) {
 				_panel = static_cast<Panel>(panel);
 			}
-			ImGui::Unindent(4.0f * t.scale);
-			w::Spacer(2.0f * t.scale);
+			w::Spacer(4.0f * t.scale);
 			// Ends above the strip that holds the collapse chevron, so nothing scrolls under it.
-			ImGui::BeginChild("panelbody", ImVec2(0, -std::round(30.0f * t.scale)), ImGuiChildFlags_None, ImGuiWindowFlags_None);
-			ImGui::Indent(4.0f * t.scale);
+			ImGui::BeginChild("panelbody", ImVec2(0, -std::round(32.0f * t.scale)), ImGuiChildFlags_None, ImGuiWindowFlags_None);
 			ImGui::PushItemWidth(-FLT_MIN);
 			if (!_cell) {
-				w::EmptyState("No home open", "Pick one in the rail.");
+				w::EmptyState("Nothing to inspect", "Open a home, then click a chest.");
 			} else {
 				auto& c = *_cell;
 				switch (_panel) {
@@ -76,7 +73,6 @@ namespace dova::editor::ui
 				}
 			}
 			ImGui::PopItemWidth();
-			ImGui::Unindent(4.0f * t.scale);
 			ImGui::EndChild();
 		}
 		w::EndPadded();
@@ -94,13 +90,14 @@ namespace dova::editor::ui
 			DrawRefDetails(a_cell, _selectedRef);
 			return;
 		}
-		// Empty: what to do first.
-		w::Spacer();
+		// Empty: what to do first, from the panel's top line like the other panels.
 		w::Heading("Nothing selected");
 		w::MutedWrapped("Click a chest, rack or mannequin. Ctrl+click adds, drag boxes.");
 		w::Spacer();
 		// Full width; a narrow panel wraps a label onto a second line rather than cutting it.
 		const float bw = ImGui::GetContentRegionAvail().x;
+		// Framed buttons stacked take the 8 px item spacing, as framed buttons side by side do.
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, 8.0f * w::Th().scale));
 		ImGui::BeginDisabled(Busy());
 		if (w::Button("Make the nearest chest the master", "The usable chest nearest to the camera (3D) or the plan's middle", nullptr, w::Kind::Neutral, bw)) {
 			MakeNearestMaster(a_cell);
@@ -113,6 +110,7 @@ namespace dova::editor::ui
 			_drawerTab = DrawerTab::Containers;
 			_state.ui.drawerOpen = true;
 		}
+		ImGui::PopStyleVar();
 	}
 
 	void EditorApp::DrawRefDetails(OpenCell& a_cell, int a_index)
@@ -144,7 +142,11 @@ namespace dova::editor::ui
 		w::Heading(RefLabel(a_cell.layout, a_cell.lo->ToFormRef(r.key), RefTitle(r)).c_str());
 		ImGui::PopTextWrapPos();
 		{
-			std::string kind = r.display ? home::DisplayLabel(r) : r.IsContainer() ? "Container" : esp::SigToString(r.baseType);
+			// A container names its kind as the Containers table does (Basket, Chest...); "Container" when unrecognised.
+			std::string kind = r.display ? home::DisplayLabel(r) : r.IsContainer() ? ContainerKind(r) : esp::SigToString(r.baseType);
+			if (!r.display && r.IsContainer() && kind == "Other") {
+				kind = "Container";
+			}
 			for (const auto& d : a_cell.info.doors) {
 				if (d.door == r.key) {
 					kind = "Door to " + d.destinationLabel;
@@ -184,7 +186,7 @@ namespace dova::editor::ui
 			chip("owned", w::Kind::Warn, "Owned by someone else");
 		}
 		ImGui::EndGroup();
-		w::Spacer(chips || thumb ? t.gap : 2.0f);
+		w::Spacer(chips || thumb ? 4.0f * t.scale : 2.0f);
 		// The reference and the base record: one muted block with a copy icon.
 		std::string lines = a_cell.refText[static_cast<std::size_t>(a_index)];
 		if (!r.editorId.empty()) {
@@ -225,7 +227,6 @@ namespace dova::editor::ui
 		auto rank = [&](const std::string* a_text) { return a_text->starts_with("error") ? 0 : a_text == &conflictText ? 1 : a_text->starts_with("info") ? 2 : 3; };
 		std::ranges::stable_sort(sorted, [&](const std::string* a, const std::string* b) { return rank(a) < rank(b); });
 		if (sorted.empty()) {
-			w::Spacer();
 			w::Coloured(w::Kind::Ok, "No problems");
 		}
 		// The object a problem is about: "containers[3]", "displays[2]" or a form ref in the text (its form ref).
@@ -343,10 +344,13 @@ namespace dova::editor::ui
 		}
 		// A shipped or saved template leaves containers out on purpose: a quieter heading of their own.
 		const bool saved = !a_cell.filePath.empty() || (!a_cell.savedPath.empty() && !a_cell.dirty);
-		auto       notListed = [&]() {
-			const auto text = unlisted == 0     ? std::format("{} containers not listed: they come with upgrades", unlistedLater)
-			                  : unlistedLater > 0 ? std::format("{} containers not listed ({} more come with upgrades)", unlisted, unlistedLater)
-			                                      : std::format("{} containers not listed", unlisted);
+		// The count walks this cell alone, so a home of more than one cell names its scope (as the Draft head does).
+		const auto* homeEntry = HomeEntryFor(a_cell);
+		const char* scope = homeEntry && !homeEntry->extra.empty() ? " in this cell" : "";
+		auto        notListed = [&]() {
+			const auto text = unlisted == 0     ? std::format("{} containers{} not listed: they come with upgrades", unlistedLater, scope)
+			                  : unlistedLater > 0 ? std::format("{} containers{} not listed ({} more come with upgrades)", unlisted, scope, unlistedLater)
+			                                      : std::format("{} containers{} not listed", unlisted, scope);
 			if (w::LinkButton(text.c_str())) {
 				_drawerTab = DrawerTab::Containers;
 				_state.ui.drawerOpen = true;

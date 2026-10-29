@@ -12,6 +12,7 @@
 #include <cstring>
 #include <cwctype>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -82,6 +83,16 @@ namespace dova::editor::ui::w
 		const char* LabelEnd(const char* a_label)
 		{
 			return ImGui::FindRenderedTextEnd(a_label);
+		}
+
+		// Where a label's trailing count starts ("Checks 2" -> "2"), nullptr when the label ends in a word.
+		const char* CountTail(const char* a_label, const char* a_end)
+		{
+			const char* p = a_end;
+			while (p > a_label && p[-1] >= '0' && p[-1] <= '9') {
+				--p;
+			}
+			return p < a_end && p > a_label && p[-1] == ' ' ? p : nullptr;
 		}
 
 		ImVec2 TextSize(ImFont* a_font, const char* a_text, const char* a_end = nullptr)
@@ -202,7 +213,7 @@ namespace dova::editor::ui::w
 			ImFont*     font = ImGui::GetFont();
 			const float h = t.inputH;
 			const float is = t.iconSize;
-			l.padX = l.hasText ? 10.0f * t.scale : (h - is) * 0.5f;
+			l.padX = l.hasText ? 8.0f * t.scale : (h - is) * 0.5f;  // a label 8 px in: a tab's text on its row's keyline
 			l.chevW = 9.0f * t.scale;
 			l.ts = l.hasText ? TextSize(font, l.label, l.end) : ImVec2(0, 0);
 			l.badgeFont = t.smallFont ? t.smallFont : font;
@@ -328,10 +339,9 @@ namespace dova::editor::ui::w
 			ImDrawList*  dl = ImGui::GetWindowDrawList();
 			const ImVec2 mouse = ImGui::GetIO().MousePos;
 			const bool   overClose = a_close && hit.hovered && mouse.x >= bb.Max.x - closeW - 1.0f;
+			// On reads by the check, the full border and the brighter text: the fill stays gray-5.
 			ImU32        fill = t.bg2;
-			if (a_active) {
-				fill = Mix(col, t.bg2, 0.25f);
-			} else if (a_button && hit.hovered) {
+			if (a_button && hit.hovered) {
 				fill = t.bg3;
 			}
 			const float r = h * 0.5f;
@@ -483,6 +493,12 @@ namespace dova::editor::ui::w
 		win->DrawList->AddText(font, px, detail::Floor(ImVec2(pos.x, pos.y + dy)), a_colour ? a_colour : ImGui::GetColorU32(ImGuiCol_Text), a_text, nullptr, wrap);
 	}
 
+	// Where the last section head left the cursor, so a field label straight under it adds no space of its own: a
+	// head groups with what it heads.
+	static const ImGuiWindow* g_headWindow = nullptr;
+	static float              g_headEndY = -1.0f;
+	static int                g_headFrame = -1;
+
 	void SectionHead(const char* a_text, const char* a_tooltip, const char* a_count)
 	{
 		const Theme& t = Th();
@@ -490,25 +506,53 @@ namespace dova::editor::ui::w
 		const float  tracking = std::round(font->LegacySize * 0.24f);  // the art set's caps tracking
 		const float  avail = ImGui::GetContentRegionAvail().x;
 		const float  h = std::round(font->LegacySize + 2.0f * t.scale);
-		ImGui::Dummy(ImVec2(0.0f, 4.0f * t.scale));
+		// A head parts its section from the one above; as a window's first item the window's padding is that space.
+		const ImGuiWindow* win = ImGui::GetCurrentWindowRead();
+		if (win->DC.CursorPos.y > win->DC.CursorStartPos.y + 0.5f) {
+			ImGui::Dummy(ImVec2(0.0f, 4.0f * t.scale));
+		}
 		ImRect bb;
 		if (!Static(ImVec2(std::max(avail, 1.0f), h), bb, 0.0f)) {
 			ImGui::Dummy(ImVec2(0.0f, 2.0f * t.scale));
+			g_headWindow = win;
+			g_headEndY = win->DC.CursorPos.y;
+			g_headFrame = ImGui::GetFrameCount();
 			return;
 		}
 		ImDrawList*  dl = ImGui::GetWindowDrawList();
 		const float  cy = std::floor(bb.Min.y + h * 0.5f) + 0.5f;
 		const float  tx = bb.Min.x;
-		const float  tw = Tracked(dl, font, ImVec2(tx, bb.Min.y + (h - font->LegacySize) * 0.5f), t.muted, a_text, tracking, true);
+		const bool   hasCount = a_count && *a_count;
+		const float  px = kBadgePx * t.scale;
+		const ImVec2 cs = hasCount ? font->CalcTextSizeA(px, FLT_MAX, 0.0f, a_count) : ImVec2();
+		// Too long for the body (a long count at a large text size): the hairline goes first, then the capitals close
+		// up to a third of their tracking, then the info mark goes and the head itself carries the tooltip. The words
+		// are the last to clip.
+		const float wide = Tracked(nullptr, font, ImVec2(), 0, a_text, tracking, true);
+		const float gaps = tracking > 0.0f ? (wide - Tracked(nullptr, font, ImVec2(), 0, a_text, 0.0f, true)) / tracking : 0.0f;
+		const float countW = hasCount ? 6.0f * t.scale + cs.x : 0.0f;
+		auto        fit = [&](float a_rest) {  // the tracking that fits beside a_rest, a third of the usual at least
+			const float over = wide + a_rest - avail;
+			return over <= 0.0f || gaps <= 0.0f ? tracking : std::max(std::round(tracking / 3.0f), std::floor(tracking - over / gaps));
+		};
+		bool  mark = a_tooltip && *a_tooltip;
+		float track = fit(countW + (mark ? 18.0f * t.scale : 0.0f));
+		if (mark && wide - gaps * (tracking - track) + countW + 18.0f * t.scale > avail) {
+			mark = false;
+			track = fit(countW);
+		}
+		const float tw = Tracked(dl, font, ImVec2(tx, bb.Min.y + (h - font->LegacySize) * 0.5f), t.muted, a_text, track, true);
 		float       x0 = std::round(tx + tw + 8.0f * t.scale);
-		if (a_count && *a_count) {
+		if (hasCount) {
 			// The count as the drawer's tabs draw theirs: small, muted, not tracked.
-			const float  px = kBadgePx * t.scale;
-			const ImVec2 cs = font->CalcTextSizeA(px, FLT_MAX, 0.0f, a_count);
 			dl->AddText(font, px, ImVec2(std::floor(x0 - 2.0f * t.scale), std::floor(bb.Min.y + (h - cs.y) * 0.5f)), t.muted, a_count);
 			x0 = std::round(x0 - 2.0f * t.scale + cs.x + 8.0f * t.scale);
 		}
-		if (a_tooltip && *a_tooltip) {
+		if (a_tooltip && *a_tooltip && !mark) {
+			if (ImGui::IsMouseHoveringRect(bb.Min, bb.Max) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
+				ImGui::SetTooltip("%s", a_tooltip);
+			}
+		} else if (a_tooltip && *a_tooltip) {
 			const float  is = std::round(12.0f * t.scale);
 			const ImVec2 ip(x0 - 2.0f * t.scale, std::round(bb.Min.y + (h - is) * 0.5f));
 			const bool   over = ImGui::IsMouseHoveringRect(bb.Min, ImVec2(ip.x + is, bb.Max.y)) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
@@ -522,6 +566,9 @@ namespace dova::editor::ui::w
 			dl->AddRectFilled(ImVec2(x0, std::floor(cy)), ImVec2(bb.Max.x, std::floor(cy) + 1.0f), t.line);
 		}
 		ImGui::Dummy(ImVec2(0.0f, 2.0f * t.scale));
+		g_headWindow = win;
+		g_headEndY = win->DC.CursorPos.y;
+		g_headFrame = ImGui::GetFrameCount();
 	}
 
 	void Tip(const char* a_text)
@@ -558,7 +605,7 @@ namespace dova::editor::ui::w
 
 	void Spacer(float a_px)
 	{
-		ImGui::Dummy(ImVec2(0.0f, a_px > 0.0f ? a_px : Th().gap));
+		ImGui::Dummy(ImVec2(0.0f, a_px > 0.0f ? a_px : 8.0f * Th().scale));  // 4 + 8 + 4: a 16 px step on the grid
 	}
 
 	// ---- Chips ----
@@ -889,7 +936,16 @@ namespace dova::editor::ui::w
 				const char*  end = LabelEnd(a_labels[i]);
 				const ImVec2 ts = TextSize(font, a_labels[i], end);
 				const ImU32  col = active ? t.accent : hit.hovered ? t.text : t.muted;
-				Text(dl, font, ImVec2(hit.bb.Min.x + (widths[i] - ts.x) * 0.5f, hit.bb.Min.y + (h - ts.y) * 0.5f), col, a_labels[i], end);
+				const ImVec2 tp(hit.bb.Min.x + (widths[i] - ts.x) * 0.5f, hit.bb.Min.y + (h - ts.y) * 0.5f);
+				// A label that ends in a number ("Checks 2") carries an alert count: the figure in the warn colour
+				// whatever the segment's state, the same hue the status row gives that warning (§3.5).
+				const char* count = CountTail(a_labels[i], end);
+				if (count) {
+					Text(dl, font, tp, col, a_labels[i], count);
+					Text(dl, font, ImVec2(tp.x + TextSize(font, a_labels[i], count).x, tp.y), t.warn, count, end);
+				} else {
+					Text(dl, font, tp, col, a_labels[i], end);
+				}
 				if (i < a_tooltips.size()) {
 					Tip(a_tooltips[i]);
 				}
@@ -1031,7 +1087,8 @@ namespace dova::editor::ui::w
 
 	namespace
 	{
-		// The shared body of Check and Radio: a 16 px mark and the label, one line high.
+		// The shared body of Check and Radio: a 16 px mark and the label, centred in a 20 px row (with the 4 px item
+		// spacing, a list of them steps 24 px, on the grid).
 		bool MarkItem(const char* a_label, bool a_on, bool a_round)
 		{
 			const Theme& t = Th();
@@ -1039,7 +1096,7 @@ namespace dova::editor::ui::w
 			const char*  end = LabelEnd(a_label);
 			const ImVec2 ts = TextSize(font, a_label, end);
 			const float  box = std::round(16.0f * t.scale);
-			const float  h = std::max(ts.y, box);
+			const float  h = std::max(ts.y, std::round(20.0f * t.scale));
 			const float  gap = ts.x > 0.0f ? 8.0f * t.scale : 0.0f;
 			Hit          hit;
 			if (!Item(a_label, ImVec2(std::round(box + gap + ts.x), h), hit, (h - ts.y) * 0.5f)) {
@@ -1137,7 +1194,7 @@ namespace dova::editor::ui::w
 		const float cy = std::round(hit.bb.GetCenter().y);
 		const float gx = std::round(x0 + toT(a_value) * (x1 - x0));
 		const bool  hot = hit.hovered || hit.held;
-		dl->AddRectFilled(ImVec2(x0, cy - 1.0f), ImVec2(x1, cy + 1.0f), t.bg3, 1.0f);
+		dl->AddRectFilled(ImVec2(x0, cy - 1.0f), ImVec2(x1, cy + 1.0f), t.line, 1.0f);  // the empty track in the hairline, so the range shows
 		dl->AddRectFilled(ImVec2(x0, cy - 1.0f), ImVec2(gx, cy + 1.0f), hot ? t.accent : t.accentDim, 1.0f);
 		dl->AddCircleFilled(ImVec2(gx, cy), r, t.bg1, 20);
 		dl->AddCircle(ImVec2(gx, cy), r, hot ? t.accent : t.accentDim, 20, 1.5f);
@@ -1341,7 +1398,7 @@ namespace dova::editor::ui::w
 		const ImGuiViewport* vp = ImGui::GetMainViewport();
 		const bool           right = bb.GetCenter().x > vp->WorkPos.x + vp->WorkSize.x * 0.5f;
 		ImGui::SetNextWindowPos(ImVec2(right ? bb.Max.x : bb.Min.x, bb.Max.y + 4.0f * t.scale), ImGuiCond_Always, ImVec2(right ? 1.0f : 0.0f, 0.0f));
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f * t.scale, 6.0f * t.scale));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(t.pad, t.pad));  // on the grid, like every other padding
 		const bool open = ImGui::BeginPopup("pop", ImGuiWindowFlags_NoMove);
 		ImGui::PopStyleVar();
 		if (!open) {
@@ -1444,7 +1501,9 @@ namespace dova::editor::ui::w
 		const ImVec2 sz = ImGui::GetWindowSize();
 		const ImVec2 mx = mn + sz;
 		ImDrawList*  dl = ImGui::GetWindowDrawList();
-		// Resize handle on the inner edge, outside the content child so it can be hovered.
+		// Resize handle on the inner edge. The right rail's content starts just past its 1 px edge, so its padding
+		// matches the window edge's 16 px; the handle lies under the content's left padding and takes the mouse there
+		// through FlattenChildren. The other rails keep their content beside the handle.
 		const float hs = std::round(5.0f * t.scale);
 		ImRect      handle, edge;
 		switch (a_side) {
@@ -1461,10 +1520,13 @@ namespace dova::editor::ui::w
 			edge = ImRect(mn, ImVec2(mx.x, mn.y + 1.0f));
 			break;
 		}
-		ImGui::SetCursorScreenPos(handle.Min);
-		ImGui::InvisibleButton("resize", ImMax(handle.GetSize(), ImVec2(1, 1)));
-		const bool active = ImGui::IsItemActive();
-		const bool hot = active || ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone);
+		const ImGuiID resizeId = ImGui::GetID("resize");
+		bool          hov = false, held = false;
+		if (ImGui::ItemAdd(handle, resizeId)) {
+			ImGui::ButtonBehavior(handle, resizeId, &hov, &held, ImGuiButtonFlags_FlattenChildren);
+		}
+		const bool active = held;
+		const bool hot = active || hov;
 		if (hot) {
 			ImGui::SetMouseCursor(horizontal ? ImGuiMouseCursor_ResizeEW : ImGuiMouseCursor_ResizeNS);
 		}
@@ -1499,8 +1561,8 @@ namespace dova::editor::ui::w
 			csize.x -= hs;
 			break;
 		case Side::Right:
-			cmin.x += hs;
-			csize.x -= hs;
+			cmin.x += 1.0f;
+			csize.x -= 1.0f;
 			break;
 		default:
 			cmin.y += hs;
@@ -1534,11 +1596,13 @@ namespace dova::editor::ui::w
 		Icon         icon;
 		switch (rail.side) {
 		case Side::Left:
-			p = ImVec2(mn.x + sz.x - b - m - sb, mn.y + sz.y - b - m);
+			// Level with the footer's Rescan line, the row it belongs to.
+			p = ImVec2(mn.x + sz.x - b - m - sb, mn.y + sz.y - b - 16.0f * t.scale);
 			icon = Icon::ChevronLeft;
 			break;
 		case Side::Right:
-			p = ImVec2(mn.x + m + 4.0f * t.scale, mn.y + sz.y - b - m);
+			// Level with the rail's chevron and the footer's Rescan line: one keyline across the bottom corners.
+			p = ImVec2(mn.x + m + 4.0f * t.scale, mn.y + sz.y - b - 16.0f * t.scale);
 			icon = Icon::ChevronRight;
 			break;
 		default:
@@ -1573,7 +1637,7 @@ namespace dova::editor::ui::w
 		ImGui::SetCursorScreenPos(detail::Floor(ImVec2(origin.x + a_pos.x, origin.y + a_pos.y)));
 		ImGui::PushStyleColor(ImGuiCol_ChildBg, WithAlpha(t.bg1, a_alpha));
 		ImGui::PushStyleColor(ImGuiCol_Border, t.line);
-		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f * t.scale);
+		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, t.radius);
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f * t.scale, std::round((t.toolbarH - t.inputH) * 0.5f)));
 		ImGui::BeginChild(a_id, ImVec2(0, 0), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_Borders,
@@ -1590,7 +1654,7 @@ namespace dova::editor::ui::w
 		ImGui::PopStyleVar();  // ItemSpacing
 		ImGui::EndChild();
 		--g_overlayDepth;
-		Rim(ImGui::GetWindowDrawList(), ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), 4.0f * Th().scale);
+		Rim(ImGui::GetWindowDrawList(), ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), Th().radius);
 	}
 
 	void HintLine(const char* a_text, ImVec2 a_viewportMin, ImVec2 a_viewportMax)
@@ -1601,10 +1665,24 @@ namespace dova::editor::ui::w
 		const Theme& t = Th();
 		ImDrawList*  dl = ImGui::GetWindowDrawList();
 		ImFont*      font = t.smallFont ? t.smallFont : ImGui::GetFont();
-		const ImVec2 ts = TextSize(font, a_text);
-		const ImVec2 p(a_viewportMin.x + t.pad + 2.0f * t.scale + t.pad * 0.5f, a_viewportMax.y - ts.y - 6.0f * t.scale - t.pad * 0.5f);
-		// A narrow view ends the line in "..." rather than cutting a word.
-		const float right = a_viewportMax.x - t.pad - t.pad * 0.5f;
+		ImVec2 ts = TextSize(font, a_text);
+		// The plate's edges sit 8 px in from the viewport's left and bottom, the floating toolbar's inset.
+		const ImVec2 p(a_viewportMin.x + t.pad + t.pad * 0.5f, a_viewportMax.y - ts.y - t.pad - t.pad * 0.5f);
+		// A narrow view drops whole "Key: action" pairs from the end rather than cutting a word; only a single pair
+		// too long for the view ends in "...".
+		const float      right = a_viewportMax.x - t.pad - t.pad * 0.5f;
+		const char*      end = a_text + std::strlen(a_text);
+		std::string_view line(a_text, end);
+		constexpr std::string_view kSep = " \xC2\xB7 ";  // " · "
+		while (p.x + ts.x > right) {
+			const auto cut = line.rfind(kSep);
+			if (cut == std::string_view::npos) {
+				break;
+			}
+			line = line.substr(0, cut);
+			end = a_text + line.size();
+			ts = TextSize(font, a_text, end);
+		}
 		{
 			// A dark plate behind the text alone, so it reads over a bright scene (the viewport's colour: bg0 in a dark
 			// theme, and dark in a light one, as the text on it is light).
@@ -1617,14 +1695,14 @@ namespace dova::editor::ui::w
 			ImGui::PushFont(font, font->LegacySize);
 			for (const auto& [offset, col] : { std::pair{ 1.0f, IM_COL32(0, 0, 0, 160) }, std::pair{ 0.0f, t.viewportText } }) {
 				ImGui::PushStyleColor(ImGuiCol_Text, col);
-				ImGui::RenderTextEllipsis(dl, detail::Floor(p + ImVec2(0, offset)), ImVec2(right, a_viewportMax.y + offset), right, a_text, nullptr, &ts);
+				ImGui::RenderTextEllipsis(dl, detail::Floor(p + ImVec2(0, offset)), ImVec2(right, a_viewportMax.y + offset), right, a_text, end, &ts);
 				ImGui::PopStyleColor();
 			}
 			ImGui::PopFont();
 			return;
 		}
-		Text(dl, font, p + ImVec2(0, 1), IM_COL32(0, 0, 0, 160), a_text);
-		Text(dl, font, p, t.viewportText, a_text);
+		Text(dl, font, p + ImVec2(0, 1), IM_COL32(0, 0, 0, 160), a_text, end);
+		Text(dl, font, p, t.viewportText, a_text, end);
 	}
 
 	bool Row(const char* a_id, const char* a_label, bool a_selected, const char* a_right, Kind a_rightKind)
@@ -1653,7 +1731,7 @@ namespace dova::editor::ui::w
 		const bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_AllowOverlap);
 		ImDrawList* dl = ImGui::GetWindowDrawList();
 		if (a_selected) {
-			dl->AddRectFilled(bb.Min, bb.Max, WithAlpha(t.accent, hovered ? 0.26f : 0.20f), t.radius);
+			dl->AddRectFilled(bb.Min, bb.Max, t.line, t.radius);  // a step of the ramp, hovered or not: the bar marks it
 			dl->AddRectFilled(bb.Min, ImVec2(bb.Min.x + std::round(2.0f * t.scale), bb.Max.y), t.accent);
 		} else if (hovered || held) {
 			dl->AddRectFilled(bb.Min, bb.Max, t.bg3, t.radius);
@@ -1707,7 +1785,18 @@ namespace dova::editor::ui::w
 		}
 	}
 
-	bool Card(const char* a_id, const char* a_title, const char* a_text, const char* a_shortcut, float a_width)
+	int CardBodyLines(const char* a_text, float a_width)
+	{
+		const Theme& t = Th();
+		ImFont*      smallF = t.smallFont ? t.smallFont : ImGui::GetFont();
+		if (!a_text || !*a_text) {
+			return 0;
+		}
+		const float h = smallF->CalcTextSizeA(smallF->LegacySize, FLT_MAX, std::round(a_width) - 24.0f * t.scale, a_text).y;  // a card's 12 px sides
+		return std::max(1, static_cast<int>(std::ceil(h / smallF->LegacySize - 0.01f)));
+	}
+
+	bool Card(const char* a_id, const char* a_title, const char* a_text, const char* a_shortcut, float a_width, int a_bodyLines)
 	{
 		const Theme& t = Th();
 		ImFont*      heading = t.heading ? t.heading : ImGui::GetFont();
@@ -1716,14 +1805,16 @@ namespace dova::editor::ui::w
 		const float  pad = 12.0f * t.scale;
 		const ImVec2 bodySz = (a_text && *a_text) ? smallF->CalcTextSizeA(smallF->LegacySize, FLT_MAX, w - 2.0f * pad, a_text) : ImVec2(0, 0);
 		const float  titleH = heading->LegacySize;
-		const float  h = std::round(pad * 2.0f + titleH + (bodySz.y > 0.0f ? 4.0f * t.scale + bodySz.y : 0.0f));
+		// The body takes a_bodyLines lines' room even when it fills fewer, so a row of cards shares one bottom edge.
+		const float  bodyH = bodySz.y > 0.0f ? std::max(bodySz.y, static_cast<float>(a_bodyLines) * smallF->LegacySize) : 0.0f;
+		const float  h = std::round(pad * 2.0f + titleH + (bodyH > 0.0f ? 4.0f * t.scale + bodyH : 0.0f));
 		Hit          hit;
 		if (!Item(a_id, ImVec2(w, h), hit, pad)) {
 			return false;
 		}
 		ImDrawList*   dl = ImGui::GetWindowDrawList();
 		const ImRect& bb = hit.bb;
-		const float   r = 4.0f * t.scale;
+		const float   r = t.radius;
 		dl->AddRectFilled(bb.Min, bb.Max, hit.held ? t.bg3 : hit.hovered ? Mix(t.bg3, t.bg2, 0.45f) : t.bg2, r);
 		dl->AddRect(bb.Min, bb.Max, hit.hovered ? t.accent : t.line, r, 0, 1.0f);
 		Text(dl, heading, ImVec2(bb.Min.x + pad, bb.Min.y + pad), t.text, a_title);
@@ -1790,6 +1881,15 @@ namespace dova::editor::ui::w
 
 	void FieldLabel(const char* a_text)
 	{
+		// 4 px more above than below (8 against 4, with the item spacing), so a label reads with its own field
+		// and not with the control above. Not after SameLine (two labels side by side share one line), and not
+		// as a window's first item (the window's padding is the space there), and not straight under a section head
+		// (the head groups with its fields).
+		const ImGuiWindow* win = ImGui::GetCurrentWindowRead();
+		const bool         underHead = win == g_headWindow && g_headFrame == ImGui::GetFrameCount() && win->DC.CursorPos.y == g_headEndY;
+		if (!win->DC.IsSameLine && !underHead && win->DC.CursorPos.y > win->DC.CursorStartPos.y + 0.5f) {
+			ImGui::Dummy(ImVec2(0.0f, 4.0f * Th().scale));
+		}
 		PushFont(Font::Small);
 		ImGui::PushStyleColor(ImGuiCol_Text, Th().muted);
 		ImGui::TextUnformatted(a_text);
@@ -1828,20 +1928,54 @@ namespace dova::editor::ui::w
 		}
 	}
 
+	namespace
+	{
+		// Where a home row's name starts: the row's padding, or under a GroupHeader the group label's keyline (its 12 px
+		// chevron and 6 px gap), so a home reads as its mod's child.
+		float HomeRowTextX(float a_rowX, bool a_inGroup)
+		{
+			const Theme& t = Th();
+			return a_rowX + (a_inGroup ? std::round(18.0f * t.scale) : t.pad);
+		}
+
+		// A row left to decide alone: the status word would cut its name. The name and the summary's shortest form
+		// must fit before the word, else the dot (the summary keeps its room).
+		bool HomeRowNarrow(const char* a_name, const char* a_chip, Kind a_chipKind, bool a_unsaved, const char* a_summary, const char* a_summaryShort,
+			const char* a_summaryShortest, bool a_inGroup)
+		{
+			if (!a_chip || !*a_chip) {
+				return false;
+			}
+			const Theme& t = Th();
+			const float  x = ImGui::GetCursorScreenPos().x;
+			const float  right = x + std::max(ImGui::GetContentRegionAvail().x, 1.0f) - t.pad;
+			const char*  shortest = a_summaryShortest && *a_summaryShortest ? a_summaryShortest : a_summaryShort && *a_summaryShort ? a_summaryShort : a_summary;
+			float        need = TextSize(ImGui::GetFont(), a_name).x + (a_unsaved ? 10.0f * t.scale : 0.0f);
+			if (shortest && *shortest) {
+				need += t.gap + TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), shortest).x;
+			}
+			return HomeRowTextX(x, a_inGroup) + need > right - StatusW(a_chip, a_chipKind) - t.gap;
+		}
+	}
+
 	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
-		bool a_cursor, bool a_unsaved, bool a_dim, const char* a_summaryShortest)
+		bool a_cursor, bool a_unsaved, bool a_dim, const char* a_summaryShortest, bool a_inGroup, int a_narrow)
 	{
 		const Theme& t = Th();
 		ImGui::PushID(a_id);
 		const ImVec2 p = ImGui::GetCursorScreenPos();
 		const float  wdt = std::max(ImGui::GetContentRegionAvail().x, 1.0f);
 		const float  h = t.rowH;
+		// A name the status word would cut (a large text size, a narrow rail): the word goes and the dot stays, a
+		// quiet "none" goes altogether (the row's tooltip says it). A list decides it once for all its rows.
+		const bool   narrow = a_narrow < 0 ? HomeRowNarrow(a_name, a_chip, a_chipKind, a_unsaved, a_summary, a_summaryShort, a_summaryShortest, a_inGroup)
+		                                   : a_narrow > 0 && a_chip && *a_chip;
 		const bool   clicked = ImGui::InvisibleButton("row", ImVec2(wdt, h));
 		const bool   hovered = ImGui::IsItemHovered();
 		ImDrawList*  dl = ImGui::GetWindowDrawList();
 		const ImVec2 q(p.x + wdt, p.y + h);
 		if (a_selected) {
-			dl->AddRectFilled(p, q, WithAlpha(t.accent, hovered ? 0.26f : 0.20f), t.radius);
+			dl->AddRectFilled(p, q, t.line, t.radius);  // a step of the ramp, hovered or not: the bar marks it
 			dl->AddRectFilled(p, ImVec2(p.x + std::round(2.0f * t.scale), q.y), t.accent);
 		} else if (hovered) {
 			dl->AddRectFilled(p, q, t.bg3, t.radius);
@@ -1850,15 +1984,6 @@ namespace dova::editor::ui::w
 			dl->AddRect(p, q, t.accentDim, t.radius);
 		}
 		float right = q.x - t.pad;
-		// A name the status word would cut (a large text size, a narrow rail): the word goes and the dot stays, a
-		// quiet "none" goes altogether (the row's tooltip says it).
-		// The name and the summary's shortest form must fit before the word, else the dot (the summary keeps its room).
-		const char* shortest = a_summaryShortest && *a_summaryShortest ? a_summaryShortest : a_summaryShort && *a_summaryShort ? a_summaryShort : a_summary;
-		float       need = TextSize(ImGui::GetFont(), a_name).x + (a_unsaved ? 10.0f * t.scale : 0.0f);
-		if (shortest && *shortest) {
-			need += t.gap + TextSize(t.smallFont ? t.smallFont : ImGui::GetFont(), shortest).x;
-		}
-		const bool narrow = a_chip && *a_chip && p.x + t.pad + need > right - StatusW(a_chip, a_chipKind) - t.gap;
 		if (narrow) {
 			if (a_chipKind != Kind::Neutral) {
 				const float r = 3.0f * t.scale;
@@ -1874,7 +1999,7 @@ namespace dova::editor::ui::w
 		const float maxX = std::max(right, p.x + 1.0f);
 		dl->PushClipRect(p, ImVec2(maxX, q.y), true);
 		const ImVec2 ns = TextSize(ImGui::GetFont(), a_name);
-		float        x = p.x + t.pad;
+		float        x = HomeRowTextX(p.x, a_inGroup);
 		ImGui::PushStyleColor(ImGuiCol_Text, a_dim ? t.muted : t.text);
 		ImGui::RenderTextEllipsis(dl, ImVec2(x, std::floor(p.y + (h - ns.y) * 0.5f)), ImVec2(maxX, q.y), maxX, a_name, nullptr, &ns);
 		ImGui::PopStyleColor();
@@ -1976,7 +2101,7 @@ namespace dova::editor::ui::w
 		const float  wdt = ImGui::GetContentRegionAvail().x;
 		const float  h = t.rowH + 2.0f * t.gap;
 		ImDrawList*  dl = ImGui::GetWindowDrawList();
-		dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), WithAlpha(t.accent, 0.16f), t.radius);
+		dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), t.bg3, t.radius);  // the hover token: a surface from the ramp
 		dl->AddRect(p, ImVec2(p.x + wdt, p.y + h), t.accentDim, t.radius);
 		ImGui::SetCursorScreenPos(ImVec2(p.x + t.pad, p.y + t.gap + (t.rowH - ImGui::GetTextLineHeight()) * 0.5f));
 		ImGui::TextUnformatted(a_text);
@@ -1985,13 +2110,14 @@ namespace dova::editor::ui::w
 			result = 1;
 		}
 		const float b = t.iconSize;
-		ImGui::SetCursorScreenPos(ImVec2(p.x + wdt - b - t.gap, p.y + (h - b) * 0.5f));
+		// The text's inset, mirrored: the glyph is drawn 4/16 in from its box, so the box moves out by that bearing.
+		ImGui::SetCursorScreenPos(ImVec2(p.x + wdt - b - t.pad + std::floor(b * 4.0f / 16.0f), p.y + (h - b) * 0.5f));
 		if (ImGui::InvisibleButton("close", ImVec2(b, b))) {
 			result = 2;
 		}
 		DrawIcon(dl, Icon::Close, ImGui::GetItemRectMin(), b, ImGui::IsItemHovered() ? t.text : t.muted);
 		Tip("Close");
-		ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h + t.gap));
+		ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h + 4.0f * t.scale));  // with the item spacing, 8 px to what follows
 		ImGui::Dummy(ImVec2(0, 0));
 		ImGui::PopID();
 		return result;
@@ -2000,12 +2126,15 @@ namespace dova::editor::ui::w
 	void Swatch(std::uint32_t a_colour, const char* a_label)
 	{
 		const Theme& t = Th();
+		// Check's measures (a 16 px square, an 8 px gap, a 20 px row), so a legend under radios shares their keyline.
 		const ImVec2 p = ImGui::GetCursorScreenPos();
-		const float  s = std::round(ImGui::GetFontSize() * 0.75f);
-		const float  y = std::round(p.y + (ImGui::GetTextLineHeight() - s) * 0.5f);
+		const float  s = std::round(16.0f * t.scale);
+		const float  h = std::max(ImGui::GetTextLineHeight(), std::round(20.0f * t.scale));
+		const float  y = std::round(p.y + (h - s) * 0.5f);
 		ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(p.x, y), ImVec2(p.x + s, y + s), a_colour, t.radius);
-		ImGui::Dummy(ImVec2(s, ImGui::GetTextLineHeight()));
-		ImGui::SameLine(0.0f, t.gap);
+		ImGui::Dummy(ImVec2(s, h));
+		ImGui::SameLine(0.0f, 8.0f * t.scale);
+		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + std::round((h - ImGui::GetTextLineHeight()) * 0.5f));
 		ImGui::TextUnformatted(a_label);
 	}
 
@@ -2035,7 +2164,7 @@ namespace dova::editor::ui::w
 	bool BeginPadded(const char* a_id, ImVec2 a_size, ImGuiWindowFlags a_flags)
 	{
 		const Theme& t = Th();
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(t.pad, t.gap));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(t.pad, 4.0f * t.scale));  // 4 px on top: the first row on the grid
 		ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 0));
 		const bool open = ImGui::BeginChild(a_id, a_size, ImGuiChildFlags_AlwaysUseWindowPadding, a_flags);
 		ImGui::PopStyleColor();

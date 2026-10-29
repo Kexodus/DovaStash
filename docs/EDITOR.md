@@ -53,7 +53,7 @@ one workspace.
 |  89 chests · 170   |                                                       | Container          |
 |  displays   (yours)|                                                       | ◆ ROLE             |
 |  All cells...      |                                                       |  Make master       |
-|                    |  Right mouse: look · WASD fly · Drag: box · F frame   |  Label, Categories |
+|                    |  Right mouse: look · WASD: fly · Drag: box · F: frame |  Label, Categories |
 | Rescan  125 homes  |                                                       |                    |
 +--------------------+-------------------------------------------------------+--------------------+
 | Containers 52 · Displays 170 · Doors 3 · Where items go                                     ^    |  drawer
@@ -77,7 +77,7 @@ one workspace.
   category, by fill, `C` / `V`, with the legend), *Camera* ▾ (overview, frame, fly speed, light, *Pick anything* /
   *Left drag pans*). A view narrower than 900 px shows the toolbar as icons, the names in the tooltips. Paint mode
   puts the paint bar in place of Layers, Colours and Camera. A hint line at the bottom names the controls of the
-  moment. With no home open the viewport shows the start panel (§3.6).
+  moment (a narrow view drops whole pairs from its end). With no home open the viewport shows the start panel (§3.6).
 - **Roof cut** (3D view, interiors): per area, so a cave below the built rooms opens too. The home is split into
   512-unit squares (`render::RoofGrid`); each is cut 2 m above its own floor, the lowest container, piece of
   furniture or door there from the start in it (a square without one takes its neighbours' lowest cut), and never
@@ -94,9 +94,9 @@ one workspace.
   this home's draft (§3.4). *Checks*: the problems, then what the template still lacks. Selecting switches to
   Selection, *Draft this home* to Draft, a click on the status row's problem count to Checks.
 - **Drawer** (bottom, Ctrl+2; drag to resize): *Containers* · *Displays* · *Doors* · *Where items go*, the wide
-  tables, with counts on the tabs: the usable ones (the rail's count, for this cell), `252 of 253` in a home of
-  more than one cell (this cell's of the home's; the tooltip says how many more this cell has that respawn, are
-  someone else's or go with an upgrade). Every column sorts: click its header (again: descending, a third time: the
+  tables, with counts on the tabs: the usable ones (the rail's count, for this cell), the count alone; in a home of
+  more than one cell the tooltip gives the home's figure (`252 here · 253 in the home`), and in any home how many
+  more this cell has that respawn, are someone else's or go with an upgrade. Every column sorts: click its header (again: descending, a third time: the
   table's own order), Shift+click adds a column; *ignored*, *not listed* and *no categories* sort after real
   categories, the master first. Containers opens in its own order: the master, with categories, without, ignored,
   not listed, those that start disabled last in each. The filters sit in the column headers, a funnel each
@@ -110,8 +110,8 @@ one workspace.
   the filter), scripts as what they do (*bookshelf*, *Hearthfire build*, *critter spawn*, *beehive*; the script
   names in the tooltip), *Height (m)* in metres (70 units) above the cell's floor: its lowest containers there from
   the start that stand together (another within 400 units above; one a mod left alone below them does not count),
-  leaving out any more than 2000 units from the median (a container a mod parked far below the home reads `-`, its
-  Notes *out of the home*). *Where items go* and the Draft panel's chips name categories the same way, and every panel names a
+  leaving out any more than 2000 units from the median (a container a mod parked far below the home reads a muted
+  *outside* in Height, in the Containers and Displays tables alike, once: Notes do not repeat it). *Where items go* and the Draft panel's chips name categories the same way, and every panel names a
   container the same way: the template's label (a landmark, `Barrel (by the grindstone)`) first, else the game's
   name (the Draft panel adds the height, `Barrel · 1.3 m`, when two still share a name).
 - **Status row:** home · cell and the unsaved dot; `errors · warnings` (click: Checks); background work (scan,
@@ -125,7 +125,7 @@ one workspace.
 The rail's, inspector's and drawer's sizes, which are open, and the view persist in `state.json` (§3.6). The
 drawer's height is kept as a share of the window's, so a smaller window keeps its view: the drawer takes at most
 half the height, and the rail and inspector together at most 60% of the width. The view keeps a floor: at least 45%
-of the width and 560 px, half the height between the title and status rows and 320 px (UI size included); where the
+of the width and 560 px, half the height between the title and status rows and 240 px (UI size included); where the
 floor bites the inspector gives way down to 30% of the width (never under its 280 px).
 
 1. **Open the setup.** Launched from MO2 the editor finds its instance and profile by itself (§4.2);
@@ -142,7 +142,8 @@ floor bites the inspector gives way down to 30% of the width (never under its 28
    containers* (off: a cell found as a home with no usable chest and no template is hidden), *Only enabled mods*,
    *Likely homes only*, *Exteriors*, *Group by mod*. Up/Down and Enter walk it; right-click: *Open*, *Draft*, *Open
    in Explorer* (its template file), *Copy form ref*. *Rescan* (F5) at the bottom reads the load order again after a
-   change in MO2, next to the scan summary (`125 homes · 309 plugins · 2.2 s`).
+   change in MO2, next to the scan summary (`125 homes · 309 plugins`; the last scan's time in
+   *Rescan*'s tooltip).
 3. **Or any cell of a mod.** For a home the scan misses (owned by a faction, an exterior), *All cells...* (a mod
    group's right-click menu, or the link under the open home's group) loads the mod's plugins with their masters and scores every cell they define or edit (§3.2). Likely
    homes are listed first, their evidence (player-house location, player owned, never resets, containers,
@@ -175,7 +176,7 @@ floor bites the inspector gives way down to 30% of the width (never under its 28
    never resets counts as usable, as the plugin rules it (DESIGN §9): the tables note *respawn flag, cell never
    resets*, the Selection panel a *respawn flag* chip, and drafts give it categories. The status row counts errors and warnings; the Checks panel
    lists them, errors first, each by the container's name (the form ref in its tooltip, no `template:` nor `containers[N]`), a click selects the object, and under *Still to do* what the template lacks (no
-   master, 35 containers without a role, `12 containers not listed (4 more come with upgrades)`: a click shows them
+   master, 35 containers without a role, `12 containers not listed (4 more come with upgrades)`, *containers in this cell* in a home of more than one cell since it counts the open cell alone: a click shows them
    in the Containers tab, quick filter *Not listed*; for a shipped or saved template that line sits under a quieter
    *Not listed*). A template whose `conflicts` names a plugin of the load order gets a warning first, *Not offered in
    game: <plugin> rebuilds this home*, and the title's word is *off*; its reference checks follow as information,
@@ -279,7 +280,7 @@ The homes rail (§2) lists every player home of the **active load order** (`Work
 plugins in `loadorder.txt` order with the base masters) with its template status; a home gets its draft when it is
 opened, or all of them at once with **Draft all homes**. That is an action, not a view (*Draft* ▾, the start
 panel, Ctrl+D, `--drafts`): the drafts are made on a worker with the progress in the status row; then the rail shows
-a *draft* chip per home and a banner over it offers *Save N drafts...*. It does not advance the homes' stages
+a *draft* chip per home and a banner over it (*N drafts  Save all...*) opens the *Save N drafts* dialog. It does not advance the homes' stages
 (§3.6). `home::FindAllHomes` reads every interior cell once (the 302 plugins of the test profile
 in about a second), keeps the likely homes (§3.2) and every cell a known template names (`cell` or `cells`,
 `home::TemplateCellsOf`: a later override may drop a home's location, as USCCCP does Myrwatch's), and resolves all
@@ -317,8 +318,8 @@ rules skipped).
   -1), its size up to a small chest's (`fullSize` 100000 cubic units, +1: a huge shelf or urn does not win on volume),
   closeness to a load door (+1 within 1500 units, the front door counts more), closeness to the middle (+0.5), and -3
   when its name says what it holds (a specific name, or a name rule that is sure of it): such a container is only the
-  master when every usable one is named. The reason is shown ("Chest: named like a chest, 0.6 x 1.1 x 0.6 m, 6.7 m from
-  the door to Skyrim; one of 69 that can be the master: ..."; with a single candidate *the only container there from
+  master when every usable one is named. The reason is shown ("Chest: 0.6 x 1.1 x 0.6 m, 6.7 m from the door to Skyrim,
+  named like a chest; one of 69 that can be the master: ..."; with a single candidate *the only container there from
   the start that can be the master: ...*, sizes in metres: units / 70) with the runners-up.
 - **Categories per container**, each with a confidence and the reason: its **name** (`names` rules: "Alchemy Satchel",
   "Weapon Chest", "Cooking Ingredients" is food; EditorIDs are split into words, plurals match; a container named
@@ -363,9 +364,9 @@ rules skipped).
 container has a stronger claim on), *Reject the weak ones* (under 50%), *Draft again* (from the plugins, after
 editing `DraftRules.json`; asks when the template has changes). Then the master with the first clause of its reason
 (the whole reason and the runners-up in the tooltip; *Use this one* when the template uses another), and per
-container its suggestions as chips coloured by confidence (green: the name says so, yellow: a station or items
-nearby, orange: a hint; the legend is the line *name · nearby · hint* under the *CONTAINERS N of M* head: accepted
-of the home's usable containers, the rail's number), the source and reason in the
+container its suggestions as chips coloured by confidence (green: 75% or more, yellow: 50 to 74%, red: under 50%,
+the ones *Reject the weak ones* removes; the legend is the line *75%+ · 50 to 74% · under 50%* under the *CONTAINERS N accepted of M* head: accepted
+of the home's usable containers, the rail's number, *N accepted · M in the home* in a home of more than one cell since the drawer tab counts the cell alone), the source and reason in the
 tooltip; a click accepts or rejects, and an accepted chip shows a check before its text in full, a chip not
 accepted is quieter (muted text, a fainter border). A click on a container's name selects it in the view (one in another cell of
 the home opens that cell). Rows of the same name are told apart, in turn: the cell (*Cellar*, *Grounds*), the wing
@@ -422,13 +423,13 @@ bindings, categories best-first through `SortPlanner::ResolveDestination`, the m
 displays the template uses, as Deposit fills them first) over a **sample**: *Typical haul* (a handful of each kind of
 loot, base game items first: 112 stacks, 266 items), *One category* (every item of the load order in a pattern), or
 *Every item in the load order* (one of each; `esp::BuildItemCatalog` reads the 12,763 playable items of the test
-profile in about 30 ms). It shows per container what it would receive (counts per category, the items in a tooltip),
-the containers that receive nothing (and why: no categories, or nothing of the sample in them), what falls to the
+profile in about 30 ms). It shows per container what it would receive (its category, or each category's count when it takes from several;
+the items in a tooltip), the containers that receive nothing (and why: no categories, or nothing of the sample in them), what falls to the
 master, what goes on displays, and stacks with nowhere to go (no master). It re-runs by itself when the template
-changes; *Run again* (R) runs it by hand, the sample picker and the run time sit in the tab's own row. **Colours**
-(both the 3D view and the plan; the toolbar's *Colours* ▾ with the legend, `C` / `V`, or *By fill* / *By category* in
-the tab's row): *by fill* (*Receives nothing*, *A few (under 20)*, *Many*, *Master*, then the sample as a muted
-caption) or *by category* (each container in its first category's colour, one hue per group); under *Other* the
+changes; *Run again* (R) runs it by hand, the sample picker sits in the tab's own row (the run time in *Run again*'s tooltip). **Colours**
+(both the 3D view and the plan; the toolbar's *Colours* ▾ with the legend, `C` / `V`, or *By category* / *By fill* in
+the tab's row): *by fill* (*Receives nothing*, *A few (under 20)*, *Many (20 or more)*, *Master*, the sample named in the legend's
+head) or *by category* (each container in its first category's colour, one hue per group); under *Other* the
 popover names what the plan still draws in its own colours in that mode (displays the mode leaves uncoloured, doors,
 furniture). The table shows the master as its name with a muted *master* after it. Selecting a container shows its predicted items in the Selection panel
 (*Where its items go*). Headless: `--preview <cell> [--sample haul|all|<pattern>] [--draft]`.
@@ -442,7 +443,7 @@ one remembered; when none is found, a card with the folder, *Browse...* and *Ope
 instance (the folder with ModOrganizer.ini) or your Skyrim Data folder, or start the editor from MO2.* The card and
 Setup take either folder: one with `ModOrganizer.ini` opens as the instance, one with `Skyrim.esm` (or a game folder
 with `Data\Skyrim.esm`) as `--data`, remembered as `"data"` in `state.json`), "N player homes,
-M with templates" and the scan time, three cards (*Open a home*: focuses the rail's search; *Draft all homes*,
+M with templates" (the scan time is *Rescan*'s tooltip), three cards (*Open a home*, Ctrl+F: focuses the rail's search; *Draft all homes*,
 Ctrl+D; *Open a template...*, Ctrl+O: a shipped or downloaded template or a layout saved in game, opened on its home),
 and **In progress**: each home's stage, *drafted* (its draft opened) -> *reviewed* (a suggestion accepted or
 rejected, or the template edited) -> *validated* (reviewed and no problems) -> *saved*, with where it was saved. A
@@ -933,7 +934,7 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
 | Workspace | Ctrl+K / Ctrl+1 / Ctrl+2 / Ctrl+3 / 1 / 2 | command palette / homes rail / drawer / inspector / 3D view / plan |
 | Anywhere in a home | Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) / Ctrl+S / Delete / Esc | undo / redo / save the template (asks before overwriting) / remove the selection from the template / close a popover or the palette, then clear the selection |
 | Where items go | R | run the preview again (it re-runs by itself when the template changes) |
-| Everywhere | Ctrl+D / Ctrl+O / F5 | draft all homes / open a template file / rescan the load order |
+| Everywhere | Ctrl+F / Ctrl+D / Ctrl+O / F5 | find a home (the rail's search) / draft all homes / open a template file / rescan the load order |
 | Everywhere | Ctrl+= / Ctrl+- / Ctrl+0 | UI size larger / smaller / auto (also the slider under `⚙` Setup › *UI size*; remembered) |
 
 **A 2-minute test**
@@ -946,7 +947,7 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
    the overview has no roof (a cave shows its rooms, not its rock): about 2 m above each area's floor, never above
    the highest container, only containers and displays are drawn; *Layers* ▾ › *Roof* brings the rest back.
 3. Hover a weapon rack (a blue see-through box shows its trigger): the tooltip names it. Click it: it turns
-   yellow and the Selection panel on the right shows it; tick *Use this display* and add a category (*+ add*,
+   yellow and the Selection panel on the right shows it; tick *Use this display* and add a category (*Add a category*,
    e.g. `weapons.bows`). Press F to frame it.
 4. Press 2 (plan): the same rack is selected there. Click a chest on the plan, press 1 and F: the camera finds it.
    In the Selection panel press *Make master* or add categories.

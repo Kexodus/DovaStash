@@ -44,8 +44,33 @@ namespace dova::editor::ui
 			const ImGuiStyle& st = ImGui::GetStyle();
 			const float       wrap = std::max(ImGui::GetContentRegionAvail().x - 2.0f * st.FramePadding.x - st.ScrollbarSize, 10.0f);
 			const float       line = ImGui::GetTextLineHeight();
-			const float       lines = std::clamp(std::ceil(ImGui::CalcTextSize(a_text.c_str(), nullptr, false, wrap).y / line), 2.0f, 5.0f);
-			return ImGui::InputTextMultiline(a_id, &a_text, ImVec2(-FLT_MIN, lines * line + 2.0f * st.FramePadding.y), ImGuiInputTextFlags_WordWrap);
+			const float       wanted = std::ceil(ImGui::CalcTextSize(a_text.c_str(), nullptr, false, wrap).y / line);
+			const float       lines = std::clamp(wanted, 2.0f, 5.0f);
+			const float       grid = 4.0f * w::Th().scale;  // the frame's height rounded up to the 4 px grid
+			const float       h = std::ceil((lines * line + 2.0f * st.FramePadding.y) / grid) * grid;
+			const bool        changed = ImGui::InputTextMultiline(a_id, &a_text, ImVec2(-FLT_MIN, h), ImGuiInputTextFlags_WordWrap);
+			// A scrolling note: ImGui clips the text to the frame, not to the padded rect, so a sixth line peeks through the
+			// padding bands. Cover them in the input's fill, short of the scrollbar. The text is a child window drawn after
+			// this one, so the strips go into the child's own draw list (its ChildId is the input's id).
+			if (wanted > lines) {
+				ImGuiWindow*  parent = ImGui::GetCurrentWindow();
+				const ImGuiID id = parent->GetID(a_id);
+				for (ImGuiWindow* child : ImGui::GetCurrentContext()->Windows) {
+					if (child->ChildId != id || child->ParentWindow != parent) {
+						continue;
+					}
+					const ImVec2 mn = ImGui::GetItemRectMin();
+					const ImVec2 mx = ImGui::GetItemRectMax();
+					const float  right = mx.x - st.ScrollbarSize;
+					ImDrawList*  dl = child->DrawList;
+					dl->PushClipRect(mn, mx, false);
+					dl->AddRectFilled(ImVec2(mn.x + 1.0f, mn.y + 1.0f), ImVec2(right, mn.y + st.FramePadding.y), w::Th().bg2);
+					dl->AddRectFilled(ImVec2(mn.x + 1.0f, mx.y - st.FramePadding.y), ImVec2(right, mx.y - 1.0f), w::Th().bg2);
+					dl->PopClipRect();
+					break;
+				}
+			}
+			return changed;
 		}
 	}
 
@@ -298,7 +323,7 @@ namespace dova::editor::ui
 		if (std::exchange(_openCategoryPicker, false)) {
 			ImGui::OpenPopup(ImHashStr("##ComboPopup", 0, ImGui::GetID("##add")));  // --popover categories
 		}
-		if (w::BeginCombo("##add", "+ add", ImGuiComboFlags_HeightLarge)) {
+		if (w::BeginCombo("##add", "Add a category", ImGuiComboFlags_HeightLarge)) {
 			static std::string filter;
 			if (ImGui::IsWindowAppearing()) {
 				ImGui::SetKeyboardFocusHere();
@@ -553,6 +578,7 @@ namespace dova::editor::ui
 				} else {
 					w::FieldLabel("Label");
 					changed |= ImGui::InputText("##label", &b->label);
+					w::Spacer(4.0f * w::Th().scale);  // 8 px with the item spacing: the checks read as their own group under the field
 					changed |= w::Check("Ignored", b->ignored, "Never used");
 					if (r.respawns && !b->ignored) {
 						w::Coloured(w::Kind::Error, "Respawns: ignore it");
@@ -598,6 +624,7 @@ namespace dova::editor::ui
 			if (d) {
 				w::FieldLabel("Label");
 				changed |= ImGui::InputText("##label", &d->label);
+				w::Spacer(4.0f * w::Th().scale);  // 8 px with the item spacing: the checks read as their own group under the field
 				changed |= w::Check("Ignored", d->ignored, "Never filled");
 				// A mannequin with a chosen set wears that set: its categories and "only" are not used (core::PlanDisplays).
 				const bool takesCategories = *r.display == core::DisplayKind::Rack || (*r.display == core::DisplayKind::Mannequin && !d->set) ||
@@ -653,7 +680,7 @@ namespace dova::editor::ui
 		if (!r.IsContainer() || !CellInHome(a_cell) || layout.IsMaster(ref) || IsAreaMaster(layout, ref) || !layout.FindContainer(ref)) {
 			return;
 		}
-		w::Spacer(2.0f * w::Th().gap);
+		w::Spacer(8.0f * w::Th().scale);  // the 16 px field gap under the Note box, as in the Template panel
 		if (w::Button("Remove from the template", w::Icon::Trash, w::Kind::Error, "Delete")) {
 			std::erase_if(layout.containers, [&](const core::ContainerBinding& c) { return c.ref == ref; });
 			a_cell.dirty = true;
@@ -782,8 +809,11 @@ namespace dova::editor::ui
             std::error_code ec;
             return !b.empty() && fs::equivalent(a, PathFromUtf8(b), ec);
 		};
-		w::SectionHead(list.size() == 1 ? "This home's template" : std::format("This home's templates  {}", list.size()).c_str(),
-			"Saved in one folder per home. In game the first of this list is offered: one someone made before an auto-draft, then highest priority, then yours, then the newest version");
+		// The count after the capitals in small untracked text, as the other heads draw theirs.
+		const std::string count = list.size() > 1 ? std::to_string(list.size()) : std::string();
+		w::SectionHead(list.size() == 1 ? "This home's template" : "This home's templates",
+			"Saved in one folder per home. In game the first of this list is offered: one someone made before an auto-draft, then highest priority, then yours, then the newest version",
+			count.empty() ? nullptr : count.c_str());
 		// The templates of the home's other cells (a cellar) under that cell's name, after the main cell's.
 		std::vector<std::pair<std::string, const home::KnownTemplate*>> rows;
 		const auto* homeEntry = HomeEntryFor(a_cell);
@@ -829,31 +859,16 @@ namespace dova::editor::ui
 			}
 			const bool open = same(tp->path, a_cell.filePath) || same(tp->path, a_cell.savedPath);
 			ImGui::PushID(static_cast<int>(i));
-			const ImVec2 p = ImGui::GetCursorScreenPos();
-			const float  wdt = ImGui::GetContentRegionAvail().x;
-			const float  h = th.rowH;
-			const bool   clicked = ImGui::InvisibleButton("row", ImVec2(std::max(wdt, 1.0f), h));
-			const bool   hovered = ImGui::IsItemHovered();
-			ImDrawList*  dl = ImGui::GetWindowDrawList();
-			if (open) {
-				dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), w::WithAlpha(th.accent, 0.14f), th.radius);
-				dl->AddRectFilled(p, ImVec2(p.x + std::round(2.0f * th.scale), p.y + h), th.accent);
-			} else if (hovered) {
-				dl->AddRectFilled(p, ImVec2(p.x + wdt, p.y + h), th.bg3, th.radius);
+			w::Kind     chipKind = w::Kind::Neutral;
+			const char* chip = TemplateWord(*tp, &chipKind);  // the rail's and the title row's words
+			// author · version, and the mod folder only when it says something new: not the author's own name again,
+			// and not for a shipped template (the status word carries that).
+			auto detail = std::format("{} · {}", tp->layout.author.empty() ? "no author" : tp->layout.author, tp->layout.version.empty() ? "no version" : tp->layout.version);
+			if (!tp->origin.empty() && !core::IEquals(tp->origin, tp->layout.author) && std::string_view(chip) != "shipped") {
+				detail += std::format(" · {}", tp->origin);
 			}
-			w::Kind      chipKind = w::Kind::Neutral;
-			const char*  chip = TemplateWord(*tp, &chipKind);  // the rail's and the title row's words
-			const float  chipW = w::ChipWidth(chip, false);
-			const auto   detail = std::format("{} · {} · {}", tp->layout.author.empty() ? "no author" : tp->layout.author, tp->layout.version.empty() ? "no version" : tp->layout.version, tp->origin);
-			const ImVec2 ns = ImGui::CalcTextSize(tp->layout.name.c_str());
-			ImGui::SetCursorScreenPos(ImVec2(p.x + th.pad, p.y + (h - ns.y) * 0.5f));
-			ImGui::PushClipRect(p, ImVec2(p.x + wdt - chipW - th.gap, p.y + h), true);
-			w::TextWithMuted(tp->layout.name.c_str(), detail.c_str());
-			ImGui::PopClipRect();
-			ImGui::SetCursorScreenPos(ImVec2(p.x + wdt - chipW, p.y + (h - th.chipH) * 0.5f));
-			w::Chip(chip, chipKind);
-			ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + h));
-			ImGui::Dummy(ImVec2(0, 0));
+			// A rail row (EDITOR-UX.md §3.5: a status down a list is a 6 px dot and a muted word, no pill per row).
+			const bool clicked = w::HomeRow("row", tp->layout.name.c_str(), detail.c_str(), detail.c_str(), chip, chipKind, open, false, false, false);
 			if (ImGui::BeginItemTooltip()) {
 				ImGui::TextUnformatted(open ? "Open" : "Open this template");
 				w::Mono(tp->source.c_str());
@@ -1132,7 +1147,7 @@ namespace dova::editor::ui
 		bool        changed = false;
 		const auto& th = w::Th();
 		// The fields scroll; Save stays pinned under them like a form's footer (clear of the rail's collapse handle).
-		const float footerH = th.inputH + 2.0f * th.gap + 1.0f;
+		const float footerH = th.inputH + 8.0f * th.scale + 1.0f;
 		const float bodyH = std::max(ImGui::GetContentRegionAvail().y - footerH - 28.0f * th.scale, 80.0f * th.scale);
 		ImGui::BeginChild("tplbody", ImVec2(0, bodyH), ImGuiChildFlags_None, ImGuiWindowFlags_None);
 		ImGui::PushItemWidth(-FLT_MIN);
@@ -1149,8 +1164,8 @@ namespace dova::editor::ui
 		if (ImGui::IsItemDeactivatedAfterEdit()) {
 			_state.Save();
 		}
-		// Version and Priority side by side: the two labels on one line, the two fields under them, a gap between.
-		const float gap = 2.0f * w::Th().pad;
+		// Version and Priority side by side: the two labels on one line, the two fields under them, 8 px apart like framed buttons.
+		const float gap = ImGui::GetStyle().ItemSpacing.x;
 		const float half = std::floor((ImGui::GetContentRegionAvail().x - gap) * 0.5f);
 		const float x0 = ImGui::GetCursorPosX();
 		w::FieldLabel("Version");
@@ -1167,10 +1182,15 @@ namespace dova::editor::ui
 			const auto master = std::ranges::find_if(a_cell.info.refs, [&](const home::PlacedRef& p) { return t.master && a_cell.lo->ToFormRef(p.key) == *t.master; });
 			const auto withCategories = std::ranges::count_if(t.containers, [](const core::ContainerBinding& b) { return !b.ignored && !b.categories.empty(); });
 			const auto ignored = std::ranges::count_if(t.containers, [](const core::ContainerBinding& b) { return b.ignored; });
+			// 4 px over the item gap: the summary sits a field gap (16 px) under the Note box, the template's own facts
+			// rather than a caption of the note.
+			w::Spacer(4.0f * th.scale);
 			ImGui::PushTextWrapPos(0.0f);
-			w::MutedWrapped(std::format("Master {} · {} containers ({} with categories, {} ignored) · {} displays", master != a_cell.info.refs.end() ? GameName(*master) : "none",
-				t.containers.size(), withCategories, ignored, t.displays.size())
-								.c_str());
+			// The master alone on its line, then the template's bindings counted together: the containers and the
+			// displays, each line short enough that none wraps onto a line beginning with the separator.
+			w::MutedWrapped(std::format("Master: {}", master != a_cell.info.refs.end() ? GameName(*master) : "none").c_str());
+			w::MutedWrapped(std::format("{} containers ({} with categories, {} ignored)", t.containers.size(), withCategories, ignored).c_str());
+			w::MutedWrapped(std::format("{} display{}", t.displays.size(), t.displays.size() == 1 ? "" : "s").c_str());
 			w::MutedWrapped(("Requires " + Join(t.requiredPlugins)).c_str());
 			ImGui::PopTextWrapPos();
 		}
@@ -1304,19 +1324,21 @@ namespace dova::editor::ui
 			w::PopFont();
 		}
 		ImGui::PopItemWidth();
+		// The body's right edge (inside its scrollbar when it scrolls): the footer rule ends where the section rules do.
+		const float bodyRight = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
 		ImGui::EndChild();
 
 		// The footer: Save, Save as..., Copy JSON.
 		{
 			const ImVec2 p = ImGui::GetCursorScreenPos();
-			ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + ImGui::GetContentRegionAvail().x, p.y + 1.0f), th.line);
-			ImGui::Dummy(ImVec2(0.0f, th.gap));
-			DrawSaveButton(true);  // as the title row's: filled only when there is unsaved work, else Save or Save a copy
-			ImGui::SameLine(0.0f, th.gap);
+			ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(bodyRight, p.y + 1.0f), th.line);
+			ImGui::Dummy(ImVec2(0.0f, 1.0f + 4.0f * th.scale));  // the rule, then with the item spacing 8 px clear under it
+			DrawSaveButton();  // as the title row's: filled only when there is unsaved work, else Save or Save a copy
+			ImGui::SameLine();  // framed buttons: parted by the item spacing
 			if (w::Button("Save as...", "A copy anywhere; the template stays where it is saved")) {
 				SaveTemplateAs(a_cell);
 			}
-			ImGui::SameLine(0.0f, th.gap);
+			ImGui::SameLine();
 			if (w::Button("Copy JSON", "The template as JSON, to the clipboard")) {
 				ImGui::SetClipboardText(a_cell.json.c_str());
 			}

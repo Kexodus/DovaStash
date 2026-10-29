@@ -278,6 +278,7 @@ namespace dova::editor::ui
 		void DrawLayersPopover(OpenCell& a_cell);
 		void DrawCameraPopover(OpenCell& a_cell);
 		void HandleShortcuts();  // App.cpp: docs/EDITOR-UX.md §4
+		void FindAHome();        // Ctrl+F, the start screen's first card: the rail open, its search focused
 
 		// ---- Homes rail (Rail.cpp) ----
 		void DrawRail();
@@ -333,7 +334,7 @@ namespace dova::editor::ui
 		void LoadCategories();
 		void Revalidate(OpenCell& a_cell);
 		void RequestSave();  // Save / Ctrl+S: asks first when the file exists or the home has a template
-		void DrawSaveButton(bool a_panel = false);  // the title row's and the Template panel's (TitleBar.cpp): filled only with unsaved work
+		void DrawSaveButton();  // the title row's and the Template panel's (TitleBar.cpp): filled only with unsaved work
 		[[nodiscard]] bool SaveMakesCopy();  // Save writes a copy: an unchanged template that is not the file Save writes (a shipped one)
 		void SaveTemplate(OpenCell& a_cell);
 		void SaveTemplateAs(OpenCell& a_cell);

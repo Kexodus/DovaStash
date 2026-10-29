@@ -45,6 +45,7 @@ namespace dova::editor::ui
 		};
 		add(SaveMakesCopy() ? "Save a copy" : "Save", "Ctrl+S", cell, [this] { RequestSave(); });  // as the title row's button
 		add("Save as...", "", cell, [this] { SaveTemplateAs(*_cell); });
+		add("Find a home", "Ctrl+F", _ws != nullptr, [this] { FindAHome(); });  // the rail's search, as the start screen's first card
 		add("Open template file...", "Ctrl+O", _ws != nullptr, [this] { OpenTemplateFile(); });
 		add("Rescan load order", "F5", _ws != nullptr, [this] { Rescan(); });
 		add("Draft this home", "", cell, [this] { DraftThisHome(); });

@@ -308,7 +308,7 @@ namespace dova::editor::ui
 				}
 				_bulkDone = true;
 				_bannerClosed = false;
-				SetStatus(std::format("{} homes drafted", _homes->homes.size()));
+				SetStatus(std::format("{} homes drafted · {} to save", _homes->homes.size(), SaveableDrafts()));  // the second count is the rail banner's
 			};
 		});
 	}
@@ -885,14 +885,14 @@ namespace dova::editor::ui
 		if (w::Button("Accept all", "Every suggestion no other container has a stronger claim on")) {
 			AcceptAll();
 		}
-		if (ImGui::GetItemRectMax().x + t.gap + ImGui::CalcTextSize("Reject the weak ones").x + 24.0f * t.scale <= rowRight) {
-			ImGui::SameLine(0.0f, t.gap);
+		if (ImGui::GetItemRectMax().x + ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize("Reject the weak ones").x + 24.0f * t.scale <= rowRight) {
+			ImGui::SameLine();  // framed buttons: parted by the item spacing
 		}
 		if (w::Button("Reject the weak ones", "Every suggestion under 50%")) {
 			RejectWeak();
 		}
-		if (ImGui::GetItemRectMax().x + t.gap + ImGui::CalcTextSize("Draft again").x + 24.0f * t.scale <= rowRight) {
-			ImGui::SameLine(0.0f, t.gap);
+		if (ImGui::GetItemRectMax().x + ImGui::GetStyle().ItemSpacing.x + ImGui::CalcTextSize("Draft again").x + 24.0f * t.scale <= rowRight) {
+			ImGui::SameLine();  // framed buttons: parted by the item spacing
 		}
 		if (w::Button("Draft again", "Make the draft again from the plugins (after editing DraftRules.json)")) {
 			DraftAgain();
@@ -1003,7 +1003,8 @@ namespace dova::editor::ui
 		}
 
 		// Containers and their suggestions, accepted or not on the template being made.
-		// Of the usable ones over the home's cells, the rail's and the drawer's number (else the draft's own).
+		// Of the usable ones over the home's cells, the rail's number (else the draft's own). The drawer tab counts
+		// this cell alone, so a home of more than one cell names its scope here: "20 accepted · 52 in the home".
 		int accepted = 0, usable = 0;
 		for (const auto& c : d->plan.containers) {
 			const auto  ref = core::FormRef::Parse(d->objects[c.object].id);
@@ -1014,12 +1015,14 @@ namespace dova::editor::ui
 		if (const auto st = HomeStorageFor(a_cell)) {
 			usable = st->containers;
 		}
+		const auto* homeEntry = HomeEntryFor(a_cell);
+		const bool  multiCell = homeEntry && !homeEntry->extra.empty();
 		w::SectionHead("Containers", "Click a chip to accept or reject it (a check: accepted); hover it for the reason.",
-			std::format("{} of {}", accepted, usable).c_str());
-		// What a chip's colour says: where the suggestion comes from.
+			(multiCell ? std::format("{} accepted · {} in the home", accepted, usable) : std::format("{} accepted of {}", accepted, usable)).c_str());
+		// What a chip's colour says: how sure the suggestion is (ConfidenceKind's bands).
 		ImGui::PushFont(t.smallFont);
-		for (const auto& [kind, word, tip] : { std::tuple{ w::Kind::Ok, "name", "The container's name says so" },
-				 std::tuple{ w::Kind::Warn, "nearby", "A station or items nearby" }, std::tuple{ w::Kind::Error, "hint", "A hint" } }) {
+		for (const auto& [kind, word, tip] : { std::tuple{ w::Kind::Ok, "75%+", "Strong: 75% or more" },
+				 std::tuple{ w::Kind::Warn, "50 to 74%", "Fair: 50 to 74%" }, std::tuple{ w::Kind::Error, "under 50%", "Under 50%: what Reject the weak ones removes" } }) {
 			if (kind != w::Kind::Ok) {
 				ImGui::SameLine(0.0f, 2.0f * t.pad);
 			}

@@ -40,7 +40,8 @@ the single game. Measure before reshaping: compare each round's scores with roun
 
 ## Design judge (`tools/devcycle/design-judge.js`)
 
-A second, smaller Workflow for the editor's look alone, added 2026-10-28. One round is three agents: **Capture**
+A second, smaller Workflow for the editor's look alone, added 2026-10-28. One round is three agents, all on
+Opus: **Capture**
 builds `editor-release` and takes a fixed set of twelve screenshots (start panel, selection, the four drawer
 tables with the Kind column filter open, the plan with the colours popover, drafts, template, checks, setup, and
 the window at 1366x768 at 150 % text) into `build/design-judge/r<N>/`; **Judge** loads the `impeccable` skill and
@@ -48,7 +49,10 @@ runs its critique's Assessment A (the ten Nielsen heuristics 0-4, cognitive load
 `unslop-ui` verification checklist over those screenshots and the drawing code, against `PRODUCT.md`,
 `DESIGN.md` and `docs/EDITOR-UX.md` §3.5, and returns an overall 1-10 with issues (severity, the rule broken,
 file:line, the fix in the widget vocabulary of `Widgets.h`); **Fix** is the editor lane, which applies them,
-rebuilds and re-shoots. The loop stops at `TARGET` (9) or `MAX_ROUNDS` (3). The judge never runs impeccable's
+rebuilds and re-shoots. The loop stops at `TARGET` (10) or `MAX_ROUNDS` (6). Every issue must be actionable
+(a file:line, measured evidence, the exact widget or token change and what the shot will show afterwards), the
+score must agree with the issue list (a major caps it at 7, minors at 8, nits at 9), and the standing decisions
+in the script's `DECISIONS` (fill colours, rail groups, the brand exceptions) are neither raised nor applied. The judge never runs impeccable's
 launcher, detector, live mode or hook: the editor is Dear ImGui, not a web page, and the user asked for the web
 checker to be skipped. Run: `Workflow({ scriptPath: "<abs path to tools/devcycle/design-judge.js>" })`; the
 first judge round's findings and what was done with them are in the Status list below.
@@ -93,4 +97,11 @@ first judge round's findings and what was done with them are in the Status list 
 - 2026-10-28: design judge round 1, run by hand (one Opus judge, one Opus fixer; shots in
   `build/design-judge/r1` and `r1-after`): overall 7/10, 15 issues (6 major, 8 minor, 1 nit); 13 fixed, 2 skipped
   by decision (a gray fill ramp, flattening one-home rail groups). The list and the before/after shots are in
-  `docs/design-pass/README.md`. Round 2 starts with the Workflow script.
+  `docs/design-pass/README.md`.
+- 2026-10-29: design judge run `wf_43262b01-d04` (Opus, resumed three times): 10/10 at round 19, 107 issues fixed.
+  Scores: r1 7, r2-r13 8, r14 9, r15-r16 8, r17-r18 9, r19 10. Rounds 1-6 stalled because the judge was told to
+  prefer few issues (drip-feeding); from round 7 it lists everything (`EXHAUSTIVE_FROM`). Rounds 7-12 stalled on
+  pixel measurements, some re-tuning earlier fixes; from round 13 only what a user notices counts and earlier fixes
+  are not reopened (`CALIBRATED_FROM`), which converged in seven rounds. A fresh run starts with both on from
+  round 1 if the two constants are set to 1. Round 6 moved a clause in a core draft reason (`DraftSuggest.cpp`);
+  core tests 294/294.

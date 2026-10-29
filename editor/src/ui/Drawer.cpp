@@ -5,6 +5,8 @@
 // rows keep their reference's index, so selection works on the filtered, sorted list.
 
 #include <algorithm>
+#include <cfloat>
+#include <cmath>
 #include <cstdint>
 #include <format>
 
@@ -51,7 +53,7 @@ namespace dova::editor::ui
 				_state.ui.drawerOpen = false;
 			}
 		}
-		// The rows of this cell, and of them the usable ones (home::UsableContainer, the rail's count): "253 of 297".
+		// The rows of this cell, and of them the usable ones (home::UsableContainer, the rail's count); the rest go in the tooltip.
 		int containers = 0, displays = 0, usable = 0, usableDisplays = 0;
 		for (const auto& r : c.info.refs) {
 			containers += r.IsContainer() && !r.display ? 1 : 0;
@@ -59,12 +61,13 @@ namespace dova::editor::ui
 			usable += home::UsableContainer(r) ? 1 : 0;
 			usableDisplays += home::UsableDisplay(r) ? 1 : 0;
 		}
-		// A home of more than one cell: this cell's usable ones of the home's (the rail's number), "252 of 253".
+		// A home of more than one cell: the home's usable ones (the rail's number) go in the tooltip, "252 here · 253 in the home";
+		// the tab shows this cell's count alone, so "N of M" in the tab row stays the filter bar's (shown of total).
 		const auto* homeEntry = HomeEntryFor(c);
 		const auto  homeStorage = homeEntry && !homeEntry->extra.empty() ? HomeStorageFor(c) : std::nullopt;
 		static constexpr const char* labels[] = { "Containers", "Displays", "Doors", "Where items go" };
 		const int                    counts[] = { usable, usableDisplays, static_cast<int>(c.info.doors.size()), -1 };
-		const int                    of[] = { homeStorage ? homeStorage->containers : -1, homeStorage ? homeStorage->displays : -1, -1, -1 };
+		const int                    inHome[] = { homeStorage ? homeStorage->containers : -1, homeStorage ? homeStorage->displays : -1, -1, -1 };
 		auto                         tipFor = [&](int a_usable, int a_all, int a_home, const char* a_why) {
             std::string tip = a_home >= 0 ? std::format("{} here · {} in the home", a_usable, a_home) : std::string{};
             if (a_all > a_usable) {
@@ -72,14 +75,14 @@ namespace dova::editor::ui
             }
             return tip;
 		};
-		const std::string tips[] = { tipFor(usable, containers, of[0], "respawn, are owned or go with an upgrade"), tipFor(usableDisplays, displays, of[1], "go with an upgrade") };
-		ImGui::SetCursorPos(ImVec2(t.pad, ImGui::GetCursorPosY() + 1.0f * t.scale));
+		const std::string tips[] = { tipFor(usable, containers, inHome[0], "respawn, are owned or go with an upgrade"), tipFor(usableDisplays, displays, inHome[1], "go with an upgrade") };
+		ImGui::SetCursorPosX(t.pad);
 		for (int i = 0; i < 4; ++i) {
 			if (i > 0) {
 				ImGui::SameLine(0.0f, 2.0f * t.scale);
 			}
 			const bool active = static_cast<int>(_drawerTab) == i;
-			if (w::TabButton(labels[i], active && open, counts[i], i < 2 && !tips[i].empty() ? tips[i].c_str() : nullptr, nullptr, of[i])) {
+			if (w::TabButton(labels[i], active && open, counts[i], i < 2 && !tips[i].empty() ? tips[i].c_str() : nullptr)) {
 				const bool second = io.MouseReleased[ImGuiMouseButton_Left] && io.MouseClickedLastCount[ImGuiMouseButton_Left] >= 2;
 				if (!(active && open)) {
 					_drawerTab = static_cast<DrawerTab>(i);
@@ -147,8 +150,10 @@ namespace dova::editor::ui
 
 	namespace
 	{
-		// Rows parted by hairlines, no bands (EDITOR-UX.md §3.5).
-		constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | kSortableTable;
+		// Rows parted by hairlines, no bands (EDITOR-UX.md §3.5); column rules only in the header, so none run below the last row.
+		// The outer cells keep their padding too, so the first column starts 8 px inside the band and the last ends 8 px short.
+		constexpr ImGuiTableFlags kTableFlags = ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV |
+		                                        ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_PadOuterX | kSortableTable;
 		constexpr std::uint32_t   kHeightColumn = 1u << 4;  // Containers and Displays: "Height (m)", right-aligned
 
 		// The columns of a drawer table (ui/Tables.h names them); `a_setup` gives a column its flags and width.
@@ -248,6 +253,15 @@ namespace dova::editor::ui
 			w::Mono(text.c_str(), w::Th().muted);
 		}
 
+		// The Reference column's fixed width: a local id in mono ("0x00000000"), with a leading "…" when the refs come
+		// from several plugins (RefCell then keeps the id's end), and the cell padding.
+		float RefColumnWidth(bool a_shared)
+		{
+			ImFont*     font = w::FontOf(w::Font::Mono);
+			const char* sample = a_shared ? "0x00000000" : "\xE2\x80\xA6" "0x00000000";  // ...
+			return std::round(font->CalcTextSizeA(font->LegacySize, FLT_MAX, 0.0f, sample).x) + 2.0f * ImGui::GetStyle().CellPadding.x;
+		}
+
 		// The table has rows but the filters hide them all.
 		void NoMatch(const TableView& a_view)
 		{
@@ -341,10 +355,8 @@ namespace dova::editor::ui
 			}
 			row.cells[3].text = a_cell.refText[i];
 			row.cells[4] = Height(r, floor);
+			// Off-home shows once, as the Height cell's "outside"; Notes keeps the rest.
 			std::vector<std::string> notes;
-			if (floor.Outside(r.position[2])) {
-				notes.emplace_back("out of the home");
-			}
 			if (r.respawns) {
 				notes.emplace_back("respawns");
 				row.tags |= kRespawning;
@@ -386,10 +398,15 @@ namespace dova::editor::ui
 		if (!ImGui::BeginTable("containers", 6, kTableFlags | ImGuiTableFlags_Resizable)) {
 			return;
 		}
-		SetupColumns(DrawerTable::Containers, [](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
+		// Short values in fixed columns (Kind, Reference, Height); Container, Role and Notes share the rest.
+		const float refW = RefColumnWidth(!SharedPlugin(rows, 3).empty());
+		SetupColumns(DrawerTable::Containers, [refW](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
 			if (a_n == 1 || a_n == 4) {
 				a_flags = ImGuiTableColumnFlags_WidthFixed;
 				a_width = ImGui::GetFontSize() * (a_n == 1 ? 6.0f : 5.0f);
+			} else if (a_n == 3) {
+				a_flags = ImGuiTableColumnFlags_WidthFixed;
+				a_width = refW;
 			}
 		});
 		SyncSort(view);
@@ -422,8 +439,16 @@ namespace dova::editor::ui
 			RefCell(row.cells[3].text, !plugin.empty());
 			w::Tip(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
-			RightText(row.cells[4].text.c_str());
-			w::Tip("Metres above the cell's lowest containers");
+			// Off-home height reads as Displays shows it: a muted "outside", not a bare "-".
+			if (row.cells[4].text == "-") {
+				ImGui::PushStyleColor(ImGuiCol_Text, w::Th().muted);
+				RightText("outside");
+				ImGui::PopStyleColor();
+				w::Tip("Out of the home: a mod parked it there");
+			} else {
+				RightText(row.cells[4].text.c_str());
+				w::Tip("Metres above the cell's lowest containers");
+			}
 			ImGui::TableNextColumn();
 			w::Muted(row.cells[5].text.c_str());
 			if (!r.scripts.empty()) {
@@ -471,10 +496,15 @@ namespace dova::editor::ui
 		if (!ImGui::BeginTable("displays", 5, kTableFlags | ImGuiTableFlags_Resizable)) {
 			return;
 		}
-		SetupColumns(DrawerTable::Displays, [](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
-			if (a_n == 4) {
+		// As in Containers: Kind, Reference and Height fixed; Display and Used share the rest.
+		const float refW = RefColumnWidth(!SharedPlugin(rows, 3).empty());
+		SetupColumns(DrawerTable::Displays, [refW](int a_n, ImGuiTableColumnFlags& a_flags, float& a_width) {
+			if (a_n == 1 || a_n == 4) {
 				a_flags = ImGuiTableColumnFlags_WidthFixed;
-				a_width = ImGui::GetFontSize() * 5.0f;
+				a_width = ImGui::GetFontSize() * (a_n == 1 ? 6.0f : 5.0f);
+			} else if (a_n == 3) {
+				a_flags = ImGuiTableColumnFlags_WidthFixed;
+				a_width = refW;
 			}
 		});
 		SyncSort(view);
@@ -507,8 +537,16 @@ namespace dova::editor::ui
 			RefCell(row.cells[3].text, !plugin.empty());
 			w::Tip(row.cells[3].text.c_str());
 			ImGui::TableNextColumn();
-			RightText(row.cells[4].text.c_str());
-			w::Tip("Metres above the cell's lowest containers");
+			// Height's "-" says itself in a muted word, as in Containers.
+			if (row.cells[4].text == "-") {
+				ImGui::PushStyleColor(ImGuiCol_Text, w::Th().muted);
+				RightText("outside");
+				ImGui::PopStyleColor();
+				w::Tip("Out of the home: a mod parked it there");
+			} else {
+				RightText(row.cells[4].text.c_str());
+				w::Tip("Metres above the cell's lowest containers");
+			}
 		}
 		NoMatch(view);
 		ImGui::EndTable();

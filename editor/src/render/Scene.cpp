@@ -1223,7 +1223,7 @@ float4 LinePS(LineOut i) : SV_Target { return i.col; }
 	{
 		EnsurePipeline();
 		auto& s = *_shared;
-		float clear[4] = { 0.11f, 0.12f, 0.14f, 1.0f };
+		float clear[4] = { 0.11f, 0.11f, 0.11f, 1.0f };  // #1c1c1c, a true neutral like every gray of the theme
 		if (const std::uint32_t b = a_options.background; b != 0) {
 			for (int i = 0; i < 4; ++i) {
 				clear[i] = static_cast<float>((b >> (8 * i)) & 0xFF) / 255.0f;

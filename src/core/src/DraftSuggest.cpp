@@ -988,6 +988,11 @@ namespace dova::core
 			const auto& o = a_objects[best.object];
 			plan.master = best.object;
 			std::vector<std::string> parts;
+			parts.push_back(std::format("{:.1f} x {:.1f} x {:.1f} m{}", o.size[0] / 70.0f, o.size[1] / 70.0f, o.size[2] / 70.0f, best.volume * 2.0f >= fullSize ? "" : ", small"));  // metres, as DraftMetres
+			if (best.entrance >= 0.0f) {
+				parts.push_back(std::format("{} from the door{}", DraftMetres(best.entrance), best.door.empty() ? std::string{} : " to " + best.door));
+			}
+			// Size and door first, the name last: a "though ..." clause needs a main clause before it.
 			if (best.word) {
 				parts.emplace_back("named like a chest");
 			} else if (best.avoid) {
@@ -997,10 +1002,6 @@ namespace dova::core
 				parts.emplace_back(std::ranges::all_of(candidates, [](const Candidate& c) { return c.named; }) ?
 				                       "though its name says what it holds (every usable container's does)" :
 				                       "though its name says what it holds");
-			}
-			parts.push_back(std::format("{:.1f} x {:.1f} x {:.1f} m{}", o.size[0] / 70.0f, o.size[1] / 70.0f, o.size[2] / 70.0f, best.volume * 2.0f >= fullSize ? "" : ", small"));  // metres, as DraftMetres
-			if (best.entrance >= 0.0f) {
-				parts.push_back(std::format("{} from the door{}", DraftMetres(best.entrance), best.door.empty() ? std::string{} : " to " + best.door));
 			}
 			std::string why = std::format("{}: ", Title(o));
 			for (std::size_t i = 0; i < parts.size(); ++i) {

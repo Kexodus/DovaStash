@@ -70,7 +70,7 @@ namespace dova::editor::ui::w
 			g_theme.dark = a_c.dark;
 			// The viewport stays dark in every theme (the 3D view draws its own dark sky; the plan's data colours
 			// are made for a dark ground): light themes give the plan and the hint line a dark ground of their own.
-			g_theme.viewport = a_c.dark ? g_theme.bg0 : Rgb(0x1c1f24);
+			g_theme.viewport = a_c.dark ? g_theme.bg0 : Rgb(0x1c1c1c);  // the 3D view's sky
 			g_theme.viewportText = a_c.dark ? g_theme.muted : Rgb(0xb4b4b4);
 			g_theme.scale = a_scale;
 			// Heights on the 4 px grid (EDITOR-UX.md §3.5), around the type scale (Widgets.h): a row is the body line
@@ -341,9 +341,9 @@ namespace dova::editor::ui::w
 			c[ImGuiCol_Button] = V4(t.bg2);
 			c[ImGuiCol_ButtonHovered] = V4(t.bg3);
 			c[ImGuiCol_ButtonActive] = V4(detail::Mix(t.accentDim, t.bg3, 0.35f));
-			c[ImGuiCol_Header] = V4(WithAlpha(t.accent, 0.14f));
+			c[ImGuiCol_Header] = V4(t.line);  // a selected row: the ramp step above the hover, not a white wash
 			c[ImGuiCol_HeaderHovered] = V4(t.bg3);
-			c[ImGuiCol_HeaderActive] = V4(WithAlpha(t.accent, 0.20f));
+			c[ImGuiCol_HeaderActive] = V4(t.line);
 			c[ImGuiCol_Separator] = V4(t.line);
 			c[ImGuiCol_SeparatorHovered] = V4(t.accentDim);
 			c[ImGuiCol_SeparatorActive] = V4(t.accent);

@@ -13,16 +13,16 @@ What changed:
 - **Grid**: inputs 30 to 32 px, toolbar 34 to 36, title row 42 to 44, chips 22 to 24, item spacing 8/6 to 8/4.
 - **Column filters**: the tab row's quick-filter chips became funnel filters in the column headers (Kind, Role,
   Notes; Kind, Used; Fill), the way a data grid filters; the tab row keeps only the count and the *Filter rows* box.
-- **Design judge, round 1** (`tools/devcycle/design-judge.js`, impeccable's Assessment A plus the unslop checklist,
-  7/10 before): accepted Draft suggestions show a check and the legend sits under the section head; Selection's
-  category chips show names, the pattern in the tooltip; one framed `Button` for every panel action, *Remove from
-  the template* alone on the last row in the error colour; dropdowns draw a chevron instead of ImGui's triangle;
-  number headers sit flush right over their figures; the Reference column is muted and shows only the local id
-  when a table has one plugin; the Kind filter opens upward when the table is short; the hint line gets a plate
-  behind the text; the Draft icon is a quill, not a sparkle; the plan legend lists the other colours it draws;
-  the plan scale bar reads in metres; a viewport floor keeps the home the hero at 1366x768 at 150 % text.
-  Skipped on purpose: a gray fill ramp (status hues stay legible over 3D textures) and flattening one-home mod
-  groups in the rail (the mod name is what authors scan for).
+- **Design judge** (`tools/devcycle/design-judge.js`: impeccable's Assessment A plus the unslop checklist, Opus
+  agents): 7/10 at the start, 10/10 after 19 rounds and 107 fixes. The first rounds: accepted Draft suggestions
+  show a check with a legend under the head; Selection's category chips show names; one framed `Button` for panel
+  actions, *Remove from the template* alone in the error colour; chevron dropdowns; number headers flush right;
+  a muted local-id Reference column; the Kind filter opens upward in short tables; a plate behind the hint line;
+  a quill Draft icon; the plan legend lists every colour it draws, its scale bar reads in metres; a viewport floor
+  keeps the home the hero at 1366x768 at 150 % text. Then grid and keyline alignment across the rail, inspector,
+  drawer, status row and Setup, and last the wording of counts so each says what and where it counts (*Containers
+  46*, *20 accepted of 52*, an off-home container reads *outside* once). Skipped on purpose: a gray fill ramp and
+  flattening one-home mod groups.
 
 | | Before | After |
 |---|---|---|

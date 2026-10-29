@@ -124,7 +124,10 @@ namespace dova::editor::ui
 		w::Radio("By fill", mode, 2);
 		w::TipShortcut("How much of the sample each container would receive (Where items go)", "V");
 		_colours = static_cast<Colours>(mode);
-		w::SectionHead("Legend");
+		// By fill, the head names the sample the fills are of (Where items go).
+		const std::string sampleName = _sampleKind == 0 ? "Typical haul" : _sampleKind == 1 ? CategoryText(_samplePattern) : "Every item";
+		const bool        fill = _colours == Colours::Fill;
+		w::SectionHead("Legend", fill ? "The sample (Where items go)" : nullptr, fill ? sampleName.c_str() : nullptr);
 		// The plan's own colours (Common.h ColorOf); in a colour mode the containers and displays it does not colour fade.
 		const ImU32 container = detail::ColorOf(home::PlacedRef{}, detail::Layer::Container);
 		const ImU32 rack = IM_COL32(80, 190, 230, 255), mannequin = IM_COL32(220, 110, 220, 255), plaque = IM_COL32(240, 170, 60, 255);
@@ -134,13 +137,9 @@ namespace dova::editor::ui
 			w::Swatch(kFillEmpty, "Receives nothing");
 			w::Swatch(kFillLight, std::format("A few (under {})", kHeavyAt).c_str());
 			w::Tip("On a display: something goes up");
-			w::Swatch(kFillHeavy, "Many");
+			w::Swatch(kFillHeavy, std::format("Many ({} or more)", kHeavyAt).c_str());
 			w::Swatch(kFillMaster, "Master");
 			w::Tip("Takes what has no place");
-			ImGui::PushFont(w::Th().smallFont);
-			w::Muted(_sampleKind == 0 ? "Typical haul" : _sampleKind == 1 ? CategoryText(_samplePattern).c_str() : "Every item");
-			ImGui::PopFont();
-			w::Tip("The sample (Where items go)");
 		} else if (_colours == Colours::Category) {
 			std::vector<std::string> used;
 			for (const auto& c : a_cell.layout.containers) {
@@ -168,7 +167,6 @@ namespace dova::editor::ui
 		if (_colours != Colours::None) {
 			// What else the plan draws in colour in this mode: the rest in their own colours, faded when the mode gives them none.
 			w::SectionHead("Other");
-			const bool fill = _colours == Colours::Fill;
 			if (!fill) {
 				w::Swatch(faded(container), "Container, no category");
 			}
@@ -254,31 +252,33 @@ namespace dova::editor::ui
 				w::EndCombo();
 			}
 		}
-		ImGui::SameLine(0.0f, w::Th().gap);
-		if (w::Button("Run again", "Run the planner again", "R")) {
+		ImGui::SameLine();  // framed controls: parted by the item spacing
+		// The run time is the tip's: it says nothing about where items go.
+		const std::string runTip = _preview ? std::format("Run the planner again ({} ms)\nDova Stash's own planner: explicit items, categories, then the master; and the displays planner", _preview->ms) :
+		                                      std::string("Run the planner again");
+		if (w::Button("Run again", runTip.c_str(), "R")) {
 			RunPreview(*_cell);
 		}
+		// The Colours popover's order (None, By category, By fill).
 		ImGui::SameLine();
-		if (w::ToolButton("By fill", _colours == Colours::Fill, "Colour the containers by fill", "V")) {
-			_colours = _colours == Colours::Fill ? Colours::None : Colours::Fill;
-		}
-		ImGui::SameLine(0.0f, 2.0f);
 		if (w::ToolButton("By category", _colours == Colours::Category, "Colour the containers by category", "C")) {
 			_colours = _colours == Colours::Category ? Colours::None : Colours::Category;
 		}
-		if (_preview) {
-			ImGui::SameLine();
-			ImGui::AlignTextToFramePadding();
-			w::Muted(std::format("{} ms", _preview->ms).c_str());
-			w::Tip("Dova Stash's own planner (explicit items, categories, then the master) and displays planner");
+		ImGui::SameLine(0.0f, 2.0f);
+		if (w::ToolButton("By fill", _colours == Colours::Fill, "Colour the containers by fill", "V")) {
+			_colours = _colours == Colours::Fill ? Colours::None : Colours::Fill;
 		}
 	}
 
 	void EditorApp::DrawPreview(OpenCell& a_cell)
 	{
 		LoadCategories();
+		// The drawer's lines of text start on the 16 px keyline with the table's first column and the status row.
+		const float inset = w::Th().pad;
 		if (!_categorySet) {
+			ImGui::Indent(inset);
 			w::MutedWrapped("No Dova Stash categories found (Data/SKSE/Plugins/DovaStash/Categories). Enable Dova Stash in this MO2 profile.");
+			ImGui::Unindent(inset);
 			return;
 		}
 		const bool stale = !_preview || _preview->cell != &a_cell || _preview->json != a_cell.json || _preview->kind != _sampleKind || _preview->pattern != _samplePattern;
@@ -286,7 +286,9 @@ namespace dova::editor::ui
 			RunPreview(a_cell);  // fast: the planner over a few hundred (or thousand) stacks
 		}
 		if (!_preview || _preview->cell != &a_cell) {
+			ImGui::Indent(inset);
 			w::Muted("Running...");
+			ImGui::Unindent(inset);
 			return;
 		}
 		const auto&  p = *_preview;
@@ -296,23 +298,30 @@ namespace dova::editor::ui
 		}
 		const auto empty = std::ranges::count_if(p.result.byContainer, [](const core::PreviewContainer& c) { return !c.master && c.items.empty(); });
 		if (p.items.empty()) {
+			ImGui::Indent(inset);
 			w::Coloured(w::Kind::Warn, "The sample is empty: no item of the loaded plugins is in that category.");
+			ImGui::Unindent(inset);
 			return;
 		}
-		ImGui::Text("%d items in %zu stacks", copies, p.items.size());
-		ImGui::SameLine();
-		w::Muted(std::format("{} by category or item · {} to the master · {} on displays", p.result.toContainers, p.result.toMaster, p.result.onDisplays.size()).c_str());
+		ImGui::Indent(inset);
+		ImGui::Text("%d items in %zu stacks:", copies, p.items.size());
+		ImGui::SameLine(0.0f, 0.0f);  // one text space after the colon, like the spaces around each dot
+		w::Muted(std::format(" {} by category or item · {} to the master · {} on displays", p.result.toContainers, p.result.toMaster, p.result.onDisplays.size()).c_str());
+		// The coloured segments continue the muted line with no item gap: the separator is spaced by text spaces,
+		// the same gap as the dots inside the muted segment.
 		if (empty > 0) {
-			ImGui::SameLine();
-			w::Coloured(w::Kind::Warn, std::format("· {} receive nothing", empty).c_str());
+			ImGui::SameLine(0.0f, 0.0f);
+			// Containers, not items: the unit is said, since the rest of the line counts items.
+			w::Coloured(w::Kind::Warn, empty == 1 ? " · 1 container receives nothing" : std::format(" · {} containers receive nothing", empty).c_str());
 		}
 		if (!p.result.noDestination.empty()) {
-			ImGui::SameLine();
-			w::Coloured(w::Kind::Error, std::format("· {} stacks have nowhere to go (no master)", p.result.noDestination.size()).c_str());
+			ImGui::SameLine(0.0f, 0.0f);
+			w::Coloured(w::Kind::Error, std::format(" · {} stacks have nowhere to go (no master)", p.result.noDestination.size()).c_str());
 		} else if (!a_cell.layout.master) {
-			ImGui::SameLine();
-			w::Coloured(w::Kind::Error, "· no master: what no container takes stays with the player");
+			ImGui::SameLine(0.0f, 0.0f);
+			w::Coloured(w::Kind::Error, " · no master: what no container takes stays with the player");
 		}
+		ImGui::Unindent(inset);
 
 		std::int32_t maxTotal = 1;
 		for (const auto& c : p.result.byContainer) {
@@ -355,15 +364,17 @@ namespace dova::editor::ui
 			} else {
 				std::vector<std::pair<std::string, std::int32_t>> per(c->perCategory.begin(), c->perCategory.end());
 				std::ranges::sort(per, [](const auto& a, const auto& b) { return a.second > b.second; });
+				// One category: its name alone (the Items column has its count). Two or more: each with its share.
 				for (const auto& [cat, n] : per) {
-					row.cells[3].text += std::format("{}{} {}", row.cells[3].text.empty() ? "" : ", ", cat.empty() ? "(no category)" : CategoryText(cat), n);
+					const std::string label = cat.empty() ? "(no category)" : CategoryText(cat);
+					row.cells[3].text += per.size() == 1 ? label : std::format("{}{} {}", row.cells[3].text.empty() ? "" : ", ", label, n);
 					row.cells[4].text += (row.cells[4].text.empty() ? "" : ", ") + cat;
 				}
 			}
 			row.tags = c->master ? kPreviewMaster : c->items.empty() ? kPreviewNothing : kPreviewItems;
 			rows.push_back(std::move(row));
 		}
-		if (ImGui::BeginTable("preview", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_Resizable | kSortableTable)) {
+		if (ImGui::BeginTable("preview", 4, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_PadOuterX | ImGuiTableFlags_Resizable | kSortableTable)) {
 			ImGui::TableSetupScrollFreeze(0, 1);
 			const auto columns = TableColumns(DrawerTable::Preview);
 			ImGui::TableSetupColumn(columns[0], ImGuiTableColumnFlags_WidthStretch, 0.3f);
@@ -385,6 +396,14 @@ namespace dova::editor::ui
 					ImGui::PushStyleColor(ImGuiCol_Text, w::Th().warn);
 				}
 				const std::string_view shown = c->master ? std::string_view(row.cells[0].text).substr(0, row.cells[0].text.size() - 7) : std::string_view(row.cells[0].text);
+				// The Containers table's row: the kind icon, then the name (a container of another cell keeps the
+				// icon's room, so the names share one keyline).
+				if (index >= 0) {
+					w::IconInline(detail::IconOf(a_cell.info.refs[static_cast<std::size_t>(index)]), w::Th().muted);
+				} else {
+					ImGui::Dummy(ImVec2(w::Th().iconSize, ImGui::GetTextLineHeight()));
+				}
+				ImGui::SameLine(0.0f, w::Th().gap);
 				if (ImGui::Selectable(std::string(shown).c_str(), index >= 0 && IsSelected(index),
 						ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick) &&
 					index >= 0) {
@@ -404,10 +423,14 @@ namespace dova::editor::ui
 				ImGui::TableNextColumn();
 				const ImVec2 pos = ImGui::GetCursorScreenPos();
 				const float  wdt = ImGui::GetContentRegionAvail().x;
-				const float  h = ImGui::GetTextLineHeight() * 0.7f;
-				ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(pos.x, pos.y + 3.0f), ImVec2(pos.x + wdt, pos.y + 3.0f + h), w::Th().bg3, 2.0f);
-				ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(pos.x, pos.y + 3.0f),
-					ImVec2(pos.x + std::max(wdt * static_cast<float>(c->total) / static_cast<float>(maxTotal), c->total > 0 ? 3.0f : 0.0f), pos.y + 3.0f + h), colour, 2.0f);
+				const float  h = std::round(12.0f * w::Th().scale);  // whole pixels, centred on the line
+				const float  y0 = pos.y + std::floor((ImGui::GetTextLineHeight() - h) * 0.5f);
+				ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(pos.x, y0), ImVec2(pos.x + wdt, y0 + h), w::Th().bg3, w::Th().radius);
+				// Nothing: the track alone (a zero-width rounded rect still draws its corner arcs).
+				if (c->total > 0) {
+					ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(pos.x, y0),
+						ImVec2(pos.x + std::max(wdt * static_cast<float>(c->total) / static_cast<float>(maxTotal), 3.0f), y0 + h), colour, w::Th().radius);
+				}
 				ImGui::Dummy(ImVec2(wdt, ImGui::GetTextLineHeight()));
 				ImGui::TableNextColumn();
 				RightText(row.cells[2].text.c_str());

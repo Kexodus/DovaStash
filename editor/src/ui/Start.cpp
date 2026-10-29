@@ -49,7 +49,7 @@ namespace dova::editor::ui
 		const float colW = std::min(avail - 2.0f * t.pad, 720.0f * t.scale);
 		const float x0 = std::max((avail - colW) * 0.5f, t.pad);
 		ImGui::Dummy(ImVec2(0, std::max((a_max.y - a_min.y) * 0.08f, t.pad)));
-		ImGui::SetCursorPosX(x0);
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + x0);  // x0 is within the padded content region
 		ImGui::BeginGroup();
 		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + colW);
 		{
@@ -127,8 +127,8 @@ namespace dova::editor::ui
 			for (const auto& h : _homes->homes) {
 				templated += HomeStatus(h).empty() ? 0 : 1;
 			}
+			// The plugin count and read time are the rail footer's (Rescan); not repeated here.
 			w::Heading(std::format("{} player homes, {} with templates", _homes->homes.size(), templated).c_str());
-			w::Muted(std::format("{} plugins read in {:.1f} s", _homes->lo ? _homes->lo->PluginCount() : 0, static_cast<double>(_homes->ms) / 1000.0).c_str());
 		} else {
 			w::Heading("Finding the player homes...");
 		}
@@ -136,23 +136,26 @@ namespace dova::editor::ui
 
 		// 3. Three cards.
 		const bool  row = colW >= 560.0f * t.scale;
-		const float cw = row ? (colW - 2.0f * t.gap) / 3.0f : colW;
-		if (w::Card("open", "Open a home", "Find it in the rail: name, mod or Nexus id.", nullptr, cw)) {
-			_state.ui.railOpen = true;
-			_railFocusSearch = true;
-			_showStart = false;
+		const float cw = row ? (colW - 2.0f * t.pad) / 3.0f : colW;  // parted by the item spacing, not the inline gap
+		const char* bodies[] = { "Find it in the rail: name, mod or Nexus id.", "Masters and categories, with reasons.", "Shipped, or a layout saved in game." };
+		int         lines = 1;  // the most any card wraps to: the row shares one bottom edge, with no empty line under it
+		for (const char* b : bodies) {
+			lines = std::max(lines, w::CardBodyLines(b, cw));
+		}
+		if (w::Card("open", "Open a home", bodies[0], "Ctrl+F", cw, lines)) {
+			FindAHome();
 		}
 		if (row) {
-			ImGui::SameLine(0.0f, t.gap);
+			ImGui::SameLine(0.0f, t.pad);
 		}
-		if (w::Card("draftall", "Draft all homes", "Masters and categories for every home, with reasons.", "Ctrl+D", cw)) {
+		if (w::Card("draftall", "Draft all homes", bodies[1], "Ctrl+D", cw, lines)) {
 			StartBulkDraft();
 			_showStart = false;
 		}
 		if (row) {
-			ImGui::SameLine(0.0f, t.gap);
+			ImGui::SameLine(0.0f, t.pad);
 		}
-		if (w::Card("opentemplate", "Open a template...", "A shipped template or a layout saved in game.", "Ctrl+O", cw)) {
+		if (w::Card("opentemplate", "Open a template...", bodies[2], "Ctrl+O", cw, lines)) {
 			OpenTemplateFile();
 		}
 

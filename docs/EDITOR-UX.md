@@ -52,8 +52,8 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 | Breezeh. |                                                                 | Role              |
 | ...      |                                                                 |  Label  [        ]|
 |          |                                                                 |  Categories       |
-|          |  hint: Right mouse look · WASD fly · F frame · Home overview     |  alchemy.potions ×|
-| ‹        |                                                                 |  + add            |
+|          |  hint: Right mouse: look · WASD: fly · F: frame · Home: overview |  alchemy.potions ×|
+| ‹        |                                                                 |  Add a category   |
 +----------+-----------------------------------------------------------------+-------------------+
 | Containers  Displays  Doors  Where items go                                         ▴ drawer   |  bottom drawer
 +------------------------------------------------------------------------------------------------+
@@ -73,8 +73,8 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 - Centre: `3D | Plan` segmented control (keys `1` / `2`).
 - Right: **Draft ▾** (Draft this home, Accept all, Reject the weak ones, Draft again, Draft all homes…),
   **Save** (Ctrl+S; disabled with a tooltip when the checks have errors; the filled button only when there is
-  something to save, a change or an unsaved draft; an unchanged template is a plain *Save a copy*, or plain *Save*
-  when it is already the file Save writes), `⚙` **Setup** popover (§2.7).
+  something to save, a change or an unsaved draft; an unchanged template is a framed *Save a copy*, or framed *Save*
+  when it is already the file Save writes, the Template footer's same button), `⚙` **Setup** popover (§2.7).
 
 > **Built:** the chip reads *no template* / *yours* / *shipped* / *auto-draft* / *draft* (neutral / ok / info / warn /
 > warn; *auto-draft*: the home's template, or the open file, is one *Save N drafts...* wrote, §2.8), or *off* (warn)
@@ -109,10 +109,11 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
     templates only when more than one), one status word at the right (*yours* / *shipped* / *auto-draft* / *draft*:
     a 6 px dot in the status colour and the word in muted, never a pill per row, §3.5; *off* when every template of
     the home names a loaded plugin under `conflicts`; *none* in muted, without a dot), the unsaved dot when it is
-    open and dirty. No "+N" anywhere: counts are words. A name the status word would cut, or that would leave no
-    room for the summary's shortest form (a large text size, a narrow rail), keeps its room: the word goes and the
-    dot stays, *none* goes (the row's tooltip has the word); a summary that still does not fit is left out, never
-    cut to an ellipsis. The cell count is the template's when the home has one
+    open and dirty. No "+N" anywhere: counts are words. A home row under its mod's group starts its name on the
+    group label's keyline (past the chevron), and so does the *All cells…* link. A narrow rail (under 260 px at
+    100 %: a large text size, a dragged-in rail) drops the status word on every row at once, not on the rows whose
+    names it would cut, so the list reads one way: the dot stays, *none* goes (the row's tooltip has the word); a
+    summary that does not fit is left out, never cut to an ellipsis. The cell count is the template's when the home has one
     (a Hearthfire home's Grounds count). Two homes of one name (vanilla *Breezehome* and a mod's new cell of that
     name) add their cell's EditorID after the summary (`Breezehome  114 chests · WyntersBreezehomeRedux`), the
     EditorID alone in the narrowest form.
@@ -121,8 +122,10 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
     evidence in the tooltip and *Likely homes only* respected.
   - Right-click: Open, Draft, Open in Explorer (its template file), Copy form ref.
 - The row of the open home is highlighted; Enter opens the selected row; `↑`/`↓` move.
-- Bottom of the rail: *Rescan (F5)* and the scan summary in one muted line (`124 homes · 302 plugins · 0.9 s`); a
-  rail too narrow for it (a large text size) keeps `Rescan · 124 homes`, the full line in the tooltip.
+- Bottom of the rail: *Rescan (F5)* and the scan summary in one muted line (`124 homes · 302 plugins`; the last scan's time is *Rescan*'s tooltip); a
+  rail too narrow for it (a large text size) keeps `Rescan · 124 homes`, the full line in the tooltip. A hairline in
+  `line` on the list's bottom edge parts the scrolled list from this footer; scrolled, the same rule on its top edge
+  parts it from the search box.
 - Collapsed, the rail is a 32 px strip with the `›` handle and the home count.
 
 > **Built:** the storage summary counts what a template can use over the home's cells: containers that do not
@@ -141,7 +144,8 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
   popover) · `Camera ▾` (Overview (Home), Frame (F), fly speed, light, outlines). Nothing else on the view.
 - Paint mode replaces the toolbar's second half with the paint bar (category chip, *pick another…*, done).
 - **Hint line** at the bottom of the viewport, muted, one line, changes with mode (select, paint, box); a dark
-  plate (75%, the popovers' rim) behind the text alone keeps it readable over a bright scene.
+  plate (75%, the popovers' rim) behind the text alone keeps it readable over a bright scene. A view too narrow for
+  the line drops whole `Key: action` pairs from its end, never half a key name.
 - Load progress of meshes and textures appears in the status row, not over the view.
 - Hovering an object shows its name in a small tooltip near the cursor; selection keeps the yellow frame.
 - The start panel (§2.6) draws **inside the viewport area** when no home is open.
@@ -191,7 +195,7 @@ A segmented control at the top: **Selection · Template · Draft · Checks**. Ea
   there is no longer anywhere else to go.
 - **Checks**: the problems list (errors first), each one line, click selects the object; *Validate* is
   continuous so there is no button. Also shows what the template still lacks (no master, N containers
-  without a role, N containers not listed) as links. A loaded `conflicts` plugin adds a warning first: *Not
+  without a role, N containers not listed, *N containers in this cell not listed* in a home of more than one cell since the count walks the open cell alone) as links. A loaded `conflicts` plugin adds a warning first: *Not
   offered in game: <plugin> rebuilds this home*, with the template's reference checks under it as information
   (an *i*, not an error: they describe the rebuild, and *Save a copy* stays open).
 
@@ -199,10 +203,11 @@ The inspector's panel switches automatically when it helps: selecting something 
 *Draft this home* switches to Draft; clicking the status row's problem count switches to Checks.
 
 > **Built:** the Selection panel shows the object's own mesh (96 px) at the left of its name once the scene has
-> loaded, and its kind with an icon. The Template panel's fields scroll and *Save* / *Save as…* / *Copy JSON*
+> loaded, and its kind with an icon (a container's in the Containers table's word, *Basket*, *Chest*; *Container*
+> when unrecognised). The Template panel's fields scroll and *Save* / *Save as…* / *Copy JSON*
 > stay pinned at its bottom like a form footer (framed buttons, *Save* filled when there is work to save); *Version*
 > and *Priority* share a row, labels over fields. The Draft panel's colour legend is one muted line of dots under
-> its *CONTAINERS 20 of 52* head (*name · nearby · hint*); an accepted chip has a check before its text. A category
+> its *CONTAINERS 20 accepted · 52 in the home* head (*N accepted of M* in a one-cell home; *75%+ · 50 to 74% · under 50%*, the confidence bands the chips are coloured by); an accepted chip has a check before its text. A category
 > chip names the category (*Swords*), its id in the tooltip. *Remove from the template* is the panel's last row, a
 > framed button with a bin in `error`. A display without a game name is named by its kind (*Mannequin*, never
 > `PlayerHouseMannequin`), and kinds read in sentence case (*Rack (any)*). A container has one name in every panel (Draft, Where items go, the tables, the
@@ -210,7 +215,7 @@ The inspector's panel switches automatically when it helps: selecting something 
 > Draft rows still of the same name add their height above the cell's floor (`Barrel · 1.3 m`, the tables' rule,
 > §2.5), then a number when that ties too; hovering a row highlights its container in the 3D view. With a template
 > open the panel starts *Showing the template. Accept a chip to change it, or use the whole draft.* The *Not listed*
-> line (`106 containers not listed (174 more come with upgrades)`, upgrades being initially disabled or
+> line (`106 containers not listed (174 more come with upgrades)`, *containers in this cell* in a home of more than one cell, upgrades being initially disabled or
 > enable-parented refs) opens the Containers tab on its *Not listed* chip; for a shipped or saved template it sits
 > under its own quieter *Not listed* head instead of *Still to do*.
 
@@ -221,9 +226,10 @@ third of the height, drag to resize, remembers. Rows select the same object as t
 double click). *Where items go* keeps its sample picker and colour buttons in its own tab bar row.
 
 > **Built:** the tabs show their counts as small muted text after the label (no pill, §3.5): the usable ones, the rail's count for this cell (not
-> respawning, nobody else's, not removed by an upgrade); in a home of more than one cell `252 of 253`, this cell's
-> of the home's (the tooltip: *252 here · 253 in the home*, and how many more this cell has that are not usable);
-> the Draft panel's *Containers N of M* counts the accepted ones of the same home-wide number; the tables' first
+> respawning, nobody else's, not removed by an upgrade), the count alone (*N of M* in the tab row is only ever the
+> filter bar's, shown of total); in a home of more than one cell the home-wide figure is in the tooltip (*252 here ·
+> 253 in the home*), with how many more this cell has that are not usable;
+> the Draft panel's *Containers N accepted of M* counts the accepted ones of the same home-wide number, *N accepted · M in the home* when the home has more than one cell; the tables' first
 > column has the object's icon. Every
 > column sorts (header click, Shift+click adds a column, a third click returns to the table's order); the filters
 > live in the column headers, as a data grid's do: a column with filters ends in a funnel (Containers: *Kind* with
@@ -237,7 +243,7 @@ double click). *Where items go* keeps its sample picker and colour buttons in it
 > disabled last in each. Doors has no *Open* column: a
 > double click on a row opens the cell, a click selects the door. The drawer's height is a share of the window's
 > (at most half of it); the rail and inspector together take at most 60% of the width, so at 1280x720 the view
-> keeps its room, and the view has a floor (§6): 45% of the width and 560 px, half the middle's height and 320 px,
+> keeps its room, and the view has a floor (§6): 45% of the width and 560 px, half the middle's height and 240 px,
 > at every UI size; where it bites the inspector gives way down to 30% of the width. Number columns have their name
 > and sort arrow flush right over the figures; the *Reference* column is muted mono, and when every row shares one
 > plugin it shows the local id alone (`0x00000E68`) with the plugin in the header's tooltip (the filter still finds
@@ -261,8 +267,8 @@ column, centred, in this order:
    or start the editor from MO2.* (the console's error names the flags instead). A folder with `ModOrganizer.ini`
    opens as the instance, one with `Skyrim.esm` (or a game folder with `Data\Skyrim.esm`) as a plain Data folder,
    remembered for the next start.
-2. "124 player homes, 17 with templates" and the scan time, muted.
-3. Three cards: *Open a home* (focuses the rail search), *Draft all homes* (Ctrl+D), *Open a template…*
+2. "124 player homes, 17 with templates" (the plugin count is the rail footer's and the scan time *Rescan*'s tooltip, not repeated).
+3. Three cards: *Open a home* (Ctrl+F: focuses the rail search), *Draft all homes* (Ctrl+D), *Open a template…*
    (Ctrl+O). Short one-line descriptions, no paragraphs.
 4. *In progress*: the homes with a stage, as a compact table (home, stage chip, when, saved to).
 
@@ -280,8 +286,8 @@ MO2 instance path with *Browse…*, profile dropdown, *Author* name, *Save templ
 ### 2.8 Draft all homes
 
 Not a mode. The `≡` and **Draft ▾** menus (and Ctrl+D) run the bulk draft; progress shows in the status row;
-when it is done the rail shows a *draft* chip per home and a banner over the rail offers *Save N drafts…*
-(the existing confirmation dialog). Reviewing a draft means opening the home and using the Draft panel.
+when it is done the rail shows a *draft* chip per home and a banner over the rail (*N drafts  Save all…*; the
+count once, the link does not repeat it) opens the existing *Save N drafts* confirmation dialog. Reviewing a draft means opening the home and using the Draft panel.
 `--drafts` on the command line opens the workspace with the bulk draft started and the rail filtered to
 homes without a template.
 
@@ -309,8 +315,12 @@ One text field over the viewport. Typing matches, in this order: commands ("save
 
 ### 2.10 Status row
 
-Left: home · cell (muted), the unsaved dot. Middle: `0 errors · 2 warnings` (click opens Checks). Right:
-background work (scan, meshes, preview) as `label n/m`, then the one most useful shortcut for the moment.
+Left, on the rail's 16 px keyline: home · cell (muted), the unsaved dot; *No home open* without one (the home count is the start heading's and
+the rail footer's). Middle: `0 errors · 2 warnings` (click opens Checks), each count in its
+status hue only when it is not 0, starting on the viewport's keyline (its left edge plus 8 px, under the floating
+toolbar). Right: background work (scan, meshes, preview) as `label n/m`, then the one most
+useful shortcut for the moment, its keycap centred in the row and its word on the row's text line, the row's right
+end 16 px in from the edge (under the inspector's content edge) as its left is.
 
 > **Built:** missing or unreadable meshes and textures as `1 missing`; the tooltip counts them in words (`1 texture
 > missing`) and names, for a texture, the mesh that uses it and the mod or archive that mesh comes from (meshes
@@ -336,7 +346,7 @@ The art set's palette (`presskit/README.md`, Style; `presskit/src/style.css`): e
 | `muted` | `#9c9c9c` | gray-2: captions, section heads |
 | disabled | `#6a6a6a` | gray-3 |
 | `accent` | `#ffffff` | paper: wordmark, titles, icons, the active control, the selected row, links, the primary button |
-| `accentDim` | `#9c9c9c` | a pressed primary button, the slider track |
+| `accentDim` | `#9c9c9c` | a pressed primary button, the slider's filled track (its empty track is `line`) |
 | `select` | `#ffffff` | the 3D frame and plan highlight |
 | `ok` / `warn` / `error` / `info` | `#7fbf7f` / `#e0b04a` / `#d9634c` / `#6fa8dc` | status: pills, dots and status text (yours, shipped, auto-draft, draft, confidence, errors) |
 
@@ -352,7 +362,7 @@ Tablet Light, Aqua Light Slate, Lavender Classico, Emerald Light Slate. Each fil
 body text at least 7:1 on `bg0` to `bg2`, captions, links and status hues at least 4.5:1; light themes take darker
 status hues and accents so the text on a filled accent (`bg0`) stays readable. The disabled gray, the scrollbar and
 the tables' hairlines follow the tokens. The viewport stays dark in every theme (the 3D view draws its own
-sky; the plan's ground is `bg0` in a dark theme, `#1c1f24` in a light one), and the data colours never change. A
+sky in a neutral `#1c1c1c`; the plan's ground is `bg0` in a dark theme, the same `#1c1c1c` in a light one), and the data colours never change. A
 pick applies before the next frame (the fonts stay) and is remembered as `ui.theme` in `state.json` (empty: Dova
 Stash).
 
@@ -388,16 +398,18 @@ sets the size for that run.
 ### 3.3 Shapes and ornament
 
 - Corners 3 px, borders 1 px `line`, no shadows except the floating toolbar and popovers (a 1 px darker rim).
-- Section head: tracked capitals in `muted`, then a hairline rule to the right edge. No diamonds or other
+- Section head: tracked capitals in `muted`, then a hairline rule to the right edge. On a body too narrow for a
+  head's count (a large text size) the hairline goes first, then the capitals close up to a third of their tracking,
+  then the info mark (the head itself keeps the tooltip): the words clip last. No diamonds or other
   ornament; the one divider (empty states, the start panel) is the art set's: the emblem between two hairlines.
 - Chips: 24 px pills with `bg2` fill and a 1 px border in the status gray; text in the same gray. A chip is one
   thing to act on or one word of state in a row of its own (the title row's template word, a category to accept);
   a status repeated down a list, and every count, is a dot or plain text instead (§3.5). A chip that switches (a
   suggestion) shows a 12 px check in its colour before `text` and a full border when on; off, muted text and the
-  border at half strength.
+  border at half strength. Its fill stays `bg2` either way (no tint in the status colour), `bg3` on hover.
 - Buttons, three kinds. *Tool* buttons (`ToolButton`: the floating toolbar, tabs, modes) are flat, hover `bg3`,
   active `accent` text with an underline. A panel's actions (`Button`: the Draft row, the Template footer, empty
-  states, Setup's *Browse...* and *Export...*) are framed: `bg2`, a 1 px `line` border, input height, hover `bg3`,
+  states, Setup's *Browse...* and *Export...* (one width, one right edge) and *Rescan*, an unfilled *Save* in the title row) are framed: `bg2`, a 1 px `line` border, input height, hover `bg3`,
   `text` (a destructive one in `error`, with its icon); a fixed width wraps a long label. Primary (Save) is filled
   paper with ink text, gray-1 on hover. Links (accent text) are for navigation and for small actions inside a line
   of text.
@@ -405,8 +417,8 @@ sets the size for that run.
 - Icons: drawn with draw-list primitives at 18 px (menu, search, funnel, layers, palette, camera, gear,
   chevrons, check, warning, error, undo, redo, save, close, pin, a quill for *Draft*). No icon font.
 - Row height 28 px, inputs 32 px, toolbar 36 px, title row 44 px, status row 28 px, padding 8, item spacing 8/4.
-- Tables: rows parted by a 1 px hairline, no alternating bands; numbers (*Height (m)*, *Items*) right-aligned with
-  their header.
+- Tables: rows parted by a 1 px hairline, no alternating bands; column rules only in the header row (they mark the
+  resize handles), none in the body; numbers (*Height (m)*, *Items*) right-aligned with their header.
 
 ### 3.5 Design protocol (unslop-ui and impeccable)
 
@@ -416,16 +428,70 @@ are their context files, and `docs/design-pass/` has the before/after screenshot
 settle here:
 
 - **4 px grid.** Every height, padding and spacing is a multiple of 4 (28, 32, 36, 44; 8/4). The one exception is
-  the 6 px inline gap inside a row (name · summary, icon · label), a micro gap by the protocol's own rule.
+  the 6 px inline gap inside a row (name · summary, icon · label), a micro gap by the protocol's own rule. A flat
+  button (tool, tab, popover) pads its label 8 px, so a tab's text stands on its row's 16 px keyline. A field
+  label (`w::FieldLabel`) has 8 px above it and 4 px to its field, so it reads with its own field, not the one above
+  (straight under a section head it adds nothing, so the head groups with the fields it heads);
+  a plain vertical step (`w::Spacer()`) is 8 px, 16 px between items with the item spacing.
 - **Neutral surfaces, hairline borders.** Already the brand: black, white and grays, 1 px `line` borders, no glow,
-  no shadow but the popovers' 1 px rim.
+  no shadow but the popovers' 1 px rim. Every surface is a token of the ramp (the rail's draft banner is `bg3` in an
+  `accentDim` rim, not a white wash; a selected row, in the rail, the Template panel's list and ImGui's own
+  selectables, is `line` with the 2 px white bar at its left, hovered or not), and a vertical divider is a 1 px column on a whole pixel, never an
+  antialiased line.
 - **No pills for counts or repeated status.** A count (the drawer's tabs, the filter button) is plain muted text,
-  accent when it is an alert; a status down a list (the rail) is a 6 px dot and a muted word. A chip stays for one
+  accent when it is an alert; a status down a list (the rail, the Template panel's list of the home's templates: rail rows both) is a 6 px dot
+  and a muted word. A chip stays for one
   thing to act on.
 - **Numbers on one right edge.** Numeric table columns are right-aligned, header included.
-- **Tables without bands.** Hairlines between rows, not alternating fills.
+- **Tables without bands.** Hairlines between rows, not alternating fills; column rules stay in the header.
 - **Copy.** Sentence case for every label and button, no exclamation marks, no emoji, no icon in a tinted box.
 - **Motion.** None beyond ImGui's hover delays; nothing scales or slides.
+
+> **Built:** the one alert count, the *Checks N* tab, draws its figure in the warn colour whatever the tab's state,
+> the hue the status row gives the same warning (`w::Segmented` colours a label's trailing number); the status row
+> colours each count alone, so `0 errors` stays gray beside an amber `1 warning`. A row of start
+> cards shares one bottom edge (`w::Card` keeps the room of the most lines any card in the row wraps to: one today, so
+> no empty line under the bodies), parted by the 8 px item spacing (the 6 px gap is for inside a row, so framed
+> buttons and fields side by side, as *Accept all · Reject the weak ones · Draft again*, the Template footer,
+> *Version* and *Priority* and *Browse...*, take the 8 px too, and so do framed buttons stacked, as the empty
+> Selection panel's three), and the start column is centred in the view; the rail's
+> mod rows, the status row's *home · cell* and the summary lines (inspector, *Where items go*) space their separator by one text space on both sides and never let a wrapped
+> line begin with it. *Save* has one look wherever it shows (title row, Template footer): filled with work to save,
+> framed otherwise. A fact shows once: the status row says *No home open* rather than repeat the home count of the
+> start heading and the rail footer (the empty inspector says what it will hold, *Nothing to inspect*), the preview's run time is *Run again*'s tooltip, the scan time *Rescan*'s, *Draft all homes* reports `134 homes
+> drafted · 89 to save` so its count meets the rail banner's, and the fill legend names its
+> sample in its head (`LEGEND  Typical haul`), not in a caption that reads as a fifth swatch. *Where items go* names
+> a one-category container's category alone (the *Items* column has the count) and says its unit when it switches
+> one (`· 32 containers receive nothing` after a line of items), and its total ends in a colon before the split it
+> adds up from (`266 items in 112 stacks: 260 by category or item · ...`, one text space after the colon), the line on
+> the drawer's 16 px keyline with the table under it; the Template panel puts *Master: Chest* on a line
+> of its own, a field gap (16 px) under the Note box, the container and display counts beneath it, and the Selection
+> panel's *Remove from the template* takes the same gap under its Note box; the start cards'
+> bodies each fit one line and their corners take the 3 px radius token like every other framed widget; the Containers and Displays tables' *Height (m)* both read a muted
+> *outside* for a container off the home (one fact, one look). One control, one order: *By category* then *By fill*, in the
+> drawer's row as in the *Colours* popover. Check and radio rows are 20 px (a 24 px pitch with the item spacing),
+> and a legend swatch takes their 16 px mark and 8 px gap, so the *Colours* popover has one label keyline; the
+> floating toolbar and the hint plate both sit 8 px in from the viewport's edges, with the 3 px radius; the drawer's
+> short columns (*Kind*, *Reference*, *Height (m)*) are fixed to their values' width, in Containers and Displays
+> alike, and the text columns share the rest. The panels share their keylines: the rail, inspector and drawer
+> bodies have 4 px over their first row (with the 8 px above the panel, 12 px under the title row, so the rail's
+> search, the inspector's tabs and the floating toolbar end on one line), the inspector's content sits 16 px in from
+> its edges like the rail's (its content starts just past its 1 px rule, the resize handle under that padding), the drawer's tabs 8 px under its rule and over the table header, the drawer tables
+> padding their outer cells too (the first column 8 px inside the header band, on the rail's 16 px keyline with the
+> status row's *home · cell*; the last column's figures 8 px short of the edge), the inspector's panel 12 px under its
+> tabs whether it starts with a picture, a row of buttons, a line of text (*Nothing selected*, *No problems*) or a
+> section head (a section head adds its 8 px over itself only under something), its
+> scrolling body ending a 32 px strip above the bottom, the rail's and the inspector's collapse chevrons level with
+> the footer's *Rescan* line, the title row's `≡` and gear on the 16 px keylines of the search box and the inspector's
+> content edge, the rail banner's close icon 8 px inside its border like its text, and the Template footer's buttons 8 px under its rule; the Note box rounds its height
+> up to the grid, the rail's *All cells...* link sits in a 28 px row like the homes around it, *Where items go*
+> starts each container with the kind icon the Containers table shows, its fill bars are 12 px with the 3 px
+> radius, and the plan's scale bar and *N* sit on the hint line's 12 px inset. The title row's divider has 12 px
+> of air on each side (the wordmark's end, the home switcher's icon; 18 px at 150 %). A column's filter funnel ends 8 px inside its
+> rule, the figures' inset, with the sort arrow beside the name rather than kept room at the cell's end. The
+> Selection panel's *Ignored* and *Sell chest* checks sit 8 px apart and 14 px under the *Label* field, one group of
+> their own; Setup's *UI size* is one slider row, the name at its left and the value (`Auto · 100%`) at its right. Every hint pair reads `Key: action`, and the category picker's
+> closed frame reads *Add a category*, a verb in sentence case like every other control.
 
 Two brand rules override the protocol's defaults, on purpose: the wide-tracked capitals (the Cinzel wordmark and
 titles, the Jost section heads) are the art set's own style (`presskit/README.md`, Style), and the icons stay 18 px
@@ -458,6 +524,7 @@ Never read SWF (SkyUI's icons) and never copy art into the repo or the zip.
 | `F` / `Home` | frame selection / overview |
 | `L` | layers popover |
 | `Ctrl+S` / `Ctrl+O` / `Ctrl+D` | save / open template / draft all |
+| `Ctrl+F` | find a home (rail search) |
 | `Ctrl+Z` / `Ctrl+Y` | undo / redo |
 | `Ctrl+click`, drag | add to selection, box select |
 | `Esc` | close popover or palette, then clear selection |

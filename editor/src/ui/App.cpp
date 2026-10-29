@@ -866,11 +866,11 @@ namespace dova::editor::ui
 		const float  headerH = t.toolbarH + 2.0f * t.scale;
 		float        drawerH = headerH;
 		// The drawer's height is a fraction of the window's, so a smaller window keeps its view; the view keeps half of
-		// the room between the title and status rows, and at least 320 px (a small window at a large text size).
+		// the room between the title and status rows, and at least 240 px (a small window at a large text size).
 		_layoutH = std::max(size.y, 1.0f);
 		_drawerMinH = 120.0f * t.scale;
 		const float between = size.y - t.titleH - t.statusH;
-		_drawerMaxH = std::max(_drawerMinH, std::min(size.y * 0.5f - t.titleH - t.statusH, between - std::max(0.5f * between, 320.0f * t.scale)));
+		_drawerMaxH = std::max(_drawerMinH, std::min(size.y * 0.5f - t.titleH - t.statusH, between - std::max(0.5f * between, 240.0f * t.scale)));
 		if (_state.ui.drawerOpen && _cell) {
 			if (_state.ui.drawerHeight <= 0.0f) {
 				_state.ui.drawerHeight = 1.0f / 3.0f;
@@ -1043,8 +1043,8 @@ namespace dova::editor::ui
 		} else if (_boxing) {
 			hint = "Release: select what is inside · Ctrl: add";
 		} else if (threeD) {
-			hint = _selectMode ? "Right mouse: look · WASD fly · Wheel: forward · Middle: pan · Alt+drag: orbit · Drag: box · F frame · Home overview"
-			                   : "Picks anything (walls, clutter) · Right mouse: look · WASD fly · S: select mode";
+			hint = _selectMode ? "Right mouse: look · WASD: fly · Wheel: forward · Middle: pan · Alt+drag: orbit · Drag: box · F: frame · Home: overview"
+			                   : "Picks anything (walls, clutter) · Right mouse: look · WASD: fly · S: select mode";
 		} else {
 			hint = _selectMode ? "Click: select · Ctrl+click: add · Drag: box · Right drag: pan · Wheel: zoom · Home: fit"
 			                   : "Drag: pan · Wheel: zoom · S: select mode";
@@ -1133,6 +1133,13 @@ namespace dova::editor::ui
 
 	// ---- Keyboard (docs/EDITOR-UX.md §4) ----
 
+	void EditorApp::FindAHome()
+	{
+		_state.ui.railOpen = true;
+		_railFocusSearch = true;
+		_showStart = false;
+	}
+
 	void EditorApp::HandleShortcuts()
 	{
 		const ImGuiIO& io = ImGui::GetIO();
@@ -1163,6 +1170,9 @@ namespace dova::editor::ui
 		}
 		if (w::Shortcut(ImGuiKey_D, true)) {
 			StartBulkDraft();
+		}
+		if (w::Shortcut(ImGuiKey_F, true)) {
+			FindAHome();  // Ctrl+F; the plain F below frames the selection
 		}
 		if (w::Shortcut(ImGuiKey_Equal, true) || w::Shortcut(ImGuiKey_Equal, true, true) || w::Shortcut(ImGuiKey_KeypadAdd, true)) {
 			StepTextScale(1);  // Ctrl+= and Ctrl++ (Shift on the same key)

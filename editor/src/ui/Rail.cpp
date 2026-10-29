@@ -5,6 +5,7 @@
 // The title row's home switcher draws the same list in compact form.
 
 #include <algorithm>
+#include <cmath>
 #include <format>
 #include <unordered_map>
 
@@ -391,7 +392,7 @@ namespace dova::editor::ui
 				// "Draft all homes" is done: offer to save the drafts of homes without a template.
 				const int saveable = SaveableDrafts();
 				if (_bulkDone && !_bannerClosed && saveable > 0) {
-					const int r = w::Banner("drafted", std::format("{} draft{}", saveable, saveable == 1 ? "" : "s").c_str(), std::format("Save {} draft{}...", saveable, saveable == 1 ? "" : "s").c_str());
+					const int r = w::Banner("drafted", std::format("{} draft{}", saveable, saveable == 1 ? "" : "s").c_str(), "Save all...");
 					if (r == 1) {
 						_confirmSaveAll = true;
 					} else if (r == 2) {
@@ -424,22 +425,36 @@ namespace dova::editor::ui
 				const float footerH = ImGui::GetTextLineHeightWithSpacing() + t.gap;
 				ImGui::BeginChild("homelist", ImVec2(0, std::max(ImGui::GetContentRegionAvail().y - footerH, 40.0f)), ImGuiChildFlags_None, ImGuiWindowFlags_NoNavInputs);
 				DrawHomeList(false, _railSearch);
+				const bool scrolled = ImGui::GetScrollY() > 0.0f;
 				ImGui::EndChild();
+				// A hairline on the list's bottom edge, so a row the list cuts ends on a rule, not on the footer; the item
+				// spacing EndChild leaves puts Rescan 4 px under it. Scrolled, the top edge cuts a row too: the same rule
+				// there, the pixel above the list, under the search box.
+				{
+					const ImVec2 lmin = ImGui::GetItemRectMin(), lmax = ImGui::GetItemRectMax();
+					const float  y = std::floor(lmax.y);  // AddLine adds the half pixel itself
+					ImGui::GetWindowDrawList()->AddLine(ImVec2(lmin.x, y), ImVec2(lmax.x, y), t.line);
+					if (scrolled) {
+						const float top = std::floor(lmin.y) - 1.0f;
+						ImGui::GetWindowDrawList()->AddLine(ImVec2(lmin.x, top), ImVec2(lmax.x, top), t.line);
+					}
+				}
 				ImGui::PushFont(t.smallFont);
 				ImGui::BeginDisabled(Busy());
 				if (w::LinkButton("Rescan")) {
 					Rescan();
 				}
 				ImGui::EndDisabled();
-				w::Tip("Read the load order again after a change in MO2  F5");
+				// The scan time is a fact about the last scan, not the homes: it goes in Rescan's tip.
+				w::Tip(_homes ? std::format("Read the load order again after a change in MO2  F5\nLast scan {:.1f} s", static_cast<double>(_homes->ms) / 1000.0).c_str()
+				              : "Read the load order again after a change in MO2  F5");
 				if (_homes) {
 					ImGui::SameLine(0.0f, t.gap);
-					const std::string summary =
-						std::format("{} homes · {} plugins · {:.1f} s", _homes->homes.size(), _homes->lo ? _homes->lo->PluginCount() : 0, static_cast<double>(_homes->ms) / 1000.0);
+					const std::string summary = std::format("{} homes · {} plugins", _homes->homes.size(), _homes->lo ? _homes->lo->PluginCount() : 0);
 					// A narrow rail (a large text size): the home count only, the rest in the tooltip.
 					const float right = ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - 30.0f * t.scale;
 					const bool  fits = ImGui::GetCursorScreenPos().x + ImGui::CalcTextSize(summary.c_str()).x <= right;
-					const auto  shown = fits ? summary : std::format("· {} homes", _homes->homes.size());
+					const auto  shown = fits ? summary : std::format("{} homes", _homes->homes.size());
 					ImGui::PushClipRect(ImGui::GetCursorScreenPos(), ImVec2(right, ImGui::GetCursorScreenPos().y + 50.0f), true);
 					w::Muted(shown.c_str());
 					ImGui::PopClipRect();
@@ -492,6 +507,9 @@ namespace dova::editor::ui
 			}
 		}
 
+		// A narrow list (a large text size, a narrow rail) drops the status word on every row, not on the rows whose
+		// names it would cut: the dot stays, a quiet "none" goes (the tooltip says it), and the status reads one way.
+		const int narrow = ImGui::GetContentRegionAvail().x < std::round(260.0f * t.scale) ? 1 : 0;
 		auto row = [&](int a_i) {
 			const auto& h = _homes->homes[static_cast<std::size_t>(a_i)];
 			w::Kind     kind = w::Kind::Neutral;
@@ -514,7 +532,7 @@ namespace dova::editor::ui
 			}
 			ImGui::PushID(a_i);
 			if (w::HomeRow("home", h.name.c_str(), summary.c_str(), summaryShort.c_str(), chip.c_str(), kind, IsOpenHome(a_i), _railCursor == a_i, HomeUnsaved(a_i), false,
-					counts.c_str())) {
+					counts.c_str(), _groupByMod, narrow)) {
 				_railCursor = a_i;
 				OpenHome(a_i);
 				if (a_compact) {
@@ -543,6 +561,8 @@ namespace dova::editor::ui
 			}
 			return;
 		}
+		// A group's children (its homes, "All cells...") start on its label's keyline: past the 12 px chevron and 6 px gap.
+		const float   childX = std::round(18.0f * t.scale);
 		std::set<int> listed;
 		for (const auto& g : _homeGroups) {
 			listed.insert(g.mod);
@@ -560,7 +580,7 @@ namespace dova::editor::ui
 			const mo2::Mod* mod = g.mod >= 0 ? &_ws->Mods()[static_cast<std::size_t>(g.mod)] : nullptr;
 			bool            open = !_collapsedGroups.contains(g.mod) || !a_search.empty();
 			const auto      homes = std::format("{} home{}", shown.size(), shown.size() == 1 ? "" : "s");
-			const auto      note = mod && mod->nexusId ? std::format("Nexus {}  ·  {}", *mod->nexusId, homes) : homes;
+			const auto      note = mod && mod->nexusId ? std::format("Nexus {} · {}", *mod->nexusId, homes) : homes;
 			ImGui::PushID(g.mod);
 			if (w::GroupHeader("group", ModName(*_ws, g.mod).c_str(), note.c_str(), open, homes.c_str()) && a_search.empty()) {
 				if (open) {
@@ -607,12 +627,18 @@ namespace dova::editor::ui
 				}
 				if (cellsMenu && (anyCells || std::ranges::any_of(g.homes, [&](int i) { return IsOpenHome(i); }))) {
 					ImGui::PushFont(t.smallFont);
-					ImGui::Indent(t.pad);
+					ImGui::Indent(childX);
+					// A row of the rail's height with the link centred in it, so the rows keep one pitch.
+					const ImVec2 rowAt = ImGui::GetCursorPos();
+					ImGui::Dummy(ImVec2(1.0f, t.rowH));
+					const ImVec2 next = ImGui::GetCursorPos();
+					ImGui::SetCursorPos(ImVec2(rowAt.x, rowAt.y + std::floor((t.rowH - ImGui::GetTextLineHeight()) * 0.5f)));
 					if (w::LinkButton(anyCells ? "Hide the other cells" : "All cells...")) {
 						toggleCells();
 					}
 					w::Tip("Every cell with containers in this mod's plugins, likely homes first: for a home the finder misses");
-					ImGui::Unindent(t.pad);
+					ImGui::SetCursorPos(next);
+					ImGui::Unindent(childX);
 					ImGui::PopFont();
 					if (anyCells) {
 						DrawAnyCells(g.mod);
@@ -631,10 +657,10 @@ namespace dova::editor::ui
 				}
 				ImGui::PushID(i);
 				bool       open = true;
-				const auto note = m.nexusId ? std::format("{}  ·  no homes", *m.nexusId) : std::string("no homes");
+				const auto note = m.nexusId ? std::format("Nexus {} · no homes", *m.nexusId) : std::string("no homes");
 				w::GroupHeader("group", m.name.c_str(), note.c_str(), open, "no homes");
 				ImGui::PushFont(t.smallFont);
-				ImGui::Indent(t.pad);
+				ImGui::Indent(childX);
 				const bool anyCells = _selectedMod == i;
 				if (w::LinkButton(anyCells ? "Hide the cells" : "All cells...")) {
 					if (anyCells) {
@@ -644,7 +670,7 @@ namespace dova::editor::ui
 						SelectMod(i);
 					}
 				}
-				ImGui::Unindent(t.pad);
+				ImGui::Unindent(childX);
 				ImGui::PopFont();
 				if (anyCells) {
 					DrawAnyCells(i);
@@ -658,10 +684,12 @@ namespace dova::editor::ui
 	{
 		const auto& t = w::Th();
 		(void)a_mod;
-		ImGui::Indent(t.pad);
+		// Under "All cells...": its messages on the link's keyline, the cells' rows from it (their names one padding in).
+		const float indent = std::round(18.0f * t.scale);
+		ImGui::Indent(indent);
 		if (Busy() && _scans.empty()) {
 			w::Muted("Reading the cells...");
-			ImGui::Unindent(t.pad);
+			ImGui::Unindent(indent);
 			return;
 		}
 		int shownTotal = 0;
@@ -703,6 +731,6 @@ namespace dova::editor::ui
 		if (!Busy() && shownTotal == 0) {
 			w::Muted(_likelyOnly ? "No likely homes (filter: Likely homes only)" : "No cells with containers");
 		}
-		ImGui::Unindent(t.pad);
+		ImGui::Unindent(indent);
 	}
 }

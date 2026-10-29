@@ -25,13 +25,14 @@ namespace dova::editor::ui
 
 	namespace
 	{
-		// A vertical divider between groups of the title row.
+		// A vertical divider between groups of the title row: one crisp 1 px column on a whole pixel, like ToolbarDivider.
 		void Divider()
 		{
 			const auto&  t = w::Th();
 			const ImVec2 p = ImGui::GetCursorScreenPos();
 			const float  h = ImGui::GetFrameHeight();
-			ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x, p.y + 3.0f * t.scale), ImVec2(p.x, p.y + h - 3.0f * t.scale), t.line);
+			const float  x = std::floor(p.x);
+			ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(x, p.y + 4.0f * t.scale), ImVec2(x + 1.0f, p.y + h - 4.0f * t.scale), t.line);
 			ImGui::Dummy(ImVec2(1.0f, h));
 		}
 	}
@@ -46,7 +47,7 @@ namespace dova::editor::ui
 		const ImVec2 o = ImGui::GetWindowPos();
 		ImGui::GetWindowDrawList()->AddLine(ImVec2(o.x, o.y + t.titleH - 1.0f), ImVec2(o.x + W, o.y + t.titleH - 1.0f), t.line);
 		const float y = (t.titleH - ImGui::GetFrameHeight()) * 0.5f;
-		ImGui::SetCursorPos(ImVec2(t.pad * 0.5f, y));
+		ImGui::SetCursorPos(ImVec2(t.pad, y));  // the menu icon's box over the rail's search box, on the 16 px keyline
 		const float leftStart = ImGui::GetCursorScreenPos().x;
 
 		// ≡
@@ -75,9 +76,9 @@ namespace dova::editor::ui
 				w::Wordmark(dl, ImVec2(p.x + es + t.pad, std::floor(p.y + (h - ts.y) * 0.5f)), px, hov ? t.text : t.accent, "Dova Stash Editor");
 			}
 		}
-		ImGui::SameLine(0.0f, t.pad);
+		ImGui::SameLine(0.0f, 12.0f * t.scale);  // the wordmark's last letter ends 12 px before the rule
 		Divider();
-		ImGui::SameLine(0.0f, t.pad);
+		ImGui::SameLine(0.0f, 3.0f * t.scale);  // with the switcher's 8 px padding and its icon's 1 px side bearing, the icon's ink starts 12 px past the rule
 
 		// Back (the cell opened before), the home switcher, the unsaved dot and the template's status.
 		if (!_history.empty()) {
@@ -205,7 +206,7 @@ namespace dova::editor::ui
 		_titleLeftW = ImGui::GetCursorScreenPos().x - leftStart;
 
 		// Right: Draft ▾, Save, ⚙ (placed with last frame's width).
-		const float rightX = W - _titleRightW - t.pad * 0.5f;
+		const float rightX = W - _titleRightW - t.pad;  // the gear's right edge over the inspector's content edge
 		// Centre: 3D | Plan, unless it would touch either side.
 		{
 			static constexpr const char* views[] = { "3D", "Plan" };
@@ -257,7 +258,7 @@ namespace dova::editor::ui
 		       !(!_cell->savedPath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->savedPath), ec));
 	}
 
-	void EditorApp::DrawSaveButton(bool a_panel)
+	void EditorApp::DrawSaveButton()
 	{
 		const int errors = _cell ? ErrorCount(*_cell) : 0;
 		// The filled button only when there is something to save: a change, or a draft not saved yet. An unchanged
@@ -277,9 +278,8 @@ namespace dova::editor::ui
 			const bool      same = (!_cell->filePath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->filePath), ec)) ||
 			                  (!_cell->savedPath.empty() && std::filesystem::equivalent(target, PathFromUtf8(_cell->savedPath), ec));
 			const auto tip = same ? std::format("Save the template\n{}", PathToUtf8(target)) : std::format("Saves a copy into your templates folder\n{}", PathToUtf8(target));
-			// The Template panel's footer frames it as its other actions; the title row keeps the flat look.
 			const char* label = same ? "Save###save" : "Save a copy###save";
-			if (a_panel ? w::Button(label, tip.c_str(), "Ctrl+S") : w::ToolButton(label, false, tip.c_str(), "Ctrl+S")) {
+			if (w::Button(label, tip.c_str(), "Ctrl+S")) {
 				RequestSave();
 			}
 		}
@@ -406,8 +406,10 @@ namespace dova::editor::ui
 		ImGui::PushItemWidth(360.0f * t.scale);
 		w::FieldLabel("MO2 instance or Data folder");
 		ImGui::InputTextWithHint("##mo2", "MO2 instance or Skyrim Data folder", _mo2Path, sizeof(_mo2Path));
-		ImGui::SameLine(0.0f, t.gap);
-		if (w::Button("Browse...")) {
+		ImGui::SameLine();  // framed controls: parted by the item spacing
+		// Browse... and Export... are stacked in one column beside their fields: one width, one right edge.
+		const float sideW = std::ceil(std::max(w::TextWidth("Browse..."), w::TextWidth("Export...")) + 24.0f * t.scale);  // a framed Button's 12 px sides
+		if (w::Button("Browse...", nullptr, nullptr, w::Kind::Neutral, sideW)) {
 			if (auto p = PickFolder()) {
 				std::snprintf(_mo2Path, sizeof(_mo2Path), "%s", p->c_str());
 			}
@@ -486,12 +488,13 @@ namespace dova::editor::ui
 					PickTheme(picked);  // picking the one in effect again reloads its file
 				}
 			}
-			if (w::Button("Export...")) {
+			ImGui::SameLine();  // beside its field, the shape of the path row's Browse...
+			if (w::Button("Export...", nullptr, nullptr, w::Kind::Neutral, sideW)) {
 				ExportTheme();
 			}
 			w::Tip("Writes this theme to a file in the Themes folder and shows it. Edit its hex colours, then pick it under Yours");
 		}
-		w::FieldLabel("UI size");
+		w::Spacer(4.0f * t.scale);  // a field label's 8 px above: the slider's head row is its label
 		{
 			// The slider shows the size in effect, except while it is held: a drag (or a click on the track) applies
 			// when the button is let go, the wheel at once (each change rebuilds the fonts). Not resynced on the frame
@@ -500,8 +503,7 @@ namespace dova::editor::ui
 				_uiSizeDrag = w::Th().textScale * 100.0f;
 			}
 			const bool  isAuto = _state.ui.textScale <= 0.0f;
-			const auto  label = isAuto ? std::string("Auto") : std::string("Set");
-			const bool  moved = w::Slider(label.c_str(), _uiSizeDrag, 100.0f, 250.0f, "%.0f%%", false, "Everything in the window, on top of Windows' scaling. Ctrl+= and Ctrl+- step it; Ctrl+0 is back to Auto");
+			const bool  moved = w::Slider("UI size", _uiSizeDrag, 100.0f, 250.0f, isAuto ? "Auto · %.0f%%" : "%.0f%%", false, "Everything in the window, on top of Windows' scaling. Ctrl+= and Ctrl+- step it; Ctrl+0 is back to Auto");
 			_uiSizeHeld = ImGui::IsItemActive();
 			if (ImGui::IsItemDeactivatedAfterEdit() || (moved && !_uiSizeHeld)) {
 				SetTextScale(std::round(_uiSizeDrag / 5.0f) * 0.05f);
@@ -516,7 +518,7 @@ namespace dova::editor::ui
 		}
 		ImGui::PopItemWidth();
 		w::Spacer();
-		if (w::IconTextButton("Rescan", w::Icon::Refresh, false, "Read the load order again after a change in MO2", "F5")) {
+		if (w::Button("Rescan", w::Icon::Refresh, w::Kind::Neutral, "Read the load order again after a change in MO2 (F5)")) {  // framed, on the fields' keyline
 			Rescan();
 		}
 		if (_ws) {
@@ -528,7 +530,6 @@ namespace dova::editor::ui
 				}
 			}
 			ImGui::SameLine(0.0f, t.pad);
-			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (t.inputH - ImGui::GetTextLineHeight()) * 0.5f);
 			w::Muted(_ws->Instance() ? std::format("{} of {} mods enabled", enabled, total).c_str() : "Data folder only");
 			w::Tip(_ws->Describe().c_str());
 		} else if (_wsError.starts_with(Workspace::kNoInstance)) {
@@ -679,14 +680,14 @@ namespace dova::editor::ui
 		ImGui::GetWindowDrawList()->AddLine(o, ImVec2(o.x + W, o.y), t.line);
 		ImGui::PushFont(t.smallFont);
 		const float y = (t.statusH - ImGui::GetTextLineHeight()) * 0.5f;
-		ImGui::SetCursorPos(ImVec2(t.pad, y));
+		ImGui::SetCursorPos(ImVec2(2.0f * t.pad, y));  // on the rail's 16 px keyline
 
 		// Left: home · cell, the unsaved dot.
 		if (_cell) {
 			const std::string home = _cellDraft >= 0 && _homes ? _homes->homes[static_cast<std::size_t>(_cellDraft)].name : _cell->layout.name;
 			ImGui::TextUnformatted(home.c_str());
-			ImGui::SameLine(0.0f, t.gap);
-			w::Muted(("· " + _cell->info.editorId).c_str());
+			ImGui::SameLine(0.0f, 0.0f);
+			w::Muted((" · " + _cell->info.editorId).c_str());  // one text space each side, like the middle segment
 			w::Tip(std::format("{}  {}\n{}, last edited by {}, {} ms", _cell->cellText, _cell->info.editorId, _cell->info.interior ? "interior" : "exterior",
 				_cell->info.lastOverride, _cell->ms)
 					.c_str());
@@ -695,13 +696,14 @@ namespace dova::editor::ui
 				w::StatusDot(w::Kind::Warn, "Unsaved changes");
 			}
 		} else if (_ws) {
-			w::Muted(_homes ? std::format("{} homes", _homes->homes.size()).c_str() : "No home open");
+			w::Muted("No home open");  // the count is the start heading's and the rail footer's
 		} else {
 			w::Muted("No MO2 instance");
 		}
 
-		// Middle: the checks (click: the Checks panel), or the last result for a few seconds.
-		const float mid = W * 0.36f;
+		// Middle: the checks (click: the Checks panel), or the last result for a few seconds, on the viewport's keyline
+		// (its left edge plus the floating toolbar's inset).
+		const float mid = _viewportMin.x - ImGui::GetWindowPos().x + t.pad;
 		ImGui::SameLine();
 		ImGui::SetCursorPosX(std::max(ImGui::GetCursorPosX() + t.pad, mid));
 		if (!_status.empty() && ImGui::GetTime() - _statusTime < 8.0) {
@@ -710,10 +712,20 @@ namespace dova::editor::ui
 		} else if (_cell) {
 			const int  errors = ErrorCount(*_cell);
 			const int  warnings = WarningCount(*_cell);
-			const auto text = std::format("{} {} · {} {}", errors, errors == 1 ? "error" : "errors", warnings, warnings == 1 ? "warning" : "warnings");
-			ImGui::PushStyleColor(ImGuiCol_Text, errors > 0 ? t.error : warnings > 0 ? t.warn : t.muted);
-			ImGui::TextUnformatted(text.c_str());
+			// Each count in its own hue only when it is not 0: "0 errors" is never an alert.
+			const auto errorText = std::format("{} {}", errors, errors == 1 ? "error" : "errors");
+			const auto warningText = std::format("{} {}", warnings, warnings == 1 ? "warning" : "warnings");
+			ImGui::BeginGroup();
+			ImGui::PushStyleColor(ImGuiCol_Text, errors > 0 ? t.error : t.muted);
+			ImGui::TextUnformatted(errorText.c_str());
 			ImGui::PopStyleColor();
+			ImGui::SameLine(0.0f, 0.0f);
+			w::Muted(" · ");
+			ImGui::SameLine(0.0f, 0.0f);
+			ImGui::PushStyleColor(ImGuiCol_Text, warnings > 0 ? t.warn : t.muted);
+			ImGui::TextUnformatted(warningText.c_str());
+			ImGui::PopStyleColor();
+			ImGui::EndGroup();
 			if (ImGui::IsItemHovered()) {
 				ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 			}
@@ -727,7 +739,8 @@ namespace dova::editor::ui
 		// Right: background work, then the one most useful shortcut.
 		const char* hintKey = _cell && _cell->dirty ? "Ctrl+S" : _cell && _paint ? "P" : "Ctrl+K";
 		const char* hintText = _cell && _cell->dirty ? "save" : _cell && _paint ? "paint off" : "commands";
-		const float hintW = ImGui::CalcTextSize(hintKey).x + 10.0f * t.scale + t.gap + ImGui::CalcTextSize(hintText).x;
+		const float keyW = std::round(std::max(t.chipH, ImGui::CalcTextSize(hintKey).x + 10.0f * t.scale));  // KeyCap's width
+		const float hintW = keyW + t.gap + ImGui::CalcTextSize(hintText).x;
 		float       workW = 0.0f;
 		std::string work;
 		std::size_t done = 0, total = 0;
@@ -763,7 +776,7 @@ namespace dova::editor::ui
 		if (!work.empty()) {
 			workW = ImGui::CalcTextSize(total > 0 ? std::format("{} {}/{}", work, done, total).c_str() : work.c_str()).x + 8.0f * t.scale + barW;
 		}
-		float x = W - t.pad - hintW;
+		float x = W - 2.0f * t.pad - hintW;
 		// Missing meshes or textures of the open cell (the list in the tooltip).
 		if (_scene && _cell && work.empty()) {
 			const auto p = _scene->Progress();
@@ -836,10 +849,11 @@ namespace dova::editor::ui
 			w::Progress(work.c_str(), done, total, barW);
 		}
 		ImGui::SameLine();
-		ImGui::SetCursorPos(ImVec2(W - t.pad - hintW, y));
+		// The keycap centred in the row, its word placed on the row's text line (y) like the left and middle text:
+		// a SameLine after the keycap would keep the line's first y and add the keycap's baseline on top.
+		ImGui::SetCursorPos(ImVec2(W - 2.0f * t.pad - hintW, std::round((t.statusH - t.chipH) * 0.5f)));
 		w::KeyCap(hintKey);
-		ImGui::SameLine(0.0f, t.gap);
-		ImGui::SetCursorPosY(y);
+		ImGui::SetCursorPos(ImVec2(W - 2.0f * t.pad - hintW + keyW + t.gap, y));
 		w::Muted(hintText);
 		ImGui::PopFont();
 		ImGui::EndChild();

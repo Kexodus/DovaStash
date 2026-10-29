@@ -108,10 +108,11 @@ namespace dova::editor::ui::w
 	void Small(const char* a_text);
 	void Mono(const char* a_text, ImU32 a_colour = 0);  // a form ref or an EditorID (0: the text colour)
 	// Small tracked capitals, then a hairline to the right edge (EDITOR-UX.md §3.3); `a_tooltip` adds an info mark,
-	// `a_count` a count after the capitals in small muted text, not tracked ("CONTAINERS  20 of 52").
+	// `a_count` a count after the capitals in small muted text, not tracked ("CONTAINERS  20 accepted of 52"). On a body
+	// too narrow for all of it the hairline goes, then the capitals close up, then the info mark (the head keeps the tooltip).
 	void SectionHead(const char* a_text, const char* a_tooltip = nullptr, const char* a_count = nullptr);
 	void Tip(const char* a_text);          // tooltip when the last item is hovered (nullptr/empty: nothing)
-	void Spacer(float a_px = 0.0f);        // vertical space (default: the theme gap)
+	void Spacer(float a_px = 0.0f);        // vertical space (default: 8 px)
 
 	// ---- Chips and status ---------------------------------------------------------------------------
 	enum class Kind
@@ -251,8 +252,11 @@ namespace dova::editor::ui::w
 	// Empty state: a muted heading and a short line, centred in the remaining space.
 	void EmptyState(const char* a_heading, const char* a_text);
 
-	// A card on the start panel: title, one line, click anywhere. Width is the caller's.
-	bool Card(const char* a_id, const char* a_title, const char* a_text, const char* a_shortcut = nullptr, float a_width = 0.0f);
+	// A card on the start panel: title, one line, click anywhere. Width is the caller's. The body takes a_bodyLines
+	// lines' room even when it fills fewer, so a row of cards shares one bottom edge: pass the most lines any card in
+	// the row wraps to (CardBodyLines).
+	bool Card(const char* a_id, const char* a_title, const char* a_text, const char* a_shortcut = nullptr, float a_width = 0.0f, int a_bodyLines = 2);
+	int  CardBodyLines(const char* a_text, float a_width);  // the lines a card of this width wraps its body to
 
 	// ---- Helpers ------------------------------------------------------------------------------------
 	float TextWidth(const char* a_text);
@@ -292,21 +296,23 @@ namespace dova::editor::ui::w
 	void Coloured(Kind a_kind, const char* a_text);         // a line in a status colour (Neutral: muted)
 	void ColouredWrapped(Kind a_kind, const char* a_text);
 	void FieldLabel(const char* a_text);                    // a small muted label above an input ("Label", "Note")
-	// A suggestion's confidence as a status: green (the name says so), yellow (a station or items nearby), orange (a hint).
+	// A suggestion's confidence as a status: Ok at 75 % or more, Warn at 50 to 74 %, Error under 50 % (the weak ones).
 	[[nodiscard]] Kind ConfidenceKind(float a_confidence);
 	// A row of the homes rail: name, a muted summary after it, the status at the right (a 6 px dot in its colour and
 	// the word in muted; a Neutral status is the word alone, so "none" stays quiet) and the unsaved dot.
 	// The summary falls back to `a_summaryShort`, then `a_summaryShortest`, when it does not fit, then ends in "...".
 	// `a_selected` (the open home) is drawn in accent, `a_cursor` (keyboard) with an outline. True on a left click;
-	// right-click it with ImGui::BeginPopupContextItem() after.
+	// right-click it with ImGui::BeginPopupContextItem() after. `a_inGroup`: the row sits under a GroupHeader, its name on
+	// the group label's keyline. `a_narrow`: 1 drops the status word (the dot stays, "none" goes), 0 keeps it, -1 lets
+	// the row decide; a list decides once for all its rows (from its width), so the status reads one way down it.
 	bool HomeRow(const char* a_id, const char* a_name, const char* a_summary, const char* a_summaryShort, const char* a_chip, Kind a_chipKind, bool a_selected,
-		bool a_cursor, bool a_unsaved, bool a_dim = false, const char* a_summaryShortest = nullptr);
+		bool a_cursor, bool a_unsaved, bool a_dim = false, const char* a_summaryShortest = nullptr, bool a_inGroup = false, int a_narrow = -1);
 	// A collapsible group heading in a list (a mod): chevron, name, muted note. Toggles `a_open` on click. When the name
 	// would keep fewer than about 12 characters, the note falls back to `a_noteShort`, then to none.
 	bool GroupHeader(const char* a_id, const char* a_label, const char* a_note, bool& a_open, const char* a_noteShort = nullptr);
 	// An accent banner with one action and a close x: 1 when the action is clicked, 2 when closed.
 	int  Banner(const char* a_id, const char* a_text, const char* a_action);
-	void Swatch(std::uint32_t a_colour, const char* a_label);  // a colour square and a label (legends)
+	void Swatch(std::uint32_t a_colour, const char* a_label);  // a colour square and a label (legends), on Check's keyline
 	// A muted block of mono lines with a copy icon at its right that copies `a_copy`.
 	void RefBlock(const char* a_id, const std::string& a_lines, const std::string& a_copy);
 	// A child with the theme's padding (BeginChild without borders has none). Always pair with EndPadded.

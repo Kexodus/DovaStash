@@ -197,8 +197,8 @@ namespace dova::editor::ui
 	{
 		const auto&       t = w::Th();
 		const ImGuiStyle& s = ImGui::GetStyle();
-		// TableHeader keeps the sort arrow's room at the cell's right edge; the funnel sits before that room.
-		const float arrow = ImGui::GetFontSize() + s.FramePadding.x;
+		// A filterable header draws its own name and sort arrow (TableHeader keeps the arrow's room at the cell's right
+		// edge), so the funnel takes that end, 4 px in from the column's rule.
 		const float funnel = std::round(14.0f * t.scale);
 		ImGuiTable* table = ImGui::GetCurrentTable();
 		ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
@@ -243,6 +243,32 @@ namespace dova::editor::ui
 						c.SortDirection == ImGuiSortDirection_Ascending ? ImGuiDir_Up : ImGuiDir_Down, 0.65f);
 				}
 				dl->PopClipRect();
+			} else if (filterable) {
+				// A filterable text column: TableHeader's own label and arrow drawn into an empty clip (the label still sizes
+				// the column), then the name at the cell's left and the sort arrow 4 px after it, clear of the funnel.
+				const ImVec2 lp = ImGui::GetCursorScreenPos();
+				ImDrawList*  dl = ImGui::GetWindowDrawList();
+				dl->PushClipRect(lp, lp, false);
+				ImGui::TableHeader(name);
+				dl->PopClipRect();
+				const ImVec2 cmin = ImGui::GetItemRectMin(), cmax = ImGui::GetItemRectMax();
+				dl->PushClipRect(cmin, ImVec2(std::max(cmin.x, cmax.x - funnelW - 6.0f * t.scale), cmax.y), true);  // 2 px clear of the funnel's ink
+				dl->AddText(ImVec2(std::floor(lp.x), lp.y), ImGui::GetColorU32(ImGuiCol_Text), name);
+				if (table && column < table->ColumnsCount && table->Columns[column].SortOrder != -1) {
+					const auto& c = table->Columns[column];
+					const float fs = ImGui::GetFontSize();
+					float       x = lp.x + ImGui::CalcTextSize(name).x + 4.0f * t.scale;
+					if (c.SortOrder > 0) {
+						// A second or later sort column: its place in the order before the arrow, as TableHeader shows it.
+						const auto order = std::to_string(c.SortOrder + 1);
+						dl->AddText(ImVec2(std::floor(x), lp.y), ImGui::GetColorU32(ImGuiCol_Text, 0.7f), order.c_str());
+						x += ImGui::CalcTextSize(order.c_str()).x + s.ItemInnerSpacing.x;
+					}
+					// RenderArrow's triangle (0.65 of the font) starts 0.275 of the font in from its position.
+					ImGui::RenderArrow(dl, ImVec2(std::floor(x - 0.275f * fs), std::floor(lp.y + 0.5f * fs * (1.0f - 0.65f))), ImGui::GetColorU32(ImGuiCol_Text),
+						c.SortDirection == ImGuiSortDirection_Ascending ? ImGuiDir_Up : ImGuiDir_Down, 0.65f);
+				}
+				dl->PopClipRect();
 			} else {
 				ImGui::TableHeader(name);
 			}
@@ -253,13 +279,17 @@ namespace dova::editor::ui
 				continue;
 			}
 			const ImVec2 hmin = ImGui::GetItemRectMin(), hmax = ImGui::GetItemRectMax();
-			const ImVec2 bmin(std::floor(hmax.x - (right ? 0.0f : arrow) - funnelW), hmin.y);
+			const ImVec2 bmin(std::floor(hmax.x - funnelW - 4.0f * t.scale), hmin.y);
+			// The funnel sits over the header's own rect and is drawn on the draw list, so it takes no layout room: an
+			// item added and given button behaviour, with no ItemSize, or every filterable column would add a button's
+			// bottom plus item spacing to the header row and the band would grow with the number of funnels.
 			ImGui::PushID(column);
-			ImGui::SetCursorScreenPos(bmin);
-			const bool pressed = ImGui::InvisibleButton("funnel", ImVec2(funnelW, std::max(hmax.y - hmin.y, 1.0f)));
-			const bool hovered = ImGui::IsItemHovered();
-			const bool on = FilterOn(a_table, a_view, column);
-			w::DrawIcon(ImGui::GetWindowDrawList(), w::Icon::Filter, ImVec2(bmin.x + 2.0f * t.scale, std::floor(hmin.y + (hmax.y - hmin.y - funnel) * 0.5f)), funnel,
+			const ImRect  bb(bmin, ImVec2(bmin.x + funnelW, std::max(hmax.y, hmin.y + 1.0f)));
+			const ImGuiID id = ImGui::GetID("funnel");
+			bool          hovered = false, held = false;
+			const bool    pressed = ImGui::ItemAdd(bb, id) && ImGui::ButtonBehavior(bb, id, &hovered, &held);
+			const bool    on = FilterOn(a_table, a_view, column);
+			w::DrawIcon(ImGui::GetWindowDrawList(), w::Icon::Filter, ImVec2(bmin.x, std::floor(hmin.y + (hmax.y - hmin.y - funnel) * 0.5f)), funnel,
 				on ? t.accent : hovered ? t.text : t.muted);
 			if (hovered && !ImGui::IsPopupOpen("filter")) {
 				ImGui::SetTooltip("%s", on ? "Filter on: click to change" : "Filter");
@@ -277,7 +307,7 @@ namespace dova::editor::ui
 			const bool           up = KindColumn(a_table, a_view, column) && below < 10.0f * t.rowH && above > below;
 			ImGui::SetNextWindowPos(ImVec2(atRight ? bmin.x + funnelW : bmin.x, up ? hmin.y - 4.0f * t.scale : hmax.y + 4.0f * t.scale), ImGuiCond_Always,
 				ImVec2(atRight ? 1.0f : 0.0f, up ? 1.0f : 0.0f));
-			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6.0f * t.scale, 6.0f * t.scale));
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(t.pad, t.pad));  // the popovers' padding (BeginPopover)
 			const bool open = ImGui::BeginPopup("filter", ImGuiWindowFlags_NoMove);
 			ImGui::PopStyleVar();
 			if (open) {

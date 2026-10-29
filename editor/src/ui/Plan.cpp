@@ -394,11 +394,11 @@ namespace dova::editor::ui
 			}
 		}
 		const float  bar = static_cast<float>(metres) * kUnitsPerMetre * _zoom;
-		const ImVec2 b0(origin.x + t.pad, origin.y + canvasSize.y - t.rowH - 10.0f * t.scale - t.pad);
+		const ImVec2 b0(origin.x + t.pad * 1.5f, origin.y + canvasSize.y - t.rowH - 10.0f * t.scale - t.pad);
 		dl->AddLine(b0, ImVec2(b0.x + bar, b0.y), t.viewportText, 2.0f);
 		ImGui::PushFont(t.smallFont);
 		dl->AddText(ImVec2(b0.x, b0.y - ImGui::GetFontSize() - 2.0f), t.viewportText, std::format("{} m", metres).c_str());
-		dl->AddText(ImVec2(origin.x + canvasSize.x - ImGui::GetFontSize() * 1.5f, origin.y + t.pad), t.viewportText, "N");
+		dl->AddText(ImVec2(origin.x + canvasSize.x - t.pad * 1.5f - ImGui::CalcTextSize("N").x, origin.y + t.pad), t.viewportText, "N");  // on the hint line's 12 px inset
 		ImGui::PopFont();
 		dl->PopClipRect();
 	}
