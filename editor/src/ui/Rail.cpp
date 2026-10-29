@@ -424,7 +424,21 @@ namespace dova::editor::ui
 				// The list, then the footer.
 				const float footerH = ImGui::GetTextLineHeightWithSpacing() + t.gap;
 				ImGui::BeginChild("homelist", ImVec2(0, std::max(ImGui::GetContentRegionAvail().y - footerH, 40.0f)), ImGuiChildFlags_None, ImGuiWindowFlags_NoNavInputs);
+				const float listTop = ImGui::GetCursorPosY();
 				DrawHomeList(false, _railSearch);
+				// A search that matches nothing (no home, no mod) says so, with the way back, instead of an empty rail.
+				if (_homes && !_railSearch.empty() && ImGui::GetCursorPosY() == listTop) {
+					ImGui::Dummy(ImVec2(0.0f, t.pad));
+					ImGui::Indent(t.pad);
+					ImGui::PushTextWrapPos(ImGui::GetContentRegionMax().x - t.pad);
+					ImGui::TextUnformatted(std::format("No home or mod matches \"{}\"", _railSearch).c_str());
+					ImGui::PopTextWrapPos();
+					w::Muted("Search by home, mod, plugin or Nexus id.");
+					if (w::LinkButton("Clear the search")) {
+						_railSearch.clear();
+					}
+					ImGui::Unindent(t.pad);
+				}
 				const bool scrolled = ImGui::GetScrollY() > 0.0f;
 				ImGui::EndChild();
 				// A hairline on the list's bottom edge, so a row the list cuts ends on a rule, not on the footer; the item
@@ -629,15 +643,16 @@ namespace dova::editor::ui
 					ImGui::PushFont(t.smallFont);
 					ImGui::Indent(childX);
 					// A row of the rail's height with the link centred in it, so the rows keep one pitch.
+					// The link first, then the row's Dummy from the row's top: the last item submitted is the row, so the
+					// list ends on an item (a SetCursorPos left last is an ImGui error when this row ends a search).
 					const ImVec2 rowAt = ImGui::GetCursorPos();
-					ImGui::Dummy(ImVec2(1.0f, t.rowH));
-					const ImVec2 next = ImGui::GetCursorPos();
 					ImGui::SetCursorPos(ImVec2(rowAt.x, rowAt.y + std::floor((t.rowH - ImGui::GetTextLineHeight()) * 0.5f)));
 					if (w::LinkButton(anyCells ? "Hide the other cells" : "All cells...")) {
 						toggleCells();
 					}
 					w::Tip("Every cell with containers in this mod's plugins, likely homes first: for a home the finder misses");
-					ImGui::SetCursorPos(next);
+					ImGui::SetCursorPos(rowAt);
+					ImGui::Dummy(ImVec2(1.0f, t.rowH));
 					ImGui::Unindent(childX);
 					ImGui::PopFont();
 					if (anyCells) {

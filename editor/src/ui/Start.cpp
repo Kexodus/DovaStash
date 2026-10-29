@@ -194,7 +194,7 @@ namespace dova::editor::ui
 					w::Tip((r->name.empty() ? cell : r->name + "\n" + cell).c_str());
 					ImGui::PopID();
 					ImGui::TableNextColumn();
-					w::Chip(HomeStageName(r->stage), StageKind(r->stage));
+					w::Status(HomeStageName(r->stage), StageKind(r->stage), ImGui::GetTextLineHeight());  // dot and word, as the rail
 					ImGui::TableNextColumn();
 					w::Muted(r->updated.c_str());
 					ImGui::TableNextColumn();

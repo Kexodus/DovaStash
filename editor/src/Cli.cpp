@@ -630,6 +630,7 @@ namespace dova::editor
 		       "  --sort <t>:<col>[:desc]  sort a drawer table (containers, displays, doors, preview) by a column\n"
 		       "                        (its header or number); repeat it to add columns\n"
 		       "  --filter <text>       the drawer tab's filter box (every word must match)\n"
+		       "  --search <text>       the rail's search box (home, mod, plugin or Nexus id)\n"
 		       "  --quick <filter>      turn a column filter of the drawer tab on (e.g. Ignored, Respawning, Used,\n"
 		       "                        \"Receives nothing\"); repeatable\n"
 		       "  --screenshot <file>   save the window (.png or .bmp) once everything is loaded, then exit; the\n"
@@ -764,6 +765,8 @@ namespace dova::editor
 				}
 			} else if (s == "--filter") {
 				a.tableFilter = value();
+			} else if (s == "--search") {
+				a.railSearch = value();
 			} else if (s == "--quick") {
 				if (auto v = value()) {
 					a.quick.push_back(std::move(*v));

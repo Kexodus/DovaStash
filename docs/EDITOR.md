@@ -82,8 +82,9 @@ one workspace.
   512-unit squares (`render::RoofGrid`); each is cut 2 m above its own floor, the lowest container, piece of
   furniture or door there from the start in it (a square without one takes its neighbours' lowest cut), and never
   above the highest container + 120 units. Above the cut only containers and displays are drawn (or picked), so the
-  overview shows the rooms and caves from above, not a cave's rock shell or a house's roof. On by default; *Layers*
-  ▾ › *Roof* brings the roof back. The log names the squares and the heights at each open. The highest container
+  overview shows the rooms and caves from above, not a cave's rock shell or a house's roof. Off by default (*Layers*
+  ▾ › *Roof* ticked: the whole home is drawn, as the cut's missing walls and ceilings looked like missing meshes);
+  untick *Roof* for the cut, or `--layers -roof`. The log names the squares and the heights at each open. The highest container
   counts among those there from the start (initially disabled ones may be stored above the rooms).
   `--render-cell <cell> --roof-cut` draws the same cut (Wuth Rein's lower cave: §9).
 - **Inspector** (right, Ctrl+3): four panels. *Selection*: what is selected (its own mesh as a picture, the
@@ -470,7 +471,7 @@ are files in `%LOCALAPPDATA%\DovaStashEditor\Themes\` (EDITOR-UX.md §3.1).
 - **Undo/redo** for every change to the template (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z, and *Undo*/*Redo* in the ≡ menu; a
   text field is one step once it loses focus; 200 steps, kept while the template moves between the home's cells).
 - **Unsaved changes**: a dot after the home's name in the title row and in the status row, and on the rail's row of
-  every home whose reviewed draft is not saved; the title row's chip reads *draft*. Switching homes keeps each home's draft;
+  every home whose reviewed draft is not saved; the title row's status reads *draft*. Switching homes keeps each home's draft;
   closing the window asks first (the open template or reviewed drafts), and so does a rescan that would drop them.
 - **Command palette** (Ctrl+K, or *Commands...* in the ≡ menu): one field over the viewport. Typing matches commands
   first ("save", "draft", "overview", "layers off"), then homes (opens), the open home's containers and displays
@@ -807,7 +808,8 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    100 % without it, even with `--state`),
    `--sort <table>:<column>[:desc]` (a drawer table sorted by a column, its header or number; repeat it for more
    columns), `--filter <text>` and `--quick <filter>` (the drawer tab's filter box and column filters, `--popover kind`
-   opens the Kind column's funnel); like `--tab` they apply once, for that run;
+   opens the Kind column's funnel), `--search <text>` (the rail's search box); like `--tab` they apply once, for that
+   run;
    `--screenshot shot.png` saves the window once everything is loaded (smoke tests, press kit). A screenshot run
    starts from the default state and writes none: the author's `state.json` (homes in progress, panel sizes) stays
    as it was. `--state <file>` reads and writes that file instead (with or without `--screenshot`), as
@@ -820,7 +822,9 @@ the user's own game and mod files at run time and never ships or extracts Bethes
    `--drafts`, `--select`) that cannot open is one too: *error: no home matches <text>*, or without an instance
    *error: no home open (no MO2 instance found: ...)*, the image still saved, exit 1; and after `--timeout <s>` (default 180) it
    saves what it has, logs *screenshot timed out waiting for <job>* and exits 4 (a window that stops drawing is
-   ended 30 s later, exit 4 too).
+   ended 30 s later, exit 4 too). A Dear ImGui error (a misused ImGui call: in the window, the red *Message from Dear
+   ImGui* box) is logged once per message as *imgui error: ...* in every run, the author's too; a screenshot run with
+   any exits 5 (*error: N Dear ImGui error(s), see the log*), so the design judge and smoke tests cannot pass over one.
    `--draft-all` drafts every home of the active load order and prints its usable containers (the rail's count), its
    templates (*off: <plugin> loaded* when a plugin under `conflicts` is loaded; `--compare` skips those), the master with its reason and each container's
    accepted and rejected suggestions (`--verbose`: every reason); `--compare` measures the drafts against the existing
@@ -948,8 +952,8 @@ Pick it in MO2's run list and press *Run*. Outside MO2 it works the same from a 
    meshes load (progress in the status row).
 2. Hold the right mouse button and fly in with W; let go and roll the wheel. *Layers* ▾ (L): tick *Only between*
    under *Height cut* and narrow the range to see one floor. Press Home to get the overview back. In an interior
-   the overview has no roof (a cave shows its rooms, not its rock): about 2 m above each area's floor, never above
-   the highest container, only containers and displays are drawn; *Layers* ▾ › *Roof* brings the rest back.
+   the whole home is drawn; untick *Layers* ▾ › *Roof* for the roof cut (a cave shows its rooms, not its rock):
+   about 2 m above each area's floor, never above the highest container, only containers and displays are drawn.
 3. Hover a weapon rack (a blue see-through box shows its trigger): the tooltip names it. Click it: it turns
    yellow and the Selection panel on the right shows it; tick *Use this display* and add a category (*Add a category*,
    e.g. `weapons.bows`). Press F to frame it.

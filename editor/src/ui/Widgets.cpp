@@ -1928,6 +1928,19 @@ namespace dova::editor::ui::w
 		}
 	}
 
+	float StatusWidth(const char* a_text, Kind a_kind)
+	{
+		return StatusW(a_text, a_kind);
+	}
+
+	bool Status(const char* a_text, Kind a_kind, float a_height)
+	{
+		const ImVec2 at = ImGui::GetCursorScreenPos();
+		const bool   clicked = ImGui::InvisibleButton(a_text, ImVec2(StatusW(a_text, a_kind), a_height));
+		DrawStatusAt(ImGui::GetWindowDrawList(), at, a_height, a_text, a_kind);
+		return clicked;
+	}
+
 	namespace
 	{
 		// Where a home row's name starts: the row's padding, or under a GroupHeader the group label's keyline (its 12 px

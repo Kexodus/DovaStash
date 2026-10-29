@@ -168,11 +168,12 @@ one click away**. The functionality is good; this pass is about reach, hierarchy
 > on the status row's *N meshes, N textures missing* turns them on (`--layers missing`); a container, display, door or piece of
 > furniture without its mesh stays a solid, clickable box either way.
 
-> **Built:** an interior's 3D view has a roof cut, on by default, per area: 512-unit squares each cut 2 m above
+> **Built:** an interior's 3D view has a roof cut, off by default (its missing walls and ceilings looked like
+> missing meshes; *Layers* ▾ › *Roof* starts ticked), per area: 512-unit squares each cut 2 m above
 > their own floor (the lowest container, furniture or door there), never above the highest container + 120 units.
 > Above it only containers and displays are drawn and picked, so the overview shows a cave's rooms instead of its
 > rock shell, the lower cave too (Wuth Rein), and a house's rooms instead of its roof. *Layers* ▾ › *Roof*
-> (interiors, 3D) brings the rest back; `--layers roof` too. A view narrower than 900 px shows the toolbar as icons (*Select*, *Paint*, *Layers*,
+> (interiors, 3D) unticked turns it on; `--layers -roof` too. A view narrower than 900 px shows the toolbar as icons (*Select*, *Paint*, *Layers*,
 > *Colours*, *Camera*), their names in the tooltips.
 
 ### 2.4 Right inspector (Ctrl+3 toggles, 380 px, remembers width)
@@ -299,7 +300,7 @@ homes without a template.
 > counts new files and refreshed auto-drafts, only those that are not 0 (`78 new, 2 refreshed (backed up as .bak,
 > version raised).`), its folder in the system's slashes, then lists the homes left alone by name in `warn` (the file in the way
 > in the tooltip); an auto-draft is not the author's save, so it does not advance the stage. A home whose only
-> template is an auto-draft shows an *auto-draft* chip (`warn`, like *draft*) in the rail, the title row and the
+> template is an auto-draft shows *auto-draft* (`warn`, like *draft*) in the rail, the title row and the
 > Template panel's list, and still counts as without a template. Saving it (Ctrl+S) drops the mark. With no author
 > name yet the dialog asks for it, as the single *Save* does (never "Unknown"): *Save them* waits for it, and it is
 > kept as Setup's *Author*.
@@ -403,8 +404,8 @@ sets the size for that run.
   then the info mark (the head itself keeps the tooltip): the words clip last. No diamonds or other
   ornament; the one divider (empty states, the start panel) is the art set's: the emblem between two hairlines.
 - Chips: 24 px pills with `bg2` fill and a 1 px border in the status gray; text in the same gray. A chip is one
-  thing to act on or one word of state in a row of its own (the title row's template word, a category to accept);
-  a status repeated down a list, and every count, is a dot or plain text instead (§3.5). A chip that switches (a
+  thing to act on (a category to accept, the master); a status, in the title row, down a list or among a
+  container's facts, and every count, is a 6 px dot and a muted word (`w::Status`) or plain text instead (§3.5). A chip that switches (a
   suggestion) shows a 12 px check in its colour before `text` and a full border when on; off, muted text and the
   border at half strength. Its fill stays `bg2` either way (no tint in the status colour), `bg3` on hover.
 - Buttons, three kinds. *Tool* buttons (`ToolButton`: the floating toolbar, tabs, modes) are flat, hover `bg3`,

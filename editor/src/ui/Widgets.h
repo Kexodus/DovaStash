@@ -130,6 +130,8 @@ namespace dova::editor::ui::w
 	// a full border; off, the text muted and the border at half strength.
 	bool  ChipButton(const char* a_text, Kind a_kind = Kind::Neutral, bool a_active = false);
 	bool  ChipClose(const char* a_text, Kind a_kind = Kind::Neutral);      // chip with an x; true when the x is clicked
+	bool  Status(const char* a_text, Kind a_kind, float a_height);
+	float StatusWidth(const char* a_text, Kind a_kind);      // a dot and a muted word, as a rail row's status (no pill); true: clicked
 	void  StatusDot(Kind a_kind, const char* a_tooltip = nullptr);         // a 6 px dot on the baseline (unsaved, state)
 
 	// ---- Icons (drawn with the draw list, no icon font) ---------------------------------------------

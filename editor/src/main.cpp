@@ -77,6 +77,7 @@ int wmain(int argc, wchar_t** argv)
 	gui.layers = parsed.layers;
 	gui.sort = parsed.sort;
 	gui.filter = parsed.tableFilter;
+	gui.search = parsed.railSearch;
 	gui.quick = parsed.quick;
 	gui.window = parsed.window;
 	gui.timeout = parsed.timeout;

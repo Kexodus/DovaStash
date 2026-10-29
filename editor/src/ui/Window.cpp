@@ -7,6 +7,7 @@
 #include <cwchar>
 #include <filesystem>
 #include <memory>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -17,6 +18,7 @@
 #include <d3d11.h>
 
 #include <imgui.h>
+#include <imgui_internal.h>  // DebugLogBuf: ImGui's recoverable errors into our log
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
 
@@ -358,6 +360,11 @@ namespace dova::editor::ui
 		ImGui::CreateContext();
 		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+		// ImGui's recoverable errors (a misused API: the red "Message from Dear ImGui" tooltip) go to its debug log
+		// too; the loop below copies each into editor.log once, and a screenshot run exits 5 on any (docs/EDITOR.md).
+		io.ConfigErrorRecoveryEnableDebugLog = true;
+		ImGuiContext& imgui = *ImGui::GetCurrentContext();
+		imgui.DebugLogFlags = (imgui.DebugLogFlags | ImGuiDebugLogFlags_EventError) & ~ImGuiDebugLogFlags_OutputToTTY;  // ours, not the console
 		io.IniFilename = nullptr;  // the layout is fixed; nothing to remember yet
 		w::ApplyTheme(g_dpi, scale / g_dpi);  // style, colours and fonts (Widgets.h, docs/EDITOR-UX.md §3)
 		ImGui_ImplWin32_Init(hwnd);
@@ -368,6 +375,7 @@ namespace dova::editor::ui
 			EditorApp app(a_options, a_gui, g_device, g_context);
 			g_app = &app;
 			bool      timedOut = false;
+			std::set<std::string> imguiErrors;  // each logged once
 			bool      done = false;
 			int       idleFrames = 0;
 			int       frames = 0;
@@ -454,6 +462,24 @@ namespace dova::editor::ui
 					app.Frame();
 				}
 				ImGui::Render();
+				// ImGui's errors this frame, from its debug log (then cleared, so it never grows).
+				if (ImGuiContext& g = *ImGui::GetCurrentContext(); !g.DebugLogBuf.empty()) {
+					std::string_view buf(g.DebugLogBuf.c_str(), static_cast<std::size_t>(g.DebugLogBuf.size()));
+					while (!buf.empty()) {
+						const auto eol = buf.find('\n');
+						std::string_view line = buf.substr(0, eol);
+						buf = eol == std::string_view::npos ? std::string_view{} : buf.substr(eol + 1);
+						// "[01264] [imgui-error] In window ...": without ImGui's frame number, so each error logs once.
+						if (const auto at = line.find("[imgui-error] "); at != std::string_view::npos) {
+							line.remove_prefix(at + 14);
+							if (!line.starts_with("(current settings") && imguiErrors.emplace(line).second) {
+								Log("imgui error: {}", line);
+							}
+						}
+					}
+					g.DebugLogBuf.clear();
+					g.DebugLogIndex.clear();
+				}
 				const ImVec4 bg0 = ImGui::ColorConvertU32ToFloat4(w::Th().bg0);
 				const float  clear[4] = { bg0.x, bg0.y, bg0.z, 1.0f };
 				g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
@@ -493,7 +519,11 @@ namespace dova::editor::ui
 				watchdog.request_stop();
 				watchdog.join();
 			}
-			rc = timedOut ? 4 : a_screenshot && (app.HomeMissing() || app.Failed()) ? 1 : 0;
+			rc = timedOut ? 4 : a_screenshot && (app.HomeMissing() || app.Failed()) ? 1 : a_screenshot && !imguiErrors.empty() ? 5 : 0;
+			if (a_screenshot && !imguiErrors.empty()) {
+				std::fprintf(stderr, "error: %zu Dear ImGui error(s), see the log\n", imguiErrors.size());
+				std::fflush(stderr);
+			}
 			g_app = nullptr;
 			if (demoLoad.joinable()) {
 				demoLoad.join();

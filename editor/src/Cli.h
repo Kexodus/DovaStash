@@ -67,6 +67,7 @@ namespace dova::editor
 		std::optional<std::string> layers;              // --gui --layers <names>: Layers popover toggles ("effects,-structure")
 		std::vector<std::string>   sort;                // --gui --sort table:column[:desc] (repeatable: more columns)
 		std::optional<std::string> tableFilter;         // --gui --filter <text>: the drawer tab's filter box
+		std::optional<std::string> railSearch;          // --gui --search <text>: the rail's search box
 		std::vector<std::string>   quick;               // --gui --quick <chip> (repeatable): the drawer tab's quick filters
 		std::vector<std::string>   errors;
 

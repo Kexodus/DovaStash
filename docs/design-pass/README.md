@@ -23,6 +23,11 @@ What changed:
   drawer, status row and Setup, and last the wording of counts so each says what and where it counts (*Containers
   46*, *20 accepted of 52*, an off-home container reads *outside* once). Skipped on purpose: a gray fill ramp and
   flattening one-home mod groups.
+- **The 10/10 was premature** (2026-10-29): the judge scored still screenshots only. Typing in the rail's search
+  until a home's *All cells...* row ended the list raised a Dear ImGui error box, the title row still wore a status
+  pill, and a search with no match left the rail blank. All three are fixed; every run now logs ImGui errors and a
+  screenshot run fails on one (exit 5); the judge's set has six interaction states (searches, a popover, a narrow
+  window) and an ImGui error caps its score at 5.
 
 | | Before | After |
 |---|---|---|

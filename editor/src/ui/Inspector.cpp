@@ -156,14 +156,14 @@ namespace dova::editor::ui
 			ImGui::SameLine(0.0f, t.gap);
 			w::Muted(kind.c_str());
 		}
-		// Facts that matter for a template, as chips.
+		// Facts that matter for a template, as statuses (a dot and a word, no pills: EDITOR-UX.md §3.5).
 		const float rightX = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
 		bool        chips = false;
 		auto chip = [&](const char* a_text, w::Kind a_kind, const char* a_tip) {
-			if (chips) {
-				w::FlowNext(w::ChipWidth(a_text), rightX);
+			if (chips && ImGui::GetItemRectMax().x + 2.0f * t.pad + w::StatusWidth(a_text, a_kind) <= rightX) {
+				ImGui::SameLine(0.0f, 2.0f * t.pad);  // two statuses read as two, not one word
 			}
-			w::Chip(a_text, a_kind);
+			w::Status(a_text, a_kind, ImGui::GetTextLineHeight());
 			w::Tip(a_tip);
 			chips = true;
 		};

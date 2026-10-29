@@ -43,6 +43,14 @@ const SHOTS = [
   ['checks.png', "--home 'Lakeview Manor' --inspector checks"],
   ['setup.png', '--popover setup'],
   ['narrow-150.png', "--home Aldamar --tab containers --window 1366x768 --text-size 150"],
+  // States a person reaches by typing and clicking (2026-10-29: a rail search ending on a home's "All cells..." row
+  // raised a Dear ImGui error the static shots above never reached, after a 10/10).
+  ['search-home.png', "--search whitepeak --home 'Whitepeak Tower'"],
+  ['search-mod.png', '--search aldamar'],
+  ['search-none.png', '--search zzznomatch'],
+  ['search-narrow.png', "--search whitepeak --home 'Whitepeak Tower' --window 1366x768 --text-size 150"],
+  ['layers.png', '--home Aldamar --popover layers'],
+  ['plan-search.png', "--search lakeview --home 'Lakeview Manor' --tab plan"],
 ]
 
 const CAPTURE_SCHEMA = {
@@ -108,7 +116,7 @@ function capturePrompt(round, dir) {
 
 You are the CAPTURE agent for round ${round} of the design judge. Build editor-release (report the result; stop with failures if it fails), then take these screenshots into the folder ${dir} (create it), one run each, with the common flags and a fresh DOVASTASH_EDITOR_STATE file name for every run (a new random name each time rather than deleting, which may be blocked, so the start panel shows no leftovers); only one editor instance at a time:
 ${SHOTS.map(([n, f]) => `- ${n}: ${f || '(no extra flags)'}`).join('\n')}
-Return the absolute path of every file and whether it exists and is a non-trivial PNG. Do not fix anything.`
+Record each run's exit code. Exit 5 means Dear ImGui reported an error (the red "Message from Dear ImGui" box a user sees): copy every "imgui error:" line from the run's editor.log (next to its state file) into that shot's note and into failures, and keep going with the other shots. Any other non-zero exit is a failure too. Return the absolute path of every file, whether it exists and is a non-trivial PNG, and its exit code in the note. Do not fix anything.`
 }
 
 function judgePrompt(round, capture, prev) {
@@ -118,6 +126,8 @@ You are the DESIGN JUDGE for round ${round}. Invoke the Skill tool with skill "i
 This is Assessment A alone, on a native desktop surface: there is no detector, no browser and no live mode here, so do not run them and do not call the run degraded; say "Assessment A only (Dear ImGui desktop app, no web detector)" in provenance.
 
 Look at every screenshot (Read each PNG): ${JSON.stringify(capture.shots)}
+${capture.failures.length ? `Dear ImGui errors in this round's runs (each is a MAJOR issue, the overall score is at most 5 while any remains, and the fix is in the code that drew that window): ${JSON.stringify(capture.failures)}` : 'No Dear ImGui errors in this round's runs.'}
+The shots are still frames: a score covers only what they show. In whatA10Needs, name any state a person reaches that no shot covers (hover, a popover, an empty or overflowing list, a long name, a narrow window) that you could not judge.
 Then read the code that draws what you question (editor/src/ui/*.cpp, Theme.cpp and Widgets.cpp for the tokens and widgets) so each issue names a file and line.
 ${prev ? `Last round's result: overall ${prev.overall}, issues ${JSON.stringify(prev.issues.map(i => i.title))}. Check whether each was really fixed before scoring again.` : ''}
 
@@ -154,7 +164,10 @@ for (let round = 1; round <= MAX_ROUNDS; round++) {
   const dir = `${REPO}\\build\\design-judge\\r${round}`
   log(`Round ${round}: capture`)
   const capture = await agent(capturePrompt(round, dir), { label: `capture r${round}`, model: 'opus', phase: 'Capture', schema: CAPTURE_SCHEMA })
-  if (!capture || capture.failures.length) { log(`capture failed: ${capture ? capture.failures.join('; ') : 'agent died'}`); break }
+  if (!capture) { log('capture agent died'); break }
+  // An ImGui error is a blocker the judge must see and the fixer must fix; anything else that failed stops the run.
+  const imguiFailures = capture.failures.filter(f => /imgui/i.test(f))
+  if (capture.failures.length > imguiFailures.length) { log(`capture failed: ${capture.failures.join('; ')}`); break }
 
   log(`Round ${round}: judge`)
   const judge = await agent(judgePrompt(round, capture, prev), { label: `judge r${round}`, model: 'opus', phase: 'Judge', schema: JUDGE_SCHEMA })

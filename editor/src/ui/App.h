@@ -75,6 +75,7 @@ namespace dova::editor::ui
 		std::optional<std::string> layers;    // Layers popover toggles for this run: "effects,-structure" (names, - turns off)
 		std::vector<std::string>   sort;      // drawer tables' sort for this run: "table:column[:desc]" (ui/Tables.h)
 		std::optional<std::string> filter;    // the drawer tab's filter box
+		std::optional<std::string> search;    // the rail's search box
 		std::vector<std::string>   quick;     // the drawer tab's column filters on (their labels)
 	};
 
@@ -465,8 +466,9 @@ namespace dova::editor::ui
 		bool                           _heightCut{ false };  // both views
 		// The roof cut (3D view, interiors): about 3 m above each area's floor, never above the highest container + 120
 		// units (`_roofZ`; _view.roofGrid has the areas), only containers and displays are drawn, so an overview shows
-		// the rooms and a cave below them, not the rock or a house's roof. Layers > Roof brings it back.
-		bool                           _showRoof{ false };
+		// the rooms and a cave below them, not the rock or a house's roof. Off by default (Layers > Roof on): with the
+		// cut, a home's walls and ceilings above it looked like missing meshes.
+		bool                           _showRoof{ true };
 		float                          _roofZ{ 1e9f };
 		float                          _flySpeed{ 500.0f };  // units per second
 		float                          _viewAspect{ 16.0f / 9.0f };

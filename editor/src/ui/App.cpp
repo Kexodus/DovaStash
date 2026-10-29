@@ -175,6 +175,9 @@ namespace dova::editor::ui
 				view.synced = false;
 			}
 		}
+		if (a_gui.search) {
+			_railSearch = *a_gui.search;
+		}
 		if (a_gui.filter) {
 			Table(_drawerTab).filter = *a_gui.filter;
 		}

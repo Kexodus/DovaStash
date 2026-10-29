@@ -161,16 +161,16 @@ namespace dova::editor::ui
 				chip = "off";
 				kind = w::Kind::Warn;
 			}
-			ImGui::SameLine(0.0f, t.gap);
-			ImGui::SetCursorPosY(y + (ImGui::GetFrameHeight() - t.chipH) * 0.5f);
-			// A word of state in its colour (not a ChipButton: those switch on and off); a click opens the Template panel.
-			w::Chip(chip.c_str(), kind);
+			ImGui::SameLine(0.0f, t.pad);
+			ImGui::SetCursorPosY(y);
+			// The template's state as the rail shows it: a dot in its colour and a muted word (no pill, EDITOR-UX.md
+			// §3.5); a click opens the Template panel.
+			if (w::Status(chip.c_str(), kind, ImGui::GetFrameHeight()) && _cell) {
+				_panel = Panel::Template;
+				_state.ui.inspectorOpen = true;
+			}
 			if (ImGui::IsItemHovered()) {
 				ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-				if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && _cell) {
-					_panel = Panel::Template;
-					_state.ui.inspectorOpen = true;
-				}
 			}
 			// The tooltip adds what the word does not say: whose, and which file.
 			const auto& file = !_cell->filePath.empty() ? _cell->filePath : _cell->savedPath;

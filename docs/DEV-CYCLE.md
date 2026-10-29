@@ -105,3 +105,9 @@ first judge round's findings and what was done with them are in the Status list 
   are not reopened (`CALIBRATED_FROM`), which converged in seven rounds. A fresh run starts with both on from
   round 1 if the two constants are set to 1. Round 6 moved a clause in a core draft reason (`DraftSuggest.cpp`);
   core tests 294/294.
+- 2026-10-29: the 10/10 did not hold. The owner hit a Dear ImGui error box within minutes (a rail search ending on a
+  home's *All cells...* row: a SetCursorPos with no item after it), and the title row still showed a status pill. The
+  judge had only ever seen twelve still frames. Fixed: the row, the pill (now `w::Status`, dot and word, also the
+  start panel's stages and the Selection facts), a blank rail on a search with no match. Guard: every run logs ImGui
+  errors, a screenshot run exits 5 on one, the capture reports them, the judge caps the score at 5 while any remains
+  and must name the states its shots do not cover; six interaction shots added (`--search`, a new flag).
